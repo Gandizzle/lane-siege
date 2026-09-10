@@ -1,0 +1,8 @@
+{
+  "_comment": "DESIGN.md §4. Lane geometry. Not one of the seven files listed in §16 - added because §4 numbers must not be hardcoded either. Fold into another file if you prefer.",
+  "buildZone": { "width": 8, "depth": 10 },
+  "spawnZoneDepth": 1,
+  "fortressZoneDepth": 1,
+  "unitsBlockMovement": null,
+  "_open": "unitsBlockMovement is OPEN (§4.2). Recommendation in the doc is false for v1. Left null - decide before the sim can run."
+}

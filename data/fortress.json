@@ -1,0 +1,22 @@
+{
+  "_comment": "DESIGN.md §10.1. Empty. The weapon should reliably kill one or two current-wave monsters unaided, and regen must undo chip damage on a full lane clear - these two levers set the first elimination at roughly wave 13-15 (§5.5). All ranges must stay freely adjustable: whether the fortress fights or sits back is an open experiment.",
+  "hp": { "base": null, "upgrades": [] },
+  "regenOnLaneClear": { "base": null, "upgrades": [] },
+  "weapon": {
+    "damage": null,
+    "attackSpeed": null,
+    "range": null,
+    "upgrades": []
+  },
+  "auras": {
+    "_comment": "One active at a time, player-chosen. Strength and radius upgrade separately (§10.1).",
+    "types": ["damage", "attackSpeed", "armour", "regeneration"],
+    "strength": { "base": null, "upgrades": [] },
+    "radius": { "base": null, "upgrades": [] }
+  },
+  "resourceBuilding": {
+    "_comment": "§10.2. Adjacent to the fortress, cannot be attacked. Produces gems.",
+    "gemsPerWave": null,
+    "upgrades": []
+  }
+}

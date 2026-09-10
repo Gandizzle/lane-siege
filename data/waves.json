@@ -1,0 +1,25 @@
+{
+  "_comment": "DESIGN.md §3, §8, §9. Timing values below are transcribed from the doc. Composition and stat scaling are unfilled - they are the balance curve and come from playtesting.",
+  "buildPhaseSeconds": 30,
+  "_waveIntervalNote": "NOT GIVEN IN DESIGN.md. §3.2 requires waves to spawn on a fixed global clock, but the doc never states the interval - only that the build phase is 30s. Until this is decided the wave cadence is undefined and the sim cannot run.",
+  "waveIntervalSeconds": null,
+  "bossEveryNWaves": 5,
+  "lastBuildWave": 24,
+  "attritionStartWave": 25,
+  "maxConcurrentMonsters": 30,
+  "enrage": {
+    "_comment": "Additive, not compounding: multiplier = 1 + ratePerSecond * secondsEnraged. rate 0.03 is derived from the doc's worked example (60s in = 2.8x). Applies to monster damage, move speed and attack speed - never to HP.",
+    "delaySeconds": 60,
+    "ratePerSecond": 0.03,
+    "cap": 6.0
+  },
+  "scaling": {
+    "_comment": "How monster stats and monster count grow with wave number. Empty - playtest.",
+    "count": null,
+    "hp": null,
+    "damage": null,
+    "bounty": null
+  },
+  "composition": [],
+  "bossBank": []
+}

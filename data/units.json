@@ -1,0 +1,5 @@
+{
+  "_comment": "DESIGN.md §7. Empty. Build builder A completely first (§7.1); B/C/D are data entry afterwards. Coverage rule (§6.1): every builder must field all four damage types across its six units.",
+  "builders": [],
+  "units": []
+}

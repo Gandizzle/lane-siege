@@ -1,0 +1,5 @@
+{
+  "_comment": "DESIGN.md §9. Empty. No special abilities in v1 - variety comes from the stat space alone. Bosses are ordinary monsters with much larger stats (§3.4) and should mix armour types.",
+  "monsters": [],
+  "bosses": []
+}
