@@ -1,8 +1,8 @@
 {
-  "_comment": "DESIGN.md §3, §8, §9. Timing values below are transcribed from the doc. Composition and stat scaling are unfilled - they are the balance curve and come from playtesting.",
+  "_comment": "DESIGN.md §3, §8, §9. Timings transcribed from the doc; waveIntervalSeconds decided separately (see below). Composition below is the M1 slice - waves 1-5 only.",
   "buildPhaseSeconds": 30,
-  "_waveIntervalNote": "NOT GIVEN IN DESIGN.md. §3.2 requires waves to spawn on a fixed global clock, but the doc never states the interval - only that the build phase is 30s. Until this is decided the wave cadence is undefined and the sim cannot run.",
-  "waveIntervalSeconds": null,
+  "_waveIntervalNote": "NOT GIVEN IN DESIGN.md. §3.2 requires a fixed global wave clock but never states its period. Decided: 75s, being the FULL cycle - 30s build + 45s combat. 25 waves x 75s is about 31 minutes.",
+  "waveIntervalSeconds": 75,
   "bossEveryNWaves": 5,
   "lastBuildWave": 24,
   "attritionStartWave": 25,
@@ -14,12 +14,45 @@
     "cap": 6.0
   },
   "scaling": {
-    "_comment": "How monster stats and monster count grow with wave number. Empty - playtest.",
-    "count": null,
-    "hp": null,
-    "damage": null,
-    "bounty": null
+    "_comment": "Growth per wave beyond the authored composition. Multiplicative per wave above the last authored one. Placeholders - playtest.",
+    "count": 1.12,
+    "hp": 1.18,
+    "damage": 1.14,
+    "bounty": 1.1
   },
-  "composition": [],
-  "bossBank": []
+  "composition": [
+    { "wave": 1, "entries": [{ "monsterId": "grub", "count": 8 }] },
+    {
+      "wave": 2,
+      "entries": [
+        { "monsterId": "grub", "count": 10 },
+        { "monsterId": "husk", "count": 2 }
+      ]
+    },
+    {
+      "wave": 3,
+      "entries": [
+        { "monsterId": "grub", "count": 8 },
+        { "monsterId": "husk", "count": 4 },
+        { "monsterId": "mote", "count": 6 }
+      ]
+    },
+    {
+      "wave": 4,
+      "entries": [
+        { "monsterId": "grub", "count": 10 },
+        { "monsterId": "husk", "count": 6 },
+        { "monsterId": "warden", "count": 4 }
+      ]
+    },
+    {
+      "wave": 5,
+      "entries": [
+        { "monsterId": "brood_sire", "count": 1 },
+        { "monsterId": "grub", "count": 24 },
+        { "monsterId": "mote", "count": 10 }
+      ]
+    }
+  ],
+  "bossBank": ["brood_sire"]
 }

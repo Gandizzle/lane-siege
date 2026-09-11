@@ -1,22 +1,24 @@
 {
-  "_comment": "DESIGN.md §10.1. Empty. The weapon should reliably kill one or two current-wave monsters unaided, and regen must undo chip damage on a full lane clear - these two levers set the first elimination at roughly wave 13-15 (§5.5). All ranges must stay freely adjustable: whether the fortress fights or sits back is an open experiment.",
-  "hp": { "base": null, "upgrades": [] },
-  "regenOnLaneClear": { "base": null, "upgrades": [] },
+  "_comment": "DESIGN.md §10.1. M1 slice: base values only, upgrade ladders still empty (M3). The weapon should reliably kill one or two current-wave monsters unaided, and regen must undo chip damage on a full lane clear - together these set when the first player is eliminated (§5.5), target wave 13-15.",
+  "armour": "plate",
+  "_armourNote": "Not stated in DESIGN.md. The matrix applies in both directions (§6), so a monster hitting the fortress needs something to hit against. Plate is the obvious read for a fortress; change freely.",
+  "hp": { "base": 1000, "upgrades": [] },
+  "regenOnLaneClear": { "base": 40, "upgrades": [] },
   "weapon": {
-    "damage": null,
-    "attackSpeed": null,
-    "range": null,
+    "damage": 45,
+    "attackSpeed": 0.8,
+    "range": 5.0,
     "upgrades": []
   },
   "auras": {
-    "_comment": "One active at a time, player-chosen. Strength and radius upgrade separately (§10.1).",
+    "_comment": "One active at a time, player-chosen. Strength and radius upgrade separately (§10.1). Not applied by the sim yet - M3.",
     "types": ["damage", "attackSpeed", "armour", "regeneration"],
-    "strength": { "base": null, "upgrades": [] },
-    "radius": { "base": null, "upgrades": [] }
+    "strength": { "base": 0.15, "upgrades": [] },
+    "radius": { "base": 3.0, "upgrades": [] }
   },
   "resourceBuilding": {
     "_comment": "§10.2. Adjacent to the fortress, cannot be attacked. Produces gems.",
-    "gemsPerWave": null,
+    "gemsPerWave": 10,
     "upgrades": []
   }
 }

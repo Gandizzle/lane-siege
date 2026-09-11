@@ -10,10 +10,16 @@ the game itself still to be written.
 
 ## Status
 
-Pre-M1 (see DESIGN.md §17). The project builds, tests, lints and renders, and
-`data/` is deliberately almost empty — 18 balance values are still unfilled, and
-the simulation refuses to start until they exist rather than substituting
-defaults. Run `npm run sim` to see exactly which ones.
+**M1 complete** (DESIGN.md §17). `npm run sim` plays a single lane through five
+waves and prints the result; 87 tests cover the simulation, including an
+end-to-end determinism check.
+
+The balance numbers in `data/` are placeholders and are **not playtested** — the
+lane currently falls around wave 4 where §5.5 targets wave 13–15. Fixing that is
+a JSON editing job, not a code change. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what is and is not built.
+
+Next up is M2: the renderer driving a live simulation, plus touch build UI.
 
 ## Getting started
 

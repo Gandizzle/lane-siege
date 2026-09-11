@@ -13,9 +13,21 @@ export interface DataReport {
   missing: string[];
   /** Things that are wrong rather than merely absent. */
   errors: string[];
+  /** Expected-for-now gaps worth seeing but not worth failing on. */
+  notes: string[];
 }
 
-const IGNORED_KEYS = new Set(['_comment', '_open', '_waveIntervalNote']);
+// Keys that carry prose for whoever edits the JSON, not data for the sim.
+const IGNORED_KEYS = new Set([
+  '_comment',
+  '_open',
+  '_waveIntervalNote',
+  '_decided',
+  '_armourNote',
+  '_roster',
+  '_todo',
+  '_note',
+]);
 
 /** Every dotted path under `value` whose leaf is `null`. */
 function collectNulls(value: unknown, path: string, out: string[]): void {
@@ -68,17 +80,69 @@ function checkMatrix(data: GameData, errors: string[]): void {
 
 /**
  * DESIGN.md §6.1: every builder must cover all four damage types across its six
- * units, or it simply loses the wave that counters it. Only checked for
- * builders that actually have units defined.
+ * units, or it simply loses the wave that counters it.
+ *
+ * A half-built roster failing this is expected, not broken - builder A is three
+ * units in at M1 - so the rule is an ERROR only for builders marked complete,
+ * and a NOTE for the rest. Flipping `complete` to true is what arms it.
  */
-function checkBuilderCoverage(data: GameData, errors: string[]): void {
+function checkBuilderCoverage(data: GameData, errors: string[], notes: string[]): void {
   for (const builder of data.units.builders) {
     const owned = data.units.units.filter((u) => u.builderId === builder.id);
     if (owned.length === 0) continue;
+
     const covered = new Set(owned.map((u) => u.damageType));
     const gaps = data.matrix.damageTypes.filter((t) => !covered.has(t));
-    if (gaps.length > 0) {
-      errors.push(`builder '${builder.id}' has no ${gaps.join('/')} unit (§6.1 coverage rule)`);
+    if (gaps.length === 0) continue;
+
+    const message = `builder '${builder.id}' has no ${gaps.join('/')} unit (§6.1 coverage rule)`;
+    if (builder.complete) {
+      errors.push(message);
+    } else {
+      notes.push(`${message} - roster incomplete, so not yet enforced`);
+    }
+  }
+}
+
+/**
+ * §3.2: waves spawn on a fixed global clock. The build phase is one slice of
+ * that period, so an interval that does not exceed it leaves no combat phase.
+ */
+function checkWaveClock(data: GameData, errors: string[]): void {
+  const { waveIntervalSeconds, buildPhaseSeconds } = data.waves;
+  if (waveIntervalSeconds === null) return;
+  if (waveIntervalSeconds <= buildPhaseSeconds) {
+    errors.push(
+      `waves.waveIntervalSeconds (${waveIntervalSeconds}s) must exceed ` +
+        `buildPhaseSeconds (${buildPhaseSeconds}s) or there is no combat phase (§3.2)`,
+    );
+  }
+}
+
+/** Every monster named in a wave must actually exist (§9.2). */
+function checkWaveReferences(data: GameData, errors: string[]): void {
+  const known = new Set([
+    ...data.monsters.monsters.map((m) => m.id),
+    ...data.monsters.bosses.map((m) => m.id),
+  ]);
+  for (const wave of data.waves.composition) {
+    for (const entry of wave.entries) {
+      if (!known.has(entry.monsterId)) {
+        errors.push(`wave ${wave.wave} references unknown monster '${entry.monsterId}'`);
+      }
+    }
+  }
+  for (const id of data.waves.bossBank) {
+    if (!known.has(id)) errors.push(`bossBank references unknown monster '${id}'`);
+  }
+}
+
+/** A tier upgrade must point at a unit that exists (§7.3). */
+function checkUpgradeChain(data: GameData, errors: string[]): void {
+  const known = new Set(data.units.units.map((u) => u.id));
+  for (const unit of data.units.units) {
+    if (unit.upgradesTo && !known.has(unit.upgradesTo)) {
+      errors.push(`unit '${unit.id}' upgrades to unknown unit '${unit.upgradesTo}'`);
     }
   }
 }
@@ -91,12 +155,16 @@ export function validateData(raw: Record<string, unknown>): {
   const data = raw as unknown as GameData;
   const missing: string[] = [];
   const errors: string[] = [];
+  const notes: string[] = [];
 
   collectNulls(raw, '', missing);
   checkMatrix(data, errors);
-  checkBuilderCoverage(data, errors);
+  checkBuilderCoverage(data, errors, notes);
+  checkWaveClock(data, errors);
+  checkWaveReferences(data, errors);
+  checkUpgradeChain(data, errors);
 
-  return { data, report: { missing, errors } };
+  return { data, report: { missing, errors, notes } };
 }
 
 /** Human-readable summary for the headless runner and the dev console. */
@@ -109,6 +177,10 @@ export function formatReport(report: DataReport): string {
   if (report.missing.length > 0) {
     lines.push(`${report.missing.length} value(s) still unfilled:`);
     for (const m of report.missing) lines.push(`  · ${m}`);
+  }
+  if (report.notes.length > 0) {
+    lines.push(`${report.notes.length} note(s):`);
+    for (const n of report.notes) lines.push(`  ~ ${n}`);
   }
   if (lines.length === 0) lines.push('Data complete.');
   return lines.join('\n');

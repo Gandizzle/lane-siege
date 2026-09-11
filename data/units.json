@@ -1,5 +1,100 @@
 {
-  "_comment": "DESIGN.md §7. Empty. Build builder A completely first (§7.1); B/C/D are data entry afterwards. Coverage rule (§6.1): every builder must field all four damage types across its six units.",
-  "builders": [],
-  "units": []
+  "_comment": "DESIGN.md §7. M1 slice: builder A with 3 of its 6 units (§17). The §6.1 coverage rule - all four damage types across the roster - is only enforced once a builder is marked complete, which A is not yet.",
+  "builders": [
+    {
+      "id": "bastion",
+      "name": "Bastion",
+      "complete": false,
+      "_roster": "3 of 6 units. Missing an Arcane unit and two more; the Arcane gap is what the coverage rule will catch when complete flips to true."
+    }
+  ],
+  "units": [
+    {
+      "id": "hammer",
+      "builderId": "bastion",
+      "name": "Hammer",
+      "tier": 1,
+      "upgradesTo": "hammer_2",
+      "goldCost": 40,
+      "supplyCost": 2,
+      "hp": 260,
+      "armour": "plate",
+      "damage": 14,
+      "damageType": "impact",
+      "attackSpeed": 1.0,
+      "range": 1.4
+    },
+    {
+      "id": "hammer_2",
+      "builderId": "bastion",
+      "name": "Hammer II",
+      "tier": 2,
+      "goldCost": 64,
+      "supplyCost": 0,
+      "hp": 570,
+      "armour": "plate",
+      "damage": 31,
+      "damageType": "impact",
+      "attackSpeed": 1.0,
+      "range": 1.4
+    },
+    {
+      "id": "spike",
+      "builderId": "bastion",
+      "name": "Spike",
+      "tier": 1,
+      "upgradesTo": "spike_2",
+      "goldCost": 55,
+      "supplyCost": 2,
+      "hp": 140,
+      "armour": "plate",
+      "damage": 11,
+      "damageType": "pierce",
+      "attackSpeed": 1.4,
+      "range": 3.0
+    },
+    {
+      "id": "spike_2",
+      "builderId": "bastion",
+      "name": "Spike II",
+      "tier": 2,
+      "goldCost": 88,
+      "supplyCost": 0,
+      "hp": 300,
+      "armour": "plate",
+      "damage": 24,
+      "damageType": "pierce",
+      "attackSpeed": 1.4,
+      "range": 3.2
+    },
+    {
+      "id": "mortar",
+      "builderId": "bastion",
+      "name": "Mortar",
+      "tier": 1,
+      "upgradesTo": "mortar_2",
+      "goldCost": 75,
+      "supplyCost": 3,
+      "hp": 110,
+      "armour": "flesh",
+      "damage": 34,
+      "damageType": "blast",
+      "attackSpeed": 0.5,
+      "range": 4.5
+    },
+    {
+      "id": "mortar_2",
+      "builderId": "bastion",
+      "name": "Mortar II",
+      "tier": 2,
+      "goldCost": 120,
+      "supplyCost": 1,
+      "hp": 240,
+      "armour": "flesh",
+      "damage": 75,
+      "damageType": "blast",
+      "attackSpeed": 0.5,
+      "range": 4.8
+    }
+  ]
 }

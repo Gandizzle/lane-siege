@@ -27,6 +27,17 @@ export function unitPosition(unit: DefensiveUnit): Vec2 {
   return { x: unit.tileX + 0.5, y: unit.tileY + 0.5 };
 }
 
+/**
+ * The same, written into a caller-owned vector. Tick-rate code uses this one:
+ * §15.3 forbids per-frame allocation, and unit positions are read for every
+ * monster on every tick.
+ */
+export function writeUnitPosition(unit: DefensiveUnit, out: Vec2): Vec2 {
+  out.x = unit.tileX + 0.5;
+  out.y = unit.tileY + 0.5;
+  return out;
+}
+
 /** Nearest living defensive unit to a point, or null if the lane is clear. */
 export function nearestUnit(units: readonly DefensiveUnit[], from: Vec2): DefensiveUnit | null {
   let best: DefensiveUnit | null = null;

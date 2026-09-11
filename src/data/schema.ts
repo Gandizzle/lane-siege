@@ -52,7 +52,10 @@ export interface LaneFile {
   buildZone: { width: number; depth: number };
   spawnZoneDepth: number;
   fortressZoneDepth: number;
-  /** OPEN (§4.2). Doc recommends `false` for v1. */
+  /**
+   * §4.2, decided: units DO block movement. Monsters steer around occupied
+   * tiles and attack whatever is nearest when boxed in.
+   */
   unitsBlockMovement: Unfilled<boolean>;
 }
 
@@ -61,6 +64,12 @@ export interface LaneFile {
 export interface BuilderDef {
   id: string;
   name: string;
+  /**
+   * True once all six units exist. The §6.1 coverage rule - every builder must
+   * field all four damage types - is only meaningful against a finished roster,
+   * so it is enforced for complete builders and merely reported for the rest.
+   */
+  complete: boolean;
 }
 
 export interface UnitDef {
@@ -163,6 +172,12 @@ export interface WavesFile {
 export type AuraType = 'damage' | 'attackSpeed' | 'armour' | 'regeneration';
 
 export interface FortressFile {
+  /**
+   * The matrix applies in both directions (§6), so monsters besieging the
+   * fortress need something to resolve their damage type against. Not stated
+   * in DESIGN.md.
+   */
+  armour: ArmourType;
   hp: UpgradableStat;
   regenOnLaneClear: UpgradableStat;
   weapon: {

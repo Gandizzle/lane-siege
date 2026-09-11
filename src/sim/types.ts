@@ -11,6 +11,7 @@
  */
 
 import type { ArmourType, DamageType } from '../data/schema.ts';
+import type { OccupancyGrid } from './grid.ts';
 
 export type EntityId = number;
 export type PlayerId = string;
@@ -58,6 +59,15 @@ export interface DefensiveUnit {
 export interface Monster {
   id: EntityId;
   defId: string;
+  /**
+   * Stats resolved at spawn from the definition and the wave's scaling (§9.1),
+   * so a tick never looks a definition up or recomputes a growth curve.
+   */
+  damage: number;
+  attackSpeed: number;
+  moveSpeed: number;
+  range: number;
+  bounty: number;
   /**
    * Which wave this monster belongs to. Enrage is tracked per wave, not per
    * lane or per monster (§8): a fresh wave joining a still-alive enraged wave
@@ -119,6 +129,14 @@ export interface Lane {
   units: DefensiveUnit[];
   monsters: Monster[];
   /**
+   * Which tiles are impassable (§4.2 - units block movement). Rebuilt when
+   * units change, never per tick (§15.3); `occupancyDirty` says when.
+   */
+  occupancy: OccupancyGrid;
+  occupancyDirty: boolean;
+  /** §3.2: all living players ready skips the rest of the build phase. */
+  ready: boolean;
+  /**
    * Overflow beyond maxConcurrentMonsters. Spawns one at a time as active
    * monsters die, into its own wave's current enrage state (§8.1).
    */
@@ -147,4 +165,6 @@ export interface MatchState {
   nextEntityId: EntityId;
   /** Set when one team (or none) remains (§13). */
   finished: boolean;
+  /** How many teams have been eliminated, so placements do not collide (§13). */
+  eliminatedCount: number;
 }

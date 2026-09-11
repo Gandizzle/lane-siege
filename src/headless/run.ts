@@ -1,20 +1,31 @@
 /**
  * Headless simulation runner. DESIGN.md §17, milestone M1.
  *
- * No graphics, no engine, text output only. This is the harness that proves the
- * tick loop, targeting, steering, the damage matrix and gold flow before a
- * single pixel is drawn - and later, the one that runs thousands of simulated
- * matches to check balance curves (§9.2).
+ * "One lane, one builder, 3 units, 5 waves. Text output only. No graphics.
+ * Proves the tick loop, targeting, steering, damage matrix, and gold flow."
  *
- *   npm run sim              -- one match on the default seed
- *   npm run sim -- --seed 7 --waves 5 --players 4
+ * No graphics and no engine: this imports the simulation and nothing else, and
+ * is the same harness that will later run thousands of matches headless to check
+ * balance curves (§9.2).
+ *
+ *   npm run sim
+ *   npm run sim -- --seed 7 --waves 5 --players 1
  */
 
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { formatReport } from '../data/validate.ts';
-import { createContext, createMatch, MissingDataError, step } from '../sim/index.ts';
-import { TICKS_PER_SECOND } from '../sim/constants.ts';
-import type { TeamSetup } from '../sim/index.ts';
+import {
+  createContext,
+  createMatch,
+  countLiving,
+  MissingDataError,
+  previewWave,
+  step,
+  TICKS_PER_SECOND,
+  ticksToSeconds,
+} from '../sim/index.ts';
+import type { Command, MatchState, TeamSetup } from '../sim/index.ts';
+import { AutoBuilder } from './autoBuilder.ts';
 
 interface Args {
   seed: number;
@@ -23,7 +34,8 @@ interface Args {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { seed: 1, waves: 5, players: 4 };
+  // M1 is a single lane; --players raises it for the multi-lane smoke test.
+  const args: Args = { seed: 1, waves: 5, players: 1 };
   for (let i = 0; i < argv.length; i += 2) {
     const flag = argv[i];
     const value = Number(argv[i + 1]);
@@ -35,65 +47,112 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
+function pad(value: number, width: number): string {
+  return String(value).padStart(width);
+}
+
+function laneLine(state: MatchState, teamId: string): string {
+  const lane = state.lanes[teamId];
+  if (!lane) return `${teamId}: (no lane)`;
+
+  const alive = lane.units.filter((u) => u.alive).length;
+  const hpPercent = Math.max(0, Math.round((lane.fortress.hp / lane.fortress.maxHp) * 100));
+
+  return (
+    `${teamId}  fortress ${pad(Math.max(0, Math.round(lane.fortress.hp)), 5)}` +
+    ` (${pad(hpPercent, 3)}%)  gold ${pad(Math.round(lane.economy.gold), 4)}` +
+    `  gems ${pad(Math.round(lane.economy.gems), 3)}` +
+    `  supply ${pad(lane.economy.supplyUsed, 2)}/${lane.economy.supplyCap}` +
+    `  units ${pad(alive, 2)}  monsters ${pad(countLiving(lane), 2)}` +
+    `  reserve ${pad(lane.reserve.length, 2)}`
+  );
+}
+
 function main(): number {
   const args = parseArgs(process.argv.slice(2));
   const { data, report } = loadDataFromDisk();
 
-  console.log('Lane Siege — headless simulation (M1)');
+  console.log('Bros Lane Siege — headless simulation (M1)');
   console.log(
-    `seed ${args.seed} · ${args.players} players · ${args.waves} waves · ${TICKS_PER_SECOND} ticks/s\n`,
+    `seed ${args.seed} · ${args.players} lane(s) · ${args.waves} waves · ` +
+      `${TICKS_PER_SECOND} ticks/s\n`,
   );
 
   if (report.errors.length > 0) {
     console.error(formatReport(report));
     return 1;
   }
+  if (report.missing.length > 0 || report.notes.length > 0) {
+    console.log(formatReport(report));
+    console.log('');
+  }
 
   const teams: TeamSetup[] = Array.from({ length: args.players }, (_, i) => ({
-    // §2: a lane is owned by a TEAM, one or more players. v1 fills one each,
-    // which makes 2v2 configuration rather than a rewrite.
-    id: `team${i + 1}`,
+    // §2: a lane is owned by a TEAM of one or more players, from day one, so
+    // 2v2 later is configuration rather than a rewrite.
+    id: `lane${i + 1}`,
     playerIds: [`p${i + 1}`],
   }));
 
-  let state;
+  let state: MatchState;
   try {
     state = createMatch(data, { seed: args.seed, teams });
   } catch (error) {
     if (error instanceof MissingDataError) {
-      console.log('The simulation cannot run yet — data/ is still empty.\n');
+      console.log('The simulation cannot run yet — data/ is incomplete.\n');
       console.log(formatReport(report));
-      console.log('\nFill the values above (DESIGN.md §16), then re-run. Nothing is hardcoded,');
-      console.log('so this is entirely a JSON editing job — no code changes needed.');
       return 0;
     }
     throw error;
   }
 
   const ctx = createContext(data);
-  let lastReported = -1;
+  const builders = teams.map((t) => new AutoBuilder(data, t.id));
+
+  let lastWave = -1;
+  let lastPhase = '';
 
   while (!state.finished && state.wave <= args.waves) {
-    step(ctx, state);
+    const commands: Command[] = [];
+    for (const builder of builders) commands.push(...builder.plan(state));
 
-    if (state.wave !== lastReported) {
-      lastReported = state.wave;
-      const alive = state.teams.filter((t) => !t.eliminated).length;
-      console.log(`wave ${state.wave.toString().padStart(2)} · ${state.phase} · ${alive} alive`);
-      for (const team of state.teams) {
-        const lane = state.lanes[team.id];
-        if (!lane) continue;
+    step(ctx, state, commands);
+
+    if (state.wave !== lastWave || state.phase !== lastPhase) {
+      if (state.phase === 'combat' && state.wave !== lastWave) {
+        // §9.3: the incoming wave is public during the build phase - fair,
+        // because every lane faces the same thing.
+        const preview = previewWave(data, state.seed, state.wave);
+        const summary = preview
+          .map((e) => `${e.count}x ${e.name} (${e.armour}/${e.damageType})`)
+          .join(', ');
         console.log(
-          `   ${team.id}: fortress ${Math.round(lane.fortress.hp)}/${lane.fortress.maxHp}` +
-            ` · ${Math.round(lane.economy.gold)}g ${Math.round(lane.economy.gems)}gem` +
-            ` · ${lane.units.filter((u) => u.alive).length} units` +
-            ` · ${lane.monsters.filter((m) => m.alive).length} monsters`,
+          `\n── wave ${state.wave} ` +
+            `${state.wave % data.waves.bossEveryNWaves === 0 ? '(BOSS) ' : ''}` +
+            `at ${ticksToSeconds(state.tick).toFixed(0)}s ──`,
         );
+        console.log(`   incoming: ${summary}`);
       }
+      if (state.phase === 'build' && lastPhase === 'combat') {
+        // Not necessarily "cleared": §3.2's global clock starts the next build
+        // phase whether or not this lane finished the wave.
+        console.log(`   build phase at ${ticksToSeconds(state.tick).toFixed(0)}s`);
+        for (const team of state.teams) console.log(`   ${laneLine(state, team.id)}`);
+      }
+      lastWave = state.wave;
+      lastPhase = state.phase;
     }
   }
 
-  console.log(`\nfinished at tick ${state.tick} (${(state.tick / TICKS_PER_SECOND).toFixed(1)}s)`);
+  console.log('\n── final ──');
+  for (const team of state.teams) {
+    console.log(`   ${laneLine(state, team.id)}`);
+    if (team.eliminated) console.log(`      eliminated, placed ${team.placement}`);
+  }
+  console.log(
+    `\n${state.tick} ticks (${ticksToSeconds(state.tick).toFixed(0)}s simulated), ` +
+      `wave ${state.wave}`,
+  );
   return 0;
 }
 

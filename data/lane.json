@@ -1,8 +1,8 @@
 {
-  "_comment": "DESIGN.md §4. Lane geometry. Not one of the seven files listed in §16 - added because §4 numbers must not be hardcoded either. Fold into another file if you prefer.",
+  "_comment": "DESIGN.md §4. Lane geometry. Not one of the seven files listed in §16 - added because §4 numbers must not be hardcoded either. Tile space: y=0 is the top of the build grid, monsters spawn at negative y, the fortress sits below y=depth.",
   "buildZone": { "width": 8, "depth": 10 },
   "spawnZoneDepth": 1,
   "fortressZoneDepth": 1,
-  "unitsBlockMovement": null,
-  "_open": "unitsBlockMovement is OPEN (§4.2). Recommendation in the doc is false for v1. Left null - decide before the sim can run."
+  "unitsBlockMovement": true,
+  "_decided": "§4.2 was OPEN. Answered: units DO block movement. Monsters steer around occupied tiles (src/sim/grid.ts, steering.ts) and fall back to attacking whatever is nearest when fully boxed in."
 }

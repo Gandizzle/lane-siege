@@ -15,21 +15,34 @@
 import type { GameData } from '../data/schema.ts';
 import { MONSTER_RETARGET_TICKS, TICKS_PER_SECOND, secondsToTicks } from './constants.ts';
 import type { Command } from './commands.ts';
+import { applyCommands } from './apply.ts';
 import { resolveDamage } from './damage.ts';
 import { buildDefIndex, stat, type DefIndex } from './defs.ts';
 import { monsterEnrage } from './enrage.ts';
+import { rebuildOccupancy } from './grid.ts';
+import { admitFromReserve, countLiving, createMonster } from './spawn.ts';
 import { stepToward, updateStuckDetection } from './steering.ts';
-import { holdOrDrop, nearestMonsterInRange, nearestUnit, unitPosition } from './targeting.ts';
+import { holdOrDrop, nearestMonsterInRange, nearestUnit, writeUnitPosition } from './targeting.ts';
 import type { Lane, MatchState, Vec2 } from './types.ts';
+import { generateWave } from './waves.ts';
 
 /** Everything a tick needs that is not match state: the data and its index. */
 export interface SimContext {
   data: GameData;
   defs: DefIndex;
+  /** Where monsters go once the lane is clear. Constant for a match (§5.5). */
+  fortressPosition: Vec2;
 }
 
 export function createContext(data: GameData): SimContext {
-  return { data, defs: buildDefIndex(data) };
+  return {
+    data,
+    defs: buildDefIndex(data),
+    fortressPosition: {
+      x: data.lane.buildZone.width / 2,
+      y: data.lane.buildZone.depth + data.lane.fortressZoneDepth * 0.5,
+    },
+  };
 }
 
 /** Attack cooldown in ticks for a given attacks-per-second rate. */
@@ -38,6 +51,10 @@ function cooldownTicks(attacksPerSecond: number): number {
   return Math.max(1, Math.round(TICKS_PER_SECOND / attacksPerSecond));
 }
 
+// Scratch vectors, reused so that a tick allocates nothing (§15.3).
+const scratchDestination: Vec2 = { x: 0, y: 0 };
+const scratchUnitPos: Vec2 = { x: 0, y: 0 };
+
 // --------------------------------------------------------------------- stages
 
 /**
@@ -45,10 +62,16 @@ function cooldownTicks(attacksPerSecond: number): number {
  * its monsters are alive anywhere and stops when the last one dies.
  */
 function advanceWaveClocks(state: MatchState): void {
+  let finished = 0;
   for (const clock of state.waveClocks) {
     if (clock.remaining > 0) clock.age += 1;
+    else finished++;
   }
-  state.waveClocks = state.waveClocks.filter((c) => c.remaining > 0);
+  // Only rebuild the array when a wave has actually ended, so the common tick
+  // allocates nothing.
+  if (finished > 0) {
+    state.waveClocks = state.waveClocks.filter((c) => c.remaining > 0);
+  }
 }
 
 /**
@@ -56,9 +79,7 @@ function advanceWaveClocks(state: MatchState): void {
  * then reacquires the nearest in range. Stationary always - units never move
  * and never chase.
  */
-function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
-  const { enrage } = ctx.data.waves;
-
+function unitsAct(ctx: SimContext, lane: Lane): void {
   for (const unit of lane.units) {
     if (!unit.alive) continue;
 
@@ -70,15 +91,16 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
     const range = stat(def.range);
     let target = holdOrDrop(lane.monsters, unit, range);
     if (!target) {
-      target = nearestMonsterInRange(lane.monsters, unitPosition(unit), range);
+      writeUnitPosition(unit, scratchUnitPos);
+      target = nearestMonsterInRange(lane.monsters, scratchUnitPos, range);
     }
     unit.targetId = target ? target.id : null;
 
     if (!target || unit.cooldown > 0) continue;
 
-    // TODO: aura and tech multipliers fold in here. Auras are recomputed only
-    // on add/remove/upgrade and on wave start (§15.3), never per tick, so the
-    // resolved multiplier should be cached on the unit rather than derived now.
+    // TODO(§7.4, §10.1): aura and tech multipliers fold in here. Auras are
+    // recomputed only on add/remove/upgrade and on wave start (§15.3), never per
+    // tick, so the resolved multiplier should be cached on the unit.
     target.hp -= resolveDamage(
       ctx.data.matrix.multipliers,
       stat(def.damage),
@@ -86,13 +108,8 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
       target.armour,
     );
     unit.cooldown = cooldownTicks(stat(def.attackSpeed));
-
-    void state;
-    void enrage;
   }
 }
-
-const scratchDestination: Vec2 = { x: 0, y: 0 };
 
 /**
  * §5.1 and §5.5: a monster walks to the nearest defensive unit and attacks it.
@@ -102,21 +119,15 @@ const scratchDestination: Vec2 = { x: 0, y: 0 };
  */
 function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
   const enrageConfig = ctx.data.waves.enrage;
-  const fortressTile: Vec2 = {
-    x: ctx.data.lane.buildZone.width / 2,
-    y: ctx.data.lane.buildZone.depth + ctx.data.lane.fortressZoneDepth,
-  };
+  const grid = ctx.data.lane.unitsBlockMovement ? lane.occupancy : null;
 
   for (const monster of lane.monsters) {
     if (!monster.alive) continue;
 
-    const def = ctx.defs.monsters.get(monster.defId);
-    if (!def) continue;
-
     const multiplier = monsterEnrage(state, monster, enrageConfig);
     if (monster.cooldown > 0) monster.cooldown -= 1;
 
-    // Retargeting is throttled, not per tick (§5.1, §15.3).
+    // Retargeting is throttled to a fixed interval, not run per tick (§5.1).
     if (monster.retargetIn > 0) {
       monster.retargetIn -= 1;
     } else {
@@ -126,45 +137,59 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
       monster.retargetIn = MONSTER_RETARGET_TICKS;
     }
 
-    const target = monster.targetId
-      ? lane.units.find((u) => u.id === monster.targetId && u.alive)
-      : undefined;
+    let target = null;
+    if (monster.targetId !== null) {
+      for (const unit of lane.units) {
+        if (unit.id === monster.targetId && unit.alive) {
+          target = unit;
+          break;
+        }
+      }
+    }
 
-    const destination = target ? unitPosition(target) : fortressTile;
-    scratchDestination.x = destination.x;
-    scratchDestination.y = destination.y;
+    if (target) {
+      writeUnitPosition(target, scratchDestination);
+    } else {
+      scratchDestination.x = ctx.fortressPosition.x;
+      scratchDestination.y = ctx.fortressPosition.y;
+    }
 
-    const range = stat(def.range);
     const dx = scratchDestination.x - monster.pos.x;
     const dy = scratchDestination.y - monster.pos.y;
-    const inRange = dx * dx + dy * dy <= range * range;
+    const inRange = dx * dx + dy * dy <= monster.range * monster.range;
 
     if (!inRange && !monster.isStuck) {
-      stepToward(monster, scratchDestination, stat(def.moveSpeed), multiplier);
+      stepToward(monster, scratchDestination, monster.moveSpeed, multiplier, grid);
     }
     updateStuckDetection(monster);
 
-    if ((inRange || monster.isStuck) && monster.cooldown <= 0) {
-      const damage = stat(def.damage) * multiplier;
-      if (target) {
-        target.hp -= resolveDamage(
-          ctx.data.matrix.multipliers,
-          damage,
-          def.damageType,
-          target.armour,
-        );
-      } else {
-        // Sieging the fortress (§5.5).
-        lane.fortress.hp -= resolveDamage(
-          ctx.data.matrix.multipliers,
-          damage,
-          def.damageType,
-          'plate',
-        );
-      }
-      // Enrage raises attack speed, so it shortens the cooldown (§8).
-      monster.cooldown = cooldownTicks(stat(def.attackSpeed) * multiplier);
+    if (!(inRange || monster.isStuck) || monster.cooldown > 0) continue;
+
+    // §8: enrage raises damage and attack speed. Never HP - a stalling player
+    // should face deadlier monsters, not unkillable ones.
+    const damage = monster.damage * multiplier;
+
+    if (target) {
+      target.hp -= resolveDamage(
+        ctx.data.matrix.multipliers,
+        damage,
+        monster.damageType,
+        target.armour,
+      );
+    } else if (inRange) {
+      // Sieging the fortress (§5.5). A stuck monster with no unit in reach is
+      // wedged somewhere in the grid, not at the wall, so it does not chip HP.
+      lane.fortress.hp -= resolveDamage(
+        ctx.data.matrix.multipliers,
+        damage,
+        monster.damageType,
+        ctx.data.fortress.armour,
+      );
+    } else {
+      continue;
     }
+
+    monster.cooldown = cooldownTicks(monster.attackSpeed * multiplier);
   }
 }
 
@@ -175,7 +200,6 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
  * build phase.
  */
 function fortressActs(ctx: SimContext, lane: Lane): void {
-  const weapon = ctx.data.fortress.weapon;
   if (lane.fortress.destroyed) return;
 
   if (lane.fortress.weaponCooldown > 0) {
@@ -183,11 +207,8 @@ function fortressActs(ctx: SimContext, lane: Lane): void {
     return;
   }
 
-  const origin: Vec2 = {
-    x: ctx.data.lane.buildZone.width / 2,
-    y: ctx.data.lane.buildZone.depth + ctx.data.lane.fortressZoneDepth,
-  };
-  const target = nearestMonsterInRange(lane.monsters, origin, stat(weapon.range));
+  const weapon = ctx.data.fortress.weapon;
+  const target = nearestMonsterInRange(lane.monsters, ctx.fortressPosition, stat(weapon.range));
   if (!target) return;
 
   target.hp -= resolveDamage(
@@ -202,32 +223,117 @@ function fortressActs(ctx: SimContext, lane: Lane): void {
 /**
  * §11.1: the defender always gets the bounty, including for monsters an
  * opponent sent at them.
+ *
+ * §5.5: when the lane goes fully clear the fortress regenerates, so chip damage
+ * is not permanent. That lever plus the fortress weapon is the primary control
+ * over when the first player is eliminated - target wave 13-15, not wave 8.
  */
 function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
+  let anyMonsterDied = false;
+  let anyUnitDied = false;
+
   for (const monster of lane.monsters) {
     if (!monster.alive || monster.hp > 0) continue;
     monster.alive = false;
+    anyMonsterDied = true;
 
-    const def = ctx.defs.monsters.get(monster.defId);
-    lane.economy.gold += stat(def?.bounty ?? null);
+    lane.economy.gold += monster.bounty;
 
     const clock = state.waveClocks.find((c) => c.waveNumber === monster.waveNumber);
     if (clock) clock.remaining -= 1;
-
-    // §8.1: a reserve monster takes the free slot, entering at its own wave's
-    // current enrage state.
-    // TODO: pull from lane.reserve here once wave spawning exists.
   }
 
   for (const unit of lane.units) {
-    if (unit.alive && unit.hp <= 0) unit.alive = false;
+    if (unit.alive && unit.hp <= 0) {
+      unit.alive = false;
+      anyUnitDied = true;
+    }
+  }
+
+  if (anyUnitDied) lane.occupancyDirty = true;
+
+  if (anyMonsterDied) {
+    // Drop the corpses, then let the reserve queue refill the free slots (§8.1).
+    lane.monsters = lane.monsters.filter((m) => m.alive);
+    admitFromReserve(state, ctx.data, ctx.defs, lane);
+
+    if (countLiving(lane) === 0 && lane.reserve.length === 0 && !lane.fortress.destroyed) {
+      const regen = stat(ctx.data.fortress.regenOnLaneClear.base);
+      lane.fortress.hp = Math.min(lane.fortress.maxHp, lane.fortress.hp + regen);
+    }
   }
 
   if (lane.fortress.hp <= 0) lane.fortress.destroyed = true;
+}
 
-  // TODO(§5.5): on a full lane clear, regenerate fortress HP so chip damage is
-  // not permanent. This lever plus the fortress weapon is the primary control
-  // over when the first player is eliminated - target wave 13-15, not wave 8.
+/**
+ * §5.4: all defensive units respawn fully at the start of each build phase, so
+ * losing your line on wave 4 is a temporary setback - the punishment is the leak
+ * damage, not the loss of the investment.
+ *
+ * §3.3: from wave 25 respawn stops and losses are permanent.
+ */
+function respawnUnits(ctx: SimContext, lane: Lane, state: MatchState): void {
+  if (state.wave >= ctx.data.waves.attritionStartWave) return;
+
+  for (const unit of lane.units) {
+    if (unit.alive) {
+      unit.hp = unit.maxHp;
+      continue;
+    }
+    unit.alive = true;
+    unit.hp = unit.maxHp;
+    unit.targetId = null;
+    unit.cooldown = 0;
+  }
+  lane.occupancyDirty = true;
+}
+
+/** Put a wave into every living lane. All lanes face identical waves (§9.2). */
+function spawnWave(ctx: SimContext, state: MatchState): void {
+  const specs = generateWave(ctx.data, state.seed, state.wave);
+  if (specs.length === 0) return;
+
+  const cap = ctx.data.waves.maxConcurrentMonsters;
+  let totalSpawned = 0;
+
+  for (const team of state.teams) {
+    if (team.eliminated) continue;
+    const lane = state.lanes[team.id];
+    if (!lane) continue;
+
+    // §11.5: monsters an opponent sent at this lane join its next wave. The
+    // defender still collects their bounty.
+    const incoming = lane.incomingSends.map((s) => ({
+      defId: s.defId,
+      waveNumber: state.wave,
+    }));
+    lane.incomingSends.length = 0;
+
+    for (const spec of [...specs, ...incoming]) {
+      if (countLiving(lane) < cap) {
+        const monster = createMonster(state, ctx.data, ctx.defs, spec, lane.monsters.length);
+        if (monster) {
+          lane.monsters.push(monster);
+          totalSpawned++;
+        }
+      } else {
+        // §8.1: the excess waits, and enters one at a time as monsters die.
+        lane.reserve.push(spec);
+        totalSpawned++;
+      }
+    }
+  }
+
+  if (totalSpawned > 0) {
+    state.waveClocks.push({
+      waveNumber: state.wave,
+      age: 0,
+      // One clock per wave across all lanes: it stops when the last monster of
+      // this wave dies anywhere (§8).
+      remaining: totalSpawned,
+    });
+  }
 }
 
 /**
@@ -235,9 +341,27 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
  * regardless of whether any lane has cleared the previous wave - a slow player
  * meets wave 8 while wave 7 is still alive in their lane, and cannot hold three
  * other players hostage.
+ *
+ * The wave interval is the FULL cycle, so the combat phase is whatever the build
+ * phase leaves of it.
  */
+function combatPhaseTicks(data: GameData): number {
+  const interval = data.waves.waveIntervalSeconds;
+  if (interval === null) return 0;
+  return secondsToTicks(Math.max(0, interval - data.waves.buildPhaseSeconds));
+}
+
+/** §3.2: all living players ready skips the rest of the build phase. */
+function allReady(state: MatchState): boolean {
+  const living = state.teams.filter((t) => !t.eliminated);
+  if (living.length === 0) return false;
+  return living.every((t) => state.lanes[t.id]?.ready === true);
+}
+
 function advancePhase(ctx: SimContext, state: MatchState): void {
-  if (state.phaseTicksLeft > 0) {
+  const skipping = state.phase === 'build' && allReady(state);
+
+  if (state.phaseTicksLeft > 0 && !skipping) {
     state.phaseTicksLeft -= 1;
     return;
   }
@@ -245,44 +369,54 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
   if (state.phase === 'build') {
     state.phase = 'combat';
     state.wave += 1;
-    // TODO(M1): spawn the wave. Composition is a pure function of
-    // (seed, waveNumber) via waveRng, capped at maxConcurrentMonsters with the
-    // excess held in lane.reserve (§8.1), plus each lane's incomingSends
-    // (§11.5). Blocked on data/waves.json composition and data/monsters.json.
-    const interval = ctx.data.waves.waveIntervalSeconds;
-    state.phaseTicksLeft = interval === null ? 0 : secondsToTicks(interval);
+    state.phaseTicksLeft = combatPhaseTicks(ctx.data);
+    for (const team of state.teams) {
+      const lane = state.lanes[team.id];
+      if (lane) lane.ready = false;
+    }
+    spawnWave(ctx, state);
   } else {
     state.phase = 'build';
     state.phaseTicksLeft = secondsToTicks(ctx.data.waves.buildPhaseSeconds);
-    // TODO(§5.4): units respawn fully at the start of each build phase, through
-    // wave 24. From wave 25 respawn stops and losses are permanent (§3.3).
-    // TODO(§11.6): pay out passive income, once per wave.
+
+    for (const team of state.teams) {
+      if (team.eliminated) continue;
+      const lane = state.lanes[team.id];
+      if (!lane) continue;
+
+      respawnUnits(ctx, lane, state);
+      // §11.6: passive income is paid out each wave and compounds over the
+      // match. This is the long-game economic engine.
+      lane.economy.gold += lane.economy.passiveIncome;
+      lane.economy.gems += stat(ctx.data.fortress.resourceBuilding.gemsPerWave);
+    }
   }
 }
 
 /** §13: fortress HP at zero eliminates that team; placement locks in there. */
 function checkEliminations(state: MatchState): void {
-  const living = state.teams.filter((t) => !t.eliminated);
-
-  for (const team of living) {
+  for (const team of state.teams) {
+    if (team.eliminated) continue;
     const lane = state.lanes[team.id];
     if (!lane || !lane.fortress.destroyed) continue;
+
     team.eliminated = true;
-    team.placement = living.length;
+    // Count up from the bottom: the first out places last. Counting survivors
+    // would give two teams eliminated on the same tick the same placement.
+    state.eliminatedCount += 1;
+    team.placement = state.teams.length - state.eliminatedCount + 1;
   }
 
-  state.finished = state.teams.filter((t) => !t.eliminated).length <= 1;
+  const living = state.teams.filter((t) => !t.eliminated).length;
+  // §13: the match ends when one team remains. A solo lane - the M1 harness, or
+  // a practice run - has no opponent to outlast, so it ends only when its own
+  // fortress falls, not instantly.
+  state.finished = state.teams.length > 1 ? living <= 1 : living === 0;
 }
 
 // ----------------------------------------------------------------------- step
 
-/**
- * Advance the match one tick. Returns the same (mutated) state object.
- *
- * TODO: commands are accepted but not yet applied. Each needs cost, supply and
- * phase validation inside the simulation - never in the UI - returning a
- * CommandRejection the UI can display.
- */
+/** Advance the match one tick. Returns the same (mutated) state object. */
 export function step(
   ctx: SimContext,
   state: MatchState,
@@ -290,7 +424,7 @@ export function step(
 ): MatchState {
   if (state.finished) return state;
 
-  void commands;
+  applyCommands(ctx, state, commands);
 
   state.tick += 1;
   advanceWaveClocks(state);
@@ -301,7 +435,13 @@ export function step(
     const lane = state.lanes[team.id];
     if (!lane) continue;
 
-    unitsAct(ctx, lane, state);
+    // Occupancy is rebuilt on change only, never per tick (§15.3).
+    if (lane.occupancyDirty) {
+      rebuildOccupancy(lane.occupancy, lane.units);
+      lane.occupancyDirty = false;
+    }
+
+    unitsAct(ctx, lane);
     monstersAct(ctx, lane, state);
     fortressActs(ctx, lane);
     reapDead(ctx, lane, state);

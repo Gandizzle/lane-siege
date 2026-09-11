@@ -1,5 +1,69 @@
 {
-  "_comment": "DESIGN.md §9. Empty. No special abilities in v1 - variety comes from the stat space alone. Bosses are ordinary monsters with much larger stats (§3.4) and should mix armour types.",
-  "monsters": [],
-  "bosses": []
+  "_comment": "DESIGN.md §9. No special abilities in v1 - variety comes from the stat space alone. M1 slice: four normal monsters spanning all four armour types, plus one boss.",
+  "monsters": [
+    {
+      "id": "grub",
+      "name": "Grub",
+      "hp": 45,
+      "armour": "flesh",
+      "damage": 7,
+      "damageType": "impact",
+      "attackSpeed": 1.0,
+      "range": 1.0,
+      "moveSpeed": 1.1,
+      "bounty": 4
+    },
+    {
+      "id": "husk",
+      "name": "Husk",
+      "hp": 170,
+      "armour": "plate",
+      "damage": 16,
+      "damageType": "impact",
+      "attackSpeed": 0.7,
+      "range": 1.0,
+      "moveSpeed": 0.7,
+      "bounty": 9
+    },
+    {
+      "id": "mote",
+      "name": "Mote",
+      "hp": 22,
+      "armour": "swarm",
+      "damage": 4,
+      "damageType": "arcane",
+      "attackSpeed": 1.6,
+      "range": 1.0,
+      "moveSpeed": 1.5,
+      "bounty": 3
+    },
+    {
+      "id": "warden",
+      "name": "Warden",
+      "hp": 120,
+      "armour": "ward",
+      "damage": 13,
+      "damageType": "pierce",
+      "attackSpeed": 0.9,
+      "range": 1.6,
+      "moveSpeed": 0.9,
+      "bounty": 8
+    }
+  ],
+  "bosses": [
+    {
+      "id": "brood_sire",
+      "name": "Brood Sire",
+      "hp": 1400,
+      "armour": "plate",
+      "damage": 45,
+      "damageType": "blast",
+      "attackSpeed": 0.6,
+      "range": 1.4,
+      "moveSpeed": 0.5,
+      "bounty": 90,
+      "isBoss": true,
+      "_todo": "§3.4 wants bosses to carry a MIX of armour types across their parts or spawns so no single damage type hard-counters them. This one is single-armour; multi-part bosses need a parts model that does not exist yet."
+    }
+  ]
 }

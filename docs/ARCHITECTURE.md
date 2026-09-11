@@ -90,35 +90,63 @@ is, and the renderer owns the single tile→pixel transform in
   waves 1 through 6, in any lane.
 - The only clock is `state.tick`. Nothing reads wall time.
 
-## What is implemented, and what is a stub
+## Milestone status
 
-Implemented and tested:
+**M1 (headless sim) is complete.** `npm run sim` plays a single lane through
+five waves with a scripted builder and prints the result. Everything §17 lists
+for M1 is exercised: the tick loop, targeting, steering, the damage matrix and
+gold flow.
+
+Implemented and tested (87 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
 - Enrage: additive, capped, per-wave clocks (§8)
-- Targeting rules — monsters re-evaluate on an interval, units hold their target
-  until it dies or leaves range (§5.1, §5.2)
-- Greedy steering and stuck detection (§5.3)
-- Portrait layout and the tile↔screen transform (§4.1)
-- The shape vocabulary: four silhouettes, four colours, tier pips, outline vs
-  solid (§14.2)
-- Data loading, gap reporting, and the builder-coverage check (§6.1)
+- Targeting — monsters re-evaluate on an interval, units hold their target until
+  it dies or leaves range (§5.1, §5.2)
+- Greedy steering **with collision** and stuck detection (§5.3, §4.2)
+- Wave generation as a pure function of (seed, waveNumber), boss waves, scaling
+  past the authored range, and the build-phase preview (§9.1–§9.3, §3.4)
+- The reserve queue and the lane cap (§8.1)
+- Commands: place, upgrade in place, weapon type, aura, ready — with cost,
+  supply, tile and phase validation inside the simulation (§7.3, §11.4, §3.2)
+- Gold flow: kill bounties to the defender, gems per wave, passive income payout
+  (§11.1, §11.6, §10.2)
+- Unit respawn between waves, and its halt at wave 25 (§5.4, §3.3)
+- Fortress weapon and regeneration on lane clear (§10.1, §5.5)
+- Elimination and placement, including simultaneous deaths (§13)
+- End-to-end determinism: same seed, same final state (§15.1)
+- Portrait layout, the tile↔screen transform, and the shape vocabulary (§4.1,
+  §14.2)
 
-Stubbed, with the reason marked at the call site:
+### A word on the balance numbers
 
-- **Wave spawning** (`tick.ts:advancePhase`) — needs `waves.composition` and
-  `monsters.json`, and needs the wave interval decided.
-- **Command handling** (`tick.ts:step`) — commands are typed and accepted but
-  not yet applied; each needs cost, supply and phase validation inside the
-  simulation.
-- **Unit respawn between waves** (§5.4) and the wave-25 attrition switch (§3.3).
-- **Fortress regeneration on lane clear** (§5.5).
-- **Auras and tech multipliers** (§7.4, §10.1) — note §15.3: recompute on
-  add/remove/upgrade and on wave start, cached on the unit, never per tick.
-- **Reserve queue draining** (§8.1).
-- **Sends, passive income, fog of war, elimination placement** (§11, §12, §13) —
-  M4 territory, but the state fields exist so they are not retrofitted.
+They are placeholders and **not playtested**. As it stands the lane falls around
+wave 4, where §5.5 targets wave 13–15 for the first elimination. That gap is a
+data problem, not a code one: §5.5 names the two levers as the fortress weapon
+and lane-clear regeneration, and both are fields in `fortress.json`. Supply cap,
+starting gold and the whole unit table are equally provisional.
+
+The point of M1 is that the systems run and are provable, and that fixing the
+curve is now a JSON editing job.
+
+### Not yet built
+
+- **Auras and tech multipliers** (§7.4, §10.1) — the hook is marked in
+  `tick.ts:unitsAct`. Note §15.3: recompute on add/remove/upgrade and on wave
+  start, cached on the unit, never per tick.
+- **Sends, fog of war, spectating** (§11.5, §12) — M4. `Lane.incomingSends` is
+  already merged into wave spawning, so sends will not need retrofitting.
+- **Fortress and resource upgrades, supply cap purchases, global tech** (§7.4,
+  §10, §11.4) — M3. The upgrade ladders in `data/` are empty and `apply.ts`
+  refuses those commands rather than pretending.
+- **Object pooling** (§15.3) — entities carry an `alive` flag and dead monsters
+  are swept on the tick they die, which is the shape pooling wants, but there is
+  no free list yet. Scratch vectors and the occupancy grid already avoid
+  per-tick allocation.
+- **Builders B, C and D, and units 4–6 of builder A** — M5, mostly data entry.
+  `bastion` has no Arcane unit, which the validator reports as a note and will
+  upgrade to an error the moment its `complete` flag flips to true.
 
 ## Stack
 

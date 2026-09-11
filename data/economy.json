@@ -1,16 +1,16 @@
 {
-  "_comment": "DESIGN.md §11. Empty. Gold buys units, tiers and tech; gems buy fortress upgrades and sends. Supply is one shared budget across offence, defence and economy.",
-  "startingGold": null,
-  "startingGems": null,
-  "gemProduction": { "base": null, "upgrades": [] },
+  "_comment": "DESIGN.md §11. M1 slice: starting values and the supply cap. Tech tracks are M3.",
+  "startingGold": 400,
+  "startingGems": 0,
+  "gemProduction": { "base": 10, "upgrades": [] },
   "supply": {
     "_comment": "Does not grow automatically - the cap is an upgrade you choose to buy (§11.4).",
-    "capBase": null,
+    "capBase": 22,
     "capUpgrades": [],
-    "_open": "OPEN (§11.1): is the cap upgrade bought with gold or gems? Doc recommends gold."
+    "_open": "OPEN (§11.1): is the cap upgrade bought with gold or gems? Doc recommends gold. Still unanswered - capUpgrades is empty, so nothing depends on it yet."
   },
   "tech": {
-    "_comment": "§7.4. Tied to damage types, not unit types. Four offensive tracks plus defensive tracks, ~5 levels each, escalating cost.",
+    "_comment": "§7.4. Tied to damage types, not unit types. Four offensive tracks plus defensive tracks, ~5 levels each, escalating cost. Empty until M3.",
     "tracks": []
   }
 }

@@ -9,6 +9,7 @@
 
 import type { GameData } from '../data/schema.ts';
 import { secondsToTicks } from './constants.ts';
+import { createGrid } from './grid.ts';
 import { Rng } from './rng.ts';
 import type { Lane, MatchState, PlayerId, Team, TeamId } from './types.ts';
 
@@ -51,6 +52,9 @@ function createLane(data: GameData, teamId: TeamId, missing: string[]): Lane {
     teamId,
     units: [],
     monsters: [],
+    occupancy: createGrid(data.lane.buildZone.width, data.lane.buildZone.depth),
+    occupancyDirty: false,
+    ready: false,
     reserve: [],
     incomingSends: [],
     fortress: {
@@ -106,5 +110,6 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     waveClocks: [],
     nextEntityId: 1,
     finished: false,
+    eliminatedCount: 0,
   };
 }
