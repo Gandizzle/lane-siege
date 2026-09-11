@@ -26,6 +26,7 @@
 
 import { STUCK_DISPLACEMENT_TILES, STUCK_WINDOW_TICKS, SECONDS_PER_TICK } from './constants.ts';
 import { isPositionBlocked, type OccupancyGrid } from './grid.ts';
+import { blockedByPriority, type SeparableBody } from './separation.ts';
 import { distanceSquared } from './targeting.ts';
 import type { Vec2 } from './types.ts';
 
@@ -38,8 +39,13 @@ const DIAG = Math.SQRT1_2;
  * The eight directions a mover may take, ordered from straight down the lane
  * outward - so that when two are equally good, the earlier one wins and the
  * §5.3 tie-break falls out of the ordering itself.
+ *
+ * Also doubles as the ring of approach slots around a target (see slots.ts).
+ * Hardcoded rather than generated with trigonometry: Math.sin and Math.cos are
+ * not bit-identical across engines, and a table built at load time would by a
+ * ulp between clients and desync them.
  */
-const CANDIDATES: readonly Vec2[] = [
+export const RING: readonly Vec2[] = [
   { x: 0, y: 1 },
   { x: DIAG, y: DIAG },
   { x: -DIAG, y: DIAG },
@@ -67,52 +73,21 @@ export interface Mover {
   lastStepIndex: number;
 }
 
-/** A body that takes up space and can be walked into. */
-export interface Body {
-  id: number;
-  pos: Vec2;
-  alive: boolean;
-}
-
 /**
- * Keeps same-kind entities from occupying the same space.
+ * Bodies to steer around while moving.
  *
- * The occupancy grid is tile-granular, which is right for monster-versus-unit -
- * a line of units is a wall. It is too coarse for entities of the same kind
- * moving continuously: two of them in adjacent tiles can sit half a tile apart
- * and visibly overlap, and several converging on one target used to pile onto
- * the same point. So same-kind separation is by radius, matching what is drawn.
+ * Only bodies that OUTRANK the mover - closer to the goal - block a candidate
+ * direction. That asymmetry is what lets a blocked agent flow around an ally
+ * rather than deadlocking against it, and what stops two agents from each
+ * refusing to move because of the other.
+ *
+ * Combined with the direction hysteresis below, an agent that has to go around
+ * commits to one side instead of alternating, which is what turns a shuffling
+ * scrum into units fanning out and surrounding their target.
  */
 export interface Separation {
-  others: readonly Body[];
-  selfId: number;
-  minDistance: number;
-}
-
-/**
- * May `self` stand at (x, y) without overlapping a neighbour?
- *
- * Entities that already overlap - spawned together, or shoved - must still be
- * able to separate, so a move that increases the distance to a neighbour is
- * always allowed. Without that they deadlock into a permanent clump.
- */
-function separationAllows(sep: Separation, from: Vec2, x: number, y: number): boolean {
-  const minSq = sep.minDistance * sep.minDistance;
-
-  for (const other of sep.others) {
-    if (!other.alive || other.id === sep.selfId) continue;
-
-    const dx = x - other.pos.x;
-    const dy = y - other.pos.y;
-    const candidateSq = dx * dx + dy * dy;
-    if (candidateSq >= minSq) continue;
-
-    const cx = from.x - other.pos.x;
-    const cy = from.y - other.pos.y;
-    if (candidateSq <= cx * cx + cy * cy) return false;
-  }
-
-  return true;
+  others: readonly SeparableBody[];
+  self: SeparableBody;
 }
 
 /**
@@ -154,8 +129,8 @@ const HYSTERESIS = 0.35;
  * lane-forward-first CANDIDATES order - which is the §5.3 tie-break.
  */
 function rankCandidates(desired: Vec2, lastIndex: number): void {
-  for (let i = 0; i < CANDIDATES.length; i++) {
-    const c = CANDIDATES[i]!;
+  for (let i = 0; i < RING.length; i++) {
+    const c = RING[i]!;
     scores[i] = c.x * desired.x + c.y * desired.y;
     if (i === lastIndex) scores[i] = scores[i]! + HYSTERESIS;
     order[i] = i;
@@ -197,7 +172,10 @@ export function stepToward(
   // Close enough to land exactly on it this tick.
   if (remainingSq <= step * step) {
     if (grid && isPositionBlocked(grid, destination.x, destination.y)) return false;
-    if (separation && !separationAllows(separation, mover.pos, destination.x, destination.y)) {
+    if (
+      separation &&
+      blockedByPriority(separation.others, separation.self, destination.x, destination.y)
+    ) {
       return false;
     }
     const moved = remainingSq > 0;
@@ -222,12 +200,12 @@ export function stepToward(
   rankCandidates(desired, mover.lastStepIndex);
   for (let i = 0; i < order.length; i++) {
     const index = order[i]!;
-    const c = CANDIDATES[index]!;
+    const c = RING[index]!;
     const nx = mover.pos.x + c.x * step;
     const ny = mover.pos.y + c.y * step;
 
     if (grid && !escaping && isPositionBlocked(grid, nx, ny)) continue;
-    if (separation && !separationAllows(separation, mover.pos, nx, ny)) continue;
+    if (separation && blockedByPriority(separation.others, separation.self, nx, ny)) continue;
 
     mover.pos.x = nx;
     mover.pos.y = ny;

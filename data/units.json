@@ -1,5 +1,5 @@
 {
-  "_comment": "DESIGN.md \u00a77. Builder A complete: six units covering all four damage types (\u00a76.1). Tier 2 on every unit, tier 3 on three of them (\u00a77.3). Pricing aims at ~1.6x cost for ~2.2x value so going tall beats going wide, but needs board presence you already paid for. DESIGN CHANGE from \u00a75.2: moveSpeed is how fast a unit advances when nothing is in range; 0 pins it in place. All placeholders.",
+  "_comment": "DESIGN.md \u00a77. Builder A complete: six units covering all four damage types (\u00a76.1). Tier 2 on every unit, tier 3 on three of them (\u00a77.3). Pricing aims at ~1.6x cost for ~2.2x value so going tall beats going wide, but needs board presence you already paid for. DESIGN CHANGE from \u00a75.2: moveSpeed is how fast a unit advances when nothing is in range; 0 pins it in place. `range` is reach measured EDGE TO EDGE, so a melee value near zero means walking up and touching rather than stopping a body-width short. `bodyRadius` is both collision and drawn size. All placeholders.",
   "builders": [
     {
       "id": "bastion",
@@ -22,8 +22,9 @@
       "damage": 14,
       "damageType": "impact",
       "attackSpeed": 1.0,
-      "range": 1.4,
-      "moveSpeed": 0.55
+      "range": 0.1,
+      "moveSpeed": 0.55,
+      "bodyRadius": 0.34
     },
     {
       "id": "hammer_2",
@@ -38,8 +39,9 @@
       "damage": 31,
       "damageType": "impact",
       "attackSpeed": 1.0,
-      "range": 1.4,
-      "moveSpeed": 0.55
+      "range": 0.1,
+      "moveSpeed": 0.55,
+      "bodyRadius": 0.34
     },
     {
       "id": "hammer_3",
@@ -53,8 +55,9 @@
       "damage": 66,
       "damageType": "impact",
       "attackSpeed": 1.05,
-      "range": 1.5,
-      "moveSpeed": 0.55
+      "range": 0.15,
+      "moveSpeed": 0.55,
+      "bodyRadius": 0.34
     },
     {
       "id": "bulwark",
@@ -69,8 +72,9 @@
       "damage": 18,
       "damageType": "impact",
       "attackSpeed": 0.6,
-      "range": 1.2,
-      "moveSpeed": 0.35
+      "range": 0.1,
+      "moveSpeed": 0.35,
+      "bodyRadius": 0.34
     },
     {
       "id": "bulwark_2",
@@ -84,8 +88,9 @@
       "damage": 40,
       "damageType": "impact",
       "attackSpeed": 0.6,
-      "range": 1.2,
-      "moveSpeed": 0.35
+      "range": 0.1,
+      "moveSpeed": 0.35,
+      "bodyRadius": 0.34
     },
     {
       "id": "spike",
@@ -100,8 +105,9 @@
       "damage": 11,
       "damageType": "pierce",
       "attackSpeed": 1.4,
-      "range": 3.0,
-      "moveSpeed": 0.45
+      "range": 2.4,
+      "moveSpeed": 0.45,
+      "bodyRadius": 0.34
     },
     {
       "id": "spike_2",
@@ -115,8 +121,9 @@
       "damage": 24,
       "damageType": "pierce",
       "attackSpeed": 1.4,
-      "range": 3.2,
-      "moveSpeed": 0.45
+      "range": 2.6,
+      "moveSpeed": 0.45,
+      "bodyRadius": 0.34
     },
     {
       "id": "lance",
@@ -131,8 +138,9 @@
       "damage": 52,
       "damageType": "pierce",
       "attackSpeed": 0.35,
-      "range": 5.5,
-      "moveSpeed": 0.25
+      "range": 4.9,
+      "moveSpeed": 0.25,
+      "bodyRadius": 0.34
     },
     {
       "id": "lance_2",
@@ -146,8 +154,9 @@
       "damage": 115,
       "damageType": "pierce",
       "attackSpeed": 0.35,
-      "range": 5.8,
-      "moveSpeed": 0.25
+      "range": 5.2,
+      "moveSpeed": 0.25,
+      "bodyRadius": 0.34
     },
     {
       "id": "mortar",
@@ -162,8 +171,9 @@
       "damage": 34,
       "damageType": "blast",
       "attackSpeed": 0.5,
-      "range": 4.5,
-      "moveSpeed": 0.3
+      "range": 3.9,
+      "moveSpeed": 0.3,
+      "bodyRadius": 0.34
     },
     {
       "id": "mortar_2",
@@ -178,8 +188,9 @@
       "damage": 75,
       "damageType": "blast",
       "attackSpeed": 0.5,
-      "range": 4.8,
-      "moveSpeed": 0.3
+      "range": 4.2,
+      "moveSpeed": 0.3,
+      "bodyRadius": 0.34
     },
     {
       "id": "mortar_3",
@@ -193,8 +204,9 @@
       "damage": 162,
       "damageType": "blast",
       "attackSpeed": 0.55,
-      "range": 5.0,
-      "moveSpeed": 0.3
+      "range": 4.4,
+      "moveSpeed": 0.3,
+      "bodyRadius": 0.34
     },
     {
       "id": "prism",
@@ -209,8 +221,9 @@
       "damage": 9,
       "damageType": "arcane",
       "attackSpeed": 1.8,
-      "range": 3.5,
-      "moveSpeed": 0.5
+      "range": 2.9,
+      "moveSpeed": 0.5,
+      "bodyRadius": 0.34
     },
     {
       "id": "prism_2",
@@ -225,8 +238,9 @@
       "damage": 20,
       "damageType": "arcane",
       "attackSpeed": 1.8,
-      "range": 3.6,
-      "moveSpeed": 0.5
+      "range": 3.0,
+      "moveSpeed": 0.5,
+      "bodyRadius": 0.34
     },
     {
       "id": "prism_3",
@@ -240,8 +254,9 @@
       "damage": 44,
       "damageType": "arcane",
       "attackSpeed": 1.9,
-      "range": 3.8,
-      "moveSpeed": 0.5
+      "range": 3.2,
+      "moveSpeed": 0.5,
+      "bodyRadius": 0.34
     }
   ]
 }

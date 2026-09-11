@@ -104,6 +104,14 @@ Decisions that override the document rather than filling a gap in it:
   rejected as the wrong shape: many agents, few goals, so one shared sweep beats
   30 individual searches and costs 0.44% of the tick budget. The field is used
   only when line of sight is blocked; on open ground agents still walk straight.
+- **§5.1/§5.2 — attackers take approach slots around a target.** Rather than all
+  walking at the target's centre, each takes its own position on a ring around
+  it, so a group surrounds rather than forming a queue. Reactive alternatives
+  (vetoing blocked directions, deflecting away from neighbours) were both built
+  and both oscillated; the numbers are in ARCHITECTURE.md.
+- **§5.1 — `range` is measured edge to edge.** A melee value near zero means
+  walking up until the bodies touch. Centre-to-centre range left attackers a
+  full body-width short of their target.
 - **§4.2 — same-kind collision is by body radius, not by tile.** Tile occupancy
   is right for monster-versus-unit, where a line of units is a wall. It is too
   coarse between entities of the same kind moving continuously: two in adjacent

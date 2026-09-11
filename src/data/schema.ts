@@ -95,8 +95,15 @@ export interface UnitDef {
   damageType: DamageType;
   /** Attacks per second. */
   attackSpeed: Unfilled<number>;
-  /** Range in tiles. */
+  /**
+   * Attack reach in tiles, measured EDGE TO EDGE rather than centre to centre.
+   * A melee value near zero therefore means "walk up until the bodies touch",
+   * which is what melee should look like; centre-to-centre range left a gap the
+   * width of both bodies.
+   */
   range: Unfilled<number>;
+  /** Collision and drawn radius in tiles. */
+  bodyRadius: Unfilled<number>;
   /**
    * Tiles per second while advancing on a distant monster. DESIGN CHANGE from
    * §5.2 (units were stationary); 0 restores the original behaviour per unit.
@@ -124,6 +131,8 @@ export interface MonsterDef {
   moveSpeed: Unfilled<number>;
   /** Gold paid to the defender on kill, always (§11.1). */
   bounty: Unfilled<number>;
+  /** Collision and drawn radius in tiles. Bosses are genuinely bigger. */
+  bodyRadius: Unfilled<number>;
   isBoss?: boolean;
 }
 

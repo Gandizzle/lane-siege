@@ -159,6 +159,52 @@ Together these took path efficiency from 0.57 to **0.999** and wasted travel
 from 68 tiles to 0.01 over the same 20-second window, with all 40 units still
 making progress.
 
+### Approach slots, not crowd steering
+
+Attackers converging on one target contend for the same point, and every
+_reactive_ scheme for resolving that contention oscillates. Both were built and
+measured over the same twenty-second window:
+
+| approach                            | wasted travel | surrounding  |
+| ----------------------------------- | ------------- | ------------ |
+| veto blocked directions             | 203 tiles     | queue        |
+| deflect away from neighbours        | 266 tiles     | queue        |
+| **give each attacker its own slot** | **~7 tiles**  | **fans out** |
+
+The churn comes from the ordering itself — who outranks whom flips as the crowd
+shifts — so no amount of damping settles it. Removing the contention is what
+works: each attacker takes its own slot on a ring around the target and walks
+there, so no two ever want the same spot. Surrounding falls out for free, because
+the ring _is_ a surround.
+
+Three details matter:
+
+- **Ring capacity is geometric.** Eight slots at contact distance would place
+  neighbours closer than their own bodies, so the slots would fight the
+  separation pass. Capacity is `π·r / bodyRadius`, and the overflow takes a
+  wider ring.
+- **Slots are sticky.** Recounting every tick reshuffles everyone the moment one
+  unit retargets, and the whole group walks to new positions for nothing.
+- **Parking has hysteresis.** A single distance threshold is a limit cycle: park
+  just inside it, get nudged just outside, set off again. Stop and restart use
+  different distances.
+
+### Bodies, contact and range
+
+Every entity carries its own `radius`, and the renderer draws it at exactly that
+size — so what you see is what collides. A boss is genuinely bigger; previously
+it was drawn at 2.1× its collision circle and its silhouette clipped through its
+own escort.
+
+Attack `range` is measured **edge to edge**, not centre to centre. A melee value
+near zero therefore means "walk up until the bodies touch". Centre-to-centre
+range left every attacker standing a full body-width short of its target, which
+looked wrong for melee.
+
+Monster-versus-unit overlap is resolved by backing the monster out to exactly
+touching — the defender holds its ground. Tile occupancy alone is a whole tile
+wide, so on its own it let bodies sink about a tenth of a tile into each other.
+
 ### Collision comes in two flavours
 
 Monster-versus-unit is **tile** occupancy: a line of units is a wall, and the

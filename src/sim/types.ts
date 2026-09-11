@@ -57,6 +57,8 @@ export interface DefensiveUnit {
   pos: Vec2;
   /** Tiles per second while advancing. */
   moveSpeed: number;
+  /** Collision radius in tiles. The renderer draws it at this size too. */
+  radius: number;
   /** Distance to this unit's goal from the flow field; the yielding order. */
   pathCost: number;
   /**
@@ -65,6 +67,20 @@ export interface DefensiveUnit {
    * near-equidistant monsters every tick and visibly shivers.
    */
   advanceTargetId: EntityId | null;
+  /**
+   * Which approach slot this unit holds, and around whom. Sticky: recomputed
+   * only when the target changes, because recounting every tick reshuffles
+   * everyone's slot the moment one unit retargets, and the whole group walks to
+   * new positions for nothing.
+   */
+  slotIndex: number;
+  slotTargetId: EntityId | null;
+  /**
+   * Parked at its slot. Stop and restart use different thresholds, because a
+   * single one is a limit cycle: the unit stops just inside it, the
+   * separation pass nudges it just outside, and it sets off again, forever.
+   */
+  settled: boolean;
   /** Stuck-detection window, same fallback the monsters use (§5.3). */
   stuckAnchor: Vec2;
   /** Last candidate direction taken; steering hysteresis (see steering.ts). */
@@ -103,6 +119,8 @@ export interface Monster {
   moveSpeed: number;
   range: number;
   bounty: number;
+  /** Collision radius in tiles. The renderer draws it at this size too. */
+  radius: number;
   /**
    * Which wave this monster belongs to. Enrage is tracked per wave, not per
    * lane or per monster (§8): a fresh wave joining a still-alive enraged wave
@@ -120,6 +138,9 @@ export interface Monster {
   retargetIn: number;
   /** Distance to this monster's goal from the flow field; the yielding order. */
   pathCost: number;
+  /** Approach slot, and around whom. Sticky, as for units. */
+  slotIndex: number;
+  slotTargetId: EntityId | null;
   /** Position at the start of the current stuck-detection window (§5.3). */
   stuckAnchor: Vec2;
   /** Last candidate direction taken; steering hysteresis (see steering.ts). */

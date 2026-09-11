@@ -26,6 +26,12 @@ export interface SeparableBody {
   pos: Vec2;
   alive: boolean;
   /**
+   * Body radius. Pairwise, so a boss really is bigger than a grub: a single
+   * global radius meant a boss drawn at twice the size collided at normal size
+   * and its silhouette clipped straight through its escort.
+   */
+  radius: number;
+  /**
    * Distance to this body's goal, from the flow field. It is the priority
    * order: whoever is closer to the goal holds its ground and whoever is
    * further yields.
@@ -43,7 +49,7 @@ export interface SeparableBody {
  * How much of the overlap to correct per iteration. Below 1 so a pile settles
  * over a few ticks instead of exploding apart, which would look like a bounce.
  */
-const STIFFNESS = 0.5;
+const STIFFNESS = 0.7;
 
 /** True when `a` outranks `b`: closer to the goal, ties broken by id. */
 export function outranks(a: SeparableBody, b: SeparableBody): boolean {
@@ -63,17 +69,15 @@ export function blockedByPriority(
   self: SeparableBody,
   x: number,
   y: number,
-  minDistance: number,
 ): boolean {
-  const minSq = minDistance * minDistance;
-
   for (const other of bodies) {
     if (!other.alive || other === self) continue;
     if (!outranks(other, self)) continue;
 
+    const minDistance = self.radius + other.radius;
     const dx = x - other.pos.x;
     const dy = y - other.pos.y;
-    if (dx * dx + dy * dy < minSq) return true;
+    if (dx * dx + dy * dy < minDistance * minDistance) return true;
   }
 
   return false;
@@ -88,12 +92,10 @@ export function blockedByPriority(
  */
 export function relaxSeparation(
   bodies: readonly SeparableBody[],
-  minDistance: number,
   iterations: number,
   canOccupy: ((x: number, y: number) => boolean) | null,
 ): void {
-  if (minDistance <= 0 || bodies.length < 2) return;
-  const minSq = minDistance * minDistance;
+  if (bodies.length < 2) return;
 
   for (let pass = 0; pass < iterations; pass++) {
     for (let i = 0; i < bodies.length; i++) {
@@ -104,10 +106,13 @@ export function relaxSeparation(
         const b = bodies[j]!;
         if (!b.alive) continue;
 
+        const minDistance = a.radius + b.radius;
+        if (minDistance <= 0) continue;
+
         let dx = b.pos.x - a.pos.x;
         let dy = b.pos.y - a.pos.y;
         const distSq = dx * dx + dy * dy;
-        if (distSq >= minSq) continue;
+        if (distSq >= minDistance * minDistance) continue;
 
         let dist = Math.sqrt(distSq);
         if (dist < 1e-6) {
@@ -141,4 +146,106 @@ export function relaxSeparation(
       }
     }
   }
+}
+
+/**
+ * Resolve overlaps BETWEEN the two kinds, moving only the intruder.
+ *
+ * Same-kind separation is symmetric-ish with a priority order, but across kinds
+ * there is no sensible ranking - so the defender holds its ground and the
+ * monster gets pushed back out. The result is melee that stops exactly at
+ * contact: bodies touching, neither clipping through nor standing apart.
+ *
+ * Tile occupancy still stops monsters entering a unit's tile, but a tile is a
+ * whole unit wide, so on its own it let a monster's body sink into a unit's by
+ * roughly a tenth of a tile.
+ */
+export function pushOutOf(
+  intruders: readonly SeparableBody[],
+  holders: readonly SeparableBody[],
+): void {
+  for (const intruder of intruders) {
+    if (!intruder.alive) continue;
+
+    for (const holder of holders) {
+      if (!holder.alive) continue;
+
+      const minDistance = intruder.radius + holder.radius;
+      let dx = intruder.pos.x - holder.pos.x;
+      let dy = intruder.pos.y - holder.pos.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq >= minDistance * minDistance) continue;
+
+      let dist = Math.sqrt(distSq);
+      if (dist < 1e-6) {
+        // Exactly coincident: back the intruder off the way it came.
+        dx = 0;
+        dy = -1;
+        dist = 1;
+      }
+
+      intruder.pos.x = holder.pos.x + (dx / dist) * minDistance;
+      intruder.pos.y = holder.pos.y + (dy / dist) * minDistance;
+    }
+  }
+}
+
+/**
+ * A steering nudge away from nearby bodies that outrank this one.
+ *
+ * Blended into the desired heading rather than used as a veto. A veto is
+ * discrete - a direction is allowed or it is not - and the allowed set churns
+ * every tick as the crowd shifts, so the choice flips and the agent shuffles on
+ * the spot. Measured: vetoing produced 203 tiles of wasted travel where this
+ * produces almost none.
+ *
+ * Being continuous, it also does the thing the veto could not: agents curve
+ * smoothly around an ally and fan out around the far side of a target, instead
+ * of stacking into a queue behind it.
+ *
+ * Only outranking bodies push, so a leader is never deflected by its own
+ * followers.
+ *
+ * Writes a unit vector into `out` and returns true when there was anything to
+ * avoid.
+ */
+export function avoidanceDirection(
+  bodies: readonly SeparableBody[],
+  self: SeparableBody,
+  out: Vec2,
+): boolean {
+  let ax = 0;
+  let ay = 0;
+
+  for (const other of bodies) {
+    if (!other.alive || other === self) continue;
+    if (!outranks(other, self)) continue;
+
+    const minDistance = self.radius + other.radius;
+    // Start easing aside before contact, so the curve is gentle.
+    const influence = minDistance * 2;
+
+    const dx = self.pos.x - other.pos.x;
+    const dy = self.pos.y - other.pos.y;
+    const distSq = dx * dx + dy * dy;
+    if (distSq >= influence * influence) continue;
+
+    const dist = Math.sqrt(distSq);
+    if (dist < 1e-6) {
+      ax += 1;
+      continue;
+    }
+
+    // Strength rises as they close, so a distant ally barely registers.
+    const strength = (influence - dist) / influence;
+    ax += (dx / dist) * strength;
+    ay += (dy / dist) * strength;
+  }
+
+  const length = Math.sqrt(ax * ax + ay * ay);
+  if (length < 1e-6) return false;
+
+  out.x = ax / length;
+  out.y = ay / length;
+  return true;
 }

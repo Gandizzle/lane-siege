@@ -75,8 +75,6 @@ export class EntityLayer extends Container {
   }
 
   private drawUnits(lane: Lane): void {
-    const radius = this.layout.tileSize * 0.34;
-
     for (const unit of lane.units) {
       if (!unit.alive) continue;
 
@@ -84,6 +82,9 @@ export class EntityLayer extends Container {
       if (!def) continue;
 
       const centre = this.tileToPixel(unit.pos.x, unit.pos.y);
+      // Draw at the body radius the simulation collides with, so what you see
+      // is exactly what takes up space.
+      const radius = unit.radius * this.layout.tileSize;
 
       // Solid fill = your unit (§14.2).
       drawEntity(
@@ -101,12 +102,9 @@ export class EntityLayer extends Container {
   }
 
   private drawMonsters(lane: Lane, alpha: number): void {
-    const radius = this.layout.tileSize * 0.3;
-
     for (const monster of lane.monsters) {
       if (!monster.alive) continue;
 
-      const def = this.defs.monsters.get(monster.defId);
       const prev = this.previous.get(monster.id);
 
       // A monster that did not exist last tick has nothing to interpolate from,
@@ -115,7 +113,10 @@ export class EntityLayer extends Container {
       const y = prev ? prev.y + (monster.pos.y - prev.y) * alpha : monster.pos.y;
 
       const centre = this.tileToPixel(x, y);
-      const scale = def?.isBoss ? 2.1 : 1;
+      // Same rule as the units: the drawn size IS the collision size. A boss
+      // used to be drawn at twice its collision radius, so its silhouette
+      // clipped straight through the escort around it.
+      const radius = monster.radius * this.layout.tileSize;
 
       // Outline = monster (§14.2).
       drawEntity(
@@ -128,14 +129,14 @@ export class EntityLayer extends Container {
         },
         centre.x,
         centre.y,
-        radius * scale,
+        radius,
       );
 
       if (monster.hp < monster.maxHp) {
         this.drawHealthBar(
           centre.x,
-          centre.y - radius * scale * 1.5,
-          radius * 2 * scale,
+          centre.y - radius * 1.5,
+          radius * 2,
           monster.hp / monster.maxHp,
         );
       }

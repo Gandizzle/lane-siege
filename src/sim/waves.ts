@@ -27,6 +27,7 @@ export interface ResolvedMonsterStats {
   moveSpeed: number;
   range: number;
   bounty: number;
+  radius: number;
 }
 
 function num(value: number | null, fallback = 0): number {
@@ -75,6 +76,7 @@ export function resolveMonsterStats(
     moveSpeed: num(def.moveSpeed),
     range: num(def.range),
     bounty: num(def.bounty) * intPow(num(scaling.bounty, 1), steps),
+    radius: num(def.bodyRadius, 0.3),
   };
 }
 

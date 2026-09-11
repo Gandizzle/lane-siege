@@ -28,7 +28,8 @@ import { monsterEnrage } from './enrage.ts';
 import { hasLineOfSight, isPositionBlocked, rebuildOccupancy } from './grid.ts';
 import { computeFlowField, createFlowField, steerAlongField } from './flowfield.ts';
 import type { FlowField } from './flowfield.ts';
-import { blockedByPriority, relaxSeparation } from './separation.ts';
+import { pushOutOf, relaxSeparation } from './separation.ts';
+import { slotIndexFor, writeSlotPosition } from './slots.ts';
 import { admitFromReserve, countLiving, createMonster } from './spawn.ts';
 import { clearStuck, stepToward, updateStuckDetection } from './steering.ts';
 import {
@@ -162,11 +163,24 @@ const scratchUnitPos: Vec2 = { x: 0, y: 0 };
 const scratchDirection: Vec2 = { x: 0, y: 0 };
 
 /**
- * How far inside its attack range a unit settles when advancing. Anything below
- * 1 gives the stop/go decision hysteresis, so a target drifting a fraction of a
- * tile does not restart the advance.
+ * How far inside its attack range a unit settles when advancing. Below 1 so the
+ * stop/go decision has hysteresis and a target drifting a fraction of a tile
+ * does not restart the advance.
  */
 const ADVANCE_DEADBAND = 0.9;
+
+/**
+ * Relaxation passes per tick. Slots pull neighbours toward a shared ring, so a
+ * couple of passes at half stiffness left pairs a percent or two inside each
+ * other; this converges instead.
+ */
+const RELAX_ITERATIONS = 4;
+
+/** How near its slot a unit has to get before it parks, in tiles. */
+const SLOT_SETTLE = 0.2;
+
+/** How far it must be shoved before it bothers setting off again. */
+const SLOT_RESTART = 0.55;
 
 // --------------------------------------------------------------------- stages
 
@@ -215,12 +229,12 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
     let target = holdOrDrop(lane.monsters, unit, range);
     if (!target) {
       writeUnitPosition(unit, scratchUnitPos);
-      target = nearestMonsterInRange(lane.monsters, scratchUnitPos, range);
+      target = nearestMonsterInRange(lane.monsters, scratchUnitPos, range, unit.radius);
     }
     unit.targetId = target ? target.id : null;
 
     if (!target) {
-      advanceUnit(unit, lane, maxX, maxY, ctx.data.lane.unitRadius, range);
+      advanceUnit(unit, lane, maxX, maxY, range);
       continue;
     }
 
@@ -254,7 +268,6 @@ function advanceUnit(
   lane: Lane,
   maxX: number,
   maxY: number,
-  radius: number,
   range: number,
 ): void {
   if (unit.moveSpeed <= 0) {
@@ -309,39 +322,38 @@ function advanceUnit(
     return;
   }
 
-  scratchDirection.x = target.pos.x - unit.pos.x;
-  scratchDirection.y = target.pos.y - unit.pos.y;
-  const length = Math.sqrt(
-    scratchDirection.x * scratchDirection.x + scratchDirection.y * scratchDirection.y,
+  // Walk to this unit's own slot on the ring around the target rather than at
+  // the target itself. Nobody contends for the same point, so a group fans out
+  // and surrounds instead of queueing - and there is nothing to jitter over.
+  if (unit.slotTargetId !== target.id) {
+    unit.slotTargetId = target.id;
+    unit.settled = false;
+    unit.slotIndex = slotIndexFor(lane.units, unit, (u) => u.advanceTargetId, target.id);
+  }
+  writeSlotPosition(
+    target.pos,
+    target.radius,
+    unit.radius,
+    range * 0.5,
+    unit.slotIndex,
+    scratchDestination,
   );
-  if (length < 1e-9) {
+
+  // Close enough to the slot is close enough: chasing the last fraction of a
+  // tile just grinds against the separation pass, which is pushing back. Park
+  // at SLOT_SETTLE and do not set off again until pushed past SLOT_RESTART -
+  // one shared threshold is a limit cycle.
+  const toSlot = distanceSquared(unit.pos, scratchDestination);
+  const threshold = unit.settled ? SLOT_RESTART : SLOT_SETTLE;
+  if (toSlot < threshold * threshold) {
+    unit.settled = true;
     clearStuck(unit);
     return;
   }
-  scratchDirection.x /= length;
-  scratchDirection.y /= length;
+  unit.settled = false;
 
-  scratchDestination.x = target.pos.x;
-  scratchDestination.y = target.pos.y;
-
-  // Queue behind an ally that is closer to the goal instead of squeezing past.
-  const reach = unit.moveSpeed * SECONDS_PER_TICK;
-  if (
-    blockedByPriority(
-      lane.units,
-      unit,
-      unit.pos.x + scratchDirection.x * reach,
-      unit.pos.y + scratchDirection.y * reach,
-      radius * 2,
-    )
-  ) {
-    clearStuck(unit);
-    return;
-  }
-
-  // No grid for units. Ally tiles are not terrain, and treating them as such is
+  // No grid for units: ally tiles are not terrain, and treating them as such is
   // what made a blocked unit sidestep left, then right, then left forever.
-  // Crowding between units is handled by yielding above and separation after.
   stepToward(unit, scratchDestination, unit.moveSpeed, 1, null);
 
   // Clamp into the build zone.
@@ -391,7 +403,20 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState, fields: Lan
     }
 
     if (target) {
-      writeUnitPosition(target, scratchDestination);
+      // Monsters take slots around their target too, so a pack spreads around
+      // a unit instead of stacking on the same approach point.
+      if (monster.slotTargetId !== target.id) {
+        monster.slotTargetId = target.id;
+        monster.slotIndex = slotIndexFor(lane.monsters, monster, (m) => m.targetId, target.id);
+      }
+      writeSlotPosition(
+        target.pos,
+        target.radius,
+        monster.radius,
+        monster.range * 0.5,
+        monster.slotIndex,
+        scratchDestination,
+      );
     } else {
       scratchDestination.x = ctx.fortressPosition.x;
       scratchDestination.y = ctx.fortressPosition.y;
@@ -402,7 +427,11 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState, fields: Lan
     const distance = Math.sqrt(dx * dx + dy * dy) || 1;
     const dx0 = scratchDestination.x;
     const dy0 = scratchDestination.y;
-    const inRange = dx * dx + dy * dy <= monster.range * monster.range;
+    // Edge to edge: a melee monster closes until the bodies touch rather than
+    // stopping a body-width short of its target.
+    const targetRadius = target ? target.radius : 0;
+    const reachEdge = monster.range + monster.radius + targetRadius;
+    const inRange = dx * dx + dy * dy <= reachEdge * reachEdge;
 
     if (inRange) {
       // Standing still because it has arrived is not being stuck. Counting
@@ -428,22 +457,9 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState, fields: Lan
         scratchDirection.y = dy / distance;
       }
 
-      // Yield to a monster ahead rather than shoving past it. Only bodies
-      // CLOSER to the goal block, so this queues instead of deadlocking.
-      const reach = monster.moveSpeed * multiplier * SECONDS_PER_TICK;
-      const waiting = blockedByPriority(
-        lane.monsters,
-        monster,
-        monster.pos.x + scratchDirection.x * reach,
-        monster.pos.y + scratchDirection.y * reach,
-        ctx.data.lane.monsterRadius * 2,
-      );
-
-      // Always attempt to move otherwise: gating movement on the stuck flag is
-      // what froze monsters permanently.
-      if (!waiting) {
-        stepToward(monster, scratchDestination, monster.moveSpeed, multiplier, grid);
-      }
+      // Always attempt to move: gating movement on the stuck flag is what froze
+      // monsters permanently.
+      stepToward(monster, scratchDestination, monster.moveSpeed, multiplier, grid);
       updateStuckDetection(monster);
     }
 
@@ -754,19 +770,21 @@ function separateBodies(ctx: SimContext, lane: Lane): void {
 
   relaxSeparation(
     lane.monsters,
-    ctx.data.lane.monsterRadius * 2,
-    2,
-    grid ? (x, y) => !isPositionBlocked(grid, x, y) : null,
+    RELAX_ITERATIONS,
+    grid ? (x: number, y: number) => !isPositionBlocked(grid, x, y) : null,
   );
 
   const maxX = ctx.data.lane.buildZone.width;
   const maxY = ctx.data.lane.buildZone.depth;
   relaxSeparation(
     lane.units,
-    ctx.data.lane.unitRadius * 2,
-    2,
-    (x, y) => x >= 0 && y >= 0 && x < maxX && y < maxY,
+    RELAX_ITERATIONS,
+    (x: number, y: number) => x >= 0 && y >= 0 && x < maxX && y < maxY,
   );
+
+  // Melee should stop at contact, not sink into what it is hitting. The
+  // defender holds; the monster is backed out to exactly touching.
+  pushOutOf(lane.monsters, lane.units);
 
   // Units that were shoved may have crossed a tile boundary.
   lane.occupancyDirty = true;

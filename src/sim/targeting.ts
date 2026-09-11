@@ -52,19 +52,26 @@ export function nearestUnit(units: readonly DefensiveUnit[], from: Vec2): Defens
   return best;
 }
 
-/** Nearest living monster within `range` tiles, or null. */
+/**
+ * Nearest living monster in reach, or null.
+ *
+ * `range` is EDGE TO EDGE, so the bodies are added on: a melee range near zero
+ * means "close enough to touch". Measuring centre to centre left attackers
+ * standing a full body-width short of their target, which looked wrong.
+ */
 export function nearestMonsterInRange(
   monsters: readonly Monster[],
   from: Vec2,
   range: number,
+  selfRadius = 0,
 ): Monster | null {
-  const rangeSq = range * range;
   let best: Monster | null = null;
   let bestDist = Infinity;
   for (const monster of monsters) {
     if (!monster.alive) continue;
+    const reach = range + selfRadius + monster.radius;
     const dist = distanceSquared(from, monster.pos);
-    if (dist <= rangeSq && dist < bestDist) {
+    if (dist <= reach * reach && dist < bestDist) {
       bestDist = dist;
       best = monster;
     }
@@ -98,5 +105,6 @@ export function holdOrDrop(
 ): Monster | null {
   const current = findMonster(monsters, unit.targetId);
   if (!current) return null;
-  return distanceSquared(unitPosition(unit), current.pos) <= range * range ? current : null;
+  const reach = range + unit.radius + current.radius;
+  return distanceSquared(unitPosition(unit), current.pos) <= reach * reach ? current : null;
 }
