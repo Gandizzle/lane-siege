@@ -101,7 +101,11 @@ export class LaneView extends Container {
     const l = this.layout;
     const { armourTypes, damageTypes } = this.data.matrix;
 
-    const heading = label(`Lane Siege — ${l.grid.width}×${l.grid.depth} build zone`, 13, UI.text);
+    const heading = label(
+      `Super Land Siege — ${l.grid.width}×${l.grid.depth} build zone`,
+      13,
+      UI.text,
+    );
     heading.x = 12;
     heading.y = l.tabs.y + l.tabs.height / 2 - heading.height / 2;
     this.overlay.addChild(heading);
