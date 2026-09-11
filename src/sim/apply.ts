@@ -157,12 +157,6 @@ export function applyCommand(
       lane.fortress.activeAura = command.aura;
       return OK;
 
-    // §3.2: if all living players press ready, the remaining build time is
-    // skipped and the next wave spawns early.
-    case 'ready':
-      lane.ready = true;
-      return OK;
-
     // M3/M4 territory: tech, fortress upgrades, supply cap and sends all need
     // upgrade ladders and a send catalogue that data/ does not carry yet.
     case 'buyTech':

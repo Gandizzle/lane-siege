@@ -144,8 +144,8 @@ export class LaneView extends Container {
         const { gridOrigin, tileSize } = this.layout;
         this.highlight
           .rect(
-            gridOrigin.x + unit.tileX * tileSize,
-            gridOrigin.y + unit.tileY * tileSize,
+            gridOrigin.x + Math.floor(unit.pos.x) * tileSize,
+            gridOrigin.y + Math.floor(unit.pos.y) * tileSize,
             tileSize,
             tileSize,
           )

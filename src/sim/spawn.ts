@@ -76,11 +76,18 @@ export function createUnit(
   tileX: number,
   tileY: number,
 ): DefensiveUnit {
+  const pos = { x: tileX + 0.5, y: tileY + 0.5 };
+
   return {
     id: nextId(state),
     defId: def.id,
-    tileX,
-    tileY,
+    homeTileX: tileX,
+    homeTileY: tileY,
+    pos,
+    moveSpeed: stat(def.moveSpeed),
+    stuckAnchor: { x: pos.x, y: pos.y },
+    stuckTicks: 0,
+    isStuck: false,
     hp: stat(def.hp),
     maxHp: stat(def.hp),
     armour: def.armour,

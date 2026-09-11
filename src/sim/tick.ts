@@ -19,11 +19,18 @@ import { applyCommands } from './apply.ts';
 import { resolveDamage } from './damage.ts';
 import { buildDefIndex, stat, type DefIndex } from './defs.ts';
 import { monsterEnrage } from './enrage.ts';
-import { rebuildOccupancy } from './grid.ts';
+import { rebuildOccupancy, restoreSelf, withoutSelf } from './grid.ts';
+import type { OccupancyGrid } from './grid.ts';
 import { admitFromReserve, countLiving, createMonster } from './spawn.ts';
-import { stepToward, updateStuckDetection } from './steering.ts';
-import { holdOrDrop, nearestMonsterInRange, nearestUnit, writeUnitPosition } from './targeting.ts';
-import type { Lane, MatchState, Vec2 } from './types.ts';
+import { clearStuck, stepToward, updateStuckDetection } from './steering.ts';
+import {
+  distanceSquared,
+  holdOrDrop,
+  nearestMonsterInRange,
+  nearestUnit,
+  writeUnitPosition,
+} from './targeting.ts';
+import type { DefensiveUnit, Lane, MatchState, Monster, Vec2 } from './types.ts';
 import { generateWave } from './waves.ts';
 
 /** Everything a tick needs that is not match state: the data and its index. */
@@ -75,11 +82,22 @@ function advanceWaveClocks(state: MatchState): void {
 }
 
 /**
- * §5.2: a unit holds its target until the target dies or leaves range, and only
- * then reacquires the nearest in range. Stationary always - units never move
- * and never chase.
+ * §5.2, amended: a unit holds its target until that target dies or leaves range,
+ * and only then reacquires the nearest in range. That part is unchanged, and it
+ * is what stops target-switch jitter.
+ *
+ * What changed: a unit with NOTHING in range no longer stands there. It advances
+ * on the nearest monster in the lane until something comes into range, then
+ * plants and fights. It still never chases a target it is already engaging.
+ *
+ * Units block each other while advancing (the occupancy grid), so a line drifts
+ * forward rather than collapsing into one tile.
  */
-function unitsAct(ctx: SimContext, lane: Lane): void {
+function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
+  const grid = ctx.data.lane.unitsBlockMovement ? lane.occupancy : null;
+  const maxX = ctx.data.lane.buildZone.width;
+  const maxY = ctx.data.lane.buildZone.depth;
+
   for (const unit of lane.units) {
     if (!unit.alive) continue;
 
@@ -96,7 +114,14 @@ function unitsAct(ctx: SimContext, lane: Lane): void {
     }
     unit.targetId = target ? target.id : null;
 
-    if (!target || unit.cooldown > 0) continue;
+    if (!target) {
+      advanceUnit(unit, lane, grid, maxX, maxY);
+      continue;
+    }
+
+    // In range: plant and fight. Standing still on purpose is not being stuck.
+    clearStuck(unit);
+    if (unit.cooldown > 0) continue;
 
     // TODO(§7.4, §10.1): aura and tech multipliers fold in here. Auras are
     // recomputed only on add/remove/upgrade and on wave start (§15.3), never per
@@ -109,6 +134,60 @@ function unitsAct(ctx: SimContext, lane: Lane): void {
     );
     unit.cooldown = cooldownTicks(stat(def.attackSpeed));
   }
+
+  void state;
+}
+
+/**
+ * Walk one unit toward the nearest monster in the lane. Units stay inside the
+ * build zone: the lane beyond it is not theirs to hold, and letting them wander
+ * into the spawn zone would make the build grid meaningless.
+ */
+function advanceUnit(
+  unit: DefensiveUnit,
+  lane: Lane,
+  grid: OccupancyGrid | null,
+  maxX: number,
+  maxY: number,
+): void {
+  if (unit.moveSpeed <= 0) {
+    clearStuck(unit);
+    return;
+  }
+
+  let nearest: Monster | null = null;
+  let bestDist = Infinity;
+  for (const monster of lane.monsters) {
+    if (!monster.alive) continue;
+    const dist = distanceSquared(unit.pos, monster.pos);
+    if (dist < bestDist) {
+      bestDist = dist;
+      nearest = monster;
+    }
+  }
+
+  // Nothing to walk toward - during a build phase, say.
+  if (!nearest) {
+    clearStuck(unit);
+    return;
+  }
+
+  scratchDestination.x = nearest.pos.x;
+  scratchDestination.y = nearest.pos.y;
+
+  // A unit's own tile must not block its own step.
+  const self = grid ? withoutSelf(grid, unit.pos.x, unit.pos.y) : 0;
+  stepToward(unit, scratchDestination, unit.moveSpeed, 1, grid);
+  if (grid) restoreSelf(grid, unit.pos.x, unit.pos.y, self);
+
+  // Clamp into the build zone.
+  if (unit.pos.x < 0) unit.pos.x = 0.01;
+  if (unit.pos.y < 0) unit.pos.y = 0.01;
+  if (unit.pos.x >= maxX) unit.pos.x = maxX - 0.01;
+  if (unit.pos.y >= maxY) unit.pos.y = maxY - 0.01;
+
+  updateStuckDetection(unit);
+  lane.occupancyDirty = true;
 }
 
 /**
@@ -158,16 +237,39 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
     const dy = scratchDestination.y - monster.pos.y;
     const inRange = dx * dx + dy * dy <= monster.range * monster.range;
 
-    if (!inRange && !monster.isStuck) {
+    if (inRange) {
+      // Standing still because it has arrived is not being stuck. Counting
+      // those ticks is what used to freeze monsters forever once their target
+      // died - see the note at the top of steering.ts.
+      clearStuck(monster);
+    } else {
+      // Always attempt to move. The occupancy grid is the only thing allowed to
+      // refuse, and it stops refusing the moment the way clears.
       stepToward(monster, scratchDestination, monster.moveSpeed, multiplier, grid);
+      updateStuckDetection(monster);
     }
-    updateStuckDetection(monster);
 
     if (!(inRange || monster.isStuck) || monster.cooldown > 0) continue;
 
     // §8: enrage raises damage and attack speed. Never HP - a stalling player
     // should face deadlier monsters, not unkillable ones.
     const damage = monster.damage * multiplier;
+
+    // §5.3: a boxed-in monster attacks whatever is nearest rather than standing
+    // there, even if that thing is not its assigned target.
+    if (!target && monster.isStuck) {
+      const neighbour = nearestUnit(lane.units, monster.pos);
+      if (neighbour) {
+        neighbour.hp -= resolveDamage(
+          ctx.data.matrix.multipliers,
+          damage,
+          monster.damageType,
+          neighbour.armour,
+        );
+        monster.cooldown = cooldownTicks(monster.attackSpeed * multiplier);
+        continue;
+      }
+    }
 
     if (target) {
       target.hp -= resolveDamage(
@@ -286,14 +388,18 @@ function respawnUnits(ctx: SimContext, lane: Lane, state: MatchState): void {
   if (state.wave >= ctx.data.waves.attritionStartWave) return;
 
   for (const unit of lane.units) {
-    if (unit.alive) {
-      unit.hp = unit.maxHp;
-      continue;
-    }
     unit.alive = true;
     unit.hp = unit.maxHp;
     unit.targetId = null;
     unit.cooldown = 0;
+    // Units advance during combat (§5.2, amended), so put the line back on the
+    // tiles the player chose rather than leaving it wherever it drifted to.
+    unit.pos.x = unit.homeTileX + 0.5;
+    unit.pos.y = unit.homeTileY + 0.5;
+    unit.stuckAnchor.x = unit.pos.x;
+    unit.stuckAnchor.y = unit.pos.y;
+    unit.stuckTicks = 0;
+    unit.isStuck = false;
   }
   lane.occupancyDirty = true;
 }
@@ -346,43 +452,23 @@ function spawnWave(ctx: SimContext, state: MatchState): void {
 }
 
 /**
- * §3.1 and §3.2: build phase, then combat. Waves spawn on a fixed global clock
- * regardless of whether any lane has cleared the previous wave - a slow player
- * meets wave 8 while wave 7 is still alive in their lane, and cannot hold three
- * other players hostage.
+ * §3.1, amended: build phase, then combat.
  *
- * The wave interval is the FULL cycle, so the combat phase is whatever the build
- * phase leaves of it.
- */
-function combatPhaseTicks(data: GameData): number {
-  const interval = data.waves.waveIntervalSeconds;
-  if (interval === null) return 0;
-  return secondsToTicks(Math.max(0, interval - data.waves.buildPhaseSeconds));
-}
-
-/** §3.2: all living players ready skips the rest of the build phase. */
-function allReady(state: MatchState): boolean {
-  const living = state.teams.filter((t) => !t.eliminated);
-  if (living.length === 0) return false;
-  return living.every((t) => state.lanes[t.id]?.ready === true);
-}
-
-/**
- * Every living lane has killed everything, reserves included.
+ * DESIGN CHANGE to §3.2. The original had waves spawning on a fixed global
+ * clock so that one slow player could not hold three others hostage. That also
+ * meant a second wave could land on top of an unfinished one and wreck the
+ * build cycle, so the clock is gone: the ONLY global timers left are the 30s
+ * build phase and the enrage clock (§8).
  *
- * DESIGN CHANGE to §3.2: the combat phase ends as soon as this is true rather
- * than always running its full length. §3.2's concern is that a SLOW player must
- * not hold everyone else hostage, and this cannot do that - the clock only jumps
- * forward when every living lane is already finished, which is the same
- * principle the ready button applies to the build phase.
- *
- * The consequence worth knowing: the wave clock is no longer strictly fixed. It
- * is fixed unless everyone is done early, so a table of skilled players moves
- * through waves faster than the nominal 75s cycle.
+ * Combat now runs until every living lane is empty. The hostage problem is
+ * handled at the other end instead - enrage keeps climbing on a lane that
+ * cannot clear (§8), and when that lane's fortress falls its monsters are wiped
+ * from the board and it stops receiving waves, so it cannot stall the match
+ * indefinitely.
  */
 function allLanesClear(state: MatchState): boolean {
   const living = state.teams.filter((t) => !t.eliminated);
-  if (living.length === 0) return false;
+  if (living.length === 0) return true;
 
   return living.every((team) => {
     const lane = state.lanes[team.id];
@@ -392,42 +478,60 @@ function allLanesClear(state: MatchState): boolean {
 }
 
 function advancePhase(ctx: SimContext, state: MatchState): void {
-  const skipping =
-    (state.phase === 'build' && allReady(state)) ||
-    // Wave 0 has spawned nothing yet, so an empty lane during 'combat' before
-    // the first spawn must not count as cleared.
-    (state.phase === 'combat' && state.wave > 0 && allLanesClear(state));
+  if (state.phase === 'build') {
+    if (state.phaseTicksLeft > 0) {
+      state.phaseTicksLeft -= 1;
+      return;
+    }
 
-  if (state.phaseTicksLeft > 0 && !skipping) {
-    state.phaseTicksLeft -= 1;
+    state.phase = 'combat';
+    state.wave += 1;
+    // Combat has no clock of its own. It ends when the lanes are empty.
+    state.phaseTicksLeft = 0;
+    spawnWave(ctx, state);
     return;
   }
 
-  if (state.phase === 'build') {
-    state.phase = 'combat';
-    state.wave += 1;
-    state.phaseTicksLeft = combatPhaseTicks(ctx.data);
-    for (const team of state.teams) {
-      const lane = state.lanes[team.id];
-      if (lane) lane.ready = false;
-    }
-    spawnWave(ctx, state);
-  } else {
-    state.phase = 'build';
-    state.phaseTicksLeft = secondsToTicks(ctx.data.waves.buildPhaseSeconds);
+  if (!allLanesClear(state)) return;
 
-    for (const team of state.teams) {
-      if (team.eliminated) continue;
-      const lane = state.lanes[team.id];
-      if (!lane) continue;
+  state.phase = 'build';
+  state.phaseTicksLeft = secondsToTicks(ctx.data.waves.buildPhaseSeconds);
 
-      respawnUnits(ctx, lane, state);
-      // §11.6: passive income is paid out each wave and compounds over the
-      // match. This is the long-game economic engine.
-      lane.economy.gold += lane.economy.passiveIncome;
-      lane.economy.gems += stat(ctx.data.fortress.resourceBuilding.gemsPerWave);
-    }
+  for (const team of state.teams) {
+    if (team.eliminated) continue;
+    const lane = state.lanes[team.id];
+    if (!lane) continue;
+
+    respawnUnits(ctx, lane, state);
+    // §11.6: passive income is paid each wave and compounds over the match.
+    lane.economy.gold += lane.economy.passiveIncome;
+    lane.economy.gems += stat(ctx.data.fortress.resourceBuilding.gemsPerWave);
   }
+}
+
+/**
+ * Clear a dead player's lane.
+ *
+ * Their monsters would otherwise sit there forever: nothing kills them, and
+ * since combat now ends only when every lane is empty (§3.2, amended), they
+ * would stall the match for everyone still playing. Wave clocks are decremented
+ * for each one removed, or the wave never ends and enrage keeps climbing (§8).
+ */
+function wipeLane(state: MatchState, lane: Lane): void {
+  for (const monster of lane.monsters) {
+    if (!monster.alive) continue;
+    const clock = state.waveClocks.find((c) => c.waveNumber === monster.waveNumber);
+    if (clock) clock.remaining -= 1;
+    monster.alive = false;
+  }
+  for (const spec of lane.reserve) {
+    const clock = state.waveClocks.find((c) => c.waveNumber === spec.waveNumber);
+    if (clock) clock.remaining -= 1;
+  }
+
+  lane.monsters.length = 0;
+  lane.reserve.length = 0;
+  lane.incomingSends.length = 0;
 }
 
 /** §13: fortress HP at zero eliminates that team; placement locks in there. */
@@ -438,6 +542,7 @@ function checkEliminations(state: MatchState): void {
     if (!lane || !lane.fortress.destroyed) continue;
 
     team.eliminated = true;
+    wipeLane(state, lane);
     // Count up from the bottom: the first out places last. Counting survivors
     // would give two teams eliminated on the same tick the same placement.
     state.eliminatedCount += 1;
@@ -472,13 +577,14 @@ export function step(
     const lane = state.lanes[team.id];
     if (!lane) continue;
 
-    // Occupancy is rebuilt on change only, never per tick (§15.3).
+    // Rebuilt on change rather than unconditionally. Units move now, so they
+    // set the dirty flag themselves when they do (§15.3).
     if (lane.occupancyDirty) {
       rebuildOccupancy(lane.occupancy, lane.units);
       lane.occupancyDirty = false;
     }
 
-    unitsAct(ctx, lane);
+    unitsAct(ctx, lane, state);
     monstersAct(ctx, lane, state);
     fortressActs(ctx, lane);
     reapDead(ctx, lane, state);

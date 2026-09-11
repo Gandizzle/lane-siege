@@ -86,6 +86,24 @@ Already decided in DESIGN.md and simply written into `data/`:
 
 Decisions that override the document rather than filling a gap in it:
 
+- **§3.2 — there is no global wave-spawn clock.** The only global timers are the
+  30s build phase and the enrage clock (§8). Combat runs until every living lane
+  is empty. The original clock existed so one slow player could not hold three
+  others hostage; that is now handled at the other end instead — enrage keeps
+  climbing on a lane that cannot clear, and when its fortress falls the lane is
+  wiped and stops receiving waves, so it cannot stall the match indefinitely.
+- **§5.2 — defensive units are no longer permanently stationary.** A unit with
+  nothing in range advances on the nearest monster until something comes into
+  range, then plants and fights. It still never chases a target it is already
+  engaging, so §5.2's anti-jitter guarantee is intact. `moveSpeed` is per unit in
+  `units.json`; `0` restores the original stationary behaviour.
+- **§3.2 — the ready button is gone.** The build phase is short enough that
+  skipping it was not worth a button. Its corner of the build bar now holds the
+  fortress weapon damage-type selector (§10.1).
+- **§13 — an eliminated player's lane is wiped.** Their monsters are removed and
+  no further waves spawn there. Without this a dead lane's leftovers would stall
+  combat forever, since combat now ends only when every lane is empty.
+
 - **§5.5 — fortress self-healing is an upgrade, not a default.** Base
   regeneration on a full lane clear is `0`. Buying it is a fortress upgrade,
   landing with the rest of them in M3. Until then chip damage is permanent and

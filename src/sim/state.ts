@@ -54,7 +54,6 @@ function createLane(data: GameData, teamId: TeamId, missing: string[]): Lane {
     monsters: [],
     occupancy: createGrid(data.lane.buildZone.width, data.lane.buildZone.depth),
     occupancyDirty: false,
-    ready: false,
     reserve: [],
     incomingSends: [],
     fortress: {
@@ -84,7 +83,6 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
   const missing: string[] = [];
 
   const buildTicks = secondsToTicks(data.waves.buildPhaseSeconds);
-  requireNumber(data.waves.waveIntervalSeconds, 'waves.waveIntervalSeconds', missing);
 
   const teams: Team[] = options.teams.map((setup) => ({
     id: setup.id,

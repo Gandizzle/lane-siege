@@ -40,8 +40,27 @@ export interface DefensiveUnit {
   id: EntityId;
   /** Key into units.json. Tier upgrades swap this in place (§7.3). */
   defId: string;
-  tileX: number;
-  tileY: number;
+  /**
+   * The tile it was built on. Kept so an upgrade stays "in place" (§7.3) and so
+   * respawn returns it to formation rather than wherever it died.
+   */
+  homeTileX: number;
+  homeTileY: number;
+  /**
+   * Current position in tile coordinates.
+   *
+   * DESIGN CHANGE from §5.2, which had units permanently stationary: a unit
+   * with nothing in range now advances toward the nearest monster. It still
+   * never chases a target it is already fighting - once something is in range
+   * it plants and holds, which is what keeps §5.2's no-jitter guarantee.
+   */
+  pos: Vec2;
+  /** Tiles per second while advancing. */
+  moveSpeed: number;
+  /** Stuck-detection window, same fallback the monsters use (§5.3). */
+  stuckAnchor: Vec2;
+  stuckTicks: number;
+  isStuck: boolean;
   hp: number;
   maxHp: number;
   armour: ArmourType;
@@ -143,8 +162,6 @@ export interface Lane {
    */
   occupancy: OccupancyGrid;
   occupancyDirty: boolean;
-  /** §3.2: all living players ready skips the rest of the build phase. */
-  ready: boolean;
   /**
    * Overflow beyond maxConcurrentMonsters. Spawns one at a time as active
    * monsters die, into its own wave's current enrage state (§8.1).

@@ -65,12 +65,6 @@ export interface SendCommand {
   sendId: string;
 }
 
-/** All living players ready skips the rest of the build phase (§3.2). */
-export interface ReadyCommand {
-  kind: 'ready';
-  teamId: TeamId;
-}
-
 export type Command =
   | PlaceUnitCommand
   | UpgradeUnitCommand
@@ -79,8 +73,7 @@ export type Command =
   | BuySupplyCommand
   | SetWeaponTypeCommand
   | SetAuraCommand
-  | SendCommand
-  | ReadyCommand;
+  | SendCommand;
 
 /** Why a command was refused. Surfaced to the UI; never thrown. */
 export type CommandRejection =

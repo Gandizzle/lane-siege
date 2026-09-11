@@ -91,6 +91,11 @@ export interface UnitDef {
   attackSpeed: Unfilled<number>;
   /** Range in tiles. */
   range: Unfilled<number>;
+  /**
+   * Tiles per second while advancing on a distant monster. DESIGN CHANGE from
+   * §5.2 (units were stationary); 0 restores the original behaviour per unit.
+   */
+  moveSpeed: Unfilled<number>;
 }
 
 export interface UnitsFile {
@@ -144,12 +149,6 @@ export interface WaveDef {
 
 export interface WavesFile {
   buildPhaseSeconds: number;
-  /**
-   * Seconds between wave spawns on the global clock (§3.2). DESIGN.md requires
-   * this clock to exist but never states its period - see the note in
-   * waves.json. Unfilled until someone decides.
-   */
-  waveIntervalSeconds: Unfilled<number>;
   bossEveryNWaves: number;
   /** Last wave on which defensive units may be built (§3.3). */
   lastBuildWave: number;

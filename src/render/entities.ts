@@ -83,7 +83,7 @@ export class EntityLayer extends Container {
       const def = this.defs.units.get(unit.defId);
       if (!def) continue;
 
-      const centre = this.tileToPixel(unit.tileX + 0.5, unit.tileY + 0.5);
+      const centre = this.tileToPixel(unit.pos.x, unit.pos.y);
 
       // Solid fill = your unit (§14.2).
       drawEntity(

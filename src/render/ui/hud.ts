@@ -57,11 +57,13 @@ export class Hud extends Container {
     waveText.y = l.tabs.y + 8;
     this.content.addChild(waveText);
 
-    // §3.1: build phase, then combat. The countdown is the global wave clock,
-    // which runs whether or not this lane has cleared anything (§3.2).
+    // §3.1, amended: the build phase is the only phase with a clock. Combat now
+    // runs until the lane is empty (§3.2, amended), so it counts monsters left
+    // rather than seconds - a countdown stuck at 0s would say nothing.
+    const remaining = lane.monsters.filter((m) => m.alive).length + lane.reserve.length;
     const seconds = Math.ceil(ticksToSeconds(state.phaseTicksLeft));
     const phaseText = label(
-      state.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${seconds}s`,
+      state.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${remaining} left`,
       12,
       state.phase === 'build' ? UI.accent : UI.textMuted,
       '600',

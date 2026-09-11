@@ -83,7 +83,8 @@ export class Game extends Container {
     this.buildBar = new BuildBar(this.layout, data, {
       onSelectUnitDef: (id) => this.selectUnitDef(id),
       onUpgrade: (id) => this.upgrade(id),
-      onReady: () => this.issue({ kind: 'ready', teamId: TEAM_ID }),
+      onSelectWeapon: (damageType) =>
+        this.issue({ kind: 'setWeaponType', teamId: TEAM_ID, damageType }),
       onClearSelection: () => this.clearSelection(),
     });
     this.gameOver = new GameOver(this.layout, () => this.restart());
@@ -191,7 +192,9 @@ export class Game extends Container {
   }
 
   private tapTile(tileX: number, tileY: number): void {
-    const existing = this.lane.units.find((u) => u.alive && u.tileX === tileX && u.tileY === tileY);
+    const existing = this.lane.units.find(
+      (u) => u.alive && Math.floor(u.pos.x) === tileX && Math.floor(u.pos.y) === tileY,
+    );
 
     // Tapping one of your own units always opens its upgrade panel - that is
     // the only route to upgrading, so it must not be blocked by having a build

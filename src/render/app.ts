@@ -38,9 +38,23 @@ export async function startApp(
   const game = new Game(data, app.screen.width, app.screen.height, seed);
   app.stage.addChild(game);
 
-  // The simulation is driven from the frame callback, but at its own fixed rate
-  // (§15.1): `deltaMS` is wall time and goes no further than the accumulator.
-  app.ticker.add((ticker) => game.frame(ticker.deltaMS));
+  // Drive the simulation from real elapsed time, NOT from `ticker.deltaMS`.
+  //
+  // Pixi's ticker clamps its delta to `maxElapsedMS` (100ms by default, i.e.
+  // minFPS 10). Below ten frames a second that clamp silently feeds the
+  // accumulator less time than actually passed, and the whole match runs in
+  // slow motion - measured at ~55% speed on a 5fps software renderer. That is
+  // precisely the mid-range phone §15.3 cares about.
+  //
+  // So the accumulator sees the truth, and `MAX_CATCHUP_TICKS` in loop.ts stays
+  // the single place that decides what to do about a slow frame.
+  let last = performance.now();
+  app.ticker.add(() => {
+    const now = performance.now();
+    const elapsed = now - last;
+    last = now;
+    game.frame(elapsed);
+  });
 
   // Fixed camera (§14.1): resize only recomputes the layout.
   const onResize = () => game.resize(app.screen.width, app.screen.height);

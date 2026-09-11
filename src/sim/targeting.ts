@@ -23,8 +23,7 @@ export function distanceSquared(a: Vec2, b: Vec2): number {
 }
 
 export function unitPosition(unit: DefensiveUnit): Vec2 {
-  // Units occupy one tile each (§4.2); their position is that tile's centre.
-  return { x: unit.tileX + 0.5, y: unit.tileY + 0.5 };
+  return { x: unit.pos.x, y: unit.pos.y };
 }
 
 /**
@@ -33,8 +32,8 @@ export function unitPosition(unit: DefensiveUnit): Vec2 {
  * monster on every tick.
  */
 export function writeUnitPosition(unit: DefensiveUnit, out: Vec2): Vec2 {
-  out.x = unit.tileX + 0.5;
-  out.y = unit.tileY + 0.5;
+  out.x = unit.pos.x;
+  out.y = unit.pos.y;
   return out;
 }
 

@@ -21,7 +21,7 @@ export interface DataReport {
 const IGNORED_KEYS = new Set([
   '_comment',
   '_open',
-  '_waveIntervalNote',
+  '_clockNote',
   '_decided',
   '_armourNote',
   '_roster',
@@ -104,21 +104,6 @@ function checkBuilderCoverage(data: GameData, errors: string[], notes: string[])
   }
 }
 
-/**
- * §3.2: waves spawn on a fixed global clock. The build phase is one slice of
- * that period, so an interval that does not exceed it leaves no combat phase.
- */
-function checkWaveClock(data: GameData, errors: string[]): void {
-  const { waveIntervalSeconds, buildPhaseSeconds } = data.waves;
-  if (waveIntervalSeconds === null) return;
-  if (waveIntervalSeconds <= buildPhaseSeconds) {
-    errors.push(
-      `waves.waveIntervalSeconds (${waveIntervalSeconds}s) must exceed ` +
-        `buildPhaseSeconds (${buildPhaseSeconds}s) or there is no combat phase (§3.2)`,
-    );
-  }
-}
-
 /** Every monster named in a wave must actually exist (§9.2). */
 function checkWaveReferences(data: GameData, errors: string[]): void {
   const known = new Set([
@@ -160,7 +145,6 @@ export function validateData(raw: Record<string, unknown>): {
   collectNulls(raw, '', missing);
   checkMatrix(data, errors);
   checkBuilderCoverage(data, errors, notes);
-  checkWaveClock(data, errors);
   checkWaveReferences(data, errors);
   checkUpgradeChain(data, errors);
 

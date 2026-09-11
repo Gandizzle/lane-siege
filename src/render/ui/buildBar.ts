@@ -23,10 +23,10 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
-import type { GameData, UnitDef } from '../../data/schema.ts';
+import type { DamageType, GameData, UnitDef } from '../../data/schema.ts';
 import type { Lane, WaveSummary } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
-import { UI } from '../palette.ts';
+import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { drawEntity } from '../shapes.ts';
 import { label } from './text.ts';
 
@@ -36,7 +36,7 @@ export type Selection =
 export interface BuildBarHandlers {
   onSelectUnitDef(unitDefId: string): void;
   onUpgrade(unitId: number): void;
-  onReady(): void;
+  onSelectWeapon(damageType: DamageType): void;
   onClearSelection(): void;
 }
 
@@ -73,6 +73,14 @@ class TapPanel extends Container {
   setEnabled(enabled: boolean): void {
     this.alpha = enabled ? 1 : 0.42;
     this.eventMode = enabled ? 'static' : 'none';
+  }
+
+  /** A small solid swatch, used for the fortress weapon damage types. */
+  layoutChip(x: number, y: number, width: number, height: number, colour: number): void {
+    this.position.set(x, y);
+    this.resizeTo(width, height);
+    this.bg.clear();
+    this.bg.roundRect(0, 0, width, height, 6).fill({ color: colour });
   }
 }
 
@@ -181,7 +189,9 @@ export class BuildBar extends Container {
 
   private readonly roster = new Container();
   private readonly unitButtons: UnitButton[] = [];
-  private readonly ready: SimpleButton;
+  private readonly weapon = new Container();
+  private readonly weaponCaption = label('fortress weapon', 9, UI.textMuted, '600');
+  private readonly weaponChips: { type: DamageType; panel: TapPanel; ring: Graphics }[] = [];
 
   private readonly upgradePanel = new Container();
   private readonly upgradeBg = new Graphics();
@@ -191,7 +201,6 @@ export class BuildBar extends Container {
   private readonly backButton: SimpleButton;
 
   private selectedUnitId: number | null = null;
-  private readyWasSet = false;
 
   constructor(
     layout: LaneLayout,
@@ -208,8 +217,19 @@ export class BuildBar extends Container {
       this.roster.addChild(button);
     }
 
-    this.ready = new SimpleButton('Ready', () => this.handlers.onReady());
-    this.roster.addChild(this.ready);
+    // §10.1: the fortress weapon's damage type is player-selectable during each
+    // build phase, free and instant. A small per-wave decision that keeps every
+    // player engaging with the matrix - and the reason this corner of the bar
+    // exists now that Ready is gone.
+    for (const type of data.matrix.damageTypes) {
+      const ring = new Graphics();
+      const panel = new TapPanel(() => this.handlers.onSelectWeapon(type));
+      panel.addChild(ring);
+      this.weaponChips.push({ type, panel, ring });
+      this.weapon.addChild(panel);
+    }
+    this.weapon.addChild(this.weaponCaption);
+    this.roster.addChild(this.weapon);
 
     this.upgradeTitle = label('', 13, UI.text, '700');
     this.upgradeDetail = label('', 10, UI.textMuted);
@@ -237,10 +257,10 @@ export class BuildBar extends Container {
       .rect(l.buildBar.x, l.buildBar.y, l.buildBar.width, l.buildBar.height)
       .fill({ color: UI.buildBar });
 
-    const readyWidth = 78;
+    const weaponWidth = 96;
     const gap = 6;
     const count = Math.max(1, this.unitButtons.length);
-    const available = l.buildBar.width - readyWidth - gap * (count + 1) - 6;
+    const available = l.buildBar.width - weaponWidth - gap * (count + 1) - 6;
     const buttonWidth = Math.max(MIN_TOUCH, available / count);
     const buttonHeight = Math.max(MIN_TOUCH, l.buildBar.height - 22);
     const top = l.buildBar.y + 8;
@@ -248,7 +268,21 @@ export class BuildBar extends Container {
     this.unitButtons.forEach((button, i) => {
       button.layout(6 + gap + i * (buttonWidth + gap), top, buttonWidth, buttonHeight);
     });
-    this.ready.layout(l.buildBar.width - readyWidth - 6, top, readyWidth, buttonHeight);
+    // Four chips in a 2x2 block, each comfortably thumb-sized.
+    const weaponX = l.buildBar.width - weaponWidth - 6;
+    const chipW = (weaponWidth - 6) / 2;
+    const chipH = (buttonHeight - 18) / 2;
+    this.weaponChips.forEach(({ panel, ring }, i) => {
+      const cx = weaponX + (i % 2) * (chipW + 6);
+      const cy = top + 16 + Math.floor(i / 2) * (chipH + 6);
+      panel.layoutChip(cx, cy, chipW, chipH, DAMAGE_COLOURS[this.weaponChips[i]!.type]);
+      ring.clear();
+      ring.roundRect(0, 0, chipW, chipH, 6).stroke({ width: 2, color: UI.selected });
+      ring.visible = false;
+    });
+
+    this.weaponCaption.x = weaponX;
+    this.weaponCaption.y = top + 2;
 
     // Upgrade panel occupies the same band.
     const panelWidth = l.buildBar.width - 100;
@@ -265,6 +299,11 @@ export class BuildBar extends Container {
   }
 
   render(lane: Lane, selection: Selection, summary: WaveSummary | null, canBuild: boolean): void {
+    for (const chip of this.weaponChips) {
+      chip.ring.visible = lane.fortress.weaponDamageType === chip.type;
+      chip.panel.setEnabled(canBuild);
+    }
+
     const upgrading = selection?.kind === 'placedUnit';
     this.roster.visible = !upgrading;
     this.upgradePanel.visible = upgrading;
@@ -296,18 +335,6 @@ export class BuildBar extends Container {
         affordable,
         selection?.kind === 'unitDef' && selection.unitDefId === def.id,
         summary?.units.find((u) => u.unitId === def.id)?.verdict,
-      );
-    }
-
-    // §3.2: ready skips the remaining build time. It means nothing once the wave
-    // is already walking down the lane.
-    this.ready.setEnabled(canBuild);
-    this.ready.setCaption(lane.ready ? 'Ready ✓' : 'Ready');
-    if (lane.ready !== this.readyWasSet) {
-      this.readyWasSet = lane.ready;
-      this.ready.redraw(
-        lane.ready ? UI.healthGood : UI.panel,
-        lane.ready ? UI.background : UI.text,
       );
     }
   }

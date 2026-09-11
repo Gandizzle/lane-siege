@@ -85,7 +85,9 @@ export class AutoBuilder {
     let gold = lane.economy.gold;
     let supply = lane.economy.supplyCap - lane.economy.supplyUsed;
 
-    const taken = new Set(lane.units.filter((u) => u.alive).map((u) => `${u.tileX},${u.tileY}`));
+    const taken = new Set(
+      lane.units.filter((u) => u.alive).map((u) => `${u.homeTileX},${u.homeTileY}`),
+    );
 
     // Go wide while supply allows.
     for (const slot of this.slots) {

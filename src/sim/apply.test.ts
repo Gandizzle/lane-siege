@@ -161,15 +161,17 @@ describe('tier upgrades (§7.3)', () => {
     });
 
     const unit = state.lanes.lane1!.units[0]!;
-    const { id, tileX, tileY } = unit;
+    const { id } = unit;
+    const tileX = Math.floor(unit.pos.x);
+    const tileY = Math.floor(unit.pos.y);
 
     expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: id }).ok).toBe(
       true,
     );
 
     expect(unit.id).toBe(id);
-    expect(unit.tileX).toBe(tileX);
-    expect(unit.tileY).toBe(tileY);
+    expect(Math.floor(unit.pos.x)).toBe(tileX);
+    expect(Math.floor(unit.pos.y)).toBe(tileY);
     expect(unit.defId).toBe('hammer_2');
     expect(state.lanes.lane1!.units).toHaveLength(1);
   });
@@ -234,17 +236,29 @@ describe('gold flow (§11.1)', () => {
   });
 });
 
-describe('the ready button (§3.2)', () => {
-  it('skips the rest of the build phase', () => {
+describe('the fortress weapon type (§10.1)', () => {
+  it('is free and instant during the build phase', () => {
     const { state, ctx } = freshMatch();
-    expect(state.phase).toBe('build');
-    const ticksLeft = state.phaseTicksLeft;
-    expect(ticksLeft).toBeGreaterThan(10);
+    const lane = state.lanes.lane1!;
+    const goldBefore = lane.economy.gold;
 
-    applyCommand(ctx, state, { kind: 'ready', teamId: 'lane1' });
-    step(ctx, state);
+    expect(
+      applyCommand(ctx, state, {
+        kind: 'setWeaponType',
+        teamId: 'lane1',
+        damageType: 'blast',
+      }),
+    ).toEqual({ ok: true });
 
-    expect(state.phase).toBe('combat');
-    expect(state.wave).toBe(1);
+    expect(lane.fortress.weaponDamageType).toBe('blast');
+    expect(lane.economy.gold).toBe(goldBefore);
+  });
+
+  it('cannot be switched mid-combat', () => {
+    const { state, ctx } = freshMatch();
+    state.phase = 'combat';
+    expect(
+      applyCommand(ctx, state, { kind: 'setWeaponType', teamId: 'lane1', damageType: 'arcane' }),
+    ).toEqual({ ok: false, rejection: 'not-build-phase' });
   });
 });

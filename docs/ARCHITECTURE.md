@@ -159,7 +159,10 @@ Implemented and tested (94 tests):
 
 ### Deliberate departures from DESIGN.md
 
-Two rules were changed after playtesting, and the code says so where it matters:
+Several rules were changed after playtesting, and the code says so where it
+matters. The full list is in
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md#design-changes-to-designmd); the two with
+the widest blast radius are:
 
 - **The fortress does not self-heal by default** (§5.5). Regeneration on a full
   lane clear is a fortress upgrade you buy, not a freebie —

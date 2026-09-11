@@ -143,10 +143,41 @@ describe('fortress regeneration (§5.5, amended)', () => {
   });
 });
 
-describe('the global wave clock (§3.2)', () => {
-  it('spawns the next wave whether or not the lane cleared the last one', () => {
-    // Disarm the fortress so wave 1 survives into wave 2, and make it
-    // indestructible so the match does not simply end mid-test.
+describe('phase clock (§3.2, amended)', () => {
+  it('runs a 30 second build phase', () => {
+    const { state, ctx } = freshMatch();
+    expect(state.phase).toBe('build');
+
+    const start = state.tick;
+    runToPhase(ctx, state, 'combat');
+
+    // 600 ticks counting the phase down, plus the tick that performs the
+    // transition itself.
+    const expected = data.waves.buildPhaseSeconds * 20 + 1;
+    expect(state.tick - start).toBe(expected);
+  });
+
+  it('keeps combat running as long as any monster is alive', () => {
+    // No global spawn clock any more: combat has no duration of its own.
+    const armed = structuredClone(data);
+    armed.fortress.weapon.damage = 0;
+
+    const state = createMatch(armed, { seed: 1, teams: [{ id: 'lane1', playerIds: ['p1'] }] });
+    const ctx = createContext(armed);
+    state.lanes.lane1!.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    state.lanes.lane1!.fortress.hp = state.lanes.lane1!.fortress.maxHp;
+
+    runToPhase(ctx, state, 'combat');
+    // Far longer than the old 45s combat phase.
+    for (let i = 0; i < 20 * 200; i++) step(ctx, state);
+
+    expect(state.phase).toBe('combat');
+    expect(state.wave).toBe(1);
+  });
+
+  it('never lands a second wave on an unfinished one', () => {
+    // This is the whole point of dropping the global clock: the build cycle is
+    // no longer interrupted by a wave arriving on top of the last one.
     const armed = structuredClone(data);
     armed.fortress.weapon.damage = 0;
 
@@ -157,79 +188,88 @@ describe('the global wave clock (§3.2)', () => {
     lane.fortress.hp = lane.fortress.maxHp;
 
     runToPhase(ctx, state, 'combat');
-    step(ctx, state);
-    const afterWave1 = countLiving(lane);
-    expect(afterWave1).toBeGreaterThan(0);
+    for (let i = 0; i < 20 * 200; i++) step(ctx, state);
 
-    runToPhase(ctx, state, 'build');
-    runToPhase(ctx, state, 'combat');
-    step(ctx, state);
-
-    expect(state.wave).toBe(2);
-    expect(countLiving(lane)).toBeGreaterThan(afterWave1);
+    const waves = new Set(lane.monsters.filter((m) => m.alive).map((m) => m.waveNumber));
+    expect([...waves]).toEqual([1]);
   });
 
-  it('runs the full nominal cycle when a lane has not cleared', () => {
-    const armed = structuredClone(data);
-    armed.fortress.weapon.damage = 0;
-
-    const state = createMatch(armed, { seed: 1, teams: [{ id: 'lane1', playerIds: ['p1'] }] });
-    const ctx = createContext(armed);
-    state.lanes.lane1!.fortress.maxHp = Number.MAX_SAFE_INTEGER;
-    state.lanes.lane1!.fortress.hp = state.lanes.lane1!.fortress.maxHp;
-
-    runToPhase(ctx, state, 'combat');
-    const combatStart = state.tick;
-
-    runToPhase(ctx, state, 'build');
-    runToPhase(ctx, state, 'combat');
-
-    const cycle = (state.tick - combatStart) / 20;
-    expect(cycle).toBeCloseTo(armed.waves.waveIntervalSeconds!, 0);
-  });
-
-  it('ends the combat phase early once every lane is clear', () => {
-    // DESIGN CHANGE to §3.2: the clock only jumps forward when every living
-    // lane is already done, so it can never be used to hold a player hostage.
+  it('returns to build as soon as every lane is clear', () => {
     const { state, ctx } = freshMatch();
 
     runToPhase(ctx, state, 'combat');
-    const combatStart = state.tick;
-
     step(ctx, state);
     for (const monster of state.lanes.lane1!.monsters) monster.hp = 0;
 
-    runToPhase(ctx, state, 'build');
+    step(ctx, state);
+    step(ctx, state);
 
-    const elapsed = (state.tick - combatStart) / 20;
-    const fullCombat = data.waves.waveIntervalSeconds! - data.waves.buildPhaseSeconds;
-    expect(elapsed).toBeLessThan(fullCombat);
+    expect(state.phase).toBe('build');
   });
 
-  it('does not end combat early while any lane still has monsters', () => {
+  it('does not end combat while another lane is still fighting', () => {
     const { state, ctx } = freshMatch(2);
 
     runToPhase(ctx, state, 'combat');
     step(ctx, state);
 
-    // Clear one lane only; the other is still fighting, so the round continues.
     for (const monster of state.lanes.lane1!.monsters) monster.hp = 0;
     state.lanes.lane2!.fortress.maxHp = Number.MAX_SAFE_INTEGER;
     state.lanes.lane2!.fortress.hp = state.lanes.lane2!.fortress.maxHp;
     step(ctx, state);
 
     expect(state.phase).toBe('combat');
-    expect(state.lanes.lane2!.monsters.some((m) => m.alive)).toBe(true);
   });
 
   it('does not mistake the opening build phase for a cleared lane', () => {
-    // Wave 0 has spawned nothing; the first build phase must still run its full
-    // length rather than being skipped as "everything is already dead".
     const { state, ctx } = freshMatch();
     expect(state.wave).toBe(0);
     step(ctx, state);
     expect(state.phase).toBe('build');
     expect(state.phaseTicksLeft).toBeGreaterThan(100);
+  });
+});
+
+describe('elimination wipes a lane (§13, amended)', () => {
+  it("clears the dead player's monsters and stops spawning there", () => {
+    const { state, ctx } = freshMatch(2);
+    runToPhase(ctx, state, 'combat');
+    step(ctx, state);
+
+    const dead = state.lanes.lane1!;
+    expect(dead.monsters.length).toBeGreaterThan(0);
+
+    dead.fortress.hp = 0;
+    step(ctx, state);
+
+    expect(state.teams.find((t) => t.id === 'lane1')!.eliminated).toBe(true);
+    expect(dead.monsters).toHaveLength(0);
+    expect(dead.reserve).toHaveLength(0);
+
+    // And the next wave skips that lane entirely.
+    state.lanes.lane2!.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    state.lanes.lane2!.fortress.hp = state.lanes.lane2!.fortress.maxHp;
+    for (const monster of state.lanes.lane2!.monsters) monster.hp = 0;
+    runToPhase(ctx, state, 'build');
+    runToPhase(ctx, state, 'combat');
+    step(ctx, state);
+
+    expect(dead.monsters).toHaveLength(0);
+  });
+
+  it('lets the match finish rather than stalling on a dead lane', () => {
+    // A wiped lane must not count as "still fighting", or combat could never end.
+    const { state, ctx } = freshMatch(2);
+    runToPhase(ctx, state, 'combat');
+    step(ctx, state);
+
+    state.lanes.lane1!.fortress.hp = 0;
+    step(ctx, state);
+    for (const monster of state.lanes.lane2!.monsters) monster.hp = 0;
+    step(ctx, state);
+    step(ctx, state);
+
+    expect(state.finished).toBe(true);
   });
 });
 
