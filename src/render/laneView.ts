@@ -102,7 +102,7 @@ export class LaneView extends Container {
     const { armourTypes, damageTypes } = this.data.matrix;
 
     const heading = label(
-      `Super Land Siege — ${l.grid.width}×${l.grid.depth} build zone`,
+      `Bros Lane Siege — ${l.grid.width}×${l.grid.depth} build zone`,
       13,
       UI.text,
     );
