@@ -57,6 +57,12 @@ export interface LaneFile {
    * tiles and attack whatever is nearest when boxed in.
    */
   unitsBlockMovement: Unfilled<boolean>;
+  /**
+   * Body radii in tiles. Two entities of the same kind never come closer than
+   * the sum of their radii, so nothing overlaps anything it is drawn touching.
+   */
+  unitRadius: number;
+  monsterRadius: number;
 }
 
 // ----------------------------------------------------------------- units.json

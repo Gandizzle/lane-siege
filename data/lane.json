@@ -1,8 +1,14 @@
 {
-  "_comment": "DESIGN.md §4. Lane geometry. Not one of the seven files listed in §16 - added because §4 numbers must not be hardcoded either. Tile space: y=0 is the top of the build grid, monsters spawn at negative y, the fortress sits below y=depth.",
-  "buildZone": { "width": 8, "depth": 10 },
+  "_comment": "DESIGN.md \u00a74. Lane geometry. Not one of the seven files listed in \u00a716 - added because \u00a74 numbers must not be hardcoded either. Tile space: y=0 is the top of the build grid, monsters spawn at negative y, the fortress sits below y=depth.",
+  "buildZone": {
+    "width": 8,
+    "depth": 10
+  },
   "spawnZoneDepth": 1,
   "fortressZoneDepth": 1,
   "unitsBlockMovement": true,
-  "_decided": "§4.2 was OPEN. Answered: units DO block movement. Monsters steer around occupied tiles (src/sim/grid.ts, steering.ts) and fall back to attacking whatever is nearest when fully boxed in."
+  "_decided": "\u00a74.2 was OPEN. Answered: units DO block movement. Monsters steer around occupied tiles (src/sim/grid.ts, steering.ts) and fall back to attacking whatever is nearest when fully boxed in.",
+  "unitRadius": 0.34,
+  "monsterRadius": 0.3,
+  "_radiusNote": "Body radius in tiles, used for entity-vs-entity separation - two of the same kind never come closer than the sum of their radii. Matches the drawn size, so what you see is what collides. Tile occupancy still governs monster-vs-unit, which is a wall rather than a crowd."
 }

@@ -34,12 +34,20 @@ function fail(rejection: CommandRejection): CommandResult {
 }
 
 /**
- * §3.3: from wave 25 players can no longer build new defensive units. Gold keeps
- * accumulating and stays spendable - the attrition endgame is a sink problem,
- * not a freeze.
+ * §3.3, decided: from wave 25 NOTHING can be bought - no new units, no tier
+ * upgrades, no tech, no fortress or supply purchases.
+ *
+ * DESIGN.md left this OPEN and recommended keeping upgrades available so gold
+ * had a sink. Decided against: the attrition endgame is meant to be a hard,
+ * terminating grind fought with whatever you brought, not a last shopping trip.
+ * Whatever gold is on hand at wave 25 simply stops mattering.
+ *
+ * The free per-build-phase choices - the fortress weapon's damage type and the
+ * active aura (§10.1) - still work. They cost nothing, so they are not
+ * purchases.
  */
-function buildingOpen(data: GameData, state: MatchState): boolean {
-  return state.wave <= data.waves.lastBuildWave;
+function purchasesOpen(data: GameData, state: MatchState): boolean {
+  return state.wave < data.waves.attritionStartWave;
 }
 
 function laneFor(state: MatchState, teamId: string): Lane | null {
@@ -58,7 +66,7 @@ function placeUnit(
 ): CommandResult {
   // §3.1: building happens in the build phase.
   if (state.phase !== 'build') return fail('not-build-phase');
-  if (!buildingOpen(ctx.data, state)) return fail('building-closed');
+  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   if (!inBounds(lane.occupancy, tileX, tileY)) return fail('tile-out-of-bounds');
   if (tileOccupiedByUnit(lane.units, tileX, tileY)) return fail('tile-occupied');
@@ -118,6 +126,7 @@ function buyTech(
   trackId: string,
 ): CommandResult {
   if (state.phase !== 'build') return fail('not-build-phase');
+  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const track = ctx.data.economy.tech.tracks.find((t) => t.id === trackId);
   if (!track) return fail('unknown-definition');
@@ -140,6 +149,7 @@ function buySupply(
   lane: Lane,
 ): CommandResult {
   if (state.phase !== 'build') return fail('not-build-phase');
+  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const ladder = ctx.data.economy.supply.capUpgrades;
   const current = lane.fortress.upgrades.supply ?? 0;
@@ -165,6 +175,7 @@ function buyFortressUpgrade(
   upgradeId: string,
 ): CommandResult {
   if (state.phase !== 'build') return fail('not-build-phase');
+  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const f = ctx.data.fortress;
   const ladders: Record<string, readonly UpgradeLevel[]> = {
@@ -232,6 +243,7 @@ function upgradeUnit(
   unitId: number,
 ): CommandResult {
   if (state.phase !== 'build') return fail('not-build-phase');
+  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const unit = lane.units.find((u) => u.id === unitId && u.alive);
   if (!unit) return fail('no-such-unit');

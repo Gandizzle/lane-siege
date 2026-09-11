@@ -276,8 +276,11 @@ export class BuildBar extends Container {
   }
 
   render(state: MatchState, lane: Lane, selection: Selection, summary: WaveSummary | null): void {
-    const canAct = state.phase === 'build';
-    const canBuild = canAct && state.wave <= this.data.waves.lastBuildWave;
+    // §3.3, decided: from wave 25 nothing can be bought at all. The free
+    // weapon/aura choices stay live, so they use `canChoose` instead.
+    const canChoose = state.phase === 'build';
+    const canAct = canChoose && state.wave < this.data.waves.attritionStartWave;
+    const canBuild = canAct;
 
     for (const button of this.tabButtons) button.redraw(button.id === this.active);
 
@@ -298,7 +301,7 @@ export class BuildBar extends Container {
     if (this.panels.build.visible) this.renderUnits(lane, selection, summary, canBuild);
     if (this.panels.tech.visible) this.renderTech(lane, canAct);
     if (this.panels.fort.visible) this.renderFort(lane, canAct);
-    if (this.panels.aura.visible) this.renderAura(lane, canAct);
+    if (this.panels.aura.visible) this.renderAura(lane, canChoose);
   }
 
   private renderUnits(

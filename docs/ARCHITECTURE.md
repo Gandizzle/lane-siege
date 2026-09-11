@@ -110,10 +110,23 @@ The build bar is four tabs — Build, Tech, Fort, Aura — because M3 gives the
 player four distinct things to spend on and a portrait phone has one band to
 spend them in.
 
-Two OPEN questions were answered by taking DESIGN.md's own recommendation rather
-than inventing one, both flagged in
-[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md): tiers, tech and fortress purchases stay
-available after wave 25 (§3.3), and the supply cap is bought with gold (§11.1).
+Two OPEN questions are answered, both recorded in
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md): the supply cap is bought with gold
+(§11.1, the doc's recommendation), and **no purchase of any kind is available
+from wave 25** (§3.3, against the doc's recommendation — the endgame is a grind
+fought with what you brought).
+
+### Collision comes in two flavours
+
+Monster-versus-unit is **tile** occupancy: a line of units is a wall, and the
+grid is the right granularity for walking into it.
+
+Same-kind separation is by **body radius**, matching the drawn size. Tiles are
+too coarse here — two entities in adjacent tiles can sit half a tile apart and
+visibly overlap — so units keep `unitRadius * 2` apart and monsters
+`monsterRadius * 2`. A move that increases the distance to a neighbour is always
+allowed, so anything that does end up overlapping can separate instead of
+deadlocking.
 
 ### How the renderer drives the simulation
 

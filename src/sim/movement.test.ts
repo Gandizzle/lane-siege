@@ -169,6 +169,72 @@ describe('defensive units advance when nothing is in range (§5.2, amended)', ()
     }
   });
 
+  it('keeps units a full body apart, not merely on separate tiles', () => {
+    // Tile occupancy alone let two units in adjacent tiles sit half a tile
+    // apart, which overlaps visibly at the size they are drawn. Separation is
+    // by radius so what you see is what collides.
+    const { state, ctx } = setup(passiveData());
+    const lane = state.lanes.l1!;
+
+    // A column in one file: every unit wants the same monster, so they queue.
+    for (let y = 2; y < 10; y++) {
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'l1',
+        unitDefId: 'hammer',
+        tileX: 4,
+        tileY: y,
+      });
+    }
+
+    while (state.phase !== 'combat') step(ctx, state);
+    run(ctx, state, 400);
+
+    const minimum = data.lane.unitRadius * 2;
+    const live = lane.units.filter((u) => u.alive);
+    expect(live.length).toBeGreaterThan(4);
+
+    for (let i = 0; i < live.length; i++) {
+      for (let j = i + 1; j < live.length; j++) {
+        const gap = Math.hypot(live[i]!.pos.x - live[j]!.pos.x, live[i]!.pos.y - live[j]!.pos.y);
+        expect(gap).toBeGreaterThanOrEqual(minimum - 1e-6);
+      }
+    }
+  });
+
+  it('keeps monsters a full body apart too', () => {
+    const { state, ctx } = setup(passiveData());
+    const lane = state.lanes.l1!;
+
+    while (state.phase !== 'combat') step(ctx, state);
+    run(ctx, state, 300);
+
+    const minimum = data.lane.monsterRadius * 2;
+    const live = lane.monsters.filter((m) => m.alive);
+    expect(live.length).toBeGreaterThan(4);
+
+    for (let i = 0; i < live.length; i++) {
+      for (let j = i + 1; j < live.length; j++) {
+        const gap = Math.hypot(live[i]!.pos.x - live[j]!.pos.x, live[i]!.pos.y - live[j]!.pos.y);
+        expect(gap).toBeGreaterThanOrEqual(minimum - 1e-6);
+      }
+    }
+  });
+
+  it('does not stack a wave on a single spawn point', () => {
+    // A wave wider than the lane used to put several monsters on the same
+    // point, which reads exactly like passing through each other.
+    const { state, ctx } = setup(passiveData());
+    const lane = state.lanes.l1!;
+    state.wave = 21;
+
+    while (state.phase !== 'combat') step(ctx, state);
+    step(ctx, state);
+
+    const points = new Set(lane.monsters.map((m) => `${m.pos.x.toFixed(2)},${m.pos.y.toFixed(2)}`));
+    expect(points.size).toBe(lane.monsters.length);
+  });
+
   it('does not let two units end up on the same tile', () => {
     const { state, ctx } = setup(passiveData());
     const lane = state.lanes.l1!;

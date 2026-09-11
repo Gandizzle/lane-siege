@@ -267,9 +267,10 @@ describe('the attrition endgame (§3.3)', () => {
     ).toEqual({ ok: false, rejection: 'building-closed' });
   });
 
-  it('still allows tiers, tech and fortress upgrades', () => {
-    // OPEN in §3.3; taking the doc's own recommendation - gold needs a sink and
-    // a losing player needs something to do.
+  it('closes EVERY purchase from wave 25, not just construction', () => {
+    // §3.3 was OPEN and the doc recommended keeping upgrades available. Decided
+    // against: the endgame is a grind fought with what you brought, not a last
+    // shopping trip.
     const { state, ctx } = rich();
     applyCommand(ctx, state, {
       kind: 'placeUnit',
@@ -281,20 +282,32 @@ describe('the attrition endgame (§3.3)', () => {
     const id = state.lanes.l1!.units[0]!.id;
 
     state.wave = data.waves.attritionStartWave;
+    const closed = { ok: false, rejection: 'building-closed' };
 
-    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'l1', unitId: id }).ok).toBe(
-      true,
+    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'l1', unitId: id })).toEqual(
+      closed,
     );
     expect(
-      applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_impact' }).ok,
-    ).toBe(true);
+      applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_impact' }),
+    ).toEqual(closed);
+    expect(applyCommand(ctx, state, { kind: 'buySupply', teamId: 'l1' })).toEqual(closed);
     expect(
-      applyCommand(ctx, state, {
-        kind: 'buyFortressUpgrade',
-        teamId: 'l1',
-        upgradeId: 'weapon',
-      }).ok,
+      applyCommand(ctx, state, { kind: 'buyFortressUpgrade', teamId: 'l1', upgradeId: 'weapon' }),
+    ).toEqual(closed);
+  });
+
+  it('still allows the free weapon and aura choices after wave 25 (§10.1)', () => {
+    // They cost nothing, so they are not purchases - and they keep a losing
+    // player engaging with the matrix to the end.
+    const { state, ctx } = rich();
+    state.wave = data.waves.attritionStartWave;
+
+    expect(
+      applyCommand(ctx, state, { kind: 'setWeaponType', teamId: 'l1', damageType: 'arcane' }).ok,
     ).toBe(true);
+    expect(applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armour' }).ok).toBe(
+      true,
+    );
   });
 
   it('stops respawning losses', () => {

@@ -29,6 +29,7 @@ import { rebuildOccupancy, restoreSelf, withoutSelf } from './grid.ts';
 import type { OccupancyGrid } from './grid.ts';
 import { admitFromReserve, countLiving, createMonster } from './spawn.ts';
 import { clearStuck, stepToward, updateStuckDetection } from './steering.ts';
+import type { Separation } from './steering.ts';
 import {
   distanceSquared,
   holdOrDrop,
@@ -64,9 +65,11 @@ function cooldownTicks(attacksPerSecond: number): number {
   return Math.max(1, Math.round(TICKS_PER_SECOND / attacksPerSecond));
 }
 
-// Scratch vectors, reused so that a tick allocates nothing (§15.3).
+// Scratch values, reused so that a tick allocates nothing (§15.3).
 const scratchDestination: Vec2 = { x: 0, y: 0 };
 const scratchUnitPos: Vec2 = { x: 0, y: 0 };
+const unitSeparation: Separation = { others: [], selfId: 0, minDistance: 0 };
+const monsterSeparation: Separation = { others: [], selfId: 0, minDistance: 0 };
 
 // --------------------------------------------------------------------- stages
 
@@ -121,7 +124,7 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
     unit.targetId = target ? target.id : null;
 
     if (!target) {
-      advanceUnit(unit, lane, grid, maxX, maxY);
+      advanceUnit(unit, lane, grid, maxX, maxY, ctx.data.lane.unitRadius);
       continue;
     }
 
@@ -156,6 +159,7 @@ function advanceUnit(
   grid: OccupancyGrid | null,
   maxX: number,
   maxY: number,
+  radius: number,
 ): void {
   if (unit.moveSpeed <= 0) {
     clearStuck(unit);
@@ -182,9 +186,15 @@ function advanceUnit(
   scratchDestination.x = nearest.pos.x;
   scratchDestination.y = nearest.pos.y;
 
-  // A unit's own tile must not block its own step.
+  // A unit's own tile must not block its own step. Tile occupancy alone is too
+  // coarse between units - two in adjacent tiles could sit half a tile apart and
+  // visibly overlap - so radius separation does the real work here.
+  unitSeparation.others = lane.units;
+  unitSeparation.selfId = unit.id;
+  unitSeparation.minDistance = radius * 2;
+
   const self = grid ? withoutSelf(grid, unit.pos.x, unit.pos.y) : 0;
-  stepToward(unit, scratchDestination, unit.moveSpeed, 1, grid);
+  stepToward(unit, scratchDestination, unit.moveSpeed, 1, grid, unitSeparation);
   if (grid) restoreSelf(grid, unit.pos.x, unit.pos.y, self);
 
   // Clamp into the build zone.
@@ -250,9 +260,21 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
       // died - see the note at the top of steering.ts.
       clearStuck(monster);
     } else {
-      // Always attempt to move. The occupancy grid is the only thing allowed to
-      // refuse, and it stops refusing the moment the way clears.
-      stepToward(monster, scratchDestination, monster.moveSpeed, multiplier, grid);
+      // Always attempt to move: gating movement on the stuck flag is what froze
+      // monsters permanently. The grid and other bodies may refuse a step, and
+      // both stop refusing the moment the way clears.
+      monsterSeparation.others = lane.monsters;
+      monsterSeparation.selfId = monster.id;
+      monsterSeparation.minDistance = ctx.data.lane.monsterRadius * 2;
+
+      stepToward(
+        monster,
+        scratchDestination,
+        monster.moveSpeed,
+        multiplier,
+        grid,
+        monsterSeparation,
+      );
       updateStuckDetection(monster);
     }
 

@@ -7,6 +7,8 @@ const lane: LaneFile = {
   spawnZoneDepth: 1,
   fortressZoneDepth: 1,
   unitsBlockMovement: null,
+  unitRadius: 0.34,
+  monsterRadius: 0.3,
 };
 
 describe('portrait layout (DESIGN.md §4.1)', () => {

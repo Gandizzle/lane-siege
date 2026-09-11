@@ -58,6 +58,54 @@ export interface Mover {
   isStuck: boolean;
 }
 
+/** A body that takes up space and can be walked into. */
+export interface Body {
+  id: number;
+  pos: Vec2;
+  alive: boolean;
+}
+
+/**
+ * Keeps same-kind entities from occupying the same space.
+ *
+ * The occupancy grid is tile-granular, which is right for monster-versus-unit -
+ * a line of units is a wall. It is too coarse for entities of the same kind
+ * moving continuously: two of them in adjacent tiles can sit half a tile apart
+ * and visibly overlap, and several converging on one target used to pile onto
+ * the same point. So same-kind separation is by radius, matching what is drawn.
+ */
+export interface Separation {
+  others: readonly Body[];
+  selfId: number;
+  minDistance: number;
+}
+
+/**
+ * May `self` stand at (x, y) without overlapping a neighbour?
+ *
+ * Entities that already overlap - spawned together, or shoved - must still be
+ * able to separate, so a move that increases the distance to a neighbour is
+ * always allowed. Without that they deadlock into a permanent clump.
+ */
+function separationAllows(sep: Separation, from: Vec2, x: number, y: number): boolean {
+  const minSq = sep.minDistance * sep.minDistance;
+
+  for (const other of sep.others) {
+    if (!other.alive || other.id === sep.selfId) continue;
+
+    const dx = x - other.pos.x;
+    const dy = y - other.pos.y;
+    const candidateSq = dx * dx + dy * dy;
+    if (candidateSq >= minSq) continue;
+
+    const cx = from.x - other.pos.x;
+    const cy = from.y - other.pos.y;
+    if (candidateSq <= cx * cx + cy * cy) return false;
+  }
+
+  return true;
+}
+
 /**
  * Unit direction from `from` to `to`. When the two coincide - the tie case -
  * fall back to straight down the lane rather than an arbitrary axis.
@@ -122,6 +170,7 @@ export function stepToward(
   moveSpeed: number,
   speedMultiplier: number,
   grid: OccupancyGrid | null,
+  separation: Separation | null = null,
 ): boolean {
   const step = moveSpeed * speedMultiplier * SECONDS_PER_TICK;
   if (step <= 0) return false;
@@ -131,6 +180,9 @@ export function stepToward(
   // Close enough to land exactly on it this tick.
   if (remainingSq <= step * step) {
     if (grid && isPositionBlocked(grid, destination.x, destination.y)) return false;
+    if (separation && !separationAllows(separation, mover.pos, destination.x, destination.y)) {
+      return false;
+    }
     const moved = remainingSq > 0;
     mover.pos.x = destination.x;
     mover.pos.y = destination.y;
@@ -139,7 +191,7 @@ export function stepToward(
 
   const desired = steerDirection(mover.pos, destination, scratchDir);
 
-  if (!grid) {
+  if (!grid && !separation) {
     mover.pos.x += desired.x * step;
     mover.pos.y += desired.y * step;
     return true;
@@ -148,14 +200,17 @@ export function stepToward(
   // A mover standing inside a blocked tile - a unit was built on top of it, or
   // it is the unit occupying that tile - must be free to leave by any route, or
   // it is trapped there forever.
-  const escaping = isPositionBlocked(grid, mover.pos.x, mover.pos.y);
+  const escaping = grid !== null && isPositionBlocked(grid, mover.pos.x, mover.pos.y);
 
   rankCandidates(desired);
   for (let i = 0; i < order.length; i++) {
     const c = CANDIDATES[order[i]!]!;
     const nx = mover.pos.x + c.x * step;
     const ny = mover.pos.y + c.y * step;
-    if (!escaping && isPositionBlocked(grid, nx, ny)) continue;
+
+    if (grid && !escaping && isPositionBlocked(grid, nx, ny)) continue;
+    if (separation && !separationAllows(separation, mover.pos, nx, ny)) continue;
+
     mover.pos.x = nx;
     mover.pos.y = ny;
     return true;

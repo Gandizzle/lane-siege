@@ -36,17 +36,22 @@ Decided against the doc's own v1 recommendation: units _do_ block.
 
 ## Still open — needed before the milestone in brackets
 
-### 3. Post-wave-25: are upgrades, tech and fortress purchases still allowed? (§3.3) [M3]
+### 3. Post-wave-25 purchases (§3.3) → **nothing can be bought**
 
-The doc recommends yes to all three: gold needs a sink, and it gives a losing
-player something to do. Confirm before implementing the attrition endgame.
-Building new units is already closed from wave 25 (`apply.ts`), which is the
-part the doc states outright.
+Answered against the doc's recommendation. DESIGN.md suggested keeping tiers,
+tech and fortress upgrades available so gold had a sink; decided instead that
+the attrition endgame is a hard, terminating grind fought with whatever you
+brought, not a last shopping trip. From wave 25 every purchase is refused:
+units, tiers, tech, fortress and supply alike.
 
-### 4. Is the supply cap upgrade bought with gold or gems? (§11.1) [M3]
+The free per-build-phase choices — the fortress weapon's damage type and the
+active aura (§10.1) — still work, because they cost nothing and keep a losing
+player engaging with the matrix to the end.
 
-Doc recommends gold. Noted in `economy.json` under `supply._open`. Nothing
-depends on it yet — `capUpgrades` is empty.
+### 4. Is the supply cap upgrade bought with gold or gems? (§11.1)
+
+Taking the doc's recommendation: **gold**. The ladder is in `economy.json`; the
+cost field is the only thing that would change.
 
 ### 5. What exactly is publicly visible on opponent tabs? (§12) [M4]
 
@@ -92,6 +97,13 @@ Decisions that override the document rather than filling a gap in it:
   others hostage; that is now handled at the other end instead — enrage keeps
   climbing on a lane that cannot clear, and when its fortress falls the lane is
   wiped and stops receiving waves, so it cannot stall the match indefinitely.
+- **§4.2 — same-kind collision is by body radius, not by tile.** Tile occupancy
+  is right for monster-versus-unit, where a line of units is a wall. It is too
+  coarse between entities of the same kind moving continuously: two in adjacent
+  tiles could sit half a tile apart and visibly overlap, and a wave wider than
+  the lane used to spawn several monsters onto the same point. Units now keep
+  `unitRadius * 2` apart and monsters `monsterRadius * 2`, both matching what is
+  drawn, so what you see is what collides.
 - **§5.2 — defensive units are no longer permanently stationary.** A unit with
   nothing in range advances on the nearest monster until something comes into
   range, then plants and fights. It still never chases a target it is already

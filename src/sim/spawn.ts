@@ -26,9 +26,13 @@ function nextId(state: MatchState): EntityId {
  */
 export function spawnPosition(data: GameData, index: number): { x: number; y: number } {
   const width = data.lane.buildZone.width;
+  const row = Math.floor(index / width);
   return {
     x: (index % width) + 0.5,
-    y: -(data.lane.spawnZoneDepth * 0.5),
+    // Stagger into rows above the lane. Without this a wave larger than the
+    // lane is wide starts with several monsters on the exact same point, which
+    // reads as them passing through each other.
+    y: -(data.lane.spawnZoneDepth * 0.5) - row * (data.lane.monsterRadius * 2.2),
   };
 }
 
