@@ -82,6 +82,19 @@ Already decided in DESIGN.md and simply written into `data/`:
   because that formula's code block is empty in the document as supplied.
   Verified by `src/sim/enrage.test.ts`. Worth a glance to confirm.
 
+## Design changes to DESIGN.md
+
+Decisions that override the document rather than filling a gap in it:
+
+- **§5.5 — fortress self-healing is an upgrade, not a default.** Base
+  regeneration on a full lane clear is `0`. Buying it is a fortress upgrade,
+  landing with the rest of them in M3. Until then chip damage is permanent and
+  the fortress weapon is the only thing holding the leak death-spiral off.
+- **§3.2 — the combat phase ends early when every living lane is clear.** The
+  global wave clock is now "fixed unless everyone is done", matching how the
+  ready button already works for the build phase. It still cannot be used to
+  stall other players, since it only ever moves the clock forward.
+
 ## Invented for M1, and flagged as such
 
 Two things the simulation needed that DESIGN.md does not cover at all:

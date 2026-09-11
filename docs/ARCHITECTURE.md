@@ -157,6 +157,24 @@ Implemented and tested (94 tests):
 - The build-phase wave preview, its offence summary and per-unit counter hints
   (§9.3)
 
+### Deliberate departures from DESIGN.md
+
+Two rules were changed after playtesting, and the code says so where it matters:
+
+- **The fortress does not self-heal by default** (§5.5). Regeneration on a full
+  lane clear is a fortress upgrade you buy, not a freebie —
+  `fortress.regenOnLaneClear.base` is `0` and `Fortress.regenPerClear` on the
+  lane is what an upgrade raises. §5.5 named regen as one of two levers against
+  the leak death-spiral, so until the upgrade ladder exists in M3 the fortress
+  weapon is carrying that alone and chip damage is permanent.
+- **The combat phase ends as soon as every living lane is clear** (§3.2). §3.2's
+  concern is that a _slow_ player must not hold everyone else hostage, and this
+  cannot do that: the clock only jumps forward when every living lane is already
+  finished, which is the same principle the ready button applies to the build
+  phase. The consequence is that the wave clock is no longer strictly fixed — it
+  is fixed _unless everyone is done early_, so a skilled table moves through
+  waves faster than the nominal 75s cycle.
+
 ### A word on the balance numbers
 
 They are placeholders and **not playtested**. As it stands the lane falls around

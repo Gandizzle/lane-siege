@@ -105,6 +105,15 @@ export interface WaveClock {
 export interface Fortress {
   hp: number;
   maxHp: number;
+  /**
+   * HP restored when the lane goes fully clear (§5.5).
+   *
+   * Lives on the lane rather than being read from data each time, because it is
+   * bought rather than given: it starts at whatever `fortress.regenOnLaneClear`
+   * says (currently 0 - self-healing is an upgrade, not a default) and a
+   * purchased upgrade raises it.
+   */
+  regenPerClear: number;
   /** Player-selectable each build phase, free and instant (§10.1). */
   weaponDamageType: DamageType;
   weaponCooldown: number;

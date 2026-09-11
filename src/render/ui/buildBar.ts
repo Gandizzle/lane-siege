@@ -4,24 +4,31 @@
  * Sits at the bottom because that is the thumb zone for one-handed portrait play
  * (§4.1). Buttons are sized for a thumb, not a mouse pointer.
  *
- * Two modes:
- *   - nothing selected, or a unit type selected -> the roster, one button per
- *     buildable unit, showing cost, supply, and whether it is strong or weak
- *     against the incoming wave (§9.3)
- *   - a placed unit selected -> its upgrade, priced (§7.3)
+ * IMPORTANT - interactive objects are built ONCE and only updated afterwards.
  *
- * The bar reports taps outward and decides nothing: affordability is shown here
- * but enforced in the simulation (§15.1), so the greyed-out state is a courtesy,
- * never the rule.
+ * Pixi resolves a tap by matching pointerdown and pointerup on the SAME display
+ * object. A real click or thumb press is held for around 100ms, which at 60fps
+ * spans half a dozen frames. An earlier version rebuilt every button each frame,
+ * so the object that received the press no longer existed when the release
+ * arrived and no tap ever fired - the bar looked right and was completely dead.
+ * Synthetic test clicks hid it, because they release in the same frame they
+ * press.
+ *
+ * So: `layout()` creates and positions, `update()` only changes appearance.
+ * Never call removeChildren() on anything holding a listener.
+ *
+ * The bar decides nothing: affordability is shown here but enforced in the
+ * simulation (§15.1), so a greyed-out button is a courtesy, never the rule.
  */
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
+import type { Text } from 'pixi.js';
 import type { GameData, UnitDef } from '../../data/schema.ts';
 import type { Lane, WaveSummary } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { drawEntity } from '../shapes.ts';
-import { centreOn, label } from './text.ts';
+import { label } from './text.ts';
 
 export type Selection =
   { kind: 'unitDef'; unitDefId: string } | { kind: 'placedUnit'; unitId: number } | null;
@@ -36,44 +43,240 @@ export interface BuildBarHandlers {
 /** Minimum comfortable touch target. Below this, thumbs miss. */
 const MIN_TOUCH = 44;
 
-export class BuildBar extends Container {
-  private readonly background = new Graphics();
-  private readonly buttons = new Container();
+/** Centres a Text within a box of the given width, in local coordinates. */
+function centreIn(text: Text, width: number, y: number): void {
+  text.x = (width - text.width) / 2;
+  text.y = y;
+}
+
+/** A tappable panel whose listener survives for the life of the bar. */
+class TapPanel extends Container {
+  protected readonly bg = new Graphics();
+  protected width_ = 0;
+  protected height_ = 0;
+
+  constructor(onTap: () => void) {
+    super();
+    this.addChild(this.bg);
+    this.eventMode = 'static';
+    this.cursor = 'pointer';
+    this.on('pointertap', onTap);
+  }
+
+  protected resizeTo(width: number, height: number): void {
+    this.width_ = width;
+    this.height_ = height;
+    // Local coordinates, so moving the panel never invalidates its hit area.
+    this.hitArea = new Rectangle(0, 0, width, height);
+  }
+
+  setEnabled(enabled: boolean): void {
+    this.alpha = enabled ? 1 : 0.42;
+    this.eventMode = enabled ? 'static' : 'none';
+  }
+}
+
+class UnitButton extends TapPanel {
+  private readonly glyph = new Graphics();
+  private readonly ring = new Graphics();
+  private readonly nameText: Text;
+  private readonly costText: Text;
+  private readonly verdictText: Text;
 
   constructor(
-    private layout: LaneLayout,
+    readonly def: UnitDef,
+    onTap: () => void,
+  ) {
+    super(onTap);
+    this.nameText = label(def.name, 10, UI.text, '600');
+    this.costText = label(`${def.goldCost ?? 0}g · ${def.supplyCost ?? 0}s`, 9, UI.textMuted);
+    this.verdictText = label('', 9, UI.textMuted, '700');
+    this.addChild(this.glyph, this.ring, this.nameText, this.costText, this.verdictText);
+  }
+
+  layout(x: number, y: number, width: number, height: number): void {
+    this.position.set(x, y);
+    this.resizeTo(width, height);
+
+    this.bg.clear();
+    this.bg.roundRect(0, 0, width, height, 8).fill({ color: UI.panel });
+    this.bg.roundRect(0, 0, width, height, 8).stroke({ width: 1, color: UI.panelEdge });
+
+    this.ring.clear();
+    this.ring.roundRect(0, 0, width, height, 8).stroke({ width: 2, color: UI.selected });
+    this.ring.visible = false;
+
+    this.glyph.clear();
+    drawEntity(
+      this.glyph,
+      { armour: this.def.armour, damageType: this.def.damageType, tier: 1, outlined: false },
+      width / 2,
+      height * 0.3,
+      Math.min(width, height) * 0.17,
+    );
+
+    centreIn(this.nameText, width, height * 0.52);
+    centreIn(this.costText, width, height * 0.7);
+    centreIn(this.verdictText, width, height * 0.84);
+  }
+
+  update(
+    affordable: boolean,
+    selected: boolean,
+    verdict: 'strong' | 'neutral' | 'weak' | undefined,
+  ): void {
+    this.setEnabled(affordable);
+    // Selection must stay visible on an unaffordable button, so the ring is
+    // drawn at full opacity regardless of the panel's dimming.
+    this.ring.visible = selected;
+
+    // §9.3: highlight which units are strong or weak against this wave, or the
+    // matrix stays invisible and players lose without knowing why.
+    const show = verdict === 'strong' || verdict === 'weak';
+    this.verdictText.visible = show;
+    if (!show) return;
+
+    const strong = verdict === 'strong';
+    const text = strong ? '▲ strong' : '▼ weak';
+    if (this.verdictText.text !== text) {
+      this.verdictText.text = text;
+      this.verdictText.style.fill = strong ? UI.healthGood : UI.danger;
+      centreIn(this.verdictText, this.width_, this.height_ * 0.84);
+    }
+  }
+}
+
+class SimpleButton extends TapPanel {
+  private readonly caption: Text;
+
+  constructor(text: string, onTap: () => void) {
+    super(onTap);
+    this.caption = label(text, 12, UI.text, '700');
+    this.addChild(this.caption);
+  }
+
+  layout(x: number, y: number, width: number, height: number): void {
+    this.position.set(x, y);
+    this.resizeTo(width, height);
+    this.redraw(UI.panel, UI.text);
+  }
+
+  redraw(fill: number, textColour: number): void {
+    this.bg.clear();
+    this.bg.roundRect(0, 0, this.width_, this.height_, 8).fill({ color: fill });
+    this.bg.roundRect(0, 0, this.width_, this.height_, 8).stroke({ width: 1, color: UI.panelEdge });
+    this.caption.style.fill = textColour;
+    centreIn(this.caption, this.width_, this.height_ / 2 - 8);
+  }
+
+  setCaption(text: string): void {
+    if (this.caption.text === text) return;
+    this.caption.text = text;
+    centreIn(this.caption, this.width_, this.height_ / 2 - 8);
+  }
+}
+
+export class BuildBar extends Container {
+  private readonly background = new Graphics();
+
+  private readonly roster = new Container();
+  private readonly unitButtons: UnitButton[] = [];
+  private readonly ready: SimpleButton;
+
+  private readonly upgradePanel = new Container();
+  private readonly upgradeBg = new Graphics();
+  private readonly upgradeTitle: Text;
+  private readonly upgradeDetail: Text;
+  private readonly upgradeButton: SimpleButton;
+  private readonly backButton: SimpleButton;
+
+  private selectedUnitId: number | null = null;
+  private readyWasSet = false;
+
+  constructor(
+    layout: LaneLayout,
     private readonly data: GameData,
     private readonly handlers: BuildBarHandlers,
   ) {
     super();
-    this.addChild(this.background, this.buttons);
+
+    // Tier 1 only: higher tiers are reached by upgrading in place (§7.3), never
+    // built directly.
+    for (const def of data.units.units.filter((u) => u.tier === 1)) {
+      const button = new UnitButton(def, () => this.handlers.onSelectUnitDef(def.id));
+      this.unitButtons.push(button);
+      this.roster.addChild(button);
+    }
+
+    this.ready = new SimpleButton('Ready', () => this.handlers.onReady());
+    this.roster.addChild(this.ready);
+
+    this.upgradeTitle = label('', 13, UI.text, '700');
+    this.upgradeDetail = label('', 10, UI.textMuted);
+    this.upgradeButton = new SimpleButton('Upgrade', () => {
+      if (this.selectedUnitId !== null) this.handlers.onUpgrade(this.selectedUnitId);
+    });
+    this.backButton = new SimpleButton('Back', () => this.handlers.onClearSelection());
+    this.upgradePanel.addChild(
+      this.upgradeBg,
+      this.upgradeTitle,
+      this.upgradeDetail,
+      this.upgradeButton,
+      this.backButton,
+    );
+
+    this.addChild(this.background, this.roster, this.upgradePanel);
+    this.setLayout(layout);
   }
 
   setLayout(layout: LaneLayout): void {
-    this.layout = layout;
-  }
+    const l = layout;
 
-  render(lane: Lane, selection: Selection, summary: WaveSummary | null, canBuild: boolean): void {
-    this.buttons.removeChildren();
     this.background.clear();
-
-    const l = this.layout;
     this.background
       .rect(l.buildBar.x, l.buildBar.y, l.buildBar.width, l.buildBar.height)
       .fill({ color: UI.buildBar });
 
-    if (selection?.kind === 'placedUnit') {
-      this.renderUpgradePanel(lane, selection.unitId);
+    const readyWidth = 78;
+    const gap = 6;
+    const count = Math.max(1, this.unitButtons.length);
+    const available = l.buildBar.width - readyWidth - gap * (count + 1) - 6;
+    const buttonWidth = Math.max(MIN_TOUCH, available / count);
+    const buttonHeight = Math.max(MIN_TOUCH, l.buildBar.height - 22);
+    const top = l.buildBar.y + 8;
+
+    this.unitButtons.forEach((button, i) => {
+      button.layout(6 + gap + i * (buttonWidth + gap), top, buttonWidth, buttonHeight);
+    });
+    this.ready.layout(l.buildBar.width - readyWidth - 6, top, readyWidth, buttonHeight);
+
+    // Upgrade panel occupies the same band.
+    const panelWidth = l.buildBar.width - 100;
+    this.upgradeBg.clear();
+    this.upgradeBg.roundRect(6, top, panelWidth, buttonHeight, 8).fill({ color: UI.panel });
+    this.upgradeBg
+      .roundRect(6, top, panelWidth, buttonHeight, 8)
+      .stroke({ width: 1, color: UI.panelEdge });
+
+    this.upgradeTitle.y = top + 8;
+    this.upgradeDetail.y = top + 28;
+    this.upgradeButton.layout(6 + panelWidth / 2 - 70, top + buttonHeight - 34, 140, 28);
+    this.backButton.layout(l.buildBar.width - 88, top, 82, buttonHeight);
+  }
+
+  render(lane: Lane, selection: Selection, summary: WaveSummary | null, canBuild: boolean): void {
+    const upgrading = selection?.kind === 'placedUnit';
+    this.roster.visible = !upgrading;
+    this.upgradePanel.visible = upgrading;
+
+    if (upgrading) {
+      this.selectedUnitId = selection.unitId;
+      this.renderUpgrade(lane, selection.unitId);
       return;
     }
 
+    this.selectedUnitId = null;
     this.renderRoster(lane, selection, summary, canBuild);
-  }
-
-  private buildableUnits(): UnitDef[] {
-    // Tier 1 only: higher tiers are reached by upgrading in place (§7.3), never
-    // built directly.
-    return this.data.units.units.filter((u) => u.tier === 1);
   }
 
   private renderRoster(
@@ -82,241 +285,68 @@ export class BuildBar extends Container {
     summary: WaveSummary | null,
     canBuild: boolean,
   ): void {
-    const l = this.layout;
-    const units = this.buildableUnits();
-
-    const readyWidth = 78;
-    const gap = 6;
-    const available = l.buildBar.width - readyWidth - gap * (units.length + 1) - 6;
-    const buttonWidth = Math.max(MIN_TOUCH, available / Math.max(1, units.length));
-    const buttonHeight = Math.max(MIN_TOUCH, l.buildBar.height - 22);
-    const top = l.buildBar.y + 8;
-
-    units.forEach((def, i) => {
-      const x = 6 + gap + i * (buttonWidth + gap);
-      const rating = summary?.units.find((u) => u.unitId === def.id);
-
+    for (const button of this.unitButtons) {
+      const def = button.def;
       const affordable =
         canBuild &&
         lane.economy.gold >= (def.goldCost ?? 0) &&
         lane.economy.supplyUsed + (def.supplyCost ?? 0) <= lane.economy.supplyCap;
 
-      const selected = selection?.kind === 'unitDef' && selection.unitDefId === def.id;
-
-      this.buttons.addChild(
-        this.unitButton(
-          def,
-          x,
-          top,
-          buttonWidth,
-          buttonHeight,
-          affordable,
-          selected,
-          rating?.verdict,
-        ),
-      );
-    });
-
-    this.buttons.addChild(
-      this.readyButton(
-        l.buildBar.width - readyWidth - 6,
-        top,
-        readyWidth,
-        buttonHeight,
-        lane.ready,
-        // §3.2: ready skips the remaining build time. It means nothing once the
-        // wave is already walking down the lane.
-        canBuild,
-      ),
-    );
-  }
-
-  private unitButton(
-    def: UnitDef,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    affordable: boolean,
-    selected: boolean,
-    verdict: 'strong' | 'neutral' | 'weak' | undefined,
-  ): Container {
-    const button = new Container();
-    const g = new Graphics();
-
-    g.roundRect(x, y, width, height, 8).fill({ color: UI.panel });
-    g.roundRect(x, y, width, height, 8).stroke({
-      width: selected ? 2 : 1,
-      color: selected ? UI.selected : UI.panelEdge,
-    });
-    button.addChild(g);
-
-    const cx = x + width / 2;
-    const glyphRadius = Math.min(width, height) * 0.17;
-
-    drawEntity(
-      g,
-      { armour: def.armour, damageType: def.damageType, tier: 1, outlined: false },
-      cx,
-      y + height * 0.3,
-      glyphRadius,
-    );
-
-    button.addChild(centreOn(label(def.name, 10, UI.text, '600'), cx, y + height * 0.52));
-    button.addChild(
-      centreOn(
-        label(`${def.goldCost ?? 0}g · ${def.supplyCost ?? 0}s`, 9, UI.textMuted),
-        cx,
-        y + height * 0.7,
-      ),
-    );
-
-    // §9.3: highlight which units are strong or weak against this wave. Without
-    // this the matrix is invisible complexity and new players lose without
-    // knowing why.
-    if (verdict && verdict !== 'neutral') {
-      const strong = verdict === 'strong';
-      button.addChild(
-        centreOn(
-          label(strong ? '▲ strong' : '▼ weak', 9, strong ? UI.healthGood : UI.danger, '700'),
-          cx,
-          y + height * 0.84,
-        ),
+      button.update(
+        affordable,
+        selection?.kind === 'unitDef' && selection.unitDefId === def.id,
+        summary?.units.find((u) => u.unitId === def.id)?.verdict,
       );
     }
 
-    button.alpha = affordable ? 1 : 0.42;
-    button.eventMode = 'static';
-    button.cursor = 'pointer';
-    button.hitArea = new Rectangle(x, y, width, height);
-    button.on('pointertap', () => this.handlers.onSelectUnitDef(def.id));
-
-    return button;
+    // §3.2: ready skips the remaining build time. It means nothing once the wave
+    // is already walking down the lane.
+    this.ready.setEnabled(canBuild);
+    this.ready.setCaption(lane.ready ? 'Ready ✓' : 'Ready');
+    if (lane.ready !== this.readyWasSet) {
+      this.readyWasSet = lane.ready;
+      this.ready.redraw(
+        lane.ready ? UI.healthGood : UI.panel,
+        lane.ready ? UI.background : UI.text,
+      );
+    }
   }
 
-  private renderUpgradePanel(lane: Lane, unitId: number): void {
-    const l = this.layout;
+  /**
+   * §7.3: the upgrade happens in place - the unit keeps its tile and its
+   * identity, gains stats and possibly an ability.
+   */
+  private renderUpgrade(lane: Lane, unitId: number): void {
     const unit = lane.units.find((u) => u.id === unitId);
     const current = unit ? this.data.units.units.find((u) => u.id === unit.defId) : undefined;
     const next = current?.upgradesTo
       ? this.data.units.units.find((u) => u.id === current.upgradesTo)
       : undefined;
 
-    const top = l.buildBar.y + 8;
-    const height = Math.max(MIN_TOUCH, l.buildBar.height - 22);
-    const width = l.buildBar.width - 100;
-
-    const panel = new Container();
-    const g = new Graphics();
-    g.roundRect(6, top, width, height, 8).fill({ color: UI.panel });
-    g.roundRect(6, top, width, height, 8).stroke({ width: 1, color: UI.panelEdge });
-    panel.addChild(g);
-
     if (!current) {
-      panel.addChild(
-        centreOn(label('unit lost', 12, UI.textMuted), 6 + width / 2, top + height / 2),
-      );
+      this.upgradeTitle.text = 'Unit lost';
+      this.upgradeDetail.text = '';
+      this.upgradeButton.visible = false;
     } else if (!next) {
-      panel.addChild(
-        centreOn(label(`${current.name} — max tier`, 12, UI.textMuted), 6 + width / 2, top + 16),
-      );
+      this.upgradeTitle.text = `${current.name} — max tier`;
+      this.upgradeDetail.text = 'Nothing further to buy for this unit.';
+      this.upgradeButton.visible = false;
     } else {
       const affordable =
         lane.economy.gold >= (next.goldCost ?? 0) &&
         lane.economy.supplyUsed + (next.supplyCost ?? 0) <= lane.economy.supplyCap;
 
-      panel.addChild(
-        centreOn(
-          label(`${current.name} → ${next.name}`, 13, UI.text, '700'),
-          6 + width / 2,
-          top + 10,
-        ),
-      );
-      panel.addChild(
-        centreOn(
-          label(
-            `${next.goldCost ?? 0}g` +
-              `${next.supplyCost ? ` · +${next.supplyCost} supply` : ''}` +
-              `   ${current.hp ?? 0} → ${next.hp ?? 0} hp` +
-              `   ${current.damage ?? 0} → ${next.damage ?? 0} dmg`,
-            10,
-            UI.textMuted,
-          ),
-          6 + width / 2,
-          top + 30,
-        ),
-      );
-
-      const buttonY = top + height - 30;
-      const upgrade = new Container();
-      const ug = new Graphics();
-      ug.roundRect(6 + width / 2 - 70, buttonY, 140, 26, 6).fill({
-        color: affordable ? UI.accent : UI.panelEdge,
-      });
-      upgrade.addChild(ug);
-      upgrade.addChild(
-        centreOn(
-          label('Upgrade', 12, affordable ? UI.background : UI.textMuted, '700'),
-          6 + width / 2,
-          buttonY + 6,
-        ),
-      );
-      upgrade.eventMode = 'static';
-      upgrade.cursor = 'pointer';
-      upgrade.hitArea = new Rectangle(6 + width / 2 - 70, buttonY, 140, 26);
-      upgrade.on('pointertap', () => this.handlers.onUpgrade(unitId));
-      panel.addChild(upgrade);
+      this.upgradeTitle.text = `${current.name} → ${next.name}`;
+      this.upgradeDetail.text =
+        `${next.goldCost ?? 0}g` +
+        `${next.supplyCost ? ` · +${next.supplyCost} supply` : ''}` +
+        `   ${current.hp ?? 0}→${next.hp ?? 0} hp` +
+        `   ${current.damage ?? 0}→${next.damage ?? 0} dmg`;
+      this.upgradeButton.visible = true;
+      this.upgradeButton.setEnabled(affordable);
     }
 
-    this.buttons.addChild(panel);
-
-    // A way back to the roster.
-    const close = new Container();
-    const cg = new Graphics();
-    const cx = l.buildBar.width - 88;
-    cg.roundRect(cx, top, 82, height, 8).fill({ color: UI.panel });
-    cg.roundRect(cx, top, 82, height, 8).stroke({ width: 1, color: UI.panelEdge });
-    close.addChild(cg);
-    close.addChild(centreOn(label('Back', 12, UI.text, '600'), cx + 41, top + height / 2 - 8));
-    close.eventMode = 'static';
-    close.cursor = 'pointer';
-    close.hitArea = new Rectangle(cx, top, 82, height);
-    close.on('pointertap', () => this.handlers.onClearSelection());
-    this.buttons.addChild(close);
-  }
-
-  /** §3.2: all living players ready skips the rest of the build phase. */
-  private readyButton(
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    isReady: boolean,
-    enabled: boolean,
-  ): Container {
-    const button = new Container();
-    const g = new Graphics();
-
-    g.roundRect(x, y, width, height, 8).fill({ color: isReady ? UI.healthGood : UI.panel });
-    g.roundRect(x, y, width, height, 8).stroke({ width: 1, color: UI.panelEdge });
-    button.addChild(g);
-
-    button.addChild(
-      centreOn(
-        label(isReady ? 'Ready ✓' : 'Ready', 12, isReady ? UI.background : UI.text, '700'),
-        x + width / 2,
-        y + height / 2 - 8,
-      ),
-    );
-
-    button.alpha = enabled ? 1 : 0.42;
-    if (enabled) {
-      button.eventMode = 'static';
-      button.cursor = 'pointer';
-      button.hitArea = new Rectangle(x, y, width, height);
-      button.on('pointertap', () => this.handlers.onReady());
-    }
-
-    return button;
+    this.upgradeTitle.x = 18;
+    this.upgradeDetail.x = 18;
   }
 }

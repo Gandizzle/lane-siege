@@ -3,7 +3,11 @@
   "armour": "plate",
   "_armourNote": "Not stated in DESIGN.md. The matrix applies in both directions (§6), so a monster hitting the fortress needs something to hit against. Plate is the obvious read for a fortress; change freely.",
   "hp": { "base": 1000, "upgrades": [] },
-  "regenOnLaneClear": { "base": 40, "upgrades": [] },
+  "regenOnLaneClear": {
+    "_comment": "DESIGN CHANGE from §5.5: base is 0 - the fortress does NOT self-heal by default. Regeneration on a full lane clear is a fortress upgrade you choose to buy, not a freebie. The upgrade ladder lands with the rest of the fortress upgrades in M3; until then chip damage is permanent. Note §5.5 names this as one of the two levers against the leak death-spiral, so the other one (the fortress weapon) is now carrying it alone.",
+    "base": 0,
+    "upgrades": []
+  },
   "weapon": {
     "damage": 45,
     "attackSpeed": 0.8,

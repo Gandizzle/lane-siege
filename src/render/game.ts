@@ -47,6 +47,11 @@ export class Game extends Container {
 
   private layout: LaneLayout;
   private selection: Selection = null;
+  /**
+   * The unit type that was in hand when the player opened an upgrade panel, so
+   * Back returns them to laying their line instead of to nothing.
+   */
+  private pendingUnitDefId: string | null = null;
   private summary: WaveSummary | null = null;
   private summarisedWave = -1;
 
@@ -71,7 +76,7 @@ export class Game extends Container {
 
     this.laneView = new LaneView(this.layout, data, {
       onTapTile: (x, y) => this.tapTile(x, y),
-      onTapElsewhere: () => this.clearSelection(),
+      onTapElsewhere: () => this.cancelSelection(),
     });
     this.entities = new EntityLayer(this.layout, this.ctx.defs);
     this.hud = new Hud(this.layout, data);
@@ -100,6 +105,7 @@ export class Game extends Container {
   restart(): void {
     this.state = this.newMatch();
     this.selection = null;
+    this.pendingUnitDefId = null;
     this.summarisedWave = -1;
     this.clock.reset();
   }
@@ -158,14 +164,25 @@ export class Game extends Container {
   }
 
   private selectUnitDef(unitDefId: string): void {
+    this.pendingUnitDefId = null;
     this.selection =
       this.selection?.kind === 'unitDef' && this.selection.unitDefId === unitDefId
         ? null
         : { kind: 'unitDef', unitDefId };
   }
 
+  /** Back out of an upgrade panel, restoring whatever was in hand before it. */
   private clearSelection(): void {
+    this.selection = this.pendingUnitDefId
+      ? { kind: 'unitDef', unitDefId: this.pendingUnitDefId }
+      : null;
+    this.pendingUnitDefId = null;
+  }
+
+  /** A tap on empty space means "cancel", so it drops the memory too. */
+  private cancelSelection(): void {
     this.selection = null;
+    this.pendingUnitDefId = null;
   }
 
   private upgrade(unitId: number): void {
@@ -176,18 +193,13 @@ export class Game extends Container {
   private tapTile(tileX: number, tileY: number): void {
     const existing = this.lane.units.find((u) => u.alive && u.tileX === tileX && u.tileY === tileY);
 
-    // With a unit type in hand, a tap on a taken tile means "I meant to build
-    // there" - so say so and keep the selection, rather than silently throwing
-    // away what they picked.
-    if (existing && this.selection?.kind === 'unitDef') {
-      this.toast.show('tile-occupied');
-      return;
-    }
-
-    // Otherwise tapping one of your own units selects it, and the build bar
-    // becomes its upgrade panel. Upgrading is never a side effect of tapping
-    // the board.
+    // Tapping one of your own units always opens its upgrade panel - that is
+    // the only route to upgrading, so it must not be blocked by having a build
+    // type in hand. The type is remembered and Back restores it, which keeps
+    // laying a line uninterrupted. Upgrading is never a side effect: the panel
+    // has its own button.
     if (existing) {
+      this.pendingUnitDefId = this.selection?.kind === 'unitDef' ? this.selection.unitDefId : null;
       this.selection = { kind: 'placedUnit', unitId: existing.id };
       return;
     }
@@ -203,6 +215,6 @@ export class Game extends Container {
       return;
     }
 
-    this.clearSelection();
+    this.cancelSelection();
   }
 }

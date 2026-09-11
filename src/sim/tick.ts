@@ -257,9 +257,18 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
     lane.monsters = lane.monsters.filter((m) => m.alive);
     admitFromReserve(state, ctx.data, ctx.defs, lane);
 
-    if (countLiving(lane) === 0 && lane.reserve.length === 0 && !lane.fortress.destroyed) {
-      const regen = stat(ctx.data.fortress.regenOnLaneClear.base);
-      lane.fortress.hp = Math.min(lane.fortress.maxHp, lane.fortress.hp + regen);
+    // §5.5, amended: regeneration on a full clear is an upgrade, so this is a
+    // no-op until one is bought. Chip damage is otherwise permanent.
+    if (
+      lane.fortress.regenPerClear > 0 &&
+      countLiving(lane) === 0 &&
+      lane.reserve.length === 0 &&
+      !lane.fortress.destroyed
+    ) {
+      lane.fortress.hp = Math.min(
+        lane.fortress.maxHp,
+        lane.fortress.hp + lane.fortress.regenPerClear,
+      );
     }
   }
 
@@ -358,8 +367,36 @@ function allReady(state: MatchState): boolean {
   return living.every((t) => state.lanes[t.id]?.ready === true);
 }
 
+/**
+ * Every living lane has killed everything, reserves included.
+ *
+ * DESIGN CHANGE to §3.2: the combat phase ends as soon as this is true rather
+ * than always running its full length. §3.2's concern is that a SLOW player must
+ * not hold everyone else hostage, and this cannot do that - the clock only jumps
+ * forward when every living lane is already finished, which is the same
+ * principle the ready button applies to the build phase.
+ *
+ * The consequence worth knowing: the wave clock is no longer strictly fixed. It
+ * is fixed unless everyone is done early, so a table of skilled players moves
+ * through waves faster than the nominal 75s cycle.
+ */
+function allLanesClear(state: MatchState): boolean {
+  const living = state.teams.filter((t) => !t.eliminated);
+  if (living.length === 0) return false;
+
+  return living.every((team) => {
+    const lane = state.lanes[team.id];
+    if (!lane) return true;
+    return lane.reserve.length === 0 && countLiving(lane) === 0;
+  });
+}
+
 function advancePhase(ctx: SimContext, state: MatchState): void {
-  const skipping = state.phase === 'build' && allReady(state);
+  const skipping =
+    (state.phase === 'build' && allReady(state)) ||
+    // Wave 0 has spawned nothing yet, so an empty lane during 'combat' before
+    // the first spawn must not count as cleared.
+    (state.phase === 'combat' && state.wave > 0 && allLanesClear(state));
 
   if (state.phaseTicksLeft > 0 && !skipping) {
     state.phaseTicksLeft -= 1;
