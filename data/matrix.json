@@ -1,0 +1,11 @@
+{
+  "_comment": "DESIGN.md §6. Damage type (row) vs armour type (column). Every row and column sums to 4.1. Tuning: 1.4/0.7 flattens the spread, 1.75/0.5 sharpens it.",
+  "damageTypes": ["impact", "pierce", "blast", "arcane"],
+  "armourTypes": ["flesh", "plate", "swarm", "ward"],
+  "multipliers": {
+    "impact": { "flesh": 1.0, "plate": 1.0, "swarm": 0.6, "ward": 1.5 },
+    "pierce": { "flesh": 0.6, "plate": 1.5, "swarm": 1.0, "ward": 1.0 },
+    "blast": { "flesh": 1.5, "plate": 0.6, "swarm": 1.0, "ward": 1.0 },
+    "arcane": { "flesh": 1.0, "plate": 1.0, "swarm": 1.5, "ward": 0.6 }
+  }
+}
