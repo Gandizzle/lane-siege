@@ -92,12 +92,45 @@ is, and the renderer owns the single tile→pixel transform in
 
 ## Milestone status
 
-**M1 (headless sim) is complete.** `npm run sim` plays a single lane through
-five waves with a scripted builder and prints the result. Everything §17 lists
-for M1 is exercised: the tick loop, targeting, steering, the damage matrix and
-gold flow.
+**M1 and M2 are complete.**
 
-Implemented and tested (87 tests):
+M1 (headless sim): `npm run sim` plays a single lane through five waves with a
+scripted builder and prints the result.
+
+M2 (renderer): `npm run dev` is a playable single-player game in portrait — tap
+a unit, tap a tile, watch the wave arrive. Pixi, fixed portrait layout, coloured
+shapes, touch build UI, one builder, as §17 specifies.
+
+### How the renderer drives the simulation
+
+The browser paints at whatever rate it likes; the simulation runs at exactly 20
+ticks per second and must never see a frame time, or two phones would compute
+different states and the §15.1 guarantee would be gone. `render/loop.ts` is the
+accumulator between them:
+
+```
+frame (deltaMS)  ->  FixedTimestep.advance
+                       |- runs whole ticks only, at most MAX_CATCHUP_TICKS
+                       |- exposes `alpha`, the fraction of a tick elapsed
+                       `- drops the backlog rather than spiralling
+```
+
+Two consequences worth knowing:
+
+- **Interpolation is a rendering concern.** `EntityLayer` keeps each monster's
+  previous position and lerps by `alpha`, so a 20Hz simulation draws smoothly at
+  60fps. The simulation stores no such thing.
+- **A long stall drops simulated time on purpose.** After a backgrounded tab or
+  a GC pause, catch-up is capped and the remainder is discarded — better a match
+  that skips than one that locks up. A side effect is that wall-clock
+  fast-forwarding cannot be used to speed a match up in tests.
+
+Input goes through `applyCommand` directly rather than being queued for the next
+tick, so the UI can show _why_ a tap was refused. That is the same validated
+path `step` uses, so a tap costs the same either way; at M4 this call becomes
+the local prediction alongside a send to the server.
+
+Implemented and tested (94 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -118,6 +151,11 @@ Implemented and tested (87 tests):
 - End-to-end determinism: same seed, same final state (§15.1)
 - Portrait layout, the tile↔screen transform, and the shape vocabulary (§4.1,
   §14.2)
+- Fixed-timestep rendering at any frame rate, with interpolation (§15.1)
+- Touch build UI: select, place, upgrade in place, ready, with rejection
+  feedback (§4.1, §7.3, §3.2)
+- The build-phase wave preview, its offence summary and per-unit counter hints
+  (§9.3)
 
 ### A word on the balance numbers
 
@@ -132,6 +170,12 @@ curve is now a JSON editing job.
 
 ### Not yet built
 
+- **The fortress weapon damage-type selector** (§10.1) — the command exists and
+  is tested; it has no button yet, so the weapon stays on its opening type. This
+  is the one §10.1 decision the doc calls out as a per-wave choice, and it is the
+  first thing M3 should surface.
+- **Opponent tabs** (§4.1, §12) — the top band carries the wave clock and
+  resources instead. Tabs slot in beside them at M4.
 - **Auras and tech multipliers** (§7.4, §10.1) — the hook is marked in
   `tick.ts:unitsAct`. Note §15.3: recompute on add/remove/upgrade and on wave
   start, cached on the unit, never per tick.

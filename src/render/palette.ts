@@ -45,4 +45,11 @@ export const UI = {
   outline: 0xf2f4f8,
   text: 0xdfe4ee,
   textMuted: 0x8b93a5,
+  healthGood: 0x6bbf59,
+  healthLow: 0xd55e00,
+  accent: 0x56b4e9,
+  selected: 0xf2f4f8,
+  danger: 0xd55e00,
+  panel: 0x181c26,
+  panelEdge: 0x2a3040,
 } as const;

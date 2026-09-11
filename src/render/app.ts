@@ -2,22 +2,25 @@
  * Pixi bootstrap. DESIGN.md §15.2.
  *
  * Pixi is confined to src/render/. Nothing under src/sim/ may import it - see
- * src/sim/purity.test.ts.
+ * src/sim/purity.test.ts, which fails the build if that ever changes.
  */
 
 import { Application } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
-import { computeLayout } from './layout.ts';
-import { LaneView } from './laneView.ts';
+import { Game } from './game.ts';
 import { UI } from './palette.ts';
 
 export interface GameApp {
   app: Application;
-  lane: LaneView;
+  game: Game;
   destroy(): void;
 }
 
-export async function startApp(mount: HTMLElement, data: GameData): Promise<GameApp> {
+export async function startApp(
+  mount: HTMLElement,
+  data: GameData,
+  seed = Math.floor(Math.random() * 0x7fffffff),
+): Promise<GameApp> {
   const app = new Application();
 
   await app.init({
@@ -32,17 +35,20 @@ export async function startApp(mount: HTMLElement, data: GameData): Promise<Game
 
   mount.appendChild(app.canvas);
 
-  const layout = () => computeLayout(app.screen.width, app.screen.height, data.lane);
-  const lane = new LaneView(layout(), data);
-  app.stage.addChild(lane);
+  const game = new Game(data, app.screen.width, app.screen.height, seed);
+  app.stage.addChild(game);
 
-  // Fixed camera (§14.1): the only thing resize does is recompute the layout.
-  const onResize = () => lane.redraw(layout());
+  // The simulation is driven from the frame callback, but at its own fixed rate
+  // (§15.1): `deltaMS` is wall time and goes no further than the accumulator.
+  app.ticker.add((ticker) => game.frame(ticker.deltaMS));
+
+  // Fixed camera (§14.1): resize only recomputes the layout.
+  const onResize = () => game.resize(app.screen.width, app.screen.height);
   globalThis.addEventListener('resize', onResize);
 
   return {
     app,
-    lane,
+    game,
     destroy() {
       globalThis.removeEventListener('resize', onResize);
       app.destroy(true, { children: true });

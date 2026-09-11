@@ -10,7 +10,7 @@
  * All lanes face identical waves (§9.2). Lane divergence comes only from sends.
  */
 
-import type { GameData, MonsterDef } from '../data/schema.ts';
+import type { ArmourType, DamageType, GameData, MonsterDef } from '../data/schema.ts';
 import { waveRng } from './rng.ts';
 
 /** One monster to spawn: its definition, and the wave it belongs to (§8). */
@@ -162,4 +162,108 @@ export function previewWave(data: GameData, seed: number, waveNumber: number): W
     });
   }
   return preview;
+}
+
+/**
+ * §9.3: the preview must also summarise the wave's offence ("this wave deals
+ * mostly Pierce") and highlight which of the player's buildable units are strong
+ * or weak against it.
+ *
+ * That sentence is load-bearing. Without it the damage matrix is invisible
+ * complexity and new players lose without ever learning why - so this is game
+ * logic, not decoration, and it lives in the simulation where an AI opponent and
+ * the server can read it too.
+ */
+export interface UnitRating {
+  unitId: string;
+  name: string;
+  /** Tier 1 units are the buildable ones; higher tiers come from upgrading. */
+  tier: number;
+  /** Average matrix multiplier of this unit's damage against the wave. */
+  effectiveness: number;
+  verdict: 'strong' | 'neutral' | 'weak';
+}
+
+export interface WaveSummary {
+  /** What the wave hits you with, weighted by monster count. */
+  dominantDamageType: DamageType | null;
+  /** Share of the wave, by count, dealing that type. */
+  dominantDamageShare: number;
+  /** Armour spread of the wave, by count. */
+  armourMix: { armour: ArmourType; count: number }[];
+  /** How each buildable unit fares against this wave's armour. */
+  units: UnitRating[];
+}
+
+const STRONG_THRESHOLD = 1.15;
+const WEAK_THRESHOLD = 0.85;
+
+export function summariseWave(
+  data: GameData,
+  seed: number,
+  waveNumber: number,
+  builderId?: string,
+): WaveSummary {
+  const byId = new Map<string, MonsterDef>();
+  for (const m of data.monsters.monsters) byId.set(m.id, m);
+  for (const b of data.monsters.bosses) byId.set(b.id, b);
+
+  const specs = generateWave(data, seed, waveNumber);
+  const damageCounts = new Map<DamageType, number>();
+  const armourCounts = new Map<ArmourType, number>();
+  let total = 0;
+
+  for (const spec of specs) {
+    const def = byId.get(spec.defId);
+    if (!def) continue;
+    total++;
+    damageCounts.set(def.damageType, (damageCounts.get(def.damageType) ?? 0) + 1);
+    armourCounts.set(def.armour, (armourCounts.get(def.armour) ?? 0) + 1);
+  }
+
+  let dominantDamageType: DamageType | null = null;
+  let dominantCount = 0;
+  for (const [type, count] of damageCounts) {
+    if (count > dominantCount) {
+      dominantCount = count;
+      dominantDamageType = type;
+    }
+  }
+
+  const armourMix = [...armourCounts.entries()]
+    .map(([armour, count]) => ({ armour, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // A unit's usefulness is its damage type averaged over the armour it will
+  // actually meet, weighted by how much of that armour is coming.
+  const units: UnitRating[] = [];
+  for (const unit of data.units.units) {
+    if (builderId && unit.builderId !== builderId) continue;
+
+    let weighted = 0;
+    for (const { armour, count } of armourMix) {
+      weighted += (data.matrix.multipliers[unit.damageType]?.[armour] ?? 1) * count;
+    }
+    const effectiveness = total > 0 ? weighted / total : 1;
+
+    units.push({
+      unitId: unit.id,
+      name: unit.name,
+      tier: unit.tier,
+      effectiveness,
+      verdict:
+        effectiveness >= STRONG_THRESHOLD
+          ? 'strong'
+          : effectiveness <= WEAK_THRESHOLD
+            ? 'weak'
+            : 'neutral',
+    });
+  }
+
+  return {
+    dominantDamageType,
+    dominantDamageShare: total > 0 ? dominantCount / total : 0,
+    armourMix,
+    units,
+  };
 }

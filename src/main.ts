@@ -1,8 +1,9 @@
 /**
  * Browser entry point.
  *
- * Loads the balance data, reports what is still unfilled, and starts the
- * renderer. The simulation is not driven yet - that is M2 (see DESIGN.md §17).
+ * Loads the balance data, reports anything still unfilled, and starts the game.
+ * `?seed=123` fixes the match seed, which makes a bug reproducible: wave
+ * composition is a pure function of (seed, waveNumber) (§9.2).
  */
 
 import { loadBundledData } from './data/bundle.ts';
@@ -19,4 +20,7 @@ if (report.errors.length > 0 || report.missing.length > 0) {
   console.info('[lane-siege] balance data status\n%s', formatReport(report));
 }
 
-await startApp(mount, data);
+const seedParam = Number(new URLSearchParams(globalThis.location.search).get('seed'));
+const seed = Number.isFinite(seedParam) && seedParam !== 0 ? seedParam : undefined;
+
+await startApp(mount, data, seed);

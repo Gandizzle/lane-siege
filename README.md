@@ -10,16 +10,21 @@ the game itself still to be written.
 
 ## Status
 
-**M1 complete** (DESIGN.md §17). `npm run sim` plays a single lane through five
-waves and prints the result; 87 tests cover the simulation, including an
-end-to-end determinism check.
+**M1 and M2 complete** (DESIGN.md §17).
+
+- `npm run dev` — playable single-player game in portrait. Tap a unit, tap a
+  tile, watch the wave arrive.
+- `npm run sim` — the same simulation headless, text output only.
+
+94 tests cover the simulation, including an end-to-end determinism check.
 
 The balance numbers in `data/` are placeholders and are **not playtested** — the
 lane currently falls around wave 4 where §5.5 targets wave 13–15. Fixing that is
 a JSON editing job, not a code change. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what is and is not built.
 
-Next up is M2: the renderer driving a live simulation, plus touch build UI.
+Next up is M3: the full single lane — all six units of builder A, tiers, tech,
+fortress and gem upgrades, 25 waves, bosses, and the attrition endgame.
 
 ## Getting started
 
@@ -42,6 +47,7 @@ data/          balance data as JSON. No numbers live in code (DESIGN.md §16).
 src/sim/       the simulation. Pure: no Pixi, no DOM, no wall clock, no Math.random.
 src/data/      types for data/, a loader, and a validator that reports gaps.
 src/render/    everything Pixi. Reads simulation state, never mutates it.
+src/render/ui/ HUD, build bar, toasts — the touch layer.
 src/headless/  the text-only runner used for M1 and for balance sweeps.
 docs/          architecture notes and the open-questions register.
 ```

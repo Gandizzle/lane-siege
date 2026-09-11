@@ -21,8 +21,14 @@ export { buildDefIndex } from './defs.ts';
 export type { DefIndex } from './defs.ts';
 export { applyCommand, applyCommands } from './apply.ts';
 export type { CommandResult } from './apply.ts';
-export { generateWave, previewWave, isBossWave, resolveMonsterStats } from './waves.ts';
-export type { SpawnSpec, WavePreviewEntry } from './waves.ts';
+export {
+  generateWave,
+  previewWave,
+  summariseWave,
+  isBossWave,
+  resolveMonsterStats,
+} from './waves.ts';
+export type { SpawnSpec, WavePreviewEntry, WaveSummary, UnitRating } from './waves.ts';
 export { createGrid, isTileBlocked, isPositionBlocked, rebuildOccupancy } from './grid.ts';
 export type { OccupancyGrid } from './grid.ts';
 export { countLiving } from './spawn.ts';
