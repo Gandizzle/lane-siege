@@ -284,11 +284,11 @@ describe('the reserve queue (§8.1)', () => {
     lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
     lane.fortress.hp = lane.fortress.maxHp;
 
-    // Wave 5 is authored well over the cap, so the next transition overflows.
-    state.wave = 4;
+    // Wave 22 is authored well over the 30-monster cap, so it overflows.
+    state.wave = 21;
     runToPhase(ctx, state, 'combat');
 
-    expect(state.wave).toBe(5);
+    expect(state.wave).toBe(22);
     expect(countLiving(lane)).toBe(cap);
     expect(lane.reserve.length).toBeGreaterThan(0);
 

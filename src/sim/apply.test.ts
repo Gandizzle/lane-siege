@@ -186,7 +186,34 @@ describe('tier upgrades (§7.3)', () => {
   });
 
   it('refuses at max tier', () => {
+    // Bulwark tops out at tier 2; Hammer goes to 3 (§7.3 - only some units do).
     const { state, ctx } = freshMatch();
+    state.lanes.lane1!.economy.gold = 99999;
+    state.lanes.lane1!.economy.supplyCap = 999;
+
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'lane1',
+      unitDefId: 'bulwark',
+      tileX: 2,
+      tileY: 2,
+    });
+    const id = state.lanes.lane1!.units[0]!.id;
+
+    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: id }).ok).toBe(
+      true,
+    );
+    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: id })).toEqual({
+      ok: false,
+      rejection: 'max-tier',
+    });
+  });
+
+  it('allows a third tier where the unit has one (§7.3)', () => {
+    const { state, ctx } = freshMatch();
+    state.lanes.lane1!.economy.gold = 99999;
+    state.lanes.lane1!.economy.supplyCap = 999;
+
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
@@ -194,13 +221,11 @@ describe('tier upgrades (§7.3)', () => {
       tileX: 2,
       tileY: 2,
     });
-    const id = state.lanes.lane1!.units[0]!.id;
+    const unit = state.lanes.lane1!.units[0]!;
 
-    applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: id });
-    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: id })).toEqual({
-      ok: false,
-      rejection: 'max-tier',
-    });
+    applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: unit.id });
+    applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: unit.id });
+    expect(unit.defId).toBe('hammer_3');
   });
 });
 

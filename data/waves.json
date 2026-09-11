@@ -1,5 +1,5 @@
 {
-  "_comment": "DESIGN.md \u00a73, \u00a78, \u00a79. Timings transcribed from the doc; waveIntervalSeconds decided separately (see below). Composition below is the M1 slice - waves 1-5 only.",
+  "_comment": "DESIGN.md \u00a73, \u00a78, \u00a79. Waves 1-25 authored; the scaling factors apply only past wave 25, which the attrition endgame makes academic. Boss waves carry only their escort here - the boss is drawn from bossBank at run time (\u00a73.4). All placeholders.",
   "buildPhaseSeconds": 30,
   "bossEveryNWaves": 5,
   "lastBuildWave": 24,
@@ -67,7 +67,71 @@
         },
         {
           "monsterId": "husk",
+          "count": 5
+        },
+        {
+          "monsterId": "warden",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "wave": 5,
+      "entries": [
+        {
+          "monsterId": "grub",
+          "count": 12
+        },
+        {
+          "monsterId": "mote",
+          "count": 8
+        }
+      ]
+    },
+    {
+      "wave": 6,
+      "entries": [
+        {
+          "monsterId": "grub",
+          "count": 10
+        },
+        {
+          "monsterId": "husk",
           "count": 6
+        },
+        {
+          "monsterId": "stalker",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "wave": 7,
+      "entries": [
+        {
+          "monsterId": "mote",
+          "count": 14
+        },
+        {
+          "monsterId": "swarmling",
+          "count": 10
+        },
+        {
+          "monsterId": "husk",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "wave": 8,
+      "entries": [
+        {
+          "monsterId": "husk",
+          "count": 8
+        },
+        {
+          "monsterId": "carapace",
+          "count": 3
         },
         {
           "monsterId": "warden",
@@ -76,23 +140,299 @@
       ]
     },
     {
-      "wave": 5,
+      "wave": 9,
       "entries": [
         {
-          "monsterId": "brood_sire",
-          "count": 1
+          "monsterId": "grub",
+          "count": 12
         },
         {
-          "monsterId": "grub",
-          "count": 24
+          "monsterId": "stalker",
+          "count": 6
+        },
+        {
+          "monsterId": "revenant",
+          "count": 3
+        }
+      ]
+    },
+    {
+      "wave": 10,
+      "entries": [
+        {
+          "monsterId": "husk",
+          "count": 8
+        },
+        {
+          "monsterId": "carapace",
+          "count": 4
         },
         {
           "monsterId": "mote",
           "count": 10
         }
       ]
+    },
+    {
+      "wave": 11,
+      "entries": [
+        {
+          "monsterId": "bloater",
+          "count": 4
+        },
+        {
+          "monsterId": "grub",
+          "count": 12
+        },
+        {
+          "monsterId": "warden",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "wave": 12,
+      "entries": [
+        {
+          "monsterId": "swarmling",
+          "count": 18
+        },
+        {
+          "monsterId": "mote",
+          "count": 10
+        },
+        {
+          "monsterId": "stalker",
+          "count": 5
+        }
+      ]
+    },
+    {
+      "wave": 13,
+      "entries": [
+        {
+          "monsterId": "carapace",
+          "count": 6
+        },
+        {
+          "monsterId": "husk",
+          "count": 8
+        },
+        {
+          "monsterId": "revenant",
+          "count": 4
+        }
+      ]
+    },
+    {
+      "wave": 14,
+      "entries": [
+        {
+          "monsterId": "bloater",
+          "count": 6
+        },
+        {
+          "monsterId": "warden",
+          "count": 7
+        },
+        {
+          "monsterId": "stalker",
+          "count": 6
+        }
+      ]
+    },
+    {
+      "wave": 15,
+      "entries": [
+        {
+          "monsterId": "carapace",
+          "count": 6
+        },
+        {
+          "monsterId": "revenant",
+          "count": 5
+        },
+        {
+          "monsterId": "swarmling",
+          "count": 12
+        }
+      ]
+    },
+    {
+      "wave": 16,
+      "entries": [
+        {
+          "monsterId": "bloater",
+          "count": 7
+        },
+        {
+          "monsterId": "husk",
+          "count": 10
+        },
+        {
+          "monsterId": "mote",
+          "count": 12
+        }
+      ]
+    },
+    {
+      "wave": 17,
+      "entries": [
+        {
+          "monsterId": "revenant",
+          "count": 7
+        },
+        {
+          "monsterId": "warden",
+          "count": 8
+        },
+        {
+          "monsterId": "stalker",
+          "count": 7
+        }
+      ]
+    },
+    {
+      "wave": 18,
+      "entries": [
+        {
+          "monsterId": "carapace",
+          "count": 9
+        },
+        {
+          "monsterId": "bloater",
+          "count": 6
+        },
+        {
+          "monsterId": "swarmling",
+          "count": 14
+        }
+      ]
+    },
+    {
+      "wave": 19,
+      "entries": [
+        {
+          "monsterId": "revenant",
+          "count": 8
+        },
+        {
+          "monsterId": "carapace",
+          "count": 8
+        },
+        {
+          "monsterId": "mote",
+          "count": 14
+        }
+      ]
+    },
+    {
+      "wave": 20,
+      "entries": [
+        {
+          "monsterId": "bloater",
+          "count": 9
+        },
+        {
+          "monsterId": "husk",
+          "count": 12
+        },
+        {
+          "monsterId": "warden",
+          "count": 9
+        }
+      ]
+    },
+    {
+      "wave": 21,
+      "entries": [
+        {
+          "monsterId": "carapace",
+          "count": 10
+        },
+        {
+          "monsterId": "revenant",
+          "count": 8
+        },
+        {
+          "monsterId": "stalker",
+          "count": 9
+        }
+      ]
+    },
+    {
+      "wave": 22,
+      "entries": [
+        {
+          "monsterId": "bloater",
+          "count": 11
+        },
+        {
+          "monsterId": "swarmling",
+          "count": 18
+        },
+        {
+          "monsterId": "warden",
+          "count": 10
+        }
+      ]
+    },
+    {
+      "wave": 23,
+      "entries": [
+        {
+          "monsterId": "revenant",
+          "count": 10
+        },
+        {
+          "monsterId": "carapace",
+          "count": 11
+        },
+        {
+          "monsterId": "mote",
+          "count": 16
+        }
+      ]
+    },
+    {
+      "wave": 24,
+      "entries": [
+        {
+          "monsterId": "bloater",
+          "count": 12
+        },
+        {
+          "monsterId": "carapace",
+          "count": 12
+        },
+        {
+          "monsterId": "stalker",
+          "count": 11
+        }
+      ]
+    },
+    {
+      "wave": 25,
+      "entries": [
+        {
+          "monsterId": "bloater",
+          "count": 12
+        },
+        {
+          "monsterId": "revenant",
+          "count": 10
+        },
+        {
+          "monsterId": "carapace",
+          "count": 10
+        },
+        {
+          "monsterId": "swarmling",
+          "count": 16
+        }
+      ]
     }
   ],
-  "bossBank": ["brood_sire"],
+  "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"],
   "_clockNote": "DESIGN CHANGE to \u00a73.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (\u00a78). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one."
 }

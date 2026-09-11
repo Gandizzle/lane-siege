@@ -92,7 +92,7 @@ is, and the renderer owns the single tile→pixel transform in
 
 ## Milestone status
 
-**M1 and M2 are complete.**
+**M1, M2 and M3 are complete.**
 
 M1 (headless sim): `npm run sim` plays a single lane through five waves with a
 scripted builder and prints the result.
@@ -100,6 +100,20 @@ scripted builder and prints the result.
 M2 (renderer): `npm run dev` is a playable single-player game in portrait — tap
 a unit, tap a tile, watch the wave arrive. Pixi, fixed portrait layout, coloured
 shapes, touch build UI, one builder, as §17 specifies.
+
+M3 (full single lane): all six units of builder A with tiers, global tech,
+fortress and resource upgrades, gems, supply, 25 authored waves, a four-boss
+bank, and the attrition endgame. §17 calls this "the point at which the game is
+balanceable", and it is: every lever is a field in `data/`.
+
+The build bar is four tabs — Build, Tech, Fort, Aura — because M3 gives the
+player four distinct things to spend on and a portrait phone has one band to
+spend them in.
+
+Two OPEN questions were answered by taking DESIGN.md's own recommendation rather
+than inventing one, both flagged in
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md): tiers, tech and fortress purchases stay
+available after wave 25 (§3.3), and the supply cap is bought with gold (§11.1).
 
 ### How the renderer drives the simulation
 
@@ -130,7 +144,7 @@ tick, so the UI can show _why_ a tap was refused. That is the same validated
 path `step` uses, so a tap costs the same either way; at M4 this call becomes
 the local prediction alongside a send to the server.
 
-Implemented and tested (94 tests):
+Implemented and tested (133 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -151,6 +165,12 @@ Implemented and tested (94 tests):
 - End-to-end determinism: same seed, same final state (§15.1)
 - Portrait layout, the tile↔screen transform, and the shape vocabulary (§4.1,
   §14.2)
+- Global tech, tied to damage types and cached per unit (§7.4, §15.3)
+- Fortress, weapon, regen, aura and resource upgrades, bought with gems (§10)
+- The supply cap as a purchase (§11.4)
+- Auras: one active, radius and strength upgrading separately (§10.1)
+- The attrition endgame: construction closes at wave 25, respawn stops, and
+  gold keeps its sinks (§3.3)
 - Fixed-timestep rendering at any frame rate, with interpolation (§15.1)
 - Touch build UI: select, place, upgrade in place, ready, with rejection
   feedback (§4.1, §7.3, §3.2)
@@ -191,20 +211,14 @@ curve is now a JSON editing job.
 
 ### Not yet built
 
-- **The fortress weapon damage-type selector** (§10.1) — the command exists and
-  is tested; it has no button yet, so the weapon stays on its opening type. This
-  is the one §10.1 decision the doc calls out as a per-wave choice, and it is the
-  first thing M3 should surface.
+- **Multi-part bosses** (§3.4) — a boss should carry a mix of armour types across
+  its parts or spawns so no single damage type hard-counters it. The bank spreads
+  four armour types across four bosses as a stopgap; real parts need a model that
+  does not exist yet.
 - **Opponent tabs** (§4.1, §12) — the top band carries the wave clock and
   resources instead. Tabs slot in beside them at M4.
-- **Auras and tech multipliers** (§7.4, §10.1) — the hook is marked in
-  `tick.ts:unitsAct`. Note §15.3: recompute on add/remove/upgrade and on wave
-  start, cached on the unit, never per tick.
 - **Sends, fog of war, spectating** (§11.5, §12) — M4. `Lane.incomingSends` is
   already merged into wave spawning, so sends will not need retrofitting.
-- **Fortress and resource upgrades, supply cap purchases, global tech** (§7.4,
-  §10, §11.4) — M3. The upgrade ladders in `data/` are empty and `apply.ts`
-  refuses those commands rather than pretending.
 - **Object pooling** (§15.3) — entities carry an `alive` flag and dead monsters
   are swept on the tick they die, which is the shape pooling wants, but there is
   no free list yet. Scratch vectors and the occupancy grid already avoid

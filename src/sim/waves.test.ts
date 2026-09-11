@@ -39,13 +39,14 @@ describe('wave generation (DESIGN.md §9.2)', () => {
   });
 
   it('scales count and stats past the authored range (§9.1)', () => {
-    const authored = generateWave(data, 1, 5).length;
-    const beyond = generateWave(data, 1, 9).length;
+    // Waves 1-25 are authored; 26 onward reuse the last shape, scaled up.
+    const authored = generateWave(data, 1, 25).length;
+    const beyond = generateWave(data, 1, 30).length;
     expect(beyond).toBeGreaterThan(authored);
 
     const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
     const early = resolveMonsterStats(data, grub, 1);
-    const late = resolveMonsterStats(data, grub, 12);
+    const late = resolveMonsterStats(data, grub, 32);
     expect(late.hp).toBeGreaterThan(early.hp);
     expect(late.damage).toBeGreaterThan(early.damage);
     // Speed is enrage's job (§8), not the wave curve's - stacking both would

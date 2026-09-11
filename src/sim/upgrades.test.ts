@@ -1,0 +1,326 @@
+/**
+ * M3 systems: global tech, fortress and resource upgrades, supply, auras and
+ * the attrition endgame. DESIGN.md §3.3, §7.4, §10.1, §10.2, §11.4.
+ */
+
+import { describe, expect, it } from 'vitest';
+import { loadDataFromDisk } from '../data/loadNode.ts';
+import { applyCommand, createContext, createMatch, step } from './index.ts';
+import type { MatchState, SimContext } from './index.ts';
+
+const { data } = loadDataFromDisk();
+
+function rich(): { state: MatchState; ctx: SimContext } {
+  const state = createMatch(data, { seed: 1, teams: [{ id: 'l1', playerIds: ['p'] }] });
+  const ctx = createContext(data);
+  const lane = state.lanes.l1!;
+  lane.economy.gold = 99999;
+  lane.economy.gems = 99999;
+  lane.economy.supplyCap = 999;
+  return { state, ctx };
+}
+
+describe('global tech (§7.4)', () => {
+  it('is tied to damage types, not unit types', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+
+    // Spike is Pierce, Mortar is Blast.
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'spike',
+      tileX: 1,
+      tileY: 1,
+    });
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'mortar',
+      tileX: 2,
+      tileY: 1,
+    });
+
+    expect(
+      applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_pierce' }).ok,
+    ).toBe(true);
+
+    const spike = lane.units.find((u) => u.defId === 'spike')!;
+    const mortar = lane.units.find((u) => u.defId === 'mortar')!;
+
+    expect(spike.techDamage).toBeGreaterThan(1);
+    expect(mortar.techDamage).toBe(1);
+  });
+
+  it('applies to units bought after the purchase too', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+
+    applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_impact' });
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'hammer',
+      tileX: 1,
+      tileY: 1,
+    });
+
+    expect(lane.units[0]!.techDamage).toBeGreaterThan(1);
+  });
+
+  it('raises unit maximum HP without healing the damage already taken', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'hammer',
+      tileX: 1,
+      tileY: 1,
+    });
+    const unit = lane.units[0]!;
+    unit.hp = unit.maxHp * 0.5;
+
+    applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'def_hp' });
+
+    expect(unit.maxHp).toBeGreaterThan(stat(data.units.units.find((u) => u.id === 'hammer')!.hp));
+    expect(unit.hp / unit.maxHp).toBeCloseTo(0.5, 4);
+  });
+
+  it('escalates in cost and stops at the top of the track', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    const track = data.economy.tech.tracks.find((t) => t.id === 'dmg_blast')!;
+
+    let previous = 0;
+    for (const level of track.levels) {
+      const before = lane.economy.gold;
+      expect(
+        applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_blast' }).ok,
+      ).toBe(true);
+      const spent = before - lane.economy.gold;
+      expect(spent).toBeGreaterThan(previous);
+      previous = spent;
+      expect(lane.economy.tech.dmg_blast).toBe(level.level);
+    }
+
+    expect(
+      applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_blast' }),
+    ).toEqual({ ok: false, rejection: 'max-tier' });
+  });
+
+  it('refuses when gold is short', () => {
+    const { state, ctx } = rich();
+    state.lanes.l1!.economy.gold = 0;
+    expect(
+      applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_impact' }),
+    ).toEqual({ ok: false, rejection: 'insufficient-gold' });
+  });
+});
+
+describe('fortress upgrades (§10.1, §10.2)', () => {
+  it('are bought with gems, not gold (§11.3)', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    const gold = lane.economy.gold;
+    const gems = lane.economy.gems;
+
+    expect(
+      applyCommand(ctx, state, {
+        kind: 'buyFortressUpgrade',
+        teamId: 'l1',
+        upgradeId: 'weapon',
+      }).ok,
+    ).toBe(true);
+
+    expect(lane.economy.gems).toBeLessThan(gems);
+    expect(lane.economy.gold).toBe(gold);
+  });
+
+  it('raises the weapon, HP, regen, aura and gem production', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    const before = {
+      weapon: lane.fortress.weaponDamage,
+      maxHp: lane.fortress.maxHp,
+      regen: lane.fortress.regenPerClear,
+      strength: lane.fortress.auraStrength,
+      radius: lane.fortress.auraRadius,
+      gems: lane.fortress.gemsPerWave,
+    };
+
+    for (const id of ['weapon', 'hp', 'regen', 'auraStrength', 'auraRadius', 'gemProduction']) {
+      expect(
+        applyCommand(ctx, state, {
+          kind: 'buyFortressUpgrade',
+          teamId: 'l1',
+          upgradeId: id,
+        }).ok,
+      ).toBe(true);
+    }
+
+    expect(lane.fortress.weaponDamage).toBeGreaterThan(before.weapon);
+    expect(lane.fortress.maxHp).toBeGreaterThan(before.maxHp);
+    expect(lane.fortress.regenPerClear).toBeGreaterThan(before.regen);
+    expect(lane.fortress.auraStrength).toBeGreaterThan(before.strength);
+    expect(lane.fortress.auraRadius).toBeGreaterThan(before.radius);
+    expect(lane.fortress.gemsPerWave).toBeGreaterThan(before.gems);
+  });
+
+  it('heals by the HP gained rather than to full', () => {
+    // An upgrade should not double as a panic button mid-siege.
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    lane.fortress.hp = 100;
+    const before = lane.fortress.maxHp;
+
+    applyCommand(ctx, state, { kind: 'buyFortressUpgrade', teamId: 'l1', upgradeId: 'hp' });
+
+    const gained = lane.fortress.maxHp - before;
+    expect(lane.fortress.hp).toBe(100 + gained);
+    expect(lane.fortress.hp).toBeLessThan(lane.fortress.maxHp);
+  });
+
+  it('rejects an unknown upgrade', () => {
+    const { state, ctx } = rich();
+    expect(
+      applyCommand(ctx, state, {
+        kind: 'buyFortressUpgrade',
+        teamId: 'l1',
+        upgradeId: 'nope',
+      }),
+    ).toEqual({ ok: false, rejection: 'unknown-definition' });
+  });
+});
+
+describe('supply cap (§11.4)', () => {
+  it('does not grow on its own, and grows when bought', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    lane.economy.supplyCap = data.economy.supply.capBase!;
+
+    const before = lane.economy.supplyCap;
+    expect(applyCommand(ctx, state, { kind: 'buySupply', teamId: 'l1' }).ok).toBe(true);
+    expect(lane.economy.supplyCap).toBeGreaterThan(before);
+  });
+});
+
+describe('auras (§10.1)', () => {
+  it('buff only units inside the radius', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    lane.fortress.activeAura = 'damage';
+    lane.fortress.auraRadius = 2.5;
+
+    // The fortress sits below the grid, so a high tileY is near it.
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'hammer',
+      tileX: 4,
+      tileY: 9,
+    });
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'hammer',
+      tileX: 4,
+      tileY: 0,
+    });
+
+    const near = lane.units[0]!;
+    const far = lane.units[1]!;
+
+    const fortress = ctx.fortressPosition;
+    const dNear = Math.hypot(near.pos.x - fortress.x, near.pos.y - fortress.y);
+    const dFar = Math.hypot(far.pos.x - fortress.x, far.pos.y - fortress.y);
+
+    expect(dNear).toBeLessThan(lane.fortress.auraRadius);
+    expect(dFar).toBeGreaterThan(lane.fortress.auraRadius);
+  });
+
+  it('only one is active at a time', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+
+    applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'damage' });
+    expect(lane.fortress.activeAura).toBe('damage');
+    applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armour' });
+    expect(lane.fortress.activeAura).toBe('armour');
+  });
+});
+
+describe('the attrition endgame (§3.3)', () => {
+  it('closes new construction from wave 25', () => {
+    const { state, ctx } = rich();
+    state.wave = data.waves.attritionStartWave;
+
+    expect(
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'l1',
+        unitDefId: 'hammer',
+        tileX: 1,
+        tileY: 1,
+      }),
+    ).toEqual({ ok: false, rejection: 'building-closed' });
+  });
+
+  it('still allows tiers, tech and fortress upgrades', () => {
+    // OPEN in §3.3; taking the doc's own recommendation - gold needs a sink and
+    // a losing player needs something to do.
+    const { state, ctx } = rich();
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'hammer',
+      tileX: 1,
+      tileY: 1,
+    });
+    const id = state.lanes.l1!.units[0]!.id;
+
+    state.wave = data.waves.attritionStartWave;
+
+    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'l1', unitId: id }).ok).toBe(
+      true,
+    );
+    expect(
+      applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_impact' }).ok,
+    ).toBe(true);
+    expect(
+      applyCommand(ctx, state, {
+        kind: 'buyFortressUpgrade',
+        teamId: 'l1',
+        upgradeId: 'weapon',
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('stops respawning losses', () => {
+    const { state, ctx } = rich();
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'hammer',
+      tileX: 4,
+      tileY: 4,
+    });
+    const unit = state.lanes.l1!.units[0]!;
+
+    state.wave = data.waves.attritionStartWave;
+    unit.alive = false;
+    unit.hp = 0;
+
+    let guard = 0;
+    while (state.phase !== 'combat' && guard++ < 5000) step(ctx, state);
+    guard = 0;
+    while (state.phase !== 'build' && guard++ < 20000) step(ctx, state);
+
+    expect(unit.alive).toBe(false);
+  });
+});
+
+function stat(v: number | null): number {
+  return v ?? 0;
+}

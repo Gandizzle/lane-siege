@@ -79,10 +79,14 @@ export class AutoBuilder {
     if (!lane) return [];
 
     const commands: Command[] = [];
+    if (!lane.fortress.activeAura) {
+      commands.push({ kind: 'setAura', teamId: this.teamId, aura: 'damage' });
+    }
 
     // Track spend locally: the simulation only applies these next tick, so the
     // planner must not promise the same gold twice.
     let gold = lane.economy.gold;
+    let gems = lane.economy.gems;
     let supply = lane.economy.supplyCap - lane.economy.supplyUsed;
 
     const taken = new Set(
@@ -112,6 +116,32 @@ export class AutoBuilder {
       });
     }
 
+    // Spend gems on the fortress. They have no other sink in single player
+    // (sends are M4), so hoarding them would leave half of M3 untested.
+    for (const id of ['weapon', 'regen', 'hp', 'gemProduction', 'auraStrength', 'auraRadius']) {
+      const ladder = fortressLadder(this.data, id);
+      const level = lane.fortress.upgrades[id] ?? 0;
+      const next = ladder.find((l) => l.level === level + 1);
+      if (!next) continue;
+
+      const cost = next.gemCost ?? 0;
+      const supplyCost = next.supplyCost ?? 0;
+      if (cost > gems || supplyCost > supply) continue;
+
+      gems -= cost;
+      supply -= supplyCost;
+      commands.push({ kind: 'buyFortressUpgrade', teamId: this.teamId, upgradeId: id });
+    }
+
+    // Raise the supply cap when it is the thing holding the army back.
+    const capLadder = this.data.economy.supply.capUpgrades;
+    const capLevel = lane.fortress.upgrades.supply ?? 0;
+    const nextCap = capLadder.find((l) => l.level === capLevel + 1);
+    if (nextCap && supply <= 2 && (nextCap.goldCost ?? 0) <= gold) {
+      gold -= nextCap.goldCost ?? 0;
+      commands.push({ kind: 'buySupply', teamId: this.teamId });
+    }
+
     // Supply-capped: go tall instead (§7.3 - roughly 1.6x cost for 2.2x value).
     for (const unit of lane.units) {
       if (!unit.alive) continue;
@@ -132,6 +162,42 @@ export class AutoBuilder {
       commands.push({ kind: 'upgradeUnit', teamId: this.teamId, unitId: unit.id });
     }
 
+    // Whatever gold is left goes into tech, cheapest track first (§7.4).
+    const affordable = this.data.economy.tech.tracks
+      .map((track) => {
+        const level = lane.economy.tech[track.id] ?? 0;
+        return { track, next: track.levels.find((l) => l.level === level + 1) };
+      })
+      .filter((t) => t.next !== undefined)
+      .sort((a, b) => (a.next!.goldCost ?? 0) - (b.next!.goldCost ?? 0));
+
+    for (const { track, next } of affordable) {
+      const cost = next!.goldCost ?? 0;
+      if (cost > gold) continue;
+      gold -= cost;
+      commands.push({ kind: 'buyTech', teamId: this.teamId, trackId: track.id });
+    }
+
     return commands;
+  }
+}
+
+function fortressLadder(data: GameData, id: string) {
+  const f = data.fortress;
+  switch (id) {
+    case 'weapon':
+      return f.weapon.upgrades;
+    case 'hp':
+      return f.hp.upgrades;
+    case 'regen':
+      return f.regenOnLaneClear.upgrades;
+    case 'gemProduction':
+      return f.resourceBuilding.upgrades;
+    case 'auraStrength':
+      return f.auras.strength.upgrades;
+    case 'auraRadius':
+      return f.auras.radius.upgrades;
+    default:
+      return [];
   }
 }

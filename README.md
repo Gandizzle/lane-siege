@@ -10,21 +10,22 @@ the game itself still to be written.
 
 ## Status
 
-**M1 and M2 complete** (DESIGN.md §17).
+**M1, M2 and M3 complete** (DESIGN.md §17).
 
-- `npm run dev` — playable single-player game in portrait. Tap a unit, tap a
-  tile, watch the wave arrive.
-- `npm run sim` — the same simulation headless, text output only.
+- `npm run dev` — playable single-player game in portrait. Build, upgrade in
+  place, buy global tech, upgrade the fortress, pick a weapon type and an aura.
+- `npm run sim` — the same simulation headless, text output only, with a
+  scripted player. `npm run sim -- --waves 25` plays a full match.
 
-94 tests cover the simulation, including an end-to-end determinism check.
+133 tests, including an end-to-end determinism check.
 
-The balance numbers in `data/` are placeholders and are **not playtested** — the
-lane currently falls around wave 4 where §5.5 targets wave 13–15. Fixing that is
-a JSON editing job, not a code change. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for what is and is not built.
+Balance is **not playtested**. The scripted harness currently survives all 25
+waves comfortably, which almost certainly means the curve is too soft — §5.5
+targets a first elimination around wave 13–15. Every number lives in `data/`, so
+tuning is a JSON job. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-Next up is M3: the full single lane — all six units of builder A, tiers, tech,
-fortress and gem upgrades, 25 waves, bosses, and the attrition endgame.
+Next is M4: Colyseus, 4 lanes, server-authoritative, sends, fog of war,
+elimination and spectating.
 
 ## Getting started
 

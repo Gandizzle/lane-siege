@@ -65,6 +65,12 @@ export interface DefensiveUnit {
   maxHp: number;
   armour: ArmourType;
   damageType: DamageType;
+  /**
+   * Cached tech multipliers (§7.4). Recomputed when something is bought or
+   * upgraded and on wave start - never per tick (§15.3).
+   */
+  techDamage: number;
+  techAttackSpeed: number;
   /** Ticks until the next attack may fire. */
   cooldown: number;
   /**
@@ -138,6 +144,19 @@ export interface Fortress {
   weaponCooldown: number;
   /** One aura active at a time, chosen by the player (§10.1). */
   activeAura: string | null;
+  /**
+   * Resolved fortress stats. These live on the lane rather than being read from
+   * data each tick because they are BOUGHT: each starts at its data base and a
+   * purchased upgrade raises it (§10.1).
+   */
+  weaponDamage: number;
+  weaponAttackSpeed: number;
+  weaponRange: number;
+  auraStrength: number;
+  auraRadius: number;
+  gemsPerWave: number;
+  /** Upgrade id -> level purchased, e.g. `{ hp: 2, weapon: 1 }`. */
+  upgrades: Record<string, number>;
   destroyed: boolean;
 }
 

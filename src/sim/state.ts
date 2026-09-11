@@ -66,6 +66,17 @@ function createLane(data: GameData, teamId: TeamId, missing: string[]): Lane {
       weaponDamageType: weaponType ?? 'impact',
       weaponCooldown: 0,
       activeAura: null,
+      weaponDamage: requireNumber(data.fortress.weapon.damage, 'fortress.weapon.damage', missing),
+      weaponAttackSpeed: requireNumber(
+        data.fortress.weapon.attackSpeed,
+        'fortress.weapon.attackSpeed',
+        missing,
+      ),
+      weaponRange: requireNumber(data.fortress.weapon.range, 'fortress.weapon.range', missing),
+      auraStrength: data.fortress.auras.strength.base ?? 0,
+      auraRadius: data.fortress.auras.radius.base ?? 0,
+      gemsPerWave: data.fortress.resourceBuilding.gemsPerWave ?? 0,
+      upgrades: {},
       destroyed: false,
     },
     economy: {

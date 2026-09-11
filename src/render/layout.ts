@@ -18,9 +18,9 @@ import type { LaneFile } from '../data/schema.ts';
 const BAND_WEIGHTS = {
   tabs: 0.08,
   spawn: 0.07,
-  build: 0.55,
-  fortress: 0.11,
-  buildBar: 0.19,
+  build: 0.5,
+  fortress: 0.1,
+  buildBar: 0.25,
 } as const;
 
 export interface Rect {

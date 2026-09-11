@@ -66,7 +66,8 @@ describe('wave summary (§9.3)', () => {
 
   it('tags each rating with its tier, so the UI can show only buildables', () => {
     const summary = summariseWave(data, 1, 1, 'bastion');
-    expect(summary.units.filter((u) => u.tier === 1).length).toBe(3);
+    // Builder A's full roster is six units (§7.1).
+    expect(summary.units.filter((u) => u.tier === 1).length).toBe(6);
     expect(summary.units.some((u) => u.tier === 2)).toBe(true);
   });
 

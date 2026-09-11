@@ -1,5 +1,5 @@
 {
-  "_comment": "DESIGN.md §9. No special abilities in v1 - variety comes from the stat space alone. M1 slice: four normal monsters spanning all four armour types, plus one boss.",
+  "_comment": "DESIGN.md \u00a79. Nine normal monsters spanning all four armour types, plus four bosses - one per armour type, drawn at random on boss waves (\u00a73.4). All placeholders.",
   "monsters": [
     {
       "id": "grub",
@@ -48,6 +48,66 @@
       "range": 1.6,
       "moveSpeed": 0.9,
       "bounty": 8
+    },
+    {
+      "id": "carapace",
+      "name": "Carapace",
+      "hp": 340,
+      "armour": "plate",
+      "damage": 24,
+      "damageType": "pierce",
+      "attackSpeed": 0.5,
+      "range": 1.0,
+      "moveSpeed": 0.5,
+      "bounty": 17
+    },
+    {
+      "id": "swarmling",
+      "name": "Swarmling",
+      "hp": 14,
+      "armour": "swarm",
+      "damage": 3,
+      "damageType": "impact",
+      "attackSpeed": 2.2,
+      "range": 1.0,
+      "moveSpeed": 1.9,
+      "bounty": 2
+    },
+    {
+      "id": "revenant",
+      "name": "Revenant",
+      "hp": 260,
+      "armour": "ward",
+      "damage": 30,
+      "damageType": "arcane",
+      "attackSpeed": 0.8,
+      "range": 1.4,
+      "moveSpeed": 0.8,
+      "bounty": 15
+    },
+    {
+      "id": "bloater",
+      "name": "Bloater",
+      "hp": 420,
+      "armour": "flesh",
+      "damage": 38,
+      "damageType": "blast",
+      "attackSpeed": 0.45,
+      "range": 1.2,
+      "moveSpeed": 0.45,
+      "bounty": 22
+    },
+    {
+      "id": "stalker",
+      "name": "Stalker",
+      "hp": 95,
+      "armour": "flesh",
+      "damage": 19,
+      "damageType": "pierce",
+      "attackSpeed": 1.2,
+      "range": 1.2,
+      "moveSpeed": 1.6,
+      "bounty": 7
     }
   ],
   "bosses": [
@@ -63,7 +123,49 @@
       "moveSpeed": 0.5,
       "bounty": 90,
       "isBoss": true,
-      "_todo": "§3.4 wants bosses to carry a MIX of armour types across their parts or spawns so no single damage type hard-counters them. This one is single-armour; multi-part bosses need a parts model that does not exist yet."
+      "_note": "\u00a73.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap."
+    },
+    {
+      "id": "hollow_king",
+      "name": "Hollow King",
+      "hp": 1900,
+      "armour": "ward",
+      "damage": 58,
+      "damageType": "impact",
+      "attackSpeed": 0.5,
+      "range": 1.6,
+      "moveSpeed": 0.45,
+      "bounty": 120,
+      "isBoss": true,
+      "_note": "\u00a73.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap."
+    },
+    {
+      "id": "gravemother",
+      "name": "Gravemother",
+      "hp": 2400,
+      "armour": "flesh",
+      "damage": 52,
+      "damageType": "pierce",
+      "attackSpeed": 0.7,
+      "range": 1.3,
+      "moveSpeed": 0.55,
+      "bounty": 150,
+      "isBoss": true,
+      "_note": "\u00a73.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap."
+    },
+    {
+      "id": "chitin_lord",
+      "name": "Chitin Lord",
+      "hp": 3100,
+      "armour": "swarm",
+      "damage": 70,
+      "damageType": "arcane",
+      "attackSpeed": 0.6,
+      "range": 1.5,
+      "moveSpeed": 0.5,
+      "bounty": 190,
+      "isBoss": true,
+      "_note": "\u00a73.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap."
     }
   ]
 }

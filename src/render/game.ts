@@ -83,8 +83,21 @@ export class Game extends Container {
     this.buildBar = new BuildBar(this.layout, data, {
       onSelectUnitDef: (id) => this.selectUnitDef(id),
       onUpgrade: (id) => this.upgrade(id),
-      onSelectWeapon: (damageType) =>
-        this.issue({ kind: 'setWeaponType', teamId: TEAM_ID, damageType }),
+      onSelectWeapon: (damageType) => {
+        this.issue({ kind: 'setWeaponType', teamId: TEAM_ID, damageType });
+      },
+      onSelectAura: (aura) => {
+        this.issue({ kind: 'setAura', teamId: TEAM_ID, aura });
+      },
+      onBuyTech: (trackId) => {
+        this.issue({ kind: 'buyTech', teamId: TEAM_ID, trackId });
+      },
+      onBuyFortress: (upgradeId) => {
+        this.issue({ kind: 'buyFortressUpgrade', teamId: TEAM_ID, upgradeId });
+      },
+      onBuySupply: () => {
+        this.issue({ kind: 'buySupply', teamId: TEAM_ID });
+      },
       onClearSelection: () => this.clearSelection(),
     });
     this.gameOver = new GameOver(this.layout, () => this.restart());
@@ -134,12 +147,7 @@ export class Game extends Container {
     this.laneView.render(this.state, this.lane, selectedUnitId, this.summary);
     this.entities.render(this.lane, this.clock.alpha);
     this.hud.render(this.state, TEAM_ID, this.summary);
-    this.buildBar.render(
-      this.lane,
-      this.selection,
-      this.summary,
-      this.state.phase === 'build' && this.state.wave <= this.data.waves.lastBuildWave,
-    );
+    this.buildBar.render(this.state, this.lane, this.selection, this.summary);
     this.toast.update(deltaMs, this.layout);
     this.gameOver.render(this.state, TEAM_ID);
   }

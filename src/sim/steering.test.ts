@@ -49,6 +49,8 @@ function unitAt(tileX: number, tileY: number): DefensiveUnit {
     maxHp: 10,
     armour: 'plate',
     damageType: 'impact',
+    techDamage: 1,
+    techAttackSpeed: 1,
     cooldown: 0,
     targetId: null,
     alive: true,

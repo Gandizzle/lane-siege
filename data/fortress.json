@@ -1,28 +1,275 @@
 {
-  "_comment": "DESIGN.md §10.1. M1 slice: base values only, upgrade ladders still empty (M3). The weapon should reliably kill one or two current-wave monsters unaided, and regen must undo chip damage on a full lane clear - together these set when the first player is eliminated (§5.5), target wave 13-15.",
+  "_comment": "DESIGN.md \u00a710. Fortress upgrades are bought with GEMS, which is what makes offence and defence compete for the same currency (\u00a711.3). All placeholders.",
   "armour": "plate",
-  "_armourNote": "Not stated in DESIGN.md. The matrix applies in both directions (§6), so a monster hitting the fortress needs something to hit against. Plate is the obvious read for a fortress; change freely.",
-  "hp": { "base": 1000, "upgrades": [] },
+  "_armourNote": "Not stated in DESIGN.md. The matrix applies in both directions (\u00a76), so a monster besieging the fortress needs something to resolve against.",
+  "hp": {
+    "base": 1000,
+    "upgrades": [
+      {
+        "level": 1,
+        "goldCost": null,
+        "gemCost": 40,
+        "supplyCost": 0,
+        "value": 1450
+      },
+      {
+        "level": 2,
+        "goldCost": null,
+        "gemCost": 64,
+        "supplyCost": 0,
+        "value": 1900
+      },
+      {
+        "level": 3,
+        "goldCost": null,
+        "gemCost": 102,
+        "supplyCost": 0,
+        "value": 2350
+      },
+      {
+        "level": 4,
+        "goldCost": null,
+        "gemCost": 164,
+        "supplyCost": 0,
+        "value": 2800
+      },
+      {
+        "level": 5,
+        "goldCost": null,
+        "gemCost": 262,
+        "supplyCost": 0,
+        "value": 3250
+      },
+      {
+        "level": 6,
+        "goldCost": null,
+        "gemCost": 419,
+        "supplyCost": 0,
+        "value": 3700
+      }
+    ]
+  },
   "regenOnLaneClear": {
-    "_comment": "DESIGN CHANGE from §5.5: base is 0 - the fortress does NOT self-heal by default. Regeneration on a full lane clear is a fortress upgrade you choose to buy, not a freebie. The upgrade ladder lands with the rest of the fortress upgrades in M3; until then chip damage is permanent. Note §5.5 names this as one of the two levers against the leak death-spiral, so the other one (the fortress weapon) is now carrying it alone.",
+    "_comment": "DESIGN CHANGE from \u00a75.5: base is 0 - the fortress does NOT self-heal by default. Regeneration on a full lane clear is an upgrade you buy.",
     "base": 0,
-    "upgrades": []
+    "upgrades": [
+      {
+        "level": 1,
+        "goldCost": null,
+        "gemCost": 35,
+        "supplyCost": 0,
+        "value": 45
+      },
+      {
+        "level": 2,
+        "goldCost": null,
+        "gemCost": 60,
+        "supplyCost": 0,
+        "value": 90
+      },
+      {
+        "level": 3,
+        "goldCost": null,
+        "gemCost": 101,
+        "supplyCost": 0,
+        "value": 135
+      },
+      {
+        "level": 4,
+        "goldCost": null,
+        "gemCost": 172,
+        "supplyCost": 0,
+        "value": 180
+      },
+      {
+        "level": 5,
+        "goldCost": null,
+        "gemCost": 292,
+        "supplyCost": 0,
+        "value": 225
+      }
+    ]
   },
   "weapon": {
+    "_comment": "\u00a710.1: the last line of defence. Should reliably kill one or two current-wave monsters unaided so small leaks self-repair and large ones are correctly fatal. Damage type is chosen by the player each build phase, free and instant.",
     "damage": 45,
     "attackSpeed": 0.8,
     "range": 5.0,
-    "upgrades": []
+    "upgrades": [
+      {
+        "level": 1,
+        "goldCost": null,
+        "gemCost": 45,
+        "supplyCost": 0,
+        "value": 83
+      },
+      {
+        "level": 2,
+        "goldCost": null,
+        "gemCost": 74,
+        "supplyCost": 0,
+        "value": 121
+      },
+      {
+        "level": 3,
+        "goldCost": null,
+        "gemCost": 123,
+        "supplyCost": 0,
+        "value": 159
+      },
+      {
+        "level": 4,
+        "goldCost": null,
+        "gemCost": 202,
+        "supplyCost": 0,
+        "value": 197
+      },
+      {
+        "level": 5,
+        "goldCost": null,
+        "gemCost": 334,
+        "supplyCost": 0,
+        "value": 235
+      },
+      {
+        "level": 6,
+        "goldCost": null,
+        "gemCost": 550,
+        "supplyCost": 0,
+        "value": 273
+      }
+    ]
   },
   "auras": {
-    "_comment": "One active at a time, player-chosen. Strength and radius upgrade separately (§10.1). Not applied by the sim yet - M3.",
+    "_comment": "\u00a710.1: one aura active at a time, chosen by the player. Strength and radius upgrade SEPARATELY - early on the radius cannot cover the whole build zone, forcing a real choice between a tight buffed core near the fortress and a spread-out line that intercepts sooner but fights unbuffed.",
     "types": ["damage", "attackSpeed", "armour", "regeneration"],
-    "strength": { "base": 0.15, "upgrades": [] },
-    "radius": { "base": 3.0, "upgrades": [] }
+    "strength": {
+      "base": 0.15,
+      "upgrades": [
+        {
+          "level": 1,
+          "goldCost": null,
+          "gemCost": 50,
+          "supplyCost": 0,
+          "value": 0.22
+        },
+        {
+          "level": 2,
+          "goldCost": null,
+          "gemCost": 85,
+          "supplyCost": 0,
+          "value": 0.29
+        },
+        {
+          "level": 3,
+          "goldCost": null,
+          "gemCost": 144,
+          "supplyCost": 0,
+          "value": 0.36
+        },
+        {
+          "level": 4,
+          "goldCost": null,
+          "gemCost": 246,
+          "supplyCost": 0,
+          "value": 0.43
+        },
+        {
+          "level": 5,
+          "goldCost": null,
+          "gemCost": 418,
+          "supplyCost": 0,
+          "value": 0.5
+        }
+      ]
+    },
+    "radius": {
+      "base": 3.0,
+      "upgrades": [
+        {
+          "level": 1,
+          "goldCost": null,
+          "gemCost": 45,
+          "supplyCost": 0,
+          "value": 4.1
+        },
+        {
+          "level": 2,
+          "goldCost": null,
+          "gemCost": 79,
+          "supplyCost": 0,
+          "value": 5.2
+        },
+        {
+          "level": 3,
+          "goldCost": null,
+          "gemCost": 138,
+          "supplyCost": 0,
+          "value": 6.3
+        },
+        {
+          "level": 4,
+          "goldCost": null,
+          "gemCost": 241,
+          "supplyCost": 0,
+          "value": 7.4
+        },
+        {
+          "level": 5,
+          "goldCost": null,
+          "gemCost": 422,
+          "supplyCost": 0,
+          "value": 8.5
+        }
+      ]
+    }
   },
   "resourceBuilding": {
-    "_comment": "§10.2. Adjacent to the fortress, cannot be attacked. Produces gems.",
+    "_comment": "\u00a710.2. Adjacent to the fortress, cannot be attacked. Produces gems.",
     "gemsPerWave": 10,
-    "upgrades": []
+    "upgrades": [
+      {
+        "level": 1,
+        "goldCost": null,
+        "gemCost": 55,
+        "supplyCost": 1,
+        "value": 16
+      },
+      {
+        "level": 2,
+        "goldCost": null,
+        "gemCost": 88,
+        "supplyCost": 1,
+        "value": 22
+      },
+      {
+        "level": 3,
+        "goldCost": null,
+        "gemCost": 141,
+        "supplyCost": 1,
+        "value": 28
+      },
+      {
+        "level": 4,
+        "goldCost": null,
+        "gemCost": 225,
+        "supplyCost": 1,
+        "value": 34
+      },
+      {
+        "level": 5,
+        "goldCost": null,
+        "gemCost": 360,
+        "supplyCost": 1,
+        "value": 40
+      },
+      {
+        "level": 6,
+        "goldCost": null,
+        "gemCost": 577,
+        "supplyCost": 1,
+        "value": 46
+      }
+    ]
   }
 }

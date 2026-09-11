@@ -1,11 +1,11 @@
 {
-  "_comment": "DESIGN.md \u00a77. M1 slice: builder A with 3 of its 6 units (\u00a717). The \u00a76.1 coverage rule - all four damage types across the roster - is only enforced once a builder is marked complete, which A is not yet. DESIGN CHANGE from \u00a75.2: units are no longer permanently stationary - moveSpeed is how fast one advances when nothing is in range. Set 0 to pin a unit in place.",
+  "_comment": "DESIGN.md \u00a77. Builder A complete: six units covering all four damage types (\u00a76.1). Tier 2 on every unit, tier 3 on three of them (\u00a77.3). Pricing aims at ~1.6x cost for ~2.2x value so going tall beats going wide, but needs board presence you already paid for. DESIGN CHANGE from \u00a75.2: moveSpeed is how fast a unit advances when nothing is in range; 0 pins it in place. All placeholders.",
   "builders": [
     {
       "id": "bastion",
       "name": "Bastion",
-      "complete": false,
-      "_roster": "3 of 6 units. Missing an Arcane unit and two more; the Arcane gap is what the coverage rule will catch when complete flips to true."
+      "complete": true,
+      "_roster": "Six units, all four damage types. complete=true arms the \u00a76.1 coverage check."
     }
   ],
   "units": [
@@ -30,6 +30,7 @@
       "builderId": "bastion",
       "name": "Hammer II",
       "tier": 2,
+      "upgradesTo": "hammer_3",
       "goldCost": 64,
       "supplyCost": 0,
       "hp": 570,
@@ -39,6 +40,52 @@
       "attackSpeed": 1.0,
       "range": 1.4,
       "moveSpeed": 0.55
+    },
+    {
+      "id": "hammer_3",
+      "builderId": "bastion",
+      "name": "Hammer III",
+      "tier": 3,
+      "goldCost": 105,
+      "supplyCost": 1,
+      "hp": 1180,
+      "armour": "plate",
+      "damage": 66,
+      "damageType": "impact",
+      "attackSpeed": 1.05,
+      "range": 1.5,
+      "moveSpeed": 0.55
+    },
+    {
+      "id": "bulwark",
+      "builderId": "bastion",
+      "name": "Bulwark",
+      "tier": 1,
+      "upgradesTo": "bulwark_2",
+      "goldCost": 70,
+      "supplyCost": 3,
+      "hp": 620,
+      "armour": "plate",
+      "damage": 18,
+      "damageType": "impact",
+      "attackSpeed": 0.6,
+      "range": 1.2,
+      "moveSpeed": 0.35
+    },
+    {
+      "id": "bulwark_2",
+      "builderId": "bastion",
+      "name": "Bulwark II",
+      "tier": 2,
+      "goldCost": 112,
+      "supplyCost": 1,
+      "hp": 1360,
+      "armour": "plate",
+      "damage": 40,
+      "damageType": "impact",
+      "attackSpeed": 0.6,
+      "range": 1.2,
+      "moveSpeed": 0.35
     },
     {
       "id": "spike",
@@ -72,6 +119,37 @@
       "moveSpeed": 0.45
     },
     {
+      "id": "lance",
+      "builderId": "bastion",
+      "name": "Lance",
+      "tier": 1,
+      "upgradesTo": "lance_2",
+      "goldCost": 95,
+      "supplyCost": 3,
+      "hp": 130,
+      "armour": "flesh",
+      "damage": 52,
+      "damageType": "pierce",
+      "attackSpeed": 0.35,
+      "range": 5.5,
+      "moveSpeed": 0.25
+    },
+    {
+      "id": "lance_2",
+      "builderId": "bastion",
+      "name": "Lance II",
+      "tier": 2,
+      "goldCost": 152,
+      "supplyCost": 1,
+      "hp": 285,
+      "armour": "flesh",
+      "damage": 115,
+      "damageType": "pierce",
+      "attackSpeed": 0.35,
+      "range": 5.8,
+      "moveSpeed": 0.25
+    },
+    {
       "id": "mortar",
       "builderId": "bastion",
       "name": "Mortar",
@@ -92,6 +170,7 @@
       "builderId": "bastion",
       "name": "Mortar II",
       "tier": 2,
+      "upgradesTo": "mortar_3",
       "goldCost": 120,
       "supplyCost": 1,
       "hp": 240,
@@ -101,6 +180,68 @@
       "attackSpeed": 0.5,
       "range": 4.8,
       "moveSpeed": 0.3
+    },
+    {
+      "id": "mortar_3",
+      "builderId": "bastion",
+      "name": "Mortar III",
+      "tier": 3,
+      "goldCost": 196,
+      "supplyCost": 1,
+      "hp": 500,
+      "armour": "flesh",
+      "damage": 162,
+      "damageType": "blast",
+      "attackSpeed": 0.55,
+      "range": 5.0,
+      "moveSpeed": 0.3
+    },
+    {
+      "id": "prism",
+      "builderId": "bastion",
+      "name": "Prism",
+      "tier": 1,
+      "upgradesTo": "prism_2",
+      "goldCost": 65,
+      "supplyCost": 2,
+      "hp": 150,
+      "armour": "ward",
+      "damage": 9,
+      "damageType": "arcane",
+      "attackSpeed": 1.8,
+      "range": 3.5,
+      "moveSpeed": 0.5
+    },
+    {
+      "id": "prism_2",
+      "builderId": "bastion",
+      "name": "Prism II",
+      "tier": 2,
+      "upgradesTo": "prism_3",
+      "goldCost": 104,
+      "supplyCost": 0,
+      "hp": 325,
+      "armour": "ward",
+      "damage": 20,
+      "damageType": "arcane",
+      "attackSpeed": 1.8,
+      "range": 3.6,
+      "moveSpeed": 0.5
+    },
+    {
+      "id": "prism_3",
+      "builderId": "bastion",
+      "name": "Prism III",
+      "tier": 3,
+      "goldCost": 170,
+      "supplyCost": 1,
+      "hp": 700,
+      "armour": "ward",
+      "damage": 44,
+      "damageType": "arcane",
+      "attackSpeed": 1.9,
+      "range": 3.8,
+      "moveSpeed": 0.5
     }
   ]
 }

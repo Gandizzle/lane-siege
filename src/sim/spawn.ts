@@ -92,6 +92,8 @@ export function createUnit(
     maxHp: stat(def.hp),
     armour: def.armour,
     damageType: def.damageType,
+    techDamage: 1,
+    techAttackSpeed: 1,
     cooldown: 0,
     targetId: null,
     alive: true,

@@ -1,16 +1,313 @@
 {
-  "_comment": "DESIGN.md §11. M1 slice: starting values and the supply cap. Tech tracks are M3.",
+  "_comment": "DESIGN.md \u00a711. Gold buys units, tiers and tech; gems buy fortress upgrades and sends. Supply is one shared budget across offence, defence and economy. All placeholders.",
   "startingGold": 400,
   "startingGems": 0,
-  "gemProduction": { "base": 10, "upgrades": [] },
+  "gemProduction": {
+    "base": 10,
+    "upgrades": []
+  },
   "supply": {
-    "_comment": "Does not grow automatically - the cap is an upgrade you choose to buy (§11.4).",
+    "_comment": "\u00a711.4: the cap does not grow on its own - it is an upgrade you choose to buy, which makes a large army a deliberate investment.",
+    "_open": "OPEN (\u00a711.1): gold or gems? The doc recommends gold and that is what these cost. Say the word and it is a one-line change.",
     "capBase": 22,
-    "capUpgrades": [],
-    "_open": "OPEN (§11.1): is the cap upgrade bought with gold or gems? Doc recommends gold. Still unanswered - capUpgrades is empty, so nothing depends on it yet."
+    "capUpgrades": [
+      {
+        "level": 1,
+        "goldCost": 110,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 26
+      },
+      {
+        "level": 2,
+        "goldCost": 187,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 30
+      },
+      {
+        "level": 3,
+        "goldCost": 318,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 34
+      },
+      {
+        "level": 4,
+        "goldCost": 540,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 38
+      },
+      {
+        "level": 5,
+        "goldCost": 919,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 42
+      },
+      {
+        "level": 6,
+        "goldCost": 1562,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 46
+      }
+    ]
   },
   "tech": {
-    "_comment": "§7.4. Tied to damage types, not unit types. Four offensive tracks plus defensive tracks, ~5 levels each, escalating cost. Empty until M3.",
-    "tracks": []
+    "_comment": "\u00a77.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
+    "tracks": [
+      {
+        "id": "dmg_impact",
+        "name": "Impact",
+        "damageType": "impact",
+        "levels": [
+          {
+            "level": 1,
+            "goldCost": 120,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.1
+          },
+          {
+            "level": 2,
+            "goldCost": 210,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.2
+          },
+          {
+            "level": 3,
+            "goldCost": 368,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.3
+          },
+          {
+            "level": 4,
+            "goldCost": 643,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.4
+          },
+          {
+            "level": 5,
+            "goldCost": 1125,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.5
+          }
+        ]
+      },
+      {
+        "id": "dmg_pierce",
+        "name": "Pierce",
+        "damageType": "pierce",
+        "levels": [
+          {
+            "level": 1,
+            "goldCost": 120,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.1
+          },
+          {
+            "level": 2,
+            "goldCost": 210,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.2
+          },
+          {
+            "level": 3,
+            "goldCost": 368,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.3
+          },
+          {
+            "level": 4,
+            "goldCost": 643,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.4
+          },
+          {
+            "level": 5,
+            "goldCost": 1125,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.5
+          }
+        ]
+      },
+      {
+        "id": "dmg_blast",
+        "name": "Blast",
+        "damageType": "blast",
+        "levels": [
+          {
+            "level": 1,
+            "goldCost": 120,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.1
+          },
+          {
+            "level": 2,
+            "goldCost": 210,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.2
+          },
+          {
+            "level": 3,
+            "goldCost": 368,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.3
+          },
+          {
+            "level": 4,
+            "goldCost": 643,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.4
+          },
+          {
+            "level": 5,
+            "goldCost": 1125,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.5
+          }
+        ]
+      },
+      {
+        "id": "dmg_arcane",
+        "name": "Arcane",
+        "damageType": "arcane",
+        "levels": [
+          {
+            "level": 1,
+            "goldCost": 120,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.1
+          },
+          {
+            "level": 2,
+            "goldCost": 210,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.2
+          },
+          {
+            "level": 3,
+            "goldCost": 368,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.3
+          },
+          {
+            "level": 4,
+            "goldCost": 643,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.4
+          },
+          {
+            "level": 5,
+            "goldCost": 1125,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.5
+          }
+        ]
+      },
+      {
+        "id": "def_hp",
+        "name": "Plating",
+        "levels": [
+          {
+            "level": 1,
+            "goldCost": 150,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.12
+          },
+          {
+            "level": 2,
+            "goldCost": 270,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.24
+          },
+          {
+            "level": 3,
+            "goldCost": 486,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.36
+          },
+          {
+            "level": 4,
+            "goldCost": 875,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.48
+          },
+          {
+            "level": 5,
+            "goldCost": 1575,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.6
+          }
+        ]
+      },
+      {
+        "id": "def_speed",
+        "name": "Cadence",
+        "levels": [
+          {
+            "level": 1,
+            "goldCost": 180,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.08
+          },
+          {
+            "level": 2,
+            "goldCost": 333,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.16
+          },
+          {
+            "level": 3,
+            "goldCost": 616,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.24
+          },
+          {
+            "level": 4,
+            "goldCost": 1140,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.32
+          },
+          {
+            "level": 5,
+            "goldCost": 2108,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.4
+          }
+        ]
+      }
+    ]
   }
 }

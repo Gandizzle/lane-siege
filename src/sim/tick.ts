@@ -13,11 +13,17 @@
  */
 
 import type { GameData } from '../data/schema.ts';
-import { MONSTER_RETARGET_TICKS, TICKS_PER_SECOND, secondsToTicks } from './constants.ts';
+import {
+  MONSTER_RETARGET_TICKS,
+  SECONDS_PER_TICK,
+  TICKS_PER_SECOND,
+  secondsToTicks,
+} from './constants.ts';
 import type { Command } from './commands.ts';
 import { applyCommands } from './apply.ts';
 import { resolveDamage } from './damage.ts';
 import { buildDefIndex, stat, type DefIndex } from './defs.ts';
+import { auraFor, recomputeUnitBuffs } from './buffs.ts';
 import { monsterEnrage } from './enrage.ts';
 import { rebuildOccupancy, restoreSelf, withoutSelf } from './grid.ts';
 import type { OccupancyGrid } from './grid.ts';
@@ -123,16 +129,17 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
     clearStuck(unit);
     if (unit.cooldown > 0) continue;
 
-    // TODO(§7.4, §10.1): aura and tech multipliers fold in here. Auras are
-    // recomputed only on add/remove/upgrade and on wave start (§15.3), never per
-    // tick, so the resolved multiplier should be cached on the unit.
+    // §7.4 tech is cached on the unit; §10.1 aura depends on where it is
+    // standing right now, so it is evaluated here (see buffs.ts on why).
+    const aura = auraFor(lane, unit, ctx.fortressPosition);
+
     target.hp -= resolveDamage(
       ctx.data.matrix.multipliers,
-      stat(def.damage),
+      stat(def.damage) * unit.techDamage * aura.damage,
       def.damageType,
       target.armour,
     );
-    unit.cooldown = cooldownTicks(stat(def.attackSpeed));
+    unit.cooldown = cooldownTicks(stat(def.attackSpeed) * unit.techAttackSpeed * aura.attackSpeed);
   }
 
   void state;
@@ -260,24 +267,18 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
     if (!target && monster.isStuck) {
       const neighbour = nearestUnit(lane.units, monster.pos);
       if (neighbour) {
-        neighbour.hp -= resolveDamage(
-          ctx.data.matrix.multipliers,
-          damage,
-          monster.damageType,
-          neighbour.armour,
-        );
+        neighbour.hp -=
+          resolveDamage(ctx.data.matrix.multipliers, damage, monster.damageType, neighbour.armour) *
+          auraFor(lane, neighbour, ctx.fortressPosition).damageTaken;
         monster.cooldown = cooldownTicks(monster.attackSpeed * multiplier);
         continue;
       }
     }
 
     if (target) {
-      target.hp -= resolveDamage(
-        ctx.data.matrix.multipliers,
-        damage,
-        monster.damageType,
-        target.armour,
-      );
+      target.hp -=
+        resolveDamage(ctx.data.matrix.multipliers, damage, monster.damageType, target.armour) *
+        auraFor(lane, target, ctx.fortressPosition).damageTaken;
     } else if (inRange) {
       // Sieging the fortress (§5.5). A stuck monster with no unit in reach is
       // wedged somewhere in the grid, not at the wall, so it does not chip HP.
@@ -346,7 +347,15 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
   }
 
   for (const unit of lane.units) {
-    if (unit.alive && unit.hp <= 0) {
+    if (!unit.alive) continue;
+
+    // §10.1 regeneration aura.
+    const regen = auraFor(lane, unit, ctx.fortressPosition).regenPerSecond;
+    if (regen > 0 && unit.hp > 0 && unit.hp < unit.maxHp) {
+      unit.hp = Math.min(unit.maxHp, unit.hp + unit.maxHp * regen * SECONDS_PER_TICK);
+    }
+
+    if (unit.hp <= 0) {
       unit.alive = false;
       anyUnitDied = true;
     }
@@ -489,6 +498,13 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
     // Combat has no clock of its own. It ends when the lanes are empty.
     state.phaseTicksLeft = 0;
     spawnWave(ctx, state);
+
+    // §15.3: recompute on wave start, not per tick.
+    for (const team of state.teams) {
+      if (team.eliminated) continue;
+      const lane = state.lanes[team.id];
+      if (lane) recomputeUnitBuffs(ctx.data, ctx.defs, lane);
+    }
     return;
   }
 
@@ -505,7 +521,7 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
     respawnUnits(ctx, lane, state);
     // §11.6: passive income is paid each wave and compounds over the match.
     lane.economy.gold += lane.economy.passiveIncome;
-    lane.economy.gems += stat(ctx.data.fortress.resourceBuilding.gemsPerWave);
+    lane.economy.gems += lane.fortress.gemsPerWave;
   }
 }
 
