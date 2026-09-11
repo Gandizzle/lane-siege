@@ -56,6 +56,15 @@ export interface Mover {
   stuckAnchor: Vec2;
   stuckTicks: number;
   isStuck: boolean;
+  /**
+   * Which candidate direction was taken last tick, or -1.
+   *
+   * Sidestepping without memory oscillates: with the way forward blocked, the
+   * ranking picks left, the step changes the geometry a fraction, next tick it
+   * picks right, and the agent shuffles on the spot forever at exactly two
+   * ticks per cycle. Remembering the choice and preferring it breaks the cycle.
+   */
+  lastStepIndex: number;
 }
 
 /** A body that takes up space and can be walked into. */
@@ -133,14 +142,22 @@ const order: number[] = [0, 1, 2, 3, 4, 5, 6, 7];
 const scores: number[] = [0, 0, 0, 0, 0, 0, 0, 0];
 
 /**
+ * How much to favour last tick's direction, in units of the dot-product score.
+ * Enough to survive the small geometry change one step makes, not enough to
+ * keep an agent committed to a direction that has become clearly wrong.
+ */
+const HYSTERESIS = 0.35;
+
+/**
  * Rank candidates by how closely each matches `desired`. Insertion sort over
  * eight fixed slots: no allocation, and stable, so equal scores keep the
  * lane-forward-first CANDIDATES order - which is the §5.3 tie-break.
  */
-function rankCandidates(desired: Vec2): void {
+function rankCandidates(desired: Vec2, lastIndex: number): void {
   for (let i = 0; i < CANDIDATES.length; i++) {
     const c = CANDIDATES[i]!;
     scores[i] = c.x * desired.x + c.y * desired.y;
+    if (i === lastIndex) scores[i] = scores[i]! + HYSTERESIS;
     order[i] = i;
   }
   for (let i = 1; i < order.length; i++) {
@@ -202,9 +219,10 @@ export function stepToward(
   // it is trapped there forever.
   const escaping = grid !== null && isPositionBlocked(grid, mover.pos.x, mover.pos.y);
 
-  rankCandidates(desired);
+  rankCandidates(desired, mover.lastStepIndex);
   for (let i = 0; i < order.length; i++) {
-    const c = CANDIDATES[order[i]!]!;
+    const index = order[i]!;
+    const c = CANDIDATES[index]!;
     const nx = mover.pos.x + c.x * step;
     const ny = mover.pos.y + c.y * step;
 
@@ -213,9 +231,11 @@ export function stepToward(
 
     mover.pos.x = nx;
     mover.pos.y = ny;
+    mover.lastStepIndex = index;
     return true;
   }
 
+  mover.lastStepIndex = -1;
   return false;
 }
 

@@ -93,3 +93,34 @@ export function restoreSelf(grid: OccupancyGrid, x: number, y: number, value: nu
   if (!inBounds(grid, tileX, tileY)) return;
   grid.cells[tileY * grid.width + tileX] = value;
 }
+
+/**
+ * Is the straight segment between two points clear of blocked tiles?
+ *
+ * Flow-field routing is for getting around something. When the way is simply
+ * open, following the field instead of walking straight at the target adds
+ * jitter for nothing: the field's gradient reshuffles as its sources move, and
+ * the agent visibly wobbles between neighbouring tiles. So the field is used
+ * only when this returns false.
+ *
+ * Digital differential analyser over the tile grid - no trigonometry, so it
+ * stays bit-identical across engines.
+ */
+export function hasLineOfSight(
+  grid: OccupancyGrid,
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+): boolean {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const steps = Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) * 2);
+  if (steps <= 0) return true;
+
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    if (isPositionBlocked(grid, ax + dx * t, ay + dy * t)) return false;
+  }
+  return true;
+}

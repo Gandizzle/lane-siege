@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "sim": "tsx src/headless/run.ts",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "perf": "tsx src/headless/perf.ts"
   },
   "dependencies": {
     "pixi.js": "^8.20.1"

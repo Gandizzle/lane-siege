@@ -116,6 +116,49 @@ Two OPEN questions are answered, both recorded in
 from wave 25** (§3.3, against the doc's recommendation — the endgame is a grind
 fought with what you brought).
 
+### Pathing: a distance field, not A*
+
+§5.3 ruled out A*, navmeshes and flow fields, and greedy steering was a
+reasonable first guess — but it fails on the geometry this game makes. A wall of
+units with a gap at one end is a local minimum: every greedy step is blocked, no
+tie-break finds the gap, and the wave presses flat against the wall forever.
+Measured: 0 of 8 monsters through an open gap.
+
+A\* fixes that but is the wrong shape here. A\* answers "one agent, one goal";
+this is _many_ agents converging on _few_ goals — up to 30 monsters all heading
+for the nearest unit — so per-agent A\* re-solves nearly the same search 30 times
+and redoes it whenever the line changes.
+
+A distance field inverts it: one breadth-first sweep from every goal at once
+labels each tile with its distance to the nearest, and agents walk downhill. One
+search serves the whole wave, it cannot be trapped because the field encodes
+global connectivity, and on an 80-cell grid it is far cheaper than 30 searches.
+Measured at the full §15.3 load (4 lanes, 120 monsters, 160 units): **0.22ms per
+tick, 0.44% of the 50ms budget**. `npm run perf` re-checks it.
+
+The field is only used when it is needed. With clear line of sight an agent
+walks straight at its target, because following a gradient whose sources are
+moving adds wobble for nothing.
+
+### Three rules that keep crowds from jittering
+
+Jitter and deadlock were the hard part, and each had a distinct cause:
+
+1. **Ally tiles are not terrain.** Treating them as terrain made a blocked unit
+   sidestep left, then right, then left — a clean two-tick oscillation, forever.
+   Units are blocked only by yielding and separation; the occupancy grid governs
+   monster-versus-unit, where a line of units really is a wall.
+2. **Blocking is asymmetric.** Whoever is closer to the goal holds its ground;
+   whoever is further yields. Symmetric shoving both oscillates (each agent
+   undoes the other's step) and deadlocks (a ring can all block each other). A
+   strict order cannot contain a cycle, so a crowd resolves into a queue.
+3. **Steering has hysteresis.** Last tick's direction gets a bonus in the
+   ranking, so a marginal geometry change cannot flip the choice.
+
+Together these took path efficiency from 0.57 to **0.999** and wasted travel
+from 68 tiles to 0.01 over the same 20-second window, with all 40 units still
+making progress.
+
 ### Collision comes in two flavours
 
 Monster-versus-unit is **tile** occupancy: a line of units is a wall, and the

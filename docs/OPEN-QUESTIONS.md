@@ -97,6 +97,13 @@ Decisions that override the document rather than filling a gap in it:
   others hostage; that is now handled at the other end instead — enrage keeps
   climbing on a lane that cannot clear, and when its fortress falls the lane is
   wiped and stops receiving waves, so it cannot stall the match indefinitely.
+- **§5.3 — pathing is a distance field, not greedy steering.** §5.3 explicitly
+  ruled out A\*, navmeshes and flow fields. Greedy steering could not solve a
+  wall with a gap in it — a measured 0 of 8 monsters got through — so a
+  multi-source breadth-first distance field replaced it. A\* was considered and
+  rejected as the wrong shape: many agents, few goals, so one shared sweep beats
+  30 individual searches and costs 0.44% of the tick budget. The field is used
+  only when line of sight is blocked; on open ground agents still walk straight.
 - **§4.2 — same-kind collision is by body radius, not by tile.** Tile occupancy
   is right for monster-versus-unit, where a line of units is a wall. It is too
   coarse between entities of the same kind moving continuously: two in adjacent

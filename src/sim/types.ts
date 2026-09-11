@@ -57,8 +57,18 @@ export interface DefensiveUnit {
   pos: Vec2;
   /** Tiles per second while advancing. */
   moveSpeed: number;
+  /** Distance to this unit's goal from the flow field; the yielding order. */
+  pathCost: number;
+  /**
+   * The monster this unit is walking toward, held until it dies or something
+   * is clearly closer. Without this hysteresis a unit flips between two
+   * near-equidistant monsters every tick and visibly shivers.
+   */
+  advanceTargetId: EntityId | null;
   /** Stuck-detection window, same fallback the monsters use (§5.3). */
   stuckAnchor: Vec2;
+  /** Last candidate direction taken; steering hysteresis (see steering.ts). */
+  lastStepIndex: number;
   stuckTicks: number;
   isStuck: boolean;
   hp: number;
@@ -108,8 +118,12 @@ export interface Monster {
   targetId: EntityId | null;
   /** Ticks until this monster re-evaluates nearest target (§5.1). */
   retargetIn: number;
+  /** Distance to this monster's goal from the flow field; the yielding order. */
+  pathCost: number;
   /** Position at the start of the current stuck-detection window (§5.3). */
   stuckAnchor: Vec2;
+  /** Last candidate direction taken; steering hysteresis (see steering.ts). */
+  lastStepIndex: number;
   stuckTicks: number;
   /** True once stuck detection has fired; the monster attacks what is nearest. */
   isStuck: boolean;

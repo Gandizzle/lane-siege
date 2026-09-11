@@ -25,11 +25,12 @@ import { resolveDamage } from './damage.ts';
 import { buildDefIndex, stat, type DefIndex } from './defs.ts';
 import { auraFor, recomputeUnitBuffs } from './buffs.ts';
 import { monsterEnrage } from './enrage.ts';
-import { rebuildOccupancy, restoreSelf, withoutSelf } from './grid.ts';
-import type { OccupancyGrid } from './grid.ts';
+import { hasLineOfSight, isPositionBlocked, rebuildOccupancy } from './grid.ts';
+import { computeFlowField, createFlowField, steerAlongField } from './flowfield.ts';
+import type { FlowField } from './flowfield.ts';
+import { blockedByPriority, relaxSeparation } from './separation.ts';
 import { admitFromReserve, countLiving, createMonster } from './spawn.ts';
 import { clearStuck, stepToward, updateStuckDetection } from './steering.ts';
-import type { Separation } from './steering.ts';
 import {
   distanceSquared,
   holdOrDrop,
@@ -40,12 +41,27 @@ import {
 import type { DefensiveUnit, Lane, MatchState, Monster, Vec2 } from './types.ts';
 import { generateWave } from './waves.ts';
 
+/**
+ * Scratch pathing state for one lane. Derived entirely from the lane's contents
+ * and rebuilt each tick, so it lives here rather than in MatchState - it is not
+ * part of the match, it is a way of looking at it.
+ */
+interface LaneFields {
+  /** Distance to the nearest defensive unit. Monsters walk down this. */
+  toUnits: FlowField;
+  /** Distance to the nearest monster. Units walk down this. */
+  toMonsters: FlowField;
+  blocked: Uint8Array;
+  sources: Uint8Array;
+}
+
 /** Everything a tick needs that is not match state: the data and its index. */
 export interface SimContext {
   data: GameData;
   defs: DefIndex;
   /** Where monsters go once the lane is clear. Constant for a match (§5.5). */
   fortressPosition: Vec2;
+  fields: Map<string, LaneFields>;
 }
 
 export function createContext(data: GameData): SimContext {
@@ -56,7 +72,82 @@ export function createContext(data: GameData): SimContext {
       x: data.lane.buildZone.width / 2,
       y: data.lane.buildZone.depth + data.lane.fortressZoneDepth * 0.5,
     },
+    fields: new Map(),
   };
+}
+
+function laneFields(ctx: SimContext, teamId: string): LaneFields {
+  let fields = ctx.fields.get(teamId);
+  if (!fields) {
+    const { width, depth } = ctx.data.lane.buildZone;
+    fields = {
+      toUnits: createFlowField(width, depth),
+      toMonsters: createFlowField(width, depth),
+      blocked: new Uint8Array(width * depth),
+      sources: new Uint8Array(width * depth),
+    };
+    ctx.fields.set(teamId, fields);
+  }
+  return fields;
+}
+
+/** Clamp a world position onto a grid tile index. */
+function tileIndex(width: number, depth: number, x: number, y: number): number {
+  const tx = Math.min(width - 1, Math.max(0, Math.floor(x)));
+  const ty = Math.min(depth - 1, Math.max(0, Math.floor(y)));
+  return ty * width + tx;
+}
+
+/**
+ * Rebuild both distance fields for a lane.
+ *
+ * One breadth-first sweep serves every agent heading for the same kind of goal,
+ * which is why this is cheaper than giving each of thirty monsters its own A*
+ * search - see the note at the top of flowfield.ts.
+ */
+function updateFields(ctx: SimContext, lane: Lane): LaneFields {
+  const { width, depth } = ctx.data.lane.buildZone;
+  const fields = laneFields(ctx, lane.teamId);
+
+  // Monsters: goals are the units; the units are also what blocks them.
+  fields.blocked.fill(0);
+  fields.sources.fill(0);
+
+  let anyUnit = false;
+  for (const unit of lane.units) {
+    if (!unit.alive) continue;
+    const index = tileIndex(width, depth, unit.pos.x, unit.pos.y);
+    fields.blocked[index] = 1;
+    fields.sources[index] = 1;
+    anyUnit = true;
+  }
+
+  if (!anyUnit) {
+    // §5.5: lane clear, so head for the fortress - which sits below the grid,
+    // making the bottom row the way out.
+    for (let x = 0; x < width; x++) fields.sources[(depth - 1) * width + x] = 1;
+  }
+  computeFlowField(fields.toUnits, fields.blocked, fields.sources);
+
+  for (const monster of lane.monsters) {
+    monster.pathCost = fields.toUnits.cost[tileIndex(width, depth, monster.pos.x, monster.pos.y)]!;
+  }
+
+  // Units: goals are the monsters. Units do not block each other here - crowding
+  // between them is resolved by separation, not by refusing to move.
+  fields.blocked.fill(0);
+  fields.sources.fill(0);
+  for (const monster of lane.monsters) {
+    if (!monster.alive) continue;
+    fields.sources[tileIndex(width, depth, monster.pos.x, monster.pos.y)] = 1;
+  }
+  computeFlowField(fields.toMonsters, fields.blocked, fields.sources);
+
+  for (const unit of lane.units) {
+    unit.pathCost = fields.toMonsters.cost[tileIndex(width, depth, unit.pos.x, unit.pos.y)]!;
+  }
+
+  return fields;
 }
 
 /** Attack cooldown in ticks for a given attacks-per-second rate. */
@@ -68,8 +159,14 @@ function cooldownTicks(attacksPerSecond: number): number {
 // Scratch values, reused so that a tick allocates nothing (§15.3).
 const scratchDestination: Vec2 = { x: 0, y: 0 };
 const scratchUnitPos: Vec2 = { x: 0, y: 0 };
-const unitSeparation: Separation = { others: [], selfId: 0, minDistance: 0 };
-const monsterSeparation: Separation = { others: [], selfId: 0, minDistance: 0 };
+const scratchDirection: Vec2 = { x: 0, y: 0 };
+
+/**
+ * How far inside its attack range a unit settles when advancing. Anything below
+ * 1 gives the stop/go decision hysteresis, so a target drifting a fraction of a
+ * tile does not restart the advance.
+ */
+const ADVANCE_DEADBAND = 0.9;
 
 // --------------------------------------------------------------------- stages
 
@@ -103,7 +200,6 @@ function advanceWaveClocks(state: MatchState): void {
  * forward rather than collapsing into one tile.
  */
 function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
-  const grid = ctx.data.lane.unitsBlockMovement ? lane.occupancy : null;
   const maxX = ctx.data.lane.buildZone.width;
   const maxY = ctx.data.lane.buildZone.depth;
 
@@ -124,7 +220,7 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
     unit.targetId = target ? target.id : null;
 
     if (!target) {
-      advanceUnit(unit, lane, grid, maxX, maxY, ctx.data.lane.unitRadius);
+      advanceUnit(unit, lane, maxX, maxY, ctx.data.lane.unitRadius, range);
       continue;
     }
 
@@ -156,14 +252,27 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
 function advanceUnit(
   unit: DefensiveUnit,
   lane: Lane,
-  grid: OccupancyGrid | null,
   maxX: number,
   maxY: number,
   radius: number,
+  range: number,
 ): void {
   if (unit.moveSpeed <= 0) {
     clearStuck(unit);
     return;
+  }
+
+  // Hold the current advance target unless it is gone or something is clearly
+  // closer. Re-picking the nearest monster every tick makes a unit shiver
+  // between two near-equidistant ones.
+  let target: Monster | null = null;
+  if (unit.advanceTargetId !== null) {
+    for (const monster of lane.monsters) {
+      if (monster.alive && monster.id === unit.advanceTargetId) {
+        target = monster;
+        break;
+      }
+    }
   }
 
   let nearest: Monster | null = null;
@@ -177,25 +286,63 @@ function advanceUnit(
     }
   }
 
+  // Switch only for a meaningfully closer one - 20% in squared distance.
+  if (!target || (nearest && bestDist < distanceSquared(unit.pos, target.pos) * 0.8)) {
+    target = nearest;
+  }
+
   // Nothing to walk toward - during a build phase, say.
-  if (!nearest) {
+  if (!target) {
+    unit.advanceTargetId = null;
+    clearStuck(unit);
+    return;
+  }
+  unit.advanceTargetId = target.id;
+
+  // Stop a little short of attack range rather than exactly at it. Without this
+  // deadband a unit oscillates across the range boundary all fight: one step
+  // forward puts the target in range so it stops, the target drifts a hair out,
+  // it steps forward again, and so on for as long as the fight lasts.
+  const settle = range * ADVANCE_DEADBAND;
+  if (distanceSquared(unit.pos, target.pos) <= settle * settle) {
     clearStuck(unit);
     return;
   }
 
-  scratchDestination.x = nearest.pos.x;
-  scratchDestination.y = nearest.pos.y;
+  scratchDirection.x = target.pos.x - unit.pos.x;
+  scratchDirection.y = target.pos.y - unit.pos.y;
+  const length = Math.sqrt(
+    scratchDirection.x * scratchDirection.x + scratchDirection.y * scratchDirection.y,
+  );
+  if (length < 1e-9) {
+    clearStuck(unit);
+    return;
+  }
+  scratchDirection.x /= length;
+  scratchDirection.y /= length;
 
-  // A unit's own tile must not block its own step. Tile occupancy alone is too
-  // coarse between units - two in adjacent tiles could sit half a tile apart and
-  // visibly overlap - so radius separation does the real work here.
-  unitSeparation.others = lane.units;
-  unitSeparation.selfId = unit.id;
-  unitSeparation.minDistance = radius * 2;
+  scratchDestination.x = target.pos.x;
+  scratchDestination.y = target.pos.y;
 
-  const self = grid ? withoutSelf(grid, unit.pos.x, unit.pos.y) : 0;
-  stepToward(unit, scratchDestination, unit.moveSpeed, 1, grid, unitSeparation);
-  if (grid) restoreSelf(grid, unit.pos.x, unit.pos.y, self);
+  // Queue behind an ally that is closer to the goal instead of squeezing past.
+  const reach = unit.moveSpeed * SECONDS_PER_TICK;
+  if (
+    blockedByPriority(
+      lane.units,
+      unit,
+      unit.pos.x + scratchDirection.x * reach,
+      unit.pos.y + scratchDirection.y * reach,
+      radius * 2,
+    )
+  ) {
+    clearStuck(unit);
+    return;
+  }
+
+  // No grid for units. Ally tiles are not terrain, and treating them as such is
+  // what made a blocked unit sidestep left, then right, then left forever.
+  // Crowding between units is handled by yielding above and separation after.
+  stepToward(unit, scratchDestination, unit.moveSpeed, 1, null);
 
   // Clamp into the build zone.
   if (unit.pos.x < 0) unit.pos.x = 0.01;
@@ -213,7 +360,7 @@ function advanceUnit(
  * clear it besieges the fortress and stays there until killed - it does not
  * vanish, which is exactly what makes a leak dangerous.
  */
-function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
+function monstersAct(ctx: SimContext, lane: Lane, state: MatchState, fields: LaneFields): void {
   const enrageConfig = ctx.data.waves.enrage;
   const grid = ctx.data.lane.unitsBlockMovement ? lane.occupancy : null;
 
@@ -252,6 +399,9 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
 
     const dx = scratchDestination.x - monster.pos.x;
     const dy = scratchDestination.y - monster.pos.y;
+    const distance = Math.sqrt(dx * dx + dy * dy) || 1;
+    const dx0 = scratchDestination.x;
+    const dy0 = scratchDestination.y;
     const inRange = dx * dx + dy * dy <= monster.range * monster.range;
 
     if (inRange) {
@@ -260,21 +410,40 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState): void {
       // died - see the note at the top of steering.ts.
       clearStuck(monster);
     } else {
-      // Always attempt to move: gating movement on the stuck flag is what froze
-      // monsters permanently. The grid and other bodies may refuse a step, and
-      // both stop refusing the moment the way clears.
-      monsterSeparation.others = lane.monsters;
-      monsterSeparation.selfId = monster.id;
-      monsterSeparation.minDistance = ctx.data.lane.monsterRadius * 2;
+      // Walk straight at the target when the way is open, and only fall back on
+      // the distance field when something is genuinely in the way. The field is
+      // what sees around a wall that greedy steering would press into forever -
+      // but following it on open ground adds wobble for nothing, because its
+      // gradient reshuffles as its sources move.
+      const clear = grid === null || hasLineOfSight(grid, monster.pos.x, monster.pos.y, dx0, dy0);
 
-      stepToward(
+      if (clear) {
+        scratchDirection.x = dx / distance;
+        scratchDirection.y = dy / distance;
+      } else if (steerAlongField(fields.toUnits, monster.pos, scratchDirection)) {
+        scratchDestination.x = monster.pos.x + scratchDirection.x * 2;
+        scratchDestination.y = monster.pos.y + scratchDirection.y * 2;
+      } else {
+        scratchDirection.x = dx / distance;
+        scratchDirection.y = dy / distance;
+      }
+
+      // Yield to a monster ahead rather than shoving past it. Only bodies
+      // CLOSER to the goal block, so this queues instead of deadlocking.
+      const reach = monster.moveSpeed * multiplier * SECONDS_PER_TICK;
+      const waiting = blockedByPriority(
+        lane.monsters,
         monster,
-        scratchDestination,
-        monster.moveSpeed,
-        multiplier,
-        grid,
-        monsterSeparation,
+        monster.pos.x + scratchDirection.x * reach,
+        monster.pos.y + scratchDirection.y * reach,
+        ctx.data.lane.monsterRadius * 2,
       );
+
+      // Always attempt to move otherwise: gating movement on the stuck flag is
+      // what froze monsters permanently.
+      if (!waiting) {
+        stepToward(monster, scratchDestination, monster.moveSpeed, multiplier, grid);
+      }
       updateStuckDetection(monster);
     }
 
@@ -572,6 +741,37 @@ function wipeLane(state: MatchState, lane: Lane): void {
   lane.incomingSends.length = 0;
 }
 
+/**
+ * Resolve crowding once everything has moved.
+ *
+ * Bodies of the same kind push each other apart rather than refusing to move in
+ * the first place - see separation.ts on why refusal caused the jitter and the
+ * clogging. A shove is vetoed if it would squeeze a monster inside a unit's
+ * tile, which stays a hard wall.
+ */
+function separateBodies(ctx: SimContext, lane: Lane): void {
+  const grid = ctx.data.lane.unitsBlockMovement ? lane.occupancy : null;
+
+  relaxSeparation(
+    lane.monsters,
+    ctx.data.lane.monsterRadius * 2,
+    2,
+    grid ? (x, y) => !isPositionBlocked(grid, x, y) : null,
+  );
+
+  const maxX = ctx.data.lane.buildZone.width;
+  const maxY = ctx.data.lane.buildZone.depth;
+  relaxSeparation(
+    lane.units,
+    ctx.data.lane.unitRadius * 2,
+    2,
+    (x, y) => x >= 0 && y >= 0 && x < maxX && y < maxY,
+  );
+
+  // Units that were shoved may have crossed a tile boundary.
+  lane.occupancyDirty = true;
+}
+
 /** §13: fortress HP at zero eliminates that team; placement locks in there. */
 function checkEliminations(state: MatchState): void {
   for (const team of state.teams) {
@@ -622,8 +822,11 @@ export function step(
       lane.occupancyDirty = false;
     }
 
+    const fields = updateFields(ctx, lane);
+
     unitsAct(ctx, lane, state);
-    monstersAct(ctx, lane, state);
+    monstersAct(ctx, lane, state, fields);
+    separateBodies(ctx, lane);
     fortressActs(ctx, lane);
     reapDead(ctx, lane, state);
   }
