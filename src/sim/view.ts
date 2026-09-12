@@ -3,62 +3,103 @@
  *
  * §12 left OPEN "exactly what is public" and suggested a minimum of fortress HP
  * and alive/eliminated status. That minimum is what this implements, and the
- * rule is stated once, here, as a type:
+ * rule is stated once, here, as a set of types:
  *
  *   - Your own lane: everything.
  *   - An opponent's lane: fortress HP and whether they are still alive. That is
- *     all. Not their army, not their gold, not their income, not their tech.
- *   - A lane you have bought sight of with a send (§11.5): its CONTENTS - the
- *     units, the monsters, the fortress. Still not their wallet.
- *   - Once you are eliminated: the contents of every lane, because §13 says an
- *     eliminated player may stay and spectate. Still not their wallets.
+ *     all. Not their army, not their gold, not their tech.
+ *   - A lane you bought sight of with a send (§11.5): what is HAPPENING in it -
+ *     the units, the monsters, the fortress, the aura that is lit. Not what they
+ *     have bought.
+ *   - Once you are eliminated: the same for every lane, because §13 says an
+ *     eliminated player may stay and spectate.
  *
- * So the one thing that is never public under any circumstance is the economy.
- * Seeing someone's army is a tactical read that a send can buy; seeing their
- * bank balance tells you what they are about to do, which no rule in §11 or §12
- * offers a way to earn.
+ * So the thing that is never public under any circumstance is the balance
+ * sheet: gold, gems, supply, tech levels, fortress upgrade levels. Seeing
+ * someone's army is a tactical read a send can buy. Seeing their bank balance
+ * and their upgrade sheet tells you what they are about to do, and nothing in
+ * §11 or §12 offers a way to earn that.
  *
- * WHY THIS IS A FUNCTION AND NOT A CONVENTION
+ * WHY A PROJECTION AND NOT A FILTERED REFERENCE
  *
- * At M4 the server runs the simulation and sends each client its view (§15.1,
- * §15.2). If filtering were the renderer's job, the hidden data would already
- * be on the client and "fog of war" would mean "please do not look" - so the
- * filter has to happen before anything leaves the server, which means it has to
- * be a pure function of state and viewer. It is used in single player too, over
- * the local transport, so the same code path is exercised either way and a leak
- * cannot hide in the multiplayer-only branch.
+ * A view holds its own flat data rather than pointing into `MatchState`. Two
+ * reasons, and the first is the important one:
  *
- * Views hold REFERENCES into live state rather than copies: the renderer reads
- * them every frame and §15.3 forbids per-frame allocation. The server
- * serialises them on the way out, which is where the copy happens, once.
+ *   1. Nothing can leak by accident. A field added to `Monster` or `Lane` next
+ *      month does not silently become visible to opponents, because it has to
+ *      be copied here to appear at all - and the compiler will not let a view
+ *      be built from a lane it has no field for.
+ *   2. It is what goes on the wire. At M4 the server runs the simulation and
+ *      sends each client its view (§15.1, §15.2). Sim objects are far too fat
+ *      for that: serialised whole they measured 558 KiB/s for one player and
+ *      2.2 MiB/s for a spectator. This shape is what `src/net/protocol.ts`
+ *      quantises down to roughly 9 KiB/s.
+ *
+ * Building a view allocates, which §15.3 forbids - inside the tick. This is
+ * outside it: one projection per tick at 20Hz, not per frame at 60, and the
+ * simulation's own hot loop stays allocation-free.
  */
 
-import type {
-  DefensiveUnit,
-  Economy,
-  Fortress,
-  Lane,
-  MatchState,
-  Monster,
-  Phase,
-  TeamId,
-} from './types.ts';
+import type { ArmourType, DamageType } from '../data/schema.ts';
+import type { EntityId, Lane, MatchState, Phase, TeamId } from './types.ts';
 
-/** A lane as some viewer is allowed to see it. */
+/**
+ * One drawable body. Everything §14.2 needs to pick a silhouette, a fill and a
+ * size, and nothing else.
+ *
+ * `defId` stands in for the rest: tier, and therefore size and pips, is a
+ * property of the definition, and tier upgrades swap the definition in place
+ * (§7.3). Every viewer has the same `data/`, so sending the id is enough.
+ */
+export interface EntityView {
+  id: EntityId;
+  defId: string;
+  x: number;
+  y: number;
+  radius: number;
+  /** §14.2: silhouette. */
+  armour: ArmourType;
+  /** §14.2: fill colour. */
+  damageType: DamageType;
+  /** 0 to 1. A fraction rather than absolute HP: it is all the bar needs. */
+  hpFraction: number;
+}
+
+/** What a viewer may see of a fortress. */
+export interface FortressView {
+  hp: number;
+  maxHp: number;
+  destroyed: boolean;
+  /** Public: the weapon visibly fires in this colour (§10.1). */
+  weaponDamageType: DamageType;
+  /** Public: an active aura is drawn as a ring around the fortress. */
+  activeAura: string | null;
+  auraRadius: number;
+}
+
+/** Your own balance sheet. Never anyone else's. */
+export interface EconomyView {
+  gold: number;
+  gems: number;
+  supplyUsed: number;
+  supplyCap: number;
+  passiveIncome: number;
+  tech: Record<string, number>;
+  /** Fortress upgrade levels, which are a purchase record like any other. */
+  upgrades: Record<string, number>;
+}
+
 export interface LaneView {
   teamId: TeamId;
-  units: readonly DefensiveUnit[];
-  monsters: readonly Monster[];
-  fortress: Fortress;
-  /**
-   * Present only for your own lane. A wallet is never public - see the note at
-   * the top of this file.
-   */
-  economy: Economy | null;
+  units: EntityView[];
+  monsters: EntityView[];
+  fortress: FortressView;
+  /** Present only for your own lane. */
+  economy: EconomyView | null;
   /** §8.1: how many monsters are still queued to enter. */
   reserveCount: number;
   /** §11.5: who has sent what at this lane, for the incoming-attack notice. */
-  sendLog: readonly { sendId: string; fromTeamId: TeamId }[];
+  sendLog: { sendId: string; fromTeamId: TeamId }[];
 }
 
 /** What one player knows about another (§12). */
@@ -69,7 +110,7 @@ export interface OpponentView {
   placement: number | null;
   fortressHp: number;
   fortressMaxHp: number;
-  /** Whether the viewer can currently see this lane's contents. */
+  /** Whether the viewer can currently see inside this lane. */
   watching: boolean;
   /** Ticks of bought sight left, 0 when none. */
   visionTicksLeft: number;
@@ -94,15 +135,68 @@ export interface MatchView {
   watching: Record<TeamId, LaneView>;
 }
 
-function laneView(lane: Lane, includeEconomy: boolean): LaneView {
+function unitViews(lane: Lane): EntityView[] {
+  const out: EntityView[] = [];
+  for (const unit of lane.units) {
+    if (!unit.alive) continue;
+    out.push({
+      id: unit.id,
+      defId: unit.defId,
+      x: unit.pos.x,
+      y: unit.pos.y,
+      radius: unit.radius,
+      armour: unit.armour,
+      damageType: unit.damageType,
+      hpFraction: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
+    });
+  }
+  return out;
+}
+
+function monsterViews(lane: Lane): EntityView[] {
+  const out: EntityView[] = [];
+  for (const monster of lane.monsters) {
+    if (!monster.alive) continue;
+    out.push({
+      id: monster.id,
+      defId: monster.defId,
+      x: monster.pos.x,
+      y: monster.pos.y,
+      radius: monster.radius,
+      armour: monster.armour,
+      damageType: monster.damageType,
+      hpFraction: monster.maxHp > 0 ? monster.hp / monster.maxHp : 0,
+    });
+  }
+  return out;
+}
+
+function laneView(lane: Lane, own: boolean): LaneView {
   return {
     teamId: lane.teamId,
-    units: lane.units,
-    monsters: lane.monsters,
-    fortress: lane.fortress,
-    economy: includeEconomy ? lane.economy : null,
+    units: unitViews(lane),
+    monsters: monsterViews(lane),
+    fortress: {
+      hp: lane.fortress.hp,
+      maxHp: lane.fortress.maxHp,
+      destroyed: lane.fortress.destroyed,
+      weaponDamageType: lane.fortress.weaponDamageType,
+      activeAura: lane.fortress.activeAura,
+      auraRadius: lane.fortress.auraRadius,
+    },
+    economy: own
+      ? {
+          gold: lane.economy.gold,
+          gems: lane.economy.gems,
+          supplyUsed: lane.economy.supplyUsed,
+          supplyCap: lane.economy.supplyCap,
+          passiveIncome: lane.economy.passiveIncome,
+          tech: { ...lane.economy.tech },
+          upgrades: { ...lane.fortress.upgrades },
+        }
+      : null,
     reserveCount: lane.reserve.length,
-    sendLog: lane.sendLog,
+    sendLog: lane.sendLog.map((s) => ({ sendId: s.sendId, fromTeamId: s.fromTeamId })),
   };
 }
 
@@ -128,7 +222,7 @@ export function viewFor(state: MatchState, teamId: TeamId): MatchView {
 
     const lane = state.lanes[team.id];
     const visionTicksLeft = self?.vision[team.id] ?? 0;
-    const canWatch = spectating || visionTicksLeft > 0;
+    const canWatch = (spectating || visionTicksLeft > 0) && lane !== undefined;
 
     opponents.push({
       teamId: team.id,
@@ -137,7 +231,7 @@ export function viewFor(state: MatchState, teamId: TeamId): MatchView {
       // §12's suggested minimum, and the whole of it.
       fortressHp: lane ? lane.fortress.hp : 0,
       fortressMaxHp: lane ? lane.fortress.maxHp : 0,
-      watching: canWatch && lane !== undefined,
+      watching: canWatch,
       visionTicksLeft,
     });
 

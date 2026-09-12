@@ -1,15 +1,29 @@
 /**
- * A scripted player for the headless runner. DESIGN.md §17, M1.
+ * A scripted player. DESIGN.md §17.
  *
- * This is TEST HARNESS, not game logic, which is why it lives under headless/
- * and not under sim/. It exists so the M1 text output has something to show:
- * without a player issuing commands nobody ever builds, and the run degenerates
- * into "monsters walk to an empty lane and eat the fortress".
+ * Two jobs, which is why it is no longer under `headless/`:
  *
- * It plays the §11.4 decision badly but legibly: fill the supply budget with a
- * front line and some range behind it, then, once supply-capped, spend surplus
- * gold going tall instead of wide - which is exactly the go-wide-or-go-tall
- * choice every wave is supposed to ask.
+ *   - The headless runner needs somebody to build, or the M1 text output
+ *     degenerates into "monsters walk into an empty lane and eat the fortress".
+ *   - The practice match needs three opponents. M4 is four lanes with sends,
+ *     fog of war and spectating, and none of that can be seen at all without
+ *     somebody in the other lanes. It also means multiplayer's opponent tabs,
+ *     vision and elimination are exercised by every local game rather than only
+ *     when a server is running.
+ *
+ * It is not an AI and is not pretending to be. It plays the §11.4 decision
+ * badly but legibly: fill the supply budget with a front line and some range
+ * behind it, then, once supply-capped, spend surplus gold going tall instead of
+ * wide - which is exactly the go-wide-or-go-tall choice every wave asks. Its
+ * sending follows §11.5's stated intent literally: aim at whoever is furthest
+ * ahead, which is the gang-up-on-the-leader mechanic with no coordination
+ * needed.
+ *
+ * It reads MatchState rather than a view, because it runs where the authority
+ * is - inside the local transport, or the headless runner - and not on a
+ * client. Fog of war is a rule about what a PLAYER may see (§12); a bot that
+ * cheated by reading everything would be a design problem, so it deliberately
+ * uses only what §12 makes public: fortress HP, and who is still alive.
  */
 
 import type { GameData } from '../data/schema.ts';
@@ -116,8 +130,21 @@ export class AutoBuilder {
       });
     }
 
-    // Spend gems on the fortress. They have no other sink in single player
-    // (sends are M4), so hoarding them would leave half of M3 untested.
+    // §11.5: send at whoever is furthest ahead. The leader is read off the
+    // public record only - fortress HP, and who is still alive (§12) - so this
+    // is a decision a human at the opponent tabs could also make.
+    //
+    // Gems buy sends OR the fortress, never both, and that is §11.2's intended
+    // tension. This spends on offence first while a send is affordable, so a
+    // practice match actually demonstrates being attacked rather than four
+    // players quietly turtling.
+    const sendPlan = this.planSend(state, gems);
+    if (sendPlan) {
+      gems -= sendPlan.cost;
+      commands.push(sendPlan.command);
+    }
+
+    // Spend the rest on the fortress.
     for (const id of ['weapon', 'regen', 'hp', 'gemProduction', 'auraStrength', 'auraRadius']) {
       const ladder = fortressLadder(this.data, id);
       const level = lane.fortress.upgrades[id] ?? 0;
@@ -179,6 +206,49 @@ export class AutoBuilder {
     }
 
     return commands;
+  }
+
+  /**
+   * The most expensive send it can afford, aimed at the healthiest opponent.
+   *
+   * Most expensive rather than cheapest because the catalogue is ordered by
+   * weight: spending 90 gems on the biggest thing available beats dribbling
+   * five probes at somebody, and it gives a practice match something to react
+   * to rather than a constant trickle.
+   */
+  private planSend(state: MatchState, gems: number): { command: Command; cost: number } | null {
+    if (state.wave >= this.data.waves.attritionStartWave) return null;
+
+    const self = state.teams.find((t) => t.id === this.teamId);
+    if (!self || self.eliminated) return null;
+
+    let leader: { teamId: TeamId; hp: number } | null = null;
+    for (const team of state.teams) {
+      if (team.eliminated || team.id === this.teamId) continue;
+      const lane = state.lanes[team.id];
+      if (!lane) continue;
+      if (!leader || lane.fortress.hp > leader.hp) {
+        leader = { teamId: team.id, hp: lane.fortress.hp };
+      }
+    }
+    if (!leader) return null;
+
+    const affordable = this.data.sends.sends
+      .filter((send) => (send.gemCost ?? Infinity) <= gems)
+      .sort((a, b) => (b.gemCost ?? 0) - (a.gemCost ?? 0));
+
+    const choice = affordable[0];
+    if (!choice) return null;
+
+    return {
+      cost: choice.gemCost ?? 0,
+      command: {
+        kind: 'send',
+        teamId: this.teamId,
+        targetTeamId: leader.teamId,
+        sendId: choice.id,
+      },
+    };
   }
 }
 

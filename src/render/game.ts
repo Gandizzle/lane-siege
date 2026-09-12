@@ -31,7 +31,7 @@ import {
 import { EntityLayer } from './entities.ts';
 import { computeLayout, type LaneLayout } from './layout.ts';
 import { LaneView } from './laneView.ts';
-import { FixedTimestep } from './loop.ts';
+import { FixedTimestep } from '../util/loop.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { GameOver } from './ui/gameOver.ts';
 import { Hud } from './ui/hud.ts';

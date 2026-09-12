@@ -15,14 +15,20 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "perf": "tsx src/headless/perf.ts",
-    "routing": "tsx src/headless/routing.ts"
+    "routing": "tsx src/headless/routing.ts",
+    "wire": "tsx src/headless/wire.ts",
+    "server": "tsx server/index.ts",
+    "netcheck": "tsx src/headless/netcheck.ts"
   },
   "dependencies": {
+    "colyseus.js": "^0.16.22",
     "pixi.js": "^8.20.1"
   },
   "devDependencies": {
+    "@colyseus/ws-transport": "^0.16.5",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.2",
+    "colyseus": "^0.16.5",
     "eslint": "^10.10.0",
     "prettier": "^3.6.2",
     "tsx": "^4.20.6",

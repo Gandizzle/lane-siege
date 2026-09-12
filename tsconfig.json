@@ -27,5 +27,5 @@
       "@util/*": ["src/util/*"]
     }
   },
-  "include": ["src", "vite.config.ts", "eslint.config.js"]
+  "include": ["src", "server", "vite.config.ts", "eslint.config.js"]
 }

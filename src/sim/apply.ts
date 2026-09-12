@@ -232,6 +232,21 @@ function buyFortressUpgrade(
 }
 
 /**
+ * Every fortress upgrade ladder there is (§10.1).
+ *
+ * Exported because the wire format indexes upgrades by position rather than
+ * sending their names, and two lists that have to agree should be one list.
+ */
+export const FORTRESS_UPGRADE_IDS = [
+  'hp',
+  'regen',
+  'weapon',
+  'auraStrength',
+  'auraRadius',
+  'gemProduction',
+] as const;
+
+/**
  * §11.5: add monsters to an opponent's next wave.
  *
  * The three rules that make this the gang-up-on-the-leader mechanic rather than

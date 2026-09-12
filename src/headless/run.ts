@@ -25,7 +25,7 @@ import {
   ticksToSeconds,
 } from '../sim/index.ts';
 import type { Command, MatchState, TeamSetup } from '../sim/index.ts';
-import { AutoBuilder } from './autoBuilder.ts';
+import { AutoBuilder } from '../bot/autoBuilder.ts';
 
 interface Args {
   seed: number;
