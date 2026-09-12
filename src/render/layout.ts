@@ -14,11 +14,19 @@
 
 import type { LaneFile } from '../data/schema.ts';
 
-/** Vertical share of the screen for each band. Presentation, not balance. */
+/**
+ * Vertical share of the screen for each band. Presentation, not balance.
+ *
+ * The top band grew at M4: §4.1 always reserved it for opponent tabs, and now
+ * there are opponents to put in it. It carries the wave clock and your
+ * resources on one row and the four lanes on another, and the build zone gives
+ * up the difference - the grid is square-fitted and centred, so it loses a
+ * little height rather than changing shape.
+ */
 const BAND_WEIGHTS = {
-  tabs: 0.08,
+  tabs: 0.115,
   spawn: 0.07,
-  build: 0.5,
+  build: 0.465,
   fortress: 0.1,
   buildBar: 0.25,
 } as const;

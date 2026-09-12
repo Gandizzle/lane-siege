@@ -92,7 +92,7 @@ is, and the renderer owns the single tile→pixel transform in
 
 ## Milestone status
 
-**M1, M2 and M3 are complete.**
+**M1 through M4 are complete.**
 
 M1 (headless sim): `npm run sim` plays a single lane through five waves with a
 scripted builder and prints the result.
@@ -106,15 +106,96 @@ fortress and resource upgrades, gems, supply, 25 authored waves, a four-boss
 bank, and the attrition endgame. §17 calls this "the point at which the game is
 balanceable", and it is: every lever is a field in `data/`.
 
-The build bar is four tabs — Build, Tech, Fort, Aura — because M3 gives the
-player four distinct things to spend on and a portrait phone has one band to
-spend them in.
+M4 (multiplayer): `npm run server` runs an authoritative Colyseus room and
+`?server=ws://host:2567` joins it. Four lanes, sends, fog of war, elimination
+and spectating — see [the netcode section](#netcode-one-simulation-two-places)
+below.
 
-Two OPEN questions are answered, both recorded in
+The build bar is five tabs — Build, Tech, Fort, Aura, Send — one per distinct
+thing a player spends on. Send and Fort are adjacent on purpose: §11.2 says
+offence and defence compete for the same gems and calls that the intended
+tension, and two neighbouring tabs drawing on one pool is the plainest way to
+show it.
+
+Three OPEN questions are answered, all recorded in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md): the supply cap is bought with gold
-(§11.1, the doc's recommendation), and **no purchase of any kind is available
-from wave 25** (§3.3, against the doc's recommendation — the endgame is a grind
-fought with what you brought).
+(§11.1, the doc's recommendation), **no purchase of any kind is available from
+wave 25** (§3.3, against the doc's recommendation — the endgame is a grind
+fought with what you brought), and §12's public record is fortress HP plus
+alive-or-out, with the balance sheet never public under any circumstance.
+
+### Netcode: one simulation, two places
+
+§15.1's core rule pays for itself here. The server imports `step` from
+`src/sim` unchanged and runs it; a client holds no simulation at all. So a
+cheating client is merely wrong about its own screen, and every cost, phase and
+supply check is enforced once, in the place that decides (§15.1).
+
+Everything the renderer sees arrives as a `MatchView`, never a `MatchState`:
+
+```
+     tap                     command                    step()
+ renderer ───► Transport ───────────────► room ───────► simulation
+     ▲              ▲                       │                │
+     │              │      frame            │   viewFor(state, team)
+     └── MatchView ──┴───────────────────────┴────────────────┘
+                                      (one per client, filtered)
+```
+
+`Transport` (`src/net/transport.ts`) has two implementations and the renderer
+cannot tell them apart:
+
+|             | `LocalTransport`              | `RemoteTransport`                  |
+| ----------- | ----------------------------- | ---------------------------------- |
+| Simulation  | this tab                      | the server                         |
+| Other lanes | scripted builders (`src/bot`) | other people                       |
+| Commands    | applied immediately           | sent, applied at the next tick     |
+| Fog of war  | `viewFor`                     | `viewFor`, before anything is sent |
+
+That last row is the reason for the shape. If filtering were the renderer's
+job, the hidden half of the match would already be on the client and fog of war
+would mean "please do not look" — and single player would exercise a different
+code path from multiplayer, which is exactly where a leak would hide. One test
+asserts the opponent record's keys exactly, so a field added to `Team` or `Lane`
+later cannot quietly become public.
+
+**Frames are rows of numbers.** Views serialised as objects measured 144 KiB/s
+for a player and 537 KiB/s at the §15.3 load for a spectator, which no phone
+should be asked to carry. `src/net/protocol.ts` sends definition indices rather
+than strings, positions quantised to a hundredth of a tile, HP as a byte, and
+derives armour, damage type and body radius from the definition instead of
+transmitting them. Same load: **32.7 KiB/s and 117.9 KiB/s** as JSON, and
+Colyseus puts messages through msgpack, so those are upper bounds. `npm run
+wire` measures it.
+
+**Colyseus's state sync is deliberately unused.** Its `Schema` classes would
+mean a parallel type tree mirroring `MatchState`, kept in step by hand, and the
+simulation would have to be built out of `Schema` objects — putting a
+networking dependency inside the module §15.1 insists has none. The room uses
+Colyseus for what it is uniquely good at, rooms and matchmaking and a
+websocket, and sends its own frames through `client.send`.
+
+**Sending the command stream instead does not work here**, though determinism
+(§15.1) suggests it should: it would be a few dozen bytes a tick. Lanes are not
+independent. Enrage clocks run per wave and stop when that wave's last monster
+dies in _any_ lane (§8), and combat ends only when every living lane is clear
+(§3.2, amended). A client would need to know what is happening in lanes §12
+forbids it from seeing. Snapshots it is.
+
+**There is no client-side prediction yet**, and that is a choice rather than an
+omission. Every command is a build-phase action, and in the build phase nothing
+is moving, so one round trip reads as a slightly soft button rather than as lag.
+Prediction needs a local simulation to predict into, and for the coupling reason
+above a client cannot run one. If it turns out to feel bad on a real connection,
+the cheap fix is to predict the _wallet_ — deduct the cost, show the unit as
+pending — which needs no simulation at all.
+
+**What is not deployed.** GitHub Pages is static (§15.2, hosting-dev), so it
+cannot host a room: the public build serves a practice match against scripted
+opponents in the other three lanes. That is not a stand-in for the networked
+path — both go through the same `viewFor`, and `npm run netcheck` exercises the
+real one with real sockets — but it does mean a four-player match needs someone
+to run `npm run server`. Hosting, a lobby and matchmaking are M6.
 
 ### Pathing: a distance field, not A\*
 
@@ -320,8 +401,9 @@ deadlocking.
 
 The browser paints at whatever rate it likes; the simulation runs at exactly 20
 ticks per second and must never see a frame time, or two phones would compute
-different states and the §15.1 guarantee would be gone. `render/loop.ts` is the
-accumulator between them:
+different states and the §15.1 guarantee would be gone. `util/loop.ts` is the
+accumulator between them — in the browser, and in the server's room, which
+faces the same problem from the other side:
 
 ```
 frame (deltaMS)  ->  FixedTimestep.advance
@@ -332,20 +414,23 @@ frame (deltaMS)  ->  FixedTimestep.advance
 
 Two consequences worth knowing:
 
-- **Interpolation is a rendering concern.** `EntityLayer` keeps each monster's
+- **Interpolation is a rendering concern.** `EntityLayer` keeps every body's
   previous position and lerps by `alpha`, so a 20Hz simulation draws smoothly at
-  60fps. The simulation stores no such thing.
+  60fps. The simulation stores no such thing. It interpolates from the view
+  being _replaced_, which works identically for a local tick and for a frame off
+  a socket.
 - **A long stall drops simulated time on purpose.** After a backgrounded tab or
   a GC pause, catch-up is capped and the remainder is discarded — better a match
   that skips than one that locks up. A side effect is that wall-clock
   fast-forwarding cannot be used to speed a match up in tests.
 
-Input goes through `applyCommand` directly rather than being queued for the next
-tick, so the UI can show _why_ a tap was refused. That is the same validated
-path `step` uses, so a tap costs the same either way; at M4 this call becomes
-the local prediction alongside a send to the server.
+Input goes out through the transport and is never applied by the renderer.
+Locally that is immediate, so the UI can show _why_ a tap was refused on the
+same frame; remotely it is a round trip and the refusal comes back as a message.
+Either way it is the same `applyCommand` the simulation uses, so a tap costs the
+same in both modes.
 
-Implemented and tested (133 tests):
+Implemented and tested (181 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -356,8 +441,9 @@ Implemented and tested (133 tests):
 - Wave generation as a pure function of (seed, waveNumber), boss waves, scaling
   past the authored range, and the build-phase preview (§9.1–§9.3, §3.4)
 - The reserve queue and the lane cap (§8.1)
-- Commands: place, upgrade in place, weapon type, aura, ready — with cost,
-  supply, tile and phase validation inside the simulation (§7.3, §11.4, §3.2)
+- Commands: place, upgrade in place, weapon type, aura, tech, fortress, supply
+  and send — with cost, supply, tile and phase validation inside the simulation
+  (§7.3, §11.4, §3.2)
 - Gold flow: kill bounties to the defender, gems per wave, passive income payout
   (§11.1, §11.6, §10.2)
 - Unit respawn between waves, and its halt at wave 25 (§5.4, §3.3)
@@ -377,6 +463,19 @@ Implemented and tested (133 tests):
   feedback (§4.1, §7.3, §3.2)
 - The build-phase wave preview, its offence summary and per-unit counter hints
   (§9.3)
+- Sends: cost, the target being the sender's choice, the bounty going to the
+  defender, no sending from the grave, and the build-phase and wave-25 windows
+  (§11.5, §13, §3.1, §3.3)
+- Fog of war as a pure function of state and viewer, with the opponent record's
+  keys asserted exactly so nothing can quietly become public (§12)
+- The wire format: round trip, quantisation bounds, and that a frame cannot
+  carry what the view withheld (§15.1)
+- The local transport: whole-tick advance, immediate commands, drained
+  refusals, and the same filtering the server applies (§15.1)
+- The networked path end to end, over real sockets — `npm run netcheck`: lane
+  seating, per-client frames, a purchase landing only in the buyer's lane, a
+  client failing to act for another lane, refusals reaching whoever asked, and a
+  send buying sight of a lane without its wallet (§12, §15.1)
 
 ### Deliberate departures from DESIGN.md
 
@@ -416,10 +515,15 @@ curve is now a JSON editing job.
   its parts or spawns so no single damage type hard-counters it. The bank spreads
   four armour types across four bosses as a stopgap; real parts need a model that
   does not exist yet.
-- **Opponent tabs** (§4.1, §12) — the top band carries the wave clock and
-  resources instead. Tabs slot in beside them at M4.
-- **Sends, fog of war, spectating** (§11.5, §12) — M4. `Lane.incomingSends` is
-  already merged into wave spawning, so sends will not need retrofitting.
+- **Hosting, a lobby and matchmaking** (§15.2, §18) — M6. A four-player match
+  currently needs someone to run `npm run server`, and clients reach it with
+  `?server=`. GitHub Pages is static and cannot host a room.
+- **Reconnection** (§18) — M6. A room locks at kickoff and a player who drops
+  loses their lane's inputs for good; their fortress then falls in its own time,
+  which §13 permits but is not the same as letting them back in.
+- **Client-side prediction** — deliberately absent, see the netcode section. The
+  cheap version, predicting the wallet rather than the simulation, is the one to
+  build if the round trip turns out to feel bad.
 - **Object pooling** (§15.3) — entities carry an `alive` flag and dead monsters
   are swept on the tick they die, which is the shape pooling wants, but there is
   no free list yet. Scratch vectors and the occupancy grid already avoid
@@ -431,9 +535,17 @@ curve is now a JSON editing job.
 ## Stack
 
 Per DESIGN.md §15.2. TypeScript everywhere, Pixi.js for rendering, Vite for the
-build, Vitest for tests. Colyseus (multiplayer) and Capacitor (Android
-packaging) are not installed yet — they arrive at M4 and M6 and would otherwise
-be dependencies with nothing to do.
+build, Vitest for tests, Colyseus for multiplayer. Capacitor (Android packaging)
+is not installed yet — it arrives at M6 and would otherwise be a dependency with
+nothing to do.
+
+Colyseus is pinned at 0.16 on both sides, because the JavaScript client has not
+been released past 0.16 while the server is at 0.18, and a mismatched pair is
+not worth debugging. The server half also pulls in a dependency tree with
+several npm audit advisories (a `nanoid` one rated high). None of it reaches the
+shipped bundle — `npm audit --omit=dev` reports zero — but it wants addressing
+before this server is ever exposed to the internet, which is M6's problem along
+with hosting it at all.
 
 `vite.config.ts` sets `base` to `/lane-siege/` for GitHub Pages. Override with
 `VITE_BASE` for anywhere else; Capacitor will want `./`.

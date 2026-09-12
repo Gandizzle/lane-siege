@@ -1,16 +1,18 @@
 /**
  * Heads-up display. DESIGN.md §4.1, §9.3, §11.
  *
- * Occupies the top band, which §4.1 reserves for opponent tabs. M2 is single
- * player (§17), so it carries the wave clock and the player's resources instead;
- * the tabs slot in beside them at M4 when there are opponents to spectate.
+ * The top rows of the band §4.1 reserves for opponent tabs: the wave clock and
+ * your own resources. The tabs themselves are `opponentTabs.ts` and sit below
+ * these, sharing the band.
  *
- * Read-only over simulation state, like everything under render/.
+ * Read-only over a `MatchView`, like everything under render/ - so it shows
+ * your wallet and never anyone else's, because it has never been given anyone
+ * else's (§12).
  */
 
 import { Container, Graphics } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
-import type { MatchState, WaveSummary } from '../../sim/index.ts';
+import type { MatchView, WaveSummary } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
@@ -33,8 +35,8 @@ export class Hud extends Container {
     this.layout = layout;
   }
 
-  render(state: MatchState, teamId: string, summary: WaveSummary | null): void {
-    const lane = state.lanes[teamId];
+  render(view: MatchView, summary: WaveSummary | null): void {
+    const lane = view.lane;
     if (!lane) return;
 
     this.content.removeChildren();
@@ -45,10 +47,10 @@ export class Hud extends Container {
     this.background.rect(l.tabs.x, l.tabs.y, l.tabs.width, l.tabs.height).fill({ color: UI.tabs });
 
     const pad = 12;
-    const isBoss = state.wave > 0 && state.wave % this.data.waves.bossEveryNWaves === 0;
+    const isBoss = view.wave > 0 && view.wave % this.data.waves.bossEveryNWaves === 0;
 
     const waveText = label(
-      state.wave === 0 ? 'Prepare' : `Wave ${state.wave}${isBoss ? ' · BOSS' : ''}`,
+      view.wave === 0 ? 'Prepare' : `Wave ${view.wave}${isBoss ? ' · BOSS' : ''}`,
       15,
       isBoss ? UI.danger : UI.text,
       '700',
@@ -60,12 +62,12 @@ export class Hud extends Container {
     // §3.1, amended: the build phase is the only phase with a clock. Combat now
     // runs until the lane is empty (§3.2, amended), so it counts monsters left
     // rather than seconds - a countdown stuck at 0s would say nothing.
-    const remaining = lane.monsters.filter((m) => m.alive).length + lane.reserve.length;
-    const seconds = Math.ceil(ticksToSeconds(state.phaseTicksLeft));
+    const remaining = lane.monsters.length + lane.reserveCount;
+    const seconds = Math.ceil(ticksToSeconds(view.phaseTicksLeft));
     const phaseText = label(
-      state.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${remaining} left`,
+      view.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${remaining} left`,
       12,
-      state.phase === 'build' ? UI.accent : UI.textMuted,
+      view.phase === 'build' ? UI.accent : UI.textMuted,
       '600',
     );
     phaseText.x = pad;
@@ -74,16 +76,19 @@ export class Hud extends Container {
 
     // Resources. Gold and gems are deliberately separate currencies with
     // separate sinks (§11.3).
-    const resources = label(
-      `${Math.floor(lane.economy.gold)}g   ${Math.floor(lane.economy.gems)}gem   ` +
-        `${lane.economy.supplyUsed}/${lane.economy.supplyCap} supply`,
-      12,
-      UI.text,
-      '600',
-    );
-    resources.x = l.tabs.width - resources.width - pad;
-    resources.y = l.tabs.y + 10;
-    this.content.addChild(resources);
+    const economy = lane.economy;
+    if (economy) {
+      const resources = label(
+        `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem   ` +
+          `${economy.supplyUsed}/${economy.supplyCap} supply`,
+        12,
+        UI.text,
+        '600',
+      );
+      resources.x = l.tabs.width - resources.width - pad;
+      resources.y = l.tabs.y + 10;
+      this.content.addChild(resources);
+    }
 
     if (summary?.dominantDamageType) {
       // §9.3: say what the wave DEALS, or the matrix stays invisible.
@@ -97,6 +102,22 @@ export class Hud extends Container {
       offence.x = l.tabs.width - offence.width - pad;
       offence.y = l.tabs.y + 30;
       this.content.addChild(offence);
+    }
+
+    // §11.5: the incoming-attack notice. Being sent at is the one thing that
+    // happens to you because of somebody else, so it needs saying out loud.
+    if (lane.sendLog.length > 0) {
+      const attackers = new Set(lane.sendLog.map((entry) => entry.fromTeamId));
+      const notice = label(
+        `⚠ ${lane.sendLog.length} send${lane.sendLog.length === 1 ? '' : 's'} incoming` +
+          ` from ${attackers.size} lane${attackers.size === 1 ? '' : 's'}`,
+        11,
+        UI.danger,
+        '700',
+      );
+      notice.x = pad;
+      notice.y = l.tabs.y + 46;
+      this.content.addChild(notice);
     }
 
     this.drawFortress(lane.fortress.hp, lane.fortress.maxHp);

@@ -15,7 +15,8 @@ import { Server } from 'colyseus';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { loadDataFromDisk } from '../src/data/loadNode.ts';
 import { formatReport } from '../src/data/validate.ts';
-import { LaneSiegeRoom, MAX_PLAYERS, ROOM_NAME } from './room.ts';
+import { ROOM_NAME } from '../src/net/protocol.ts';
+import { LaneSiegeRoom, MAX_PLAYERS } from './room.ts';
 
 const port = Number(process.env.PORT ?? 2567);
 /** Start with whoever has turned up after this long, rather than never. */

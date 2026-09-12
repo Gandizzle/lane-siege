@@ -1,0 +1,204 @@
+/**
+ * The opponent tabs. DESIGN.md §4.1, §12, §13.
+ *
+ * §4.1 reserves the top band for these and §12 says what may go in them:
+ * fortress HP, and whether that player is still alive. That is the whole public
+ * record, and it is deliberately not much - you can see who is being worn down
+ * and who is coasting, and nothing about how they are doing it.
+ *
+ * A tab is also a way in. Tapping one you can see inside switches the lane view
+ * to that lane, which is §11.5's bought vision and §13's spectating using the
+ * same control. Tapping one you cannot see does nothing except say so, which is
+ * more useful than an unexplained dead button.
+ *
+ * Interactive objects are built once and only updated afterwards - see the note
+ * at the top of buildBar.ts for what happens otherwise. Four tabs exist from
+ * boot whether or not four lanes are in play.
+ */
+
+import { Container, Graphics, Rectangle } from 'pixi.js';
+import type { Text } from 'pixi.js';
+import type { MatchView, OpponentView } from '../../sim/index.ts';
+import { ticksToSeconds } from '../../sim/index.ts';
+import type { LaneLayout } from '../layout.ts';
+import { UI } from '../palette.ts';
+import { centreOn, label } from './text.ts';
+
+/** §2: four lanes. */
+const SLOTS = 4;
+
+export interface OpponentTabHandlers {
+  /** A tab the viewer can see inside was tapped. */
+  onWatch(teamId: string): void;
+  /** The "you" tab, or a tab already being watched, was tapped. */
+  onWatchOwn(): void;
+  /** A tab the viewer cannot see inside was tapped. */
+  onBlocked(): void;
+}
+
+class OpponentTab extends Container {
+  private readonly bg = new Graphics();
+  private readonly bar = new Graphics();
+  private readonly caption: Text;
+  private readonly detail: Text;
+  private w = 0;
+  private h = 0;
+
+  teamId: string | null = null;
+
+  constructor(private readonly handlers: OpponentTabHandlers) {
+    super();
+    this.caption = label('', 10, UI.text, '700');
+    this.detail = label('', 9, UI.textMuted, '600');
+    this.addChild(this.bg, this.bar, this.caption, this.detail);
+
+    this.eventMode = 'static';
+    this.cursor = 'pointer';
+    this.on('pointertap', () => this.tapped());
+  }
+
+  private tapped(): void {
+    if (this.teamId === null) {
+      this.handlers.onWatchOwn();
+      return;
+    }
+    if (this.watchable) this.handlers.onWatch(this.teamId);
+    else this.handlers.onBlocked();
+  }
+
+  private watchable = false;
+
+  layout(x: number, y: number, width: number, height: number): void {
+    this.position.set(x, y);
+    this.w = width;
+    this.h = height;
+    this.hitArea = new Rectangle(0, 0, width, height);
+    this.caption.x = 6;
+    this.caption.y = 3;
+    this.detail.x = 6;
+    this.detail.y = height - 13;
+  }
+
+  /** `null` for the viewer's own lane, which is always shown first. */
+  update(
+    opponent: OpponentView | null,
+    ownName: string,
+    ownFraction: number,
+    active: boolean,
+  ): void {
+    const eliminated = opponent?.eliminated ?? false;
+    const fraction = opponent
+      ? opponent.fortressMaxHp > 0
+        ? opponent.fortressHp / opponent.fortressMaxHp
+        : 0
+      : ownFraction;
+
+    this.teamId = opponent ? opponent.teamId : null;
+    this.watchable = opponent ? opponent.watching : true;
+
+    this.bg.clear();
+    this.bg
+      .roundRect(0, 0, this.w, this.h, 5)
+      .fill({ color: active ? UI.panelEdge : UI.panel })
+      .stroke({ width: 1, color: active ? UI.selected : UI.panelEdge });
+
+    // The HP bar IS the tab: it is the one thing §12 makes public, so it gets
+    // the space rather than a label.
+    const barY = this.h - 6;
+    const clamped = Math.max(0, Math.min(1, fraction));
+    this.bar.clear();
+    this.bar.rect(4, barY, this.w - 8, 3).fill({ color: UI.background });
+    if (!eliminated) {
+      this.bar
+        .rect(4, barY, (this.w - 8) * clamped, 3)
+        .fill({ color: clamped > 0.35 ? UI.healthGood : UI.healthLow });
+    }
+
+    const name = opponent ? shortName(opponent.teamId) : ownName;
+    if (this.caption.text !== name) this.caption.text = name;
+    this.caption.style.fill = eliminated ? UI.textMuted : UI.text;
+
+    const detail = eliminated
+      ? `out · ${ordinal(opponent?.placement ?? 0)}`
+      : opponent
+        ? opponent.watching
+          ? watchingLabel(opponent)
+          : `${Math.round(clamped * 100)}%`
+        : 'you';
+    if (this.detail.text !== detail) this.detail.text = detail;
+    this.detail.style.fill = opponent?.watching ? UI.accent : UI.textMuted;
+
+    // Eliminated lanes are still tappable - §13 lets you watch a finished lane,
+    // and there is nothing to hide once somebody is out.
+    this.alpha = eliminated ? 0.6 : 1;
+    centreOn(this.caption, this.w / 2, 3);
+    centreOn(this.detail, this.w / 2, this.h - 13);
+  }
+}
+
+function shortName(teamId: string): string {
+  const match = /(\d+)$/.exec(teamId);
+  return match ? `Lane ${match[1]}` : teamId;
+}
+
+function ordinal(placement: number): string {
+  if (placement <= 0) return '—';
+  const suffix = placement === 1 ? 'st' : placement === 2 ? 'nd' : placement === 3 ? 'rd' : 'th';
+  return `${placement}${suffix}`;
+}
+
+function watchingLabel(opponent: OpponentView): string {
+  // Spectating after elimination has no clock; bought vision does (§11.5).
+  if (opponent.visionTicksLeft <= 0) return 'visible';
+  return `${Math.ceil(ticksToSeconds(opponent.visionTicksLeft))}s`;
+}
+
+export class OpponentTabs extends Container {
+  private readonly tabs: OpponentTab[] = [];
+
+  constructor(layout: LaneLayout, handlers: OpponentTabHandlers) {
+    super();
+    for (let i = 0; i < SLOTS; i++) {
+      const tab = new OpponentTab(handlers);
+      this.tabs.push(tab);
+      this.addChild(tab);
+    }
+    this.setLayout(layout);
+  }
+
+  setLayout(layout: LaneLayout): void {
+    const l = layout.tabs;
+    const pad = 6;
+    const gap = 4;
+    const width = (l.width - pad * 2 - gap * (SLOTS - 1)) / SLOTS;
+    const height = 30;
+    const y = l.y + l.height - height - 4;
+
+    this.tabs.forEach((tab, i) => {
+      tab.layout(pad + i * (width + gap), y, width, height);
+    });
+  }
+
+  /** `watchingTeamId` is the lane currently on screen, or null for your own. */
+  render(view: MatchView, watchingTeamId: string | null): void {
+    const ownFraction =
+      view.lane && view.lane.fortress.maxHp > 0
+        ? view.lane.fortress.hp / view.lane.fortress.maxHp
+        : 0;
+
+    // Your own lane first, then the opponents in a stable order, so a tab does
+    // not move under the player's thumb when somebody is eliminated.
+    const ordered = [...view.opponents].sort((a, b) => a.teamId.localeCompare(b.teamId));
+
+    this.tabs.forEach((tab, i) => {
+      if (i === 0) {
+        tab.visible = true;
+        tab.update(null, shortName(view.teamId), ownFraction, watchingTeamId === null);
+        return;
+      }
+      const opponent = ordered[i - 1];
+      tab.visible = opponent !== undefined;
+      if (opponent) tab.update(opponent, '', 0, watchingTeamId === opponent.teamId);
+    });
+  }
+}

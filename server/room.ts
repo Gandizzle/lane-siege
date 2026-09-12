@@ -46,9 +46,6 @@ import { buildTables, encodeFrame, type WireHello, type WireTables } from '../sr
 import { AutoBuilder } from '../src/bot/autoBuilder.ts';
 import { FixedTimestep, MS_PER_TICK } from '../src/util/loop.ts';
 
-/** The room type clients ask to join. */
-export const ROOM_NAME = 'lane_siege';
-
 /** §2: four lanes, one player each in v1. */
 export const MAX_PLAYERS = 4;
 
@@ -103,7 +100,7 @@ export class LaneSiegeRoom extends Room {
       teams: LANE_IDS.map((id) => ({ id, playerIds: [] })),
     });
     this.ctx = createContext(this.data);
-    this.tables = buildTables(this.data, LANE_IDS);
+    this.tables = buildTables(this.data, LANE_IDS, this.match.seed);
     this.seats = LANE_IDS.map((teamId) => ({ teamId, client: null, bot: null }));
 
     this.onMessage('command', (client, message: Command) => {

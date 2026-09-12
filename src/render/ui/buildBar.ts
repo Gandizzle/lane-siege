@@ -2,12 +2,17 @@
  * The build bar. DESIGN.md §4.1, §7.3, §7.4, §9.3, §10.1, §11.4.
  *
  * Sits at the bottom because that is the thumb zone for one-handed portrait
- * play. Four tabs, because M3 gives the player four distinct things to spend on:
+ * play. Five tabs, one per distinct thing to spend on:
  *
  *   Build  six units (§7.1), plus the upgrade panel for a selected one (§7.3)
  *   Tech   global tech, tied to damage types rather than unit types (§7.4)
  *   Fort   fortress and resource-building upgrades, bought with gems (§10)
  *   Aura   the fortress weapon's damage type and the active aura (§10.1)
+ *   Send   monsters at an opponent, bought with gems (§11.5)
+ *
+ * Send arrived with M4 and shares gems with Fort on purpose: §11.2 says offence
+ * and defence compete for the same currency and calls that the intended
+ * tension. Two adjacent tabs spending one pool is the plainest way to show it.
  *
  * IMPORTANT - interactive objects are built ONCE and only updated afterwards.
  *
@@ -28,7 +33,8 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { AuraType, DamageType, GameData, UnitDef } from '../../data/schema.ts';
-import type { Lane, MatchState, WaveSummary } from '../../sim/index.ts';
+import { ticksToSeconds } from '../../sim/index.ts';
+import type { EconomyView, LaneView, MatchView, WaveSummary } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { GridButton } from './gridButton.ts';
@@ -39,6 +45,8 @@ export type Selection =
 
 export interface BuildBarHandlers {
   onSelectUnitDef(unitDefId: string): void;
+  /** §11.5: the sender picks the target, which is the point of the mechanic. */
+  onSend(sendId: string, targetTeamId: string): void;
   onUpgrade(unitId: number): void;
   onBuyTech(trackId: string): void;
   onBuyFortress(upgradeId: string): void;
@@ -48,12 +56,13 @@ export interface BuildBarHandlers {
   onClearSelection(): void;
 }
 
-type Tab = 'build' | 'tech' | 'fort' | 'aura';
+type Tab = 'build' | 'tech' | 'fort' | 'aura' | 'send';
 const TABS: { id: Tab; name: string }[] = [
   { id: 'build', name: 'Build' },
   { id: 'tech', name: 'Tech' },
   { id: 'fort', name: 'Fort' },
   { id: 'aura', name: 'Aura' },
+  { id: 'send', name: 'Send' },
 ];
 
 /** Fortress ladders the Fort tab exposes, in display order. */
@@ -121,6 +130,7 @@ export class BuildBar extends Container {
     tech: new Container(),
     fort: new Container(),
     aura: new Container(),
+    send: new Container(),
   };
 
   private readonly unitButtons: { def: UnitDef; button: GridButton }[] = [];
@@ -129,6 +139,19 @@ export class BuildBar extends Container {
   private readonly supplyButton: GridButton;
   private readonly weaponButtons: { type: DamageType; button: GridButton }[] = [];
   private readonly auraButtons: { id: AuraType; button: GridButton }[] = [];
+
+  private readonly sendButtons: { sendId: string; button: GridButton }[] = [];
+  private readonly targetButtons: GridButton[] = [];
+  /**
+   * Which opponent the next send is aimed at.
+   *
+   * Held here rather than passed in because it is a property of the control,
+   * not of the match: it survives switching tabs, and it is re-pointed only
+   * when the chosen target is eliminated.
+   */
+  private sendTarget: string | null = null;
+  /** Which team each target chip currently stands for, in chip order. */
+  private targetIds: (string | null)[] = [null, null, null];
 
   private readonly upgradePanel = new Container();
   private readonly upgradeTitle: Text;
@@ -182,6 +205,24 @@ export class BuildBar extends Container {
       this.panels.aura.addChild(button);
     }
 
+    // §2: at most three opponents, so three target chips exist from boot and
+    // are hidden when there are fewer.
+    for (let slot = 0; slot < 3; slot++) {
+      const button = new GridButton(() => {
+        const teamId = this.targetIds[slot];
+        if (teamId) this.sendTarget = teamId;
+      });
+      this.targetButtons.push(button);
+      this.panels.send.addChild(button);
+    }
+    for (const send of data.sends.sends) {
+      const button = new GridButton(() => {
+        if (this.sendTarget) this.handlers.onSend(send.id, this.sendTarget);
+      });
+      this.sendButtons.push({ sendId: send.id, button });
+      this.panels.send.addChild(button);
+    }
+
     this.upgradeTitle = label('', 13, UI.text, '700');
     this.upgradeDetail = label('', 10, UI.textMuted);
     this.upgradeButton = new GridButton(() => {
@@ -202,6 +243,7 @@ export class BuildBar extends Container {
       this.panels.tech,
       this.panels.fort,
       this.panels.aura,
+      this.panels.send,
       this.upgradePanel,
     );
     this.setLayout(layout);
@@ -266,6 +308,21 @@ export class BuildBar extends Container {
       height,
     );
 
+    // Send: a row of target chips, then the catalogue under it. The target has
+    // to be visible while choosing what to throw, or picking one becomes a
+    // separate step to forget.
+    const chipH = 38;
+    grid(this.targetButtons, 3, 1, 6, top, bar.width - 12, chipH);
+    grid(
+      this.sendButtons.map((s) => s.button),
+      3,
+      2,
+      6,
+      top + chipH + 6,
+      bar.width - 12,
+      height - chipH - 6,
+    );
+
     // Upgrade panel replaces the Build grid when a placed unit is selected.
     this.upgradeTitle.x = 18;
     this.upgradeTitle.y = top + 6;
@@ -275,12 +332,19 @@ export class BuildBar extends Container {
     this.backButton.layout(bar.width - 106, top + height - 46, 88, Math.max(MIN_TOUCH, 44));
   }
 
-  render(state: MatchState, lane: Lane, selection: Selection, summary: WaveSummary | null): void {
+  render(
+    view: MatchView,
+    lane: LaneView,
+    selection: Selection,
+    summary: WaveSummary | null,
+  ): void {
     // §3.3, decided: from wave 25 nothing can be bought at all. The free
     // weapon/aura choices stay live, so they use `canChoose` instead.
-    const canChoose = state.phase === 'build';
-    const canAct = canChoose && state.wave < this.data.waves.attritionStartWave;
+    const canChoose = view.phase === 'build';
+    const canAct = canChoose && view.wave < this.data.waves.attritionStartWave;
     const canBuild = canAct;
+    // §13: out of the match means out of the shop, whatever the phase says.
+    const alive = !view.eliminated;
 
     for (const button of this.tabButtons) button.redraw(button.id === this.active);
 
@@ -290,22 +354,90 @@ export class BuildBar extends Container {
     this.panels.tech.visible = this.active === 'tech';
     this.panels.fort.visible = this.active === 'fort';
     this.panels.aura.visible = this.active === 'aura';
+    this.panels.send.visible = this.active === 'send';
+
+    const economy = lane.economy;
+    // The bar only ever shows your own lane, which always has a wallet. A lane
+    // without one is somebody else's, and nothing here should be pointed at it.
+    if (!economy) return;
 
     if (upgrading && this.active === 'build') {
       this.selectedUnitId = selection.unitId;
-      this.renderUpgrade(lane, selection.unitId, canAct);
+      this.renderUpgrade(lane, economy, selection.unitId, canAct && alive);
     } else {
       this.selectedUnitId = null;
     }
 
-    if (this.panels.build.visible) this.renderUnits(lane, selection, summary, canBuild);
-    if (this.panels.tech.visible) this.renderTech(lane, canAct);
-    if (this.panels.fort.visible) this.renderFort(lane, canAct);
-    if (this.panels.aura.visible) this.renderAura(lane, canChoose);
+    if (this.panels.build.visible) this.renderUnits(economy, selection, summary, canBuild && alive);
+    if (this.panels.tech.visible) this.renderTech(economy, canAct && alive);
+    if (this.panels.fort.visible) this.renderFort(economy, canAct && alive);
+    if (this.panels.aura.visible) this.renderAura(lane, canChoose && alive);
+    if (this.panels.send.visible) this.renderSend(view, economy, canAct && alive);
+  }
+
+  /**
+   * §11.5: pick a target, then pick what to throw at it.
+   *
+   * The target defaults to whoever has the most fortress HP left, which is the
+   * leader as far as §12 lets anyone tell - so the default action is the
+   * gang-up-on-the-leader one the section describes, and choosing differently
+   * is a deliberate act.
+   */
+  private renderSend(view: MatchView, economy: EconomyView, canAct: boolean): void {
+    const targets = [...view.opponents]
+      .filter((o) => !o.eliminated)
+      .sort((a, b) => a.teamId.localeCompare(b.teamId));
+
+    // Re-point at the leader when nothing is chosen, or when the chosen target
+    // has been eliminated out from under the choice.
+    if (!this.sendTarget || !targets.some((t) => t.teamId === this.sendTarget)) {
+      const leader = [...targets].sort((a, b) => b.fortressHp - a.fortressHp)[0];
+      this.sendTarget = leader ? leader.teamId : null;
+    }
+
+    this.targetIds = [null, null, null];
+    this.targetButtons.forEach((button, slot) => {
+      const target = targets[slot];
+      button.visible = target !== undefined;
+      if (!target) return;
+
+      this.targetIds[slot] = target.teamId;
+      const fraction =
+        target.fortressMaxHp > 0 ? Math.round((100 * target.fortressHp) / target.fortressMaxHp) : 0;
+
+      button.setSwatch(null);
+      button.update({
+        title: laneName(target.teamId),
+        detail: `${fraction}% fortress`,
+        note: target.watching ? `visible ${Math.ceil(ticksToSeconds(target.visionTicksLeft))}s` : '',
+        noteColour: UI.accent,
+        enabled: canAct,
+        selected: this.sendTarget === target.teamId,
+      });
+    });
+
+    const gems = economy.gems;
+    for (const { sendId, button } of this.sendButtons) {
+      const def = this.data.sends.sends.find((s) => s.id === sendId);
+      if (!def) continue;
+
+      const cost = def.gemCost ?? 0;
+      const income = def.incomeGranted ?? 0;
+
+      button.setSwatch(null);
+      button.update({
+        title: def.name,
+        // §11.5: the income is the whole reason an early send is an investment
+        // rather than an attack, so it is priced right next to the cost.
+        detail: `${cost} gem → +${income}g/wave`,
+        note: def.grantsVision ? `${def.monsters.length}× · sight` : `${def.monsters.length}×`,
+        enabled: canAct && this.sendTarget !== null && gems >= cost,
+      });
+    }
   }
 
   private renderUnits(
-    lane: Lane,
+    economy: EconomyView,
     selection: Selection,
     summary: WaveSummary | null,
     canBuild: boolean,
@@ -315,8 +447,8 @@ export class BuildBar extends Container {
       const supply = def.supplyCost ?? 0;
       const affordable =
         canBuild &&
-        lane.economy.gold >= gold &&
-        lane.economy.supplyUsed + supply <= lane.economy.supplyCap;
+        economy.gold >= gold &&
+        economy.supplyUsed + supply <= economy.supplyCap;
 
       const verdict = summary?.units.find((u) => u.unitId === def.id)?.verdict;
       button.setSwatch(DAMAGE_COLOURS[def.damageType]);
@@ -333,12 +465,12 @@ export class BuildBar extends Container {
   }
 
   /** §7.4: tech is tied to damage types - one buy lifts every unit of that type. */
-  private renderTech(lane: Lane, canAct: boolean): void {
+  private renderTech(economy: EconomyView, canAct: boolean): void {
     for (const { trackId, name, button } of this.techButtons) {
       const track = this.data.economy.tech.tracks.find((t) => t.id === trackId);
       if (!track) continue;
 
-      const level = lane.economy.tech[trackId] ?? 0;
+      const level = economy.tech[trackId] ?? 0;
       const next = track.levels.find((l) => l.level === level + 1);
       const cost = next?.goldCost ?? 0;
 
@@ -347,18 +479,18 @@ export class BuildBar extends Container {
         title: name,
         detail: next ? `${cost}g` : 'maxed',
         note: `level ${level}/${track.levels.length}`,
-        enabled: canAct && next !== undefined && lane.economy.gold >= cost,
+        enabled: canAct && next !== undefined && economy.gold >= cost,
       });
     }
   }
 
   /** §10: fortress upgrades are bought with GEMS - offence and defence compete. */
-  private renderFort(lane: Lane, canAct: boolean): void {
+  private renderFort(economy: EconomyView, canAct: boolean): void {
     const ladders = fortressLadders(this.data);
 
     for (const { id, name, button } of this.fortButtons) {
       const ladder = ladders[id] ?? [];
-      const level = lane.fortress.upgrades[id] ?? 0;
+      const level = economy.upgrades[id] ?? 0;
       const next = ladder.find((l) => l.level === level + 1);
       const cost = next?.gemCost ?? 0;
       const supply = next?.supplyCost ?? 0;
@@ -371,21 +503,21 @@ export class BuildBar extends Container {
         enabled:
           canAct &&
           next !== undefined &&
-          lane.economy.gems >= cost &&
-          lane.economy.supplyUsed + supply <= lane.economy.supplyCap,
+          economy.gems >= cost &&
+          economy.supplyUsed + supply <= economy.supplyCap,
       });
     }
 
     // §11.4: the supply cap is a purchase, not a gift.
     const ladder = this.data.economy.supply.capUpgrades;
-    const level = lane.fortress.upgrades.supply ?? 0;
+    const level = economy.upgrades.supply ?? 0;
     const next = ladder.find((l) => l.level === level + 1);
     this.supplyButton.setSwatch(null);
     this.supplyButton.update({
       title: 'Supply Cap',
       detail: next ? `${next.goldCost ?? 0}g → ${next.value ?? 0}` : 'maxed',
-      note: `cap ${lane.economy.supplyCap}`,
-      enabled: canAct && next !== undefined && lane.economy.gold >= (next.goldCost ?? 0),
+      note: `cap ${economy.supplyCap}`,
+      enabled: canAct && next !== undefined && economy.gold >= (next.goldCost ?? 0),
     });
   }
 
@@ -393,7 +525,7 @@ export class BuildBar extends Container {
    * §10.1: the weapon's damage type is free and instant each build phase, and
    * exactly one aura is active at a time.
    */
-  private renderAura(lane: Lane, canAct: boolean): void {
+  private renderAura(lane: LaneView, canAct: boolean): void {
     for (const { type, button } of this.weaponButtons) {
       button.setSwatch(DAMAGE_COLOURS[type]);
       button.update({
@@ -417,7 +549,12 @@ export class BuildBar extends Container {
   }
 
   /** §7.3: upgrading happens in place - same tile, same identity. */
-  private renderUpgrade(lane: Lane, unitId: number, canAct: boolean): void {
+  private renderUpgrade(
+    lane: LaneView,
+    economy: EconomyView,
+    unitId: number,
+    canAct: boolean,
+  ): void {
     const unit = lane.units.find((u) => u.id === unitId);
     const current = unit ? this.data.units.units.find((u) => u.id === unit.defId) : undefined;
     const next = current?.upgradesTo
@@ -453,8 +590,8 @@ export class BuildBar extends Container {
       detail: `${gold}g${supply ? ` · +${supply} supply` : ''}`,
       enabled:
         canAct &&
-        lane.economy.gold >= gold &&
-        lane.economy.supplyUsed + supply <= lane.economy.supplyCap,
+        economy.gold >= gold &&
+        economy.supplyUsed + supply <= economy.supplyCap,
     });
   }
 }
@@ -469,6 +606,12 @@ function fortressLadders(data: GameData) {
     auraStrength: f.auras.strength.upgrades,
     auraRadius: f.auras.radius.upgrades,
   } as Record<string, ReturnType<() => GameData['fortress']['hp']['upgrades']>>;
+}
+
+/** "lane3" -> "Lane 3". The same shape the opponent tabs use. */
+function laneName(teamId: string): string {
+  const match = /(\d+)$/.exec(teamId);
+  return match ? `Lane ${match[1]}` : teamId;
 }
 
 /** Lay buttons out in a fixed grid, left to right then top to bottom. */

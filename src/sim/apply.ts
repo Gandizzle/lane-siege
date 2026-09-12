@@ -271,8 +271,17 @@ function send(
   targetTeamId: string,
   sendId: string,
 ): CommandResult {
-  // A send costs gems, so it is a purchase and closes with everything else at
-  // wave 25 (§3.3, decided).
+  // A send costs gems, so it is a purchase: it happens in the build phase like
+  // every other purchase (§3.1), and it closes with them at wave 25 (§3.3,
+  // decided).
+  //
+  // §11.5 does not say when you may send, and mid-combat sending was tried
+  // first - the monsters join the target's next wave either way, so it works.
+  // Build-phase-only is the better rule: it keeps one shopping window instead
+  // of two, it puts the decision in the same 30 seconds as the defence it
+  // competes with for gems (§11.2), and it means the attacker chooses while the
+  // defender can still see the incoming-send notice and respond.
+  if (state.phase !== 'build') return fail('not-build-phase');
   if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const def = ctx.defs.sends.get(sendId);

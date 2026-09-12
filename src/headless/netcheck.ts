@@ -16,7 +16,8 @@
 import { Server } from 'colyseus';
 import { Client } from 'colyseus.js';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { LaneSiegeRoom, ROOM_NAME } from '../../server/room.ts';
+import { LaneSiegeRoom } from '../../server/room.ts';
+import { ROOM_NAME } from '../net/protocol.ts';
 import { buildTables, decodeFrame, type WireFrame, type WireHello } from '../net/protocol.ts';
 import type { MatchView } from '../sim/index.ts';
 
@@ -75,7 +76,7 @@ async function main(): Promise<void> {
     let tables: ReturnType<typeof buildTables> | null = null;
     room.onMessage('hello', (hello: WireHello) => {
       mine.teamId = hello.teamId;
-      tables = buildTables(data, hello.teamIds);
+      tables = buildTables(data, hello.teamIds, hello.seed);
     });
     room.onMessage('frame', (frame: WireFrame) => {
       if (!tables) return;

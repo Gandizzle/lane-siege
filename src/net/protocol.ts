@@ -37,6 +37,13 @@ import type { ArmourType, DamageType } from '../data/schema.ts';
 import { FORTRESS_UPGRADE_IDS } from '../sim/index.ts';
 import type { LaneView, MatchView, EntityView, TeamId } from '../sim/index.ts';
 
+/**
+ * The Colyseus room type. Shared, because a client asking for a name the server
+ * did not define fails with a puzzling "room not found" rather than anything
+ * about the mismatch.
+ */
+export const ROOM_NAME = 'lane_siege';
+
 /** Positions travel as hundredths of a tile. */
 const POSITION_SCALE = 100;
 /** Health travels as a byte of fraction. */
@@ -103,6 +110,11 @@ export interface WireHello {
  */
 export interface WireTables {
   teamIds: TeamId[];
+  /**
+   * The match seed. Public and constant (§9.2), so it arrives once with the
+   * hello rather than 20 times a second in every frame.
+   */
+  seed: number;
   unitIds: string[];
   monsterIds: string[];
   sendIds: string[];
@@ -123,7 +135,7 @@ function num(value: number | null, fallback: number): number {
   return value === null || !Number.isFinite(value) ? fallback : value;
 }
 
-export function buildTables(data: GameData, teamIds: TeamId[]): WireTables {
+export function buildTables(data: GameData, teamIds: TeamId[], seed = 0): WireTables {
   const unitIds = data.units.units.map((u) => u.id);
   const monsterIds = [
     ...data.monsters.monsters.map((m) => m.id),
@@ -143,6 +155,7 @@ export function buildTables(data: GameData, teamIds: TeamId[]): WireTables {
 
   return {
     teamIds: [...teamIds],
+    seed,
     unitIds,
     monsterIds,
     sendIds: data.sends.sends.map((s) => s.id),
@@ -311,7 +324,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
 
   return {
     teamId: tables.teamIds[frame.me] ?? '',
-    seed: 0,
+    seed: tables.seed,
     tick: frame.tk,
     wave: frame.w,
     phase: frame.p === 0 ? 'build' : 'combat',

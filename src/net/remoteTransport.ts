@@ -38,6 +38,7 @@ import { Client, type Room } from 'colyseus.js';
 import type { GameData } from '../data/schema.ts';
 import type { Command, CommandRejection, MatchView } from '../sim/index.ts';
 import {
+  ROOM_NAME,
   buildTables,
   decodeFrame,
   type WireFrame,
@@ -46,9 +47,6 @@ import {
 } from './protocol.ts';
 import { MS_PER_TICK } from '../util/loop.ts';
 import type { Transport, TransportStatus } from './transport.ts';
-
-/** Colyseus's room type name, matched with the server's. */
-const ROOM_NAME = 'lane_siege';
 
 export class RemoteTransport implements Transport {
   readonly kind = 'remote' as const;
@@ -59,7 +57,6 @@ export class RemoteTransport implements Transport {
   private room: Room | null = null;
   private tables: WireTables | null = null;
   private current: MatchView | null = null;
-  private seed = 0;
   private sinceFrameMs = 0;
   private ticked = false;
   private readonly rejections: CommandRejection[] = [];
@@ -130,8 +127,7 @@ export class RemoteTransport implements Transport {
 
     room.onMessage('hello', (hello: WireHello) => {
       this.teamId = hello.teamId;
-      this.seed = hello.seed;
-      this.tables = buildTables(this.data, hello.teamIds);
+      this.tables = buildTables(this.data, hello.teamIds, hello.seed);
       this.status = 'ready';
 
       // Anything tapped while connecting goes now, in the order it was tapped.
@@ -142,11 +138,7 @@ export class RemoteTransport implements Transport {
 
     room.onMessage('frame', (frame: WireFrame) => {
       if (!this.tables) return;
-      const view = decodeFrame(frame, this.tables);
-      // The seed is not in every frame - it cannot change - so it is restored
-      // from the hello here rather than sent 20 times a second.
-      view.seed = this.seed;
-      this.current = view;
+      this.current = decodeFrame(frame, this.tables);
       this.sinceFrameMs = 0;
       this.ticked = true;
     });

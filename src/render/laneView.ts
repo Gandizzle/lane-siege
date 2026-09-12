@@ -12,7 +12,7 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
-import type { Lane, MatchState, WaveSummary } from '../sim/index.ts';
+import type { LaneView as SimLaneView, MatchView, WaveSummary } from '../sim/index.ts';
 import { previewWave } from '../sim/index.ts';
 import type { LaneLayout } from './layout.ts';
 import { screenToTile } from './layout.ts';
@@ -130,8 +130,8 @@ export class LaneView extends Container {
    * of building a real decision rather than a shopping trip.
    */
   render(
-    state: MatchState,
-    lane: Lane,
+    view: MatchView,
+    lane: SimLaneView,
     selectedUnitId: number | null,
     summary: WaveSummary | null,
   ): void {
@@ -144,8 +144,8 @@ export class LaneView extends Container {
         const { gridOrigin, tileSize } = this.layout;
         this.highlight
           .rect(
-            gridOrigin.x + Math.floor(unit.pos.x) * tileSize,
-            gridOrigin.y + Math.floor(unit.pos.y) * tileSize,
+            gridOrigin.x + Math.floor(unit.x) * tileSize,
+            gridOrigin.y + Math.floor(unit.y) * tileSize,
             tileSize,
             tileSize,
           )
@@ -153,7 +153,7 @@ export class LaneView extends Container {
       }
     }
 
-    this.drawWavePreview(state, summary);
+    this.drawWavePreview(view, summary);
   }
 
   /**
@@ -161,18 +161,18 @@ export class LaneView extends Container {
    * the two halves of row one collide: heading on the left, counter hint on the
    * right, trimmed to whatever space the heading leaves.
    */
-  private drawWavePreview(state: MatchState, summary: WaveSummary | null): void {
+  private drawWavePreview(view: MatchView, summary: WaveSummary | null): void {
     const l = this.layout;
     const pad = 12;
-    const nextWave = state.phase === 'build' ? state.wave + 1 : state.wave;
-    const entries = previewWave(this.data, state.seed, nextWave);
+    const nextWave = view.phase === 'build' ? view.wave + 1 : view.wave;
+    const entries = previewWave(this.data, view.seed, nextWave);
     if (entries.length === 0) return;
 
     const rowOne = l.spawn.y + 5;
     const rowTwo = l.spawn.y + l.spawn.height - 20;
 
     const heading = label(
-      state.phase === 'build' ? `next wave ${nextWave}` : `wave ${nextWave}`,
+      view.phase === 'build' ? `next wave ${nextWave}` : `wave ${nextWave}`,
       10,
       UI.textMuted,
       '700',

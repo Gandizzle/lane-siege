@@ -23,7 +23,7 @@ const state = createMatch(data, {
   teams: teamIds.map((id) => ({ id, playerIds: [id] })),
 });
 const ctx = createContext(data);
-const tables = buildTables(data, teamIds);
+const tables = buildTables(data, teamIds, state.seed);
 
 // §15.3's stated load: four lanes, ~40 units and ~30 monsters each.
 for (const id of teamIds) {

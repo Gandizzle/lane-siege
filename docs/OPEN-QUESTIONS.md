@@ -34,6 +34,48 @@ Decided against the doc's own v1 recommendation: units _do_ block.
   standing on a tile where a unit gets built is explicitly allowed to leave by
   any route, or it would be trapped there forever.
 
+### 5. What exactly is publicly visible on opponent tabs? (§12) → **fortress HP and alive-or-out, and nothing else ever**
+
+Taking the doc's suggested minimum, and making it a hard ceiling rather than a
+starting point. An opponent tab carries their fortress HP, whether they are
+still alive, and their placement once they are out. That is the whole public
+record.
+
+Extended where §12 required a decision it did not state:
+
+- **A lane you bought sight of** with a send (§11.5) shows its _contents_ — the
+  units, the monsters, the fortress, the aura that is lit. Those are things
+  happening in a lane, and a send is how you pay to look.
+- **The balance sheet is never public.** Not gold, gems, supply, tech levels, or
+  fortress upgrade levels — not with bought vision, not while spectating, not
+  ever. Seeing someone's army is a tactical read that §11.5 sells you. Seeing
+  their bank balance and their upgrade sheet tells you what they are about to
+  do, and nothing in §11 or §12 offers a way to earn that.
+- **An eliminated player sees every lane's contents**, because §13 says they may
+  stay and spectate, and there is nothing left to protect from someone who can
+  no longer send (§13, no kingmaking).
+
+The rule is one function, `viewFor` in `src/sim/view.ts`, and it runs in single
+player too — so it is exercised by every game rather than only the networked
+one. A view is a projection rather than a filtered reference into live state, so
+a field added to `Team` or `Lane` next month cannot silently become visible; one
+test asserts the opponent record's keys exactly.
+
+### 6. The send catalogue (§18) → **five sends, escalating**
+
+`sends.json` now holds Swarm Probe, Grub Pack, Plated Push, Ward Raid and Bloat
+Drop. Placeholders like every other number, but coherent ones:
+
+- Income is sized against **unit prices**, not against the gem cost, because the
+  two currencies are not interchangeable. Grub Pack at 10 gold a wave buys a 40g
+  hammer in four waves and is noise by wave 14 — which is §11.5's stated arc,
+  "clearly correct before wave 10, clearly a weapon after wave 14".
+- The cheap probe and the expensive raid grant vision; the bread-and-butter
+  sends do not. So sight is a thing you pay for rather than a side effect of
+  attacking.
+- Sends close at wave 25 with every other purchase (§3.3, decided above), since
+  a send costs gems and is therefore a purchase.
+
 ## Still open — needed before the milestone in brackets
 
 ### 3. Post-wave-25 purchases (§3.3) → **nothing can be bought**
@@ -52,17 +94,6 @@ player engaging with the matrix to the end.
 
 Taking the doc's recommendation: **gold**. The ladder is in `economy.json`; the
 cost field is the only thing that would change.
-
-### 5. What exactly is publicly visible on opponent tabs? (§12) [M4]
-
-Suggested minimum is fortress HP and alive/eliminated status, everything else
-hidden. Needs settling before the spectate view is built.
-
-### 6. The send catalogue (§18) [M4]
-
-Which sends exist, what they cost, which grant vision. `sends.json` is empty;
-`SendDef` is a first guess at the shape, and `Lane.incomingSends` is already
-wired into wave spawning so sends do not need retrofitting later.
 
 ### 7. Full monster and boss bank (§18) [M3]
 

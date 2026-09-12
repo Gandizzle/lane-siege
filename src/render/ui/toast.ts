@@ -35,7 +35,16 @@ export class Toast extends Container {
   private text = '';
 
   show(rejection: CommandRejection): void {
-    this.text = MESSAGES[rejection] ?? 'Not allowed';
+    this.showText(MESSAGES[rejection] ?? 'Not allowed');
+  }
+
+  /**
+   * For things the simulation has no opinion about - sight of a lane running
+   * out, a tab you cannot see inside. Those are not refused commands, they are
+   * the interface explaining itself.
+   */
+  showText(text: string): void {
+    this.text = text;
     this.remaining = VISIBLE_MS;
   }
 

@@ -136,6 +136,21 @@ describe('sends (§11.5)', () => {
     ).toBe('insufficient-gems');
   });
 
+  it('happens in the build phase, like every other purchase (§3.1)', () => {
+    const { state, ctx } = fourPlayerMatch();
+    fund(state, 'a', 500);
+    while (state.phase !== 'combat') step(ctx, state);
+
+    expect(
+      applyCommand(ctx, state, {
+        kind: 'send',
+        teamId: 'a',
+        targetTeamId: 'b',
+        sendId: 'grub_pack',
+      }).rejection,
+    ).toBe('not-build-phase');
+  });
+
   it('closes with every other purchase at wave 25 (§3.3)', () => {
     const { state, ctx } = fourPlayerMatch();
     fund(state, 'a', 500);
