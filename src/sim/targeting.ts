@@ -98,6 +98,17 @@ export function findUnit(
  * A unit's held target stays valid while it is alive AND in range (§5.2).
  * Returns the target to keep, or null meaning "reacquire".
  */
+/**
+ * Slack on the hold, in tiles.
+ *
+ * §5.2 has a unit hold its target until that target leaves range. Taken
+ * exactly, melee ranges of a tenth of a tile mean the separation pass jostling
+ * a unit by a hair drops its target, which restarts the advance, which brings it
+ * back in range - a stop/go cycle that never settles. The hold is stickier than
+ * the acquire, which is the same hysteresis idea as everywhere else here.
+ */
+const HOLD_MARGIN = 0.25;
+
 export function holdOrDrop(
   monsters: readonly Monster[],
   unit: DefensiveUnit,
@@ -105,6 +116,6 @@ export function holdOrDrop(
 ): Monster | null {
   const current = findMonster(monsters, unit.targetId);
   if (!current) return null;
-  const reach = range + unit.radius + current.radius;
+  const reach = range + unit.radius + current.radius + HOLD_MARGIN;
   return distanceSquared(unitPosition(unit), current.pos) <= reach * reach ? current : null;
 }

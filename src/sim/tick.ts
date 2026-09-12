@@ -28,6 +28,7 @@ import { monsterEnrage } from './enrage.ts';
 import { hasLineOfSight, isPositionBlocked, rebuildOccupancy } from './grid.ts';
 import { computeFlowField, createFlowField, steerAlongField } from './flowfield.ts';
 import type { FlowField } from './flowfield.ts';
+import { chooseSide, findBlocker, writeTangentWaypoint } from './avoidance.ts';
 import { pushOutOf, relaxSeparation } from './separation.ts';
 import { slotIndexFor, writeSlotPosition } from './slots.ts';
 import { admitFromReserve, countLiving, createMonster } from './spawn.ts';
@@ -182,6 +183,19 @@ const SLOT_SETTLE = 0.2;
 /** How far it must be shoved before it bothers setting off again. */
 const SLOT_RESTART = 0.55;
 
+/** Improvement in squared distance that counts as making progress. */
+const SLOT_PROGRESS_EPSILON = 0.01;
+
+/**
+ * How long a unit keeps trying without getting nearer, in ticks.
+ *
+ * Four seconds. Tuned against two measurements that pull opposite ways: too
+ * impatient and a unit parks mid-detour (5 of 8 reach contact at 6s), too
+ * patient and the stragglers orbit instead of settling (the settling test fails
+ * at 8s). At 4s both are satisfied.
+ */
+const SLOT_STALL_TICKS = 80;
+
 // --------------------------------------------------------------------- stages
 
 /**
@@ -328,6 +342,8 @@ function advanceUnit(
   if (unit.slotTargetId !== target.id) {
     unit.slotTargetId = target.id;
     unit.settled = false;
+    unit.slotBestDistSq = Infinity;
+    unit.slotStallTicks = 0;
     unit.slotIndex = slotIndexFor(lane.units, unit, (u) => u.advanceTargetId, target.id);
   }
   writeSlotPosition(
@@ -347,10 +363,41 @@ function advanceUnit(
   const threshold = unit.settled ? SLOT_RESTART : SLOT_SETTLE;
   if (toSlot < threshold * threshold) {
     unit.settled = true;
+    unit.slotStallTicks = 0;
     clearStuck(unit);
     return;
   }
   unit.settled = false;
+
+  // Give up on a slot there is no room for. A detour round an ally means no
+  // progress for a while, which is fine; no progress EVER means orbiting a
+  // crowd, and orbiting forever is jitter with extra steps.
+  if (toSlot < unit.slotBestDistSq - SLOT_PROGRESS_EPSILON) {
+    unit.slotBestDistSq = toSlot;
+    unit.slotStallTicks = 0;
+  } else if (++unit.slotStallTicks > SLOT_STALL_TICKS) {
+    unit.settled = true;
+    clearStuck(unit);
+    return;
+  }
+
+  // Round any ally standing between here and the slot, committing to one side
+  // until it is no longer in the way. Without this the unit walks into its
+  // ally's back and stops - two rows of units, and the back row never arrives.
+  const blocker = findBlocker(lane.units, unit, scratchDestination);
+  if (blocker) {
+    // Commit to the SIDE, not to the blocker. Re-deciding each time a different
+    // ally becomes the nearest obstacle makes a unit reverse mid-manoeuvre and
+    // orbit the cluster forever; holding the side carries it all the way round.
+    if (unit.avoidSide === 0) {
+      unit.avoidSide = chooseSide(unit, blocker, scratchDestination);
+    }
+    unit.avoidBlockerId = blocker.id;
+    writeTangentWaypoint(unit, blocker, unit.avoidSide, scratchDestination);
+  } else {
+    unit.avoidBlockerId = null;
+    unit.avoidSide = 0;
+  }
 
   // No grid for units: ally tiles are not terrain, and treating them as such is
   // what made a blocked unit sidestep left, then right, then left forever.

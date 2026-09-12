@@ -81,6 +81,25 @@ export interface DefensiveUnit {
    * separation pass nudges it just outside, and it sets off again, forever.
    */
   settled: boolean;
+  /**
+   * Which ally this unit is currently rounding, and which way round (+1/-1).
+   *
+   * Committed until that ally stops blocking. Recomputing the side every tick
+   * is what made earlier attempts oscillate: the choice flips on a fraction of
+   * a tile of movement and the unit shuffles instead of going round.
+   */
+  avoidBlockerId: EntityId | null;
+  avoidSide: number;
+  /**
+   * Closest this unit has got to its slot, and how long since it improved.
+   *
+   * Rounding an ally is a detour, so a unit can legitimately move for a while
+   * without getting nearer. But if it never gets nearer, it is orbiting a crowd
+   * that has no room for it - and orbiting forever is just jitter with extra
+   * steps. After a couple of seconds without progress it parks where it stands.
+   */
+  slotBestDistSq: number;
+  slotStallTicks: number;
   /** Stuck-detection window, same fallback the monsters use (§5.3). */
   stuckAnchor: Vec2;
   /** Last candidate direction taken; steering hysteresis (see steering.ts). */

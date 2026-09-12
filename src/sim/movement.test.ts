@@ -421,3 +421,89 @@ describe('no jitter under crowding', () => {
     expect(stuck).toHaveLength(0);
   });
 });
+
+describe('routing around allies (tangent steering)', () => {
+  it('gets the back row past the front row to the target', () => {
+    // The reported bug: two rows of units, and the back row jams behind the
+    // front row rather than going round. Measured at 3 of 8 reaching a target
+    // that had open lane on either side of it.
+    const d = passiveData();
+    for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
+
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+
+    for (const y of [7, 8]) {
+      for (let x = 2; x < 6; x++) {
+        applyCommand(ctx, state, {
+          kind: 'placeUnit',
+          teamId: 'l1',
+          unitDefId: 'hammer',
+          tileX: x,
+          tileY: y,
+        });
+      }
+    }
+
+    while (state.phase !== 'combat') step(ctx, state);
+
+    // A single stationary target off to one side, with room all around it.
+    const target = lane.monsters.find((m) => m.alive)!;
+    for (const m of lane.monsters) if (m !== target) m.alive = false;
+    target.pos.x = 1.5;
+    target.pos.y = 2.5;
+
+    run(ctx, state, 1200);
+
+    const inContact = lane.units.filter(
+      (u) =>
+        u.alive &&
+        Math.hypot(u.pos.x - target.pos.x, u.pos.y - target.pos.y) - u.radius - target.radius < 0.4,
+    ).length;
+
+    // Only the first ring can touch, and it holds six at these body sizes, so
+    // six is the geometric maximum rather than eight - the last two belong on a
+    // second ring by construction. Measured 3 before this change and 5 to 6
+    // after, depending on which order the group arrives in; the floor here is
+    // the regression guard, not the target.
+    expect(inContact).toBeGreaterThanOrEqual(5);
+  });
+
+  it('commits to one side rather than reversing mid-detour', () => {
+    // Re-deciding which way round whenever a different ally becomes the nearest
+    // obstacle made units orbit the cluster forever. The side is held until
+    // nothing is blocking.
+    const d = passiveData();
+    for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
+
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+
+    for (let y = 6; y < 10; y++) {
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'l1',
+        unitDefId: 'hammer',
+        tileX: 4,
+        tileY: y,
+      });
+    }
+    while (state.phase !== 'combat') step(ctx, state);
+
+    let flips = 0;
+    const lastSide = new Map<number, number>();
+    for (let t = 0; t < 600; t++) {
+      step(ctx, state);
+      for (const u of lane.units) {
+        if (!u.alive || u.avoidSide === 0) continue;
+        const previous = lastSide.get(u.id);
+        if (previous !== undefined && previous !== u.avoidSide) flips++;
+        lastSide.set(u.id, u.avoidSide);
+      }
+    }
+
+    // A few flips are legitimate - a unit finishes one detour and starts
+    // another. Dozens per unit would mean it is reversing on the spot.
+    expect(flips).toBeLessThan(lane.units.length * 3);
+  });
+});

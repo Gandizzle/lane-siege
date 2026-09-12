@@ -104,6 +104,13 @@ Decisions that override the document rather than filling a gap in it:
   rejected as the wrong shape: many agents, few goals, so one shared sweep beats
   30 individual searches and costs 0.44% of the tick budget. The field is used
   only when line of sight is blocked; on open ground agents still walk straight.
+- **§5.3 — allies are routed around by tangent steering, not by a field.** A
+  unit blocked by an ally turns along the tangent around it, committing to one
+  side until clear. A sub-tile Dijkstra field with obstacles inflated by body
+  radius was the considered alternative: genuinely global, but roughly ten times
+  the cost and with gradient churn of its own. Tangent steering is local, so a
+  wall of allies spanning the whole lane can still stall a unit — the accepted
+  limit of the choice.
 - **§5.1/§5.2 — attackers take approach slots around a target.** Rather than all
   walking at the target's centre, each takes its own position on a ring around
   it, so a group surrounds rather than forming a queue. Reactive alternatives

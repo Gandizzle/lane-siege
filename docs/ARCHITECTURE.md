@@ -159,6 +159,37 @@ Together these took path efficiency from 0.57 to **0.999** and wasted travel
 from 68 tiles to 0.01 over the same 20-second window, with all 40 units still
 making progress.
 
+### Getting there: tangent steering with side commitment
+
+Slots settle _where_ to stand; they do nothing about getting there. A unit
+walking at its slot walks into the back of an ally between it and the slot and
+stops. Two rows of units, and the back row never arrives — measured at 3 of 8
+reaching a target that had open lane on either side of it.
+
+Tangent steering fixes it in four parts, and the third is the one that matters:
+
+1. Find the nearest ally **actually blocking** — inside the corridor between
+   here and the goal, not merely nearby. Swerving around everything close by
+   would have units dodging each other constantly.
+2. Pick the side whose tangent points more toward the goal: the shorter way past.
+3. **Commit to the side**, not to the blocker. Re-deciding whenever a different
+   ally becomes the nearest obstacle makes a unit reverse mid-manoeuvre and
+   orbit the cluster forever. This was the difference between 3 of 8 arriving
+   and 6 of 8.
+4. Head for the tangent point. Once past, the ally leaves the corridor and the
+   unit resumes course on its own.
+
+Plus a give-up condition: a detour means no progress for a while, which is fine,
+but _never_ getting nearer means orbiting a crowd with no room in it. After four
+seconds without improvement a unit parks where it stands. That window is tuned
+against two measurements pulling opposite ways — at 6s a unit parks mid-detour
+(5 of 8 arrive), at 8s the stragglers orbit instead of settling.
+
+This is deliberately **local**. It rounds one or several allies, not a wall of
+them spanning the lane. A distance field would cover the global case, at roughly
+ten times the cost and with its own gradient churn to tame; that trade was
+considered and declined.
+
 ### Approach slots, not crowd steering
 
 Attackers converging on one target contend for the same point, and every
