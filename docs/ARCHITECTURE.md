@@ -183,7 +183,10 @@ exist to prevent — 6 of 8 in contact with the handover, 3 without it.
 | a real wave against a 3-deep block | 8 of 8 engaged      | 8 of 8         |
 
 So the field is a strict addition: it solves the case local steering cannot and
-costs nothing in the cases local steering already handled. At the full §15.3
+costs nothing in the cases local steering already handled. It is not, however,
+where this should end: movement is the weakest part of the game to watch, and
+[PATHING.md](PATHING.md) records every approach tried so far, what each
+measured, what is still wrong, and the candidates for the next attempt. At the full §15.3
 load (4 lanes, 120 monsters, 160 units) the whole tick went from **0.25ms to
 0.83ms — 0.50% to 1.65% of the 50ms budget**. `npm run perf` re-checks it.
 

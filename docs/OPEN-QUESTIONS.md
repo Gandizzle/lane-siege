@@ -87,6 +87,20 @@ Already decided in DESIGN.md and simply written into `data/`:
   because that formula's code block is empty in the document as supplied.
   Verified by `src/sim/enrage.test.ts`. Worth a glance to confirm.
 
+## Known weak spot: movement
+
+**Movement works but does not look good, and will need another pass.** It has
+taken more attempts than anything else here and is still the weakest thing to
+watch: crowds arrive in a clump rather than fanning out, the last unit or two
+never find a place, and bodies at contact never quite come to rest.
+
+This is deliberately recorded rather than quietly carried. Every approach tried,
+what each one measured, the seven problems that remain and the candidates for
+the next attempt are in [PATHING.md](PATHING.md), and `npm run routing`
+reproduces the numbers. Nothing downstream depends on the current approach
+beyond `advanceUnit` and `monstersAct` in `src/sim/tick.ts`, so replacing it
+later is a contained change.
+
 ## Design changes to DESIGN.md
 
 Decisions that override the document rather than filling a gap in it:

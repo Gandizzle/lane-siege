@@ -512,7 +512,17 @@ function advanceUnit(
     progressed = true;
   }
 
-  if (progressed || routedByField) {
+  if (blocker === null) {
+    // Nothing in the way: there is nothing to orbit, so there is nothing to
+    // give up on. Clearing the baselines here is also how a parked unit gets
+    // released - without it the park was permanent, because the baselines are
+    // bests-ever and a unit standing still can never beat its own best. A unit
+    // that gave up in a crowd stayed frozen at 0.76 tiles from contact even
+    // after every ally around it died and the ground was open.
+    unit.slotStallTicks = 0;
+    unit.slotBestDistSq = Infinity;
+    unit.routeBestCost = Infinity;
+  } else if (progressed || routedByField) {
     unit.slotStallTicks = 0;
   } else if (++unit.slotStallTicks > SLOT_STALL_TICKS) {
     unit.settled = true;

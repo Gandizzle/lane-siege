@@ -14,7 +14,8 @@
     "sim": "tsx src/headless/run.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "perf": "tsx src/headless/perf.ts"
+    "perf": "tsx src/headless/perf.ts",
+    "routing": "tsx src/headless/routing.ts"
   },
   "dependencies": {
     "pixi.js": "^8.20.1"
