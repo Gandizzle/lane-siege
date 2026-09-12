@@ -34,6 +34,15 @@ export interface Team {
   eliminated: boolean;
   /** Locked in at the moment of elimination (§13). */
   placement: number | null;
+  /**
+   * Ticks of sight this team currently has of each other team's lane, granted
+   * by sends (§11.5, §12). Counts down every tick.
+   *
+   * Vision lives on the WATCHER, not on the lane being watched: two opponents
+   * can be watching the same lane with different time left, and the lane has no
+   * business knowing who is looking at it.
+   */
+  vision: Record<TeamId, number>;
 }
 
 export interface DefensiveUnit {
@@ -263,6 +272,11 @@ export interface Lane {
   reserve: { defId: string; waveNumber: number }[];
   /** Extra monsters sent by opponents, merged into the next wave (§11.5). */
   incomingSends: { defId: string; fromTeamId: TeamId }[];
+  /**
+   * Sends this lane has received, newest last, for the "you are being attacked
+   * by X" notice. Cleared when the wave they joined spawns.
+   */
+  sendLog: { sendId: string; fromTeamId: TeamId }[];
   fortress: Fortress;
   economy: Economy;
 }

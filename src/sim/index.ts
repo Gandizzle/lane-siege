@@ -32,3 +32,5 @@ export type { SpawnSpec, WavePreviewEntry, WaveSummary, UnitRating } from './wav
 export { createGrid, isTileBlocked, isPositionBlocked, rebuildOccupancy } from './grid.ts';
 export type { OccupancyGrid } from './grid.ts';
 export { countLiving } from './spawn.ts';
+export { viewFor } from './view.ts';
+export type { LaneView, MatchView, OpponentView } from './view.ts';

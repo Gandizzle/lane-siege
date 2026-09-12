@@ -15,6 +15,7 @@ import type { UnitDef } from '../data/schema.ts';
 import type { Command, CommandRejection } from './commands.ts';
 import type { DefIndex } from './defs.ts';
 import { stat } from './defs.ts';
+import { secondsToTicks } from './constants.ts';
 import { inBounds, tileOccupiedByUnit } from './grid.ts';
 import { createUnit } from './spawn.ts';
 import { recomputeUnitBuffs } from './buffs.ts';
@@ -231,6 +232,72 @@ function buyFortressUpgrade(
 }
 
 /**
+ * §11.5: add monsters to an opponent's next wave.
+ *
+ * The three rules that make this the gang-up-on-the-leader mechanic rather than
+ * a random grief button, all of them from §11.5 and §13:
+ *
+ *   - The SENDER picks the target. That is intentional, and it is what lets
+ *     three players cooperate against whoever is ahead without a mechanism for
+ *     cooperating.
+ *   - The DEFENDER gets the bounty, so a send is not a way to starve someone.
+ *     That falls out for free: the monsters spawn in their lane, and bounty is
+ *     paid to the lane that kills them.
+ *   - An eliminated player may not send. §13 calls this no kingmaking: someone
+ *     with nothing left to play for should not get to decide who wins.
+ *
+ * Sending also grants the sender permanent passive income, which is what makes
+ * an early send an investment and a late one a pure attack (§11.6).
+ */
+function send(
+  ctx: { data: GameData; defs: DefIndex },
+  state: MatchState,
+  lane: Lane,
+  targetTeamId: string,
+  sendId: string,
+): CommandResult {
+  // A send costs gems, so it is a purchase and closes with everything else at
+  // wave 25 (§3.3, decided).
+  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
+
+  const def = ctx.defs.sends.get(sendId);
+  if (!def) return fail('unknown-definition');
+
+  // Sending at yourself would be a way to farm your own income grant.
+  if (targetTeamId === lane.teamId) return fail('invalid-target');
+
+  const target = state.teams.find((t) => t.id === targetTeamId);
+  if (!target) return fail('invalid-target');
+  if (target.eliminated) return fail('target-eliminated');
+
+  const targetLane = state.lanes[targetTeamId];
+  if (!targetLane) return fail('invalid-target');
+
+  const gemCost = stat(def.gemCost);
+  if (lane.economy.gems < gemCost) return fail('insufficient-gems');
+
+  lane.economy.gems -= gemCost;
+  lane.economy.passiveIncome += stat(def.incomeGranted);
+
+  for (const monsterId of def.monsters) {
+    targetLane.incomingSends.push({ defId: monsterId, fromTeamId: lane.teamId });
+  }
+  targetLane.sendLog.push({ sendId: def.id, fromTeamId: lane.teamId });
+
+  // §12: some sends buy a look at the lane you just attacked. Vision is
+  // refreshed rather than stacked, so spamming probes does not bank hours of it.
+  if (def.grantsVision) {
+    const sender = state.teams.find((t) => t.id === lane.teamId);
+    if (sender) {
+      const ticks = secondsToTicks(stat(def.visionDurationSeconds));
+      sender.vision[targetTeamId] = Math.max(sender.vision[targetTeamId] ?? 0, ticks);
+    }
+  }
+
+  return OK;
+}
+
+/**
  * §7.3: the upgrade happens IN PLACE - the unit keeps its tile and its identity,
  * gains stats and possibly an ability. Priced at roughly 1.6x base for 2.2x
  * value, so going tall is more gold-efficient than going wide but requires board
@@ -320,9 +387,8 @@ export function applyCommand(
       lane.fortress.activeAura = command.aura;
       return OK;
 
-    // M4: the send catalogue does not exist yet (§11.5, §18).
     case 'send':
-      return fail('unknown-definition');
+      return send(ctx, state, lane, command.targetTeamId, command.sendId);
   }
 }
 

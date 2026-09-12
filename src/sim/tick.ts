@@ -267,6 +267,22 @@ function advanceWaveClocks(state: MatchState): void {
 }
 
 /**
+ * §12: sight of an opponent's lane, bought with a send, runs out.
+ *
+ * Counted down on the watcher rather than the watched, so two opponents looking
+ * at the same lane have their own clocks.
+ */
+function advanceVision(state: MatchState): void {
+  for (const team of state.teams) {
+    for (const watched of Object.keys(team.vision)) {
+      const left = team.vision[watched] ?? 0;
+      if (left > 0) team.vision[watched] = left - 1;
+      else delete team.vision[watched];
+    }
+  }
+}
+
+/**
  * §5.2, amended: a unit holds its target until that target dies or leaves range,
  * and only then reacquires the nearest in range. That part is unchanged, and it
  * is what stops target-switch jitter.
@@ -833,6 +849,9 @@ function spawnWave(ctx: SimContext, state: MatchState): void {
       waveNumber: state.wave,
     }));
     lane.incomingSends.length = 0;
+    // The "you are being attacked by X" notice belongs to the wave that is
+    // coming, so it clears when that wave actually lands.
+    lane.sendLog.length = 0;
 
     for (const spec of [...specs, ...incoming]) {
       if (countLiving(lane) < cap) {
@@ -1019,6 +1038,7 @@ export function step(
 
   state.tick += 1;
   advanceWaveClocks(state);
+  advanceVision(state);
   advancePhase(ctx, state);
 
   for (const team of state.teams) {

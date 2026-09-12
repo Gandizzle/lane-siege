@@ -1,4 +1,52 @@
 {
-  "_comment": "DESIGN.md §11.5. Empty. The send catalogue is an open question (§18). Tuning target: payback period of roughly 5-6 waves, so an early send is an investment and a late one is a weapon. The defender always gets the kill bounty.",
-  "sends": []
+  "_comment": "DESIGN.md §11.5. Sends cost gems, add monsters to a target opponent's next wave, and grant the sender permanent passive income in gold. The defender always gets the kill bounty. Placeholders, like every number in data/.",
+  "_tuning": "§11.5 asks for a payback period of roughly 5-6 waves, so that an early send is an economic investment and a late one is a pure attack. Income is sized against unit prices rather than against the gem cost, because the two currencies are not interchangeable: grub_pack at 10 gold a wave buys a 40g hammer in four waves, and is noise against late-game prices. That is the intended arc - clearly correct before wave 10, clearly a weapon after wave 14.",
+  "_vision": "§12: some send types grant temporary sight of the target's lane. The cheap probe and the expensive raid do; the bread-and-butter sends do not, so vision is a thing you pay for rather than a side effect of attacking.",
+  "sends": [
+    {
+      "id": "swarm_probe",
+      "name": "Swarm Probe",
+      "gemCost": 18,
+      "monsters": ["swarmling", "swarmling", "swarmling", "swarmling", "swarmling", "swarmling"],
+      "incomeGranted": 6,
+      "grantsVision": true,
+      "visionDurationSeconds": 20
+    },
+    {
+      "id": "grub_pack",
+      "name": "Grub Pack",
+      "gemCost": 30,
+      "monsters": ["grub", "grub", "grub", "grub", "grub"],
+      "incomeGranted": 10,
+      "grantsVision": false,
+      "visionDurationSeconds": 0
+    },
+    {
+      "id": "plated_push",
+      "name": "Plated Push",
+      "gemCost": 45,
+      "monsters": ["husk", "husk", "husk"],
+      "incomeGranted": 12,
+      "grantsVision": false,
+      "visionDurationSeconds": 0
+    },
+    {
+      "id": "ward_raid",
+      "name": "Ward Raid",
+      "gemCost": 65,
+      "monsters": ["revenant", "revenant"],
+      "incomeGranted": 10,
+      "grantsVision": true,
+      "visionDurationSeconds": 15
+    },
+    {
+      "id": "bloat_drop",
+      "name": "Bloat Drop",
+      "gemCost": 90,
+      "monsters": ["bloater", "bloater"],
+      "incomeGranted": 6,
+      "grantsVision": false,
+      "visionDurationSeconds": 0
+    }
+  ]
 }

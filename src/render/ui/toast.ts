@@ -22,9 +22,10 @@ const MESSAGES: Record<CommandRejection, string> = {
   'unknown-definition': 'Not available yet',
   'no-such-unit': 'That unit is gone',
   'max-tier': 'Already at max tier',
-  'building-closed': 'No new units from wave 25',
+  'building-closed': 'Nothing can be bought from wave 25',
   eliminated: 'You are out',
   'target-eliminated': 'That player is out',
+  'invalid-target': 'Pick an opponent',
 };
 
 const VISIBLE_MS = 1600;

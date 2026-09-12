@@ -56,6 +56,7 @@ function createLane(data: GameData, teamId: TeamId, missing: string[]): Lane {
     occupancyDirty: false,
     reserve: [],
     incomingSends: [],
+    sendLog: [],
     fortress: {
       hp: maxHp,
       maxHp,
@@ -100,6 +101,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     playerIds: [...setup.playerIds],
     eliminated: false,
     placement: null,
+    vision: {},
   }));
 
   const lanes: Record<TeamId, Lane> = {};

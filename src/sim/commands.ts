@@ -88,4 +88,6 @@ export type CommandRejection =
   | 'max-tier'
   | 'building-closed'
   | 'eliminated'
-  | 'target-eliminated';
+  | 'target-eliminated'
+  /** No such opponent, or the sender aimed at their own lane. */
+  | 'invalid-target';
