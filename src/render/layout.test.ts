@@ -9,6 +9,7 @@ const lane: LaneFile = {
   unitsBlockMovement: null,
   unitRadius: 0.34,
   monsterRadius: 0.3,
+  pathSubdivision: 4,
 };
 
 describe('portrait layout (DESIGN.md §4.1)', () => {

@@ -97,20 +97,28 @@ Decisions that override the document rather than filling a gap in it:
   others hostage; that is now handled at the other end instead — enrage keeps
   climbing on a lane that cannot clear, and when its fortress falls the lane is
   wiped and stops receiving waves, so it cannot stall the match indefinitely.
-- **§5.3 — pathing is a distance field, not greedy steering.** §5.3 explicitly
-  ruled out A\*, navmeshes and flow fields. Greedy steering could not solve a
-  wall with a gap in it — a measured 0 of 8 monsters got through — so a
-  multi-source breadth-first distance field replaced it. A\* was considered and
-  rejected as the wrong shape: many agents, few goals, so one shared sweep beats
-  30 individual searches and costs 0.44% of the tick budget. The field is used
-  only when line of sight is blocked; on open ground agents still walk straight.
-- **§5.3 — allies are routed around by tangent steering, not by a field.** A
-  unit blocked by an ally turns along the tangent around it, committing to one
-  side until clear. A sub-tile Dijkstra field with obstacles inflated by body
-  radius was the considered alternative: genuinely global, but roughly ten times
-  the cost and with gradient churn of its own. Tangent steering is local, so a
-  wall of allies spanning the whole lane can still stall a unit — the accepted
-  limit of the choice.
+- **§5.3 — pathing is a sub-tile Dijkstra field, not greedy steering.** §5.3
+  explicitly ruled out A\*, navmeshes and flow fields. Greedy steering could not
+  solve a wall with a gap in it — a measured 0 of 8 monsters got through, and 1
+  of 8 units once tangent steering was added — so a multi-source Dijkstra field
+  replaced it. A\* was considered and rejected as the wrong shape: many agents,
+  few goals, so one shared sweep beats 30 individual searches. Cells are a
+  quarter tile (`lane.pathSubdivision`) and obstacles are inflated by the
+  mover's kind radius, so free space is where that body's centre may legally be
+  and every route offered has real clearance. Whole tick: 1.65% of the budget,
+  up from 0.50%. The field is used only when something is in the way; on open
+  ground agents still walk straight at their target.
+- **§5.3 — the field routes, local steering arrives.** The field and tangent
+  steering are complementary rather than alternatives. The field is global and
+  solves the wall (1 of 8 units through, to 7 of 8); tangent steering handles
+  what it hands back — the last two tiles to a slot, and units the field has no
+  clear cell to offer at all. Letting the field steer all the way in points
+  every attacker at the same body and undoes the slots (6 of 8 in contact with
+  the handover, 3 without). Two consequences worth naming: inflation is per
+  _kind_, so a boss can be offered a route it does not quite fit and falls back
+  on local steering there; and the give-up-and-park rule applies to local
+  steering only, since a unit on a global gradient cannot orbit, and parking one
+  that was mid-detour froze it for the rest of the fight.
 - **§5.1/§5.2 — attackers take approach slots around a target.** Rather than all
   walking at the target's centre, each takes its own position on a ring around
   it, so a group surrounds rather than forming a queue. Reactive alternatives

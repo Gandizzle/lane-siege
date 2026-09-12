@@ -63,6 +63,8 @@ export interface LaneFile {
    */
   unitRadius: number;
   monsterRadius: number;
+  /** Cells per tile for the flow field. Finer routing, linearly more work. */
+  pathSubdivision: number;
 }
 
 // ----------------------------------------------------------------- units.json

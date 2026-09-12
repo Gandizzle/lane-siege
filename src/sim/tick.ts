@@ -26,9 +26,18 @@ import { buildDefIndex, stat, type DefIndex } from './defs.ts';
 import { auraFor, recomputeUnitBuffs } from './buffs.ts';
 import { monsterEnrage } from './enrage.ts';
 import { hasLineOfSight, isPositionBlocked, rebuildOccupancy } from './grid.ts';
-import { computeFlowField, createFlowField, steerAlongField } from './flowfield.ts';
+import {
+  clearField,
+  computeFlowField,
+  createFlowField,
+  markGoalBody,
+  markObstacle,
+  markSourceRow,
+  sampleCost,
+  steerAlongField,
+} from './flowfield.ts';
 import type { FlowField } from './flowfield.ts';
-import { chooseSide, findBlocker, writeTangentWaypoint } from './avoidance.ts';
+import { blocksPath, chooseSide, findBlocker, writeTangentWaypoint } from './avoidance.ts';
 import { pushOutOf, relaxSeparation } from './separation.ts';
 import { slotIndexFor, writeSlotPosition } from './slots.ts';
 import { admitFromReserve, countLiving, createMonster } from './spawn.ts';
@@ -53,8 +62,6 @@ interface LaneFields {
   toUnits: FlowField;
   /** Distance to the nearest monster. Units walk down this. */
   toMonsters: FlowField;
-  blocked: Uint8Array;
-  sources: Uint8Array;
 }
 
 /** Everything a tick needs that is not match state: the data and its index. */
@@ -82,74 +89,95 @@ function laneFields(ctx: SimContext, teamId: string): LaneFields {
   let fields = ctx.fields.get(teamId);
   if (!fields) {
     const { width, depth } = ctx.data.lane.buildZone;
+    const sub = ctx.data.lane.pathSubdivision;
     fields = {
-      toUnits: createFlowField(width, depth),
-      toMonsters: createFlowField(width, depth),
-      blocked: new Uint8Array(width * depth),
-      sources: new Uint8Array(width * depth),
+      toUnits: createFlowField(width, depth, sub),
+      toMonsters: createFlowField(width, depth, sub),
     };
     ctx.fields.set(teamId, fields);
   }
   return fields;
 }
 
-/** Clamp a world position onto a grid tile index. */
-function tileIndex(width: number, depth: number, x: number, y: number): number {
-  const tx = Math.min(width - 1, Math.max(0, Math.floor(x)));
-  const ty = Math.min(depth - 1, Math.max(0, Math.floor(y)));
-  return ty * width + tx;
-}
-
 /**
  * Rebuild both distance fields for a lane.
  *
- * One breadth-first sweep serves every agent heading for the same kind of goal,
- * which is why this is cheaper than giving each of thirty monsters its own A*
- * search - see the note at the top of flowfield.ts.
+ * One sweep serves every agent heading for the same kind of goal, which is why
+ * this is cheaper than giving each of thirty monsters its own A* search - see
+ * the note at the top of flowfield.ts.
+ *
+ * The defensive line is the obstacle set in BOTH fields, because it is the only
+ * thing in the lane that forms a wall: monsters have to get round it, and the
+ * units that make it up have to get round each other. Same geometry, two
+ * inflations - a monster needs a monster's clearance to pass, a unit needs a
+ * unit's - which is exactly why there are two fields and not one.
+ *
+ * Inflation uses the KIND's declared radius, not the individual body's, since
+ * one field serves every member of that kind. Bosses are wider than that, so a
+ * boss can be offered a route it does not quite fit; it falls back on local
+ * steering and separation at that point, which is the accepted cost of one
+ * shared sweep over per-body sweeps.
  */
 function updateFields(ctx: SimContext, lane: Lane): LaneFields {
-  const { width, depth } = ctx.data.lane.buildZone;
+  const laneData = ctx.data.lane;
+  const { width, depth } = laneData.buildZone;
   const fields = laneFields(ctx, lane.teamId);
 
-  // Monsters: goals are the units; the units are also what blocks them.
-  fields.blocked.fill(0);
-  fields.sources.fill(0);
-
+  // Monsters: the units are both the goal and the wall.
+  clearField(fields.toUnits);
   let anyUnit = false;
   for (const unit of lane.units) {
     if (!unit.alive) continue;
-    const index = tileIndex(width, depth, unit.pos.x, unit.pos.y);
-    fields.blocked[index] = 1;
-    fields.sources[index] = 1;
+    markObstacle(fields.toUnits, unit.pos.x, unit.pos.y, unit.radius, laneData.monsterRadius);
+    markGoalBody(fields.toUnits, unit.pos.x, unit.pos.y, unit.radius, laneData.monsterRadius);
     anyUnit = true;
   }
-
   if (!anyUnit) {
     // §5.5: lane clear, so head for the fortress - which sits below the grid,
     // making the bottom row the way out.
-    for (let x = 0; x < width; x++) fields.sources[(depth - 1) * width + x] = 1;
+    markSourceRow(fields.toUnits, depth - 1, width);
   }
-  computeFlowField(fields.toUnits, fields.blocked, fields.sources);
+  computeFlowField(fields.toUnits);
 
+  // A monster is not in its own field's obstacle set, so the cell it stands on
+  // is its own answer.
   for (const monster of lane.monsters) {
-    monster.pathCost = fields.toUnits.cost[tileIndex(width, depth, monster.pos.x, monster.pos.y)]!;
+    monster.pathCost = sampleCost(fields.toUnits, monster.pos, 0);
   }
 
-  // Units: goals are the monsters. Units do not block each other here - crowding
-  // between them is resolved by separation, not by refusing to move.
-  fields.blocked.fill(0);
-  fields.sources.fill(0);
+  // Units: the monsters are the goal, and ALLIES are the wall. Marking allies
+  // is the change that lets a back row route around a front row instead of
+  // walking into its back and stopping.
+  clearField(fields.toMonsters);
+  for (const unit of lane.units) {
+    if (!unit.alive) continue;
+    markObstacle(fields.toMonsters, unit.pos.x, unit.pos.y, unit.radius, laneData.unitRadius);
+  }
   for (const monster of lane.monsters) {
     if (!monster.alive) continue;
-    fields.sources[tileIndex(width, depth, monster.pos.x, monster.pos.y)] = 1;
+    markGoalBody(
+      fields.toMonsters,
+      monster.pos.x,
+      monster.pos.y,
+      monster.radius,
+      laneData.unitRadius,
+    );
   }
-  computeFlowField(fields.toMonsters, fields.blocked, fields.sources);
+  computeFlowField(fields.toMonsters);
 
   for (const unit of lane.units) {
-    unit.pathCost = fields.toMonsters.cost[tileIndex(width, depth, unit.pos.x, unit.pos.y)]!;
+    unit.pathCost = sampleCost(fields.toMonsters, unit.pos, unitFootprint(laneData, unit));
   }
 
   return fields;
+}
+
+/**
+ * How far a unit's own blocked footprint reaches in the unit field, in tiles:
+ * its body plus the inflation that field was built with.
+ */
+function unitFootprint(laneData: GameData['lane'], unit: DefensiveUnit): number {
+  return unit.radius + laneData.unitRadius;
 }
 
 /** Attack cooldown in ticks for a given attacks-per-second rate. */
@@ -196,6 +224,29 @@ const SLOT_PROGRESS_EPSILON = 0.01;
  */
 const SLOT_STALL_TICKS = 80;
 
+/**
+ * How far ahead to aim when following the field, in tiles.
+ *
+ * The field answers with a direction, and `stepToward` wants a destination, so
+ * the direction is projected this far. One tile: far enough that the mover
+ * commits to the direction for the whole tick, near enough that it does not
+ * overshoot a goal that is closer than the projection.
+ */
+const FIELD_LOOKAHEAD = 1;
+
+/**
+ * How near its slot a unit has to be before the field stops steering it, in
+ * tiles.
+ *
+ * The field routes to the nearest MONSTER; slots decide where around it each
+ * attacker stands. So the field is for travelling and the slot is for arriving,
+ * and this is the handover. Without it the field wins all the way in, every
+ * attacker aims at the same body, and the group re-forms the queue that slots
+ * exist to prevent - measured 3 of 8 in contact with the handover removed
+ * against 6 with it.
+ */
+const FIELD_HANDOVER = 2;
+
 // --------------------------------------------------------------------- stages
 
 /**
@@ -227,10 +278,7 @@ function advanceWaveClocks(state: MatchState): void {
  * Units block each other while advancing (the occupancy grid), so a line drifts
  * forward rather than collapsing into one tile.
  */
-function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
-  const maxX = ctx.data.lane.buildZone.width;
-  const maxY = ctx.data.lane.buildZone.depth;
-
+function unitsAct(ctx: SimContext, lane: Lane, state: MatchState, fields: LaneFields): void {
   for (const unit of lane.units) {
     if (!unit.alive) continue;
 
@@ -248,7 +296,7 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
     unit.targetId = target ? target.id : null;
 
     if (!target) {
-      advanceUnit(unit, lane, maxX, maxY, range);
+      advanceUnit(ctx, unit, lane, fields, range);
       continue;
     }
 
@@ -278,12 +326,15 @@ function unitsAct(ctx: SimContext, lane: Lane, state: MatchState): void {
  * into the spawn zone would make the build grid meaningless.
  */
 function advanceUnit(
+  ctx: SimContext,
   unit: DefensiveUnit,
   lane: Lane,
-  maxX: number,
-  maxY: number,
+  fields: LaneFields,
   range: number,
 ): void {
+  const maxX = ctx.data.lane.buildZone.width;
+  const maxY = ctx.data.lane.buildZone.depth;
+
   if (unit.moveSpeed <= 0) {
     clearStuck(unit);
     return;
@@ -343,6 +394,7 @@ function advanceUnit(
     unit.slotTargetId = target.id;
     unit.settled = false;
     unit.slotBestDistSq = Infinity;
+    unit.routeBestCost = Infinity;
     unit.slotStallTicks = 0;
     unit.slotIndex = slotIndexFor(lane.units, unit, (u) => u.advanceTargetId, target.id);
   }
@@ -369,34 +421,103 @@ function advanceUnit(
   }
   unit.settled = false;
 
-  // Give up on a slot there is no room for. A detour round an ally means no
-  // progress for a while, which is fine; no progress EVER means orbiting a
-  // crowd, and orbiting forever is jitter with extra steps.
+  // Pick a route. In order of preference:
+  //
+  //   1. Straight at the slot, when nothing is in the way.
+  //   2. The distance field, which is global: it sees the whole lane, so it
+  //      finds the way round a line of allies that spans it - the case local
+  //      steering cannot solve, and the reason a unit behind a full front row
+  //      used to stand there. Measured 1 of 8 units through a wall with a gap
+  //      at one end before this, 7 of 8 after.
+  //   3. Tangent steering, for the last stretch and for whatever the field
+  //      cannot answer: a unit boxed in by its own allies has no clear cell to
+  //      walk to at all, and going round the nearest one is still better than
+  //      standing still.
+  //
+  // Nothing in the way means neither runs: following a gradient on open ground
+  // adds wobble for nothing, because its sources are moving. And the field
+  // hands over to slots near the target rather than steering all the way in,
+  // because it routes to the nearest MONSTER while the slot decides where
+  // around it to stand - let the field win to the end and every attacker aims
+  // at the same body, re-forming the queue slots exist to prevent.
+  let routedByField = false;
+  const blocker = findBlocker(lane.units, unit, scratchDestination);
+
+  if (blocker) {
+    unit.avoidBlockerId = blocker.id;
+
+    if (toSlot > FIELD_HANDOVER * FIELD_HANDOVER) {
+      const cell = steerAlongField(
+        fields.toMonsters,
+        unit.pos,
+        scratchDirection,
+        unitFootprint(ctx.data.lane, unit),
+        unit.fieldCell,
+      );
+      unit.fieldCell = cell;
+      routedByField = cell !== -1;
+    } else {
+      unit.fieldCell = -1;
+    }
+
+    if (routedByField) {
+      unit.avoidSide = 0;
+      scratchDestination.x = unit.pos.x + scratchDirection.x * FIELD_LOOKAHEAD;
+      scratchDestination.y = unit.pos.y + scratchDirection.y * FIELD_LOOKAHEAD;
+    } else {
+      // Commit to the SIDE, not to the blocker. Re-deciding each time a
+      // different ally becomes the nearest obstacle makes a unit reverse
+      // mid-manoeuvre and orbit the cluster forever; holding the side carries
+      // it all the way round.
+      if (unit.avoidSide === 0) {
+        unit.avoidSide = chooseSide(unit, blocker, scratchDestination);
+      }
+      writeTangentWaypoint(unit, blocker, unit.avoidSide, scratchDestination);
+    }
+  } else if (blocksPath(unit, target, scratchDestination)) {
+    // The target itself is in the way. Its slots ring it, so the far ones sit
+    // behind it: walk straight at one of those and you walk into the target and
+    // stop, parked in whoever's slot you happened to reach. Round it the same
+    // way an ally is rounded.
+    unit.fieldCell = -1;
+    unit.avoidBlockerId = null;
+    if (unit.avoidSide === 0) {
+      unit.avoidSide = chooseSide(unit, target, scratchDestination);
+    }
+    writeTangentWaypoint(unit, target, unit.avoidSide, scratchDestination);
+  } else {
+    unit.fieldCell = -1;
+    unit.avoidBlockerId = null;
+    unit.avoidSide = 0;
+  }
+
+  // Give up on a slot there is no room for - but only while steering locally.
+  //
+  // A detour means no progress for a while, which is fine; no progress EVER
+  // means orbiting a crowd, and orbiting forever is jitter with extra steps.
+  // That is a hazard of TANGENT steering, which sees one ally at a time and
+  // can circle a cluster indefinitely. A unit on the field cannot: the field is
+  // a global gradient, so downhill is always genuine progress toward the goal,
+  // and if it is not moving it is because bodies are in the way - queuing, not
+  // orbiting. Parking it there is what stranded a whole group against a wall
+  // they had a route around, and once parked it could never restart, because a
+  // unit standing still cannot make the progress that would clear the stall.
+  let progressed = false;
   if (toSlot < unit.slotBestDistSq - SLOT_PROGRESS_EPSILON) {
     unit.slotBestDistSq = toSlot;
+    progressed = true;
+  }
+  if (unit.pathCost < unit.routeBestCost) {
+    unit.routeBestCost = unit.pathCost;
+    progressed = true;
+  }
+
+  if (progressed || routedByField) {
     unit.slotStallTicks = 0;
   } else if (++unit.slotStallTicks > SLOT_STALL_TICKS) {
     unit.settled = true;
     clearStuck(unit);
     return;
-  }
-
-  // Round any ally standing between here and the slot, committing to one side
-  // until it is no longer in the way. Without this the unit walks into its
-  // ally's back and stops - two rows of units, and the back row never arrives.
-  const blocker = findBlocker(lane.units, unit, scratchDestination);
-  if (blocker) {
-    // Commit to the SIDE, not to the blocker. Re-deciding each time a different
-    // ally becomes the nearest obstacle makes a unit reverse mid-manoeuvre and
-    // orbit the cluster forever; holding the side carries it all the way round.
-    if (unit.avoidSide === 0) {
-      unit.avoidSide = chooseSide(unit, blocker, scratchDestination);
-    }
-    unit.avoidBlockerId = blocker.id;
-    writeTangentWaypoint(unit, blocker, unit.avoidSide, scratchDestination);
-  } else {
-    unit.avoidBlockerId = null;
-    unit.avoidSide = 0;
   }
 
   // No grid for units: ally tiles are not terrain, and treating them as such is
@@ -494,14 +615,29 @@ function monstersAct(ctx: SimContext, lane: Lane, state: MatchState, fields: Lan
       const clear = grid === null || hasLineOfSight(grid, monster.pos.x, monster.pos.y, dx0, dy0);
 
       if (clear) {
+        monster.fieldCell = -1;
         scratchDirection.x = dx / distance;
         scratchDirection.y = dy / distance;
-      } else if (steerAlongField(fields.toUnits, monster.pos, scratchDirection)) {
-        scratchDestination.x = monster.pos.x + scratchDirection.x * 2;
-        scratchDestination.y = monster.pos.y + scratchDirection.y * 2;
       } else {
-        scratchDirection.x = dx / distance;
-        scratchDirection.y = dy / distance;
+        // A monster is not part of its own field's obstacle set - only the
+        // defensive line is - so it reads the cell it stands on directly, with
+        // no footprint to look past.
+        const cell = steerAlongField(
+          fields.toUnits,
+          monster.pos,
+          scratchDirection,
+          0,
+          monster.fieldCell,
+        );
+        monster.fieldCell = cell;
+
+        if (cell !== -1) {
+          scratchDestination.x = monster.pos.x + scratchDirection.x * FIELD_LOOKAHEAD;
+          scratchDestination.y = monster.pos.y + scratchDirection.y * FIELD_LOOKAHEAD;
+        } else {
+          scratchDirection.x = dx / distance;
+          scratchDirection.y = dy / distance;
+        }
       }
 
       // Always attempt to move: gating movement on the stuck flag is what froze
@@ -889,7 +1025,7 @@ export function step(
 
     const fields = updateFields(ctx, lane);
 
-    unitsAct(ctx, lane, state);
+    unitsAct(ctx, lane, state, fields);
     monstersAct(ctx, lane, state, fields);
     separateBodies(ctx, lane);
     fortressActs(ctx, lane);

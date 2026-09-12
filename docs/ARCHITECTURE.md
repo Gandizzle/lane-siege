@@ -116,29 +116,85 @@ Two OPEN questions are answered, both recorded in
 from wave 25** (§3.3, against the doc's recommendation — the endgame is a grind
 fought with what you brought).
 
-### Pathing: a distance field, not A*
+### Pathing: a distance field, not A\*
 
-§5.3 ruled out A*, navmeshes and flow fields, and greedy steering was a
+§5.3 ruled out A\*, navmeshes and flow fields, and greedy steering was a
 reasonable first guess — but it fails on the geometry this game makes. A wall of
 units with a gap at one end is a local minimum: every greedy step is blocked, no
-tie-break finds the gap, and the wave presses flat against the wall forever.
-Measured: 0 of 8 monsters through an open gap.
+tie-break finds the gap, and whoever is behind it presses flat against it
+forever. Measured with local steering alone: **1 of 8 units through a gap at one
+end of a wall of allies**.
 
 A\* fixes that but is the wrong shape here. A\* answers "one agent, one goal";
 this is _many_ agents converging on _few_ goals — up to 30 monsters all heading
 for the nearest unit — so per-agent A\* re-solves nearly the same search 30 times
 and redoes it whenever the line changes.
 
-A distance field inverts it: one breadth-first sweep from every goal at once
-labels each tile with its distance to the nearest, and agents walk downhill. One
-search serves the whole wave, it cannot be trapped because the field encodes
-global connectivity, and on an 80-cell grid it is far cheaper than 30 searches.
-Measured at the full §15.3 load (4 lanes, 120 monsters, 160 units): **0.22ms per
-tick, 0.44% of the 50ms budget**. `npm run perf` re-checks it.
+A Dijkstra distance field inverts it: one sweep from every goal at once labels
+each cell with its distance to the nearest, and every agent walks downhill off
+the same answer. One search serves the whole lane, and it cannot be trapped,
+because the field encodes global connectivity rather than what is immediately
+adjacent.
 
-The field is only used when it is needed. With clear line of sight an agent
+Four things make it work on bodies that have size:
+
+1. **Sub-tile cells.** A tile is wider than a body, so at one cell per tile
+   "blocked" and "clear" are the only answers and clearance cannot be
+   represented at all. `lane.pathSubdivision` (4) gives quarter-tile cells —
+   32 × 40 for the 8 × 10 build zone — which is finer than a body is wide
+   (0.68).
+2. **Inflated obstacles.** Every obstacle is grown by the mover's radius before
+   the sweep, the standard Minkowski trick, so free space is exactly where that
+   body's _centre_ may legally be and any downhill route it is offered has
+   genuine clearance. That is why there are two fields per lane rather than one:
+   a monster and a unit need different inflation.
+3. **Goals seed their whole blob, not their centre.** A goal is a body, so it is
+   also an obstacle, and an inflated body is several cells across — seed only
+   its centre and every neighbour of that centre is blocked, nothing expands,
+   and the entire field comes back unreachable. Seeding the blob puts cost 0 on
+   its rim, which is where a mover's centre sits when the two bodies touch, so a
+   downhill walk ends at contact.
+4. **Octile costs, Dial's algorithm.** 10 orthogonal, 14 diagonal (10·√2
+   rounded); plain breadth-first would treat both as equal and bend routes into
+   staircases. Integer weights bounded by 14 mean a small ring of buckets works
+   instead of a heap, so the sweep is linear and allocates nothing.
+
+The defensive line is the obstacle set in _both_ fields, because it is the only
+thing in a lane that forms a wall: monsters have to get round it, and the units
+that make it up have to get round each other. Same geometry, two inflations.
+
+Inflation uses each _kind's_ declared radius, since one field serves every
+member of that kind. Bosses are wider, so a boss can be offered a route it does
+not quite fit and falls back on local steering and separation there. That is the
+accepted cost of one shared sweep over a sweep per body.
+
+The field is used only when something is in the way. With a clear run an agent
 walks straight at its target, because following a gradient whose sources are
-moving adds wobble for nothing.
+moving adds wobble for nothing. And near the target the field hands over to
+slots (`FIELD_HANDOVER`, 2 tiles): the field routes to the nearest _monster_,
+while the slot decides where around it to stand, so letting the field win to the
+end points every attacker at the same body and re-forms the queue that slots
+exist to prevent — 6 of 8 in contact with the handover, 3 without it.
+
+| case                               | local steering only | with the field |
+| ---------------------------------- | ------------------- | -------------- |
+| wall of allies, gap at one end     | 1 of 8 through      | 7 of 8         |
+| two rows, target off to one side   | 6 of 8 in contact   | 6 of 8         |
+| a real wave against a 3-deep block | 8 of 8 engaged      | 8 of 8         |
+
+So the field is a strict addition: it solves the case local steering cannot and
+costs nothing in the cases local steering already handled. At the full §15.3
+load (4 lanes, 120 monsters, 160 units) the whole tick went from **0.25ms to
+0.83ms — 0.50% to 1.65% of the 50ms budget**. `npm run perf` re-checks it.
+
+One more consequence, and it is the one that actually stranded a group against a
+wall they had a route around: the give-up condition below now applies to local
+steering only. A unit on the field cannot orbit — the field is a global
+gradient, so downhill is always real progress — and if it is not moving, bodies
+are in the way, which is queuing rather than orbiting. Parking it there froze it
+for the rest of the fight, because a unit standing still cannot make the
+progress that would clear its own stall. That is the same absorbing-state
+deadlock the stuck flag used to cause (see `steering.ts`), one level up.
 
 ### Three rules that keep crowds from jittering
 
@@ -179,16 +235,25 @@ Tangent steering fixes it in four parts, and the third is the one that matters:
 4. Head for the tangent point. Once past, the ally leaves the corridor and the
    unit resumes course on its own.
 
-Plus a give-up condition: a detour means no progress for a while, which is fine,
-but _never_ getting nearer means orbiting a crowd with no room in it. After four
-seconds without improvement a unit parks where it stands. That window is tuned
-against two measurements pulling opposite ways — at 6s a unit parks mid-detour
-(5 of 8 arrive), at 8s the stragglers orbit instead of settling.
+Plus a give-up condition, which applies while steering locally and not while on
+the field: a detour means no progress for a while, which is fine, but _never_
+getting nearer means orbiting a crowd with no room in it. After four seconds
+without improvement a unit parks where it stands. That window is tuned against
+two measurements pulling opposite ways — at 6s a unit parks mid-detour (5 of 8
+arrive), at 8s the stragglers orbit instead of settling. "Progress" counts
+either getting nearer the slot or getting further down the field, since a detour
+around a wall makes no headway on the first measure by construction.
 
 This is deliberately **local**. It rounds one or several allies, not a wall of
-them spanning the lane. A distance field would cover the global case, at roughly
-ten times the cost and with its own gradient churn to tame; that trade was
-considered and declined.
+them spanning the lane. That limit turned out to matter in play, which is why
+the distance field above now answers the global case; tangent steering handles
+what the field hands back — the last stretch to a slot, and the units the field
+has no clear cell to offer at all.
+
+It also rounds the _target_, not only allies. Slots ring the target, so the far
+ones sit behind it: walk straight at one of those and you walk into the target
+and stop, parked in whoever's slot you happened to reach — which is precisely
+what left one unit stranded at 0.75 tiles while an ally sat in its slot.
 
 ### Approach slots, not crowd steering
 

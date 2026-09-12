@@ -62,6 +62,14 @@ export interface DefensiveUnit {
   /** Distance to this unit's goal from the flow field; the yielding order. */
   pathCost: number;
   /**
+   * Which field cell it steered to last tick, or -1.
+   *
+   * Kept purely as hysteresis: standing on a cell boundary between two equally
+   * good neighbours, a mover with no memory alternates between them every tick
+   * and shivers. Preferring last tick's choice breaks that.
+   */
+  fieldCell: number;
+  /**
    * The monster this unit is walking toward, held until it dies or something
    * is clearly closer. Without this hysteresis a unit flips between two
    * near-equidistant monsters every tick and visibly shivers.
@@ -100,6 +108,17 @@ export interface DefensiveUnit {
    */
   slotBestDistSq: number;
   slotStallTicks: number;
+  /**
+   * Lowest field cost this unit has reached since it picked its target.
+   *
+   * The other half of the progress test. Rounding a wall means travelling for
+   * seconds without getting one tile nearer the slot, so slot distance alone
+   * reads as "no progress" and parks the unit halfway - which is exactly what
+   * it did, and why the field was being wasted. Field cost falls all the way
+   * along a detour, so between them the two measures recognise real progress
+   * whichever route a unit is taking.
+   */
+  routeBestCost: number;
   /** Stuck-detection window, same fallback the monsters use (§5.3). */
   stuckAnchor: Vec2;
   /** Last candidate direction taken; steering hysteresis (see steering.ts). */
@@ -157,6 +176,8 @@ export interface Monster {
   retargetIn: number;
   /** Distance to this monster's goal from the flow field; the yielding order. */
   pathCost: number;
+  /** Field cell steered to last tick, or -1; steering hysteresis. */
+  fieldCell: number;
   /** Approach slot, and around whom. Sticky, as for units. */
   slotIndex: number;
   slotTargetId: EntityId | null;

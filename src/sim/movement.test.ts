@@ -16,11 +16,19 @@ import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
 
-/** Disarmed on both sides, so nothing dies and movement is all that happens. */
+/**
+ * Disarmed on both sides, so nothing dies and movement is all that happens.
+ *
+ * Monsters were left armed here at first, which quietly corrupted every count
+ * of "units that reached contact": the ones that arrived first were the ones
+ * that got killed, so the measurement partly reported combat rather than
+ * routing.
+ */
 function passiveData(): GameData {
   const d = structuredClone(data);
   d.fortress.weapon.damage = 0;
   for (const u of d.units.units) u.damage = 0;
+  for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.damage = 0;
   return d;
 }
 
@@ -422,7 +430,59 @@ describe('no jitter under crowding', () => {
   });
 });
 
-describe('routing around allies (tangent steering)', () => {
+describe('routing around allies', () => {
+  it('gets a whole group through a gap in a wall of allies', () => {
+    // What local steering cannot do, and the reason for the distance field: a
+    // line of allies spanning the lane is a local minimum. Every direction that
+    // points at the target is blocked, so the group presses flat against the
+    // wall and stays there - measured 1 of 8 through with tangent steering
+    // alone, against 7 of 8 with the field.
+    const d = passiveData();
+    // The wall has to stay a wall, so it is built from a unit type pinned in
+    // place; the hammers do the walking.
+    for (const u of d.units.units) if (u.id === 'mortar') u.moveSpeed = 0;
+    for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
+
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+
+    for (let x = 0; x < 7; x++) {
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'l1',
+        unitDefId: 'mortar',
+        tileX: x,
+        tileY: 5,
+      });
+    }
+    for (let x = 2; x < 6; x++) {
+      for (const y of [8, 9]) {
+        applyCommand(ctx, state, {
+          kind: 'placeUnit',
+          teamId: 'l1',
+          unitDefId: 'hammer',
+          tileX: x,
+          tileY: y,
+        });
+      }
+    }
+
+    while (state.phase !== 'combat') step(ctx, state);
+
+    const movers = lane.units.filter((u) => u.defId === 'hammer');
+    const target = lane.monsters.find((m) => m.alive)!;
+    for (const m of lane.monsters) if (m !== target) m.alive = false;
+    target.pos.x = 3.5;
+    target.pos.y = 1.5;
+
+    run(ctx, state, 1200);
+
+    // Past the wall, which is the whole question. Where they end up around the
+    // target after that is the slots' business, tested separately.
+    const through = movers.filter((u) => u.pos.y < 4.5).length;
+    expect(through).toBeGreaterThanOrEqual(6);
+  });
+
   it('gets the back row past the front row to the target', () => {
     // The reported bug: two rows of units, and the back row jams behind the
     // front row rather than going round. Measured at 3 of 8 reaching a target
@@ -463,9 +523,9 @@ describe('routing around allies (tangent steering)', () => {
 
     // Only the first ring can touch, and it holds six at these body sizes, so
     // six is the geometric maximum rather than eight - the last two belong on a
-    // second ring by construction. Measured 3 before this change and 5 to 6
-    // after, depending on which order the group arrives in; the floor here is
-    // the regression guard, not the target.
+    // second ring by construction. Measured 3 before any of this, and 6 with
+    // tangent steering and the field together; the floor here is the regression
+    // guard, not the target.
     expect(inContact).toBeGreaterThanOrEqual(5);
   });
 
