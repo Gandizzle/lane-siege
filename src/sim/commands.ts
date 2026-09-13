@@ -89,5 +89,7 @@ export type CommandRejection =
   | 'building-closed'
   | 'eliminated'
   | 'target-eliminated'
+  /** §7.1: that unit belongs to a builder this lane is not playing. */
+  | 'wrong-builder'
   /** No such opponent, or the sender aimed at their own lane. */
   | 'invalid-target';

@@ -71,7 +71,9 @@ export class LocalTransport implements Transport {
     this.state = createMatch(data, { seed, teams });
     this.ctx = createContext(data);
     this.teamId = teamId;
-    this.bots = botTeamIds.filter((id) => id !== teamId).map((id) => new AutoBuilder(data, id));
+    this.bots = botTeamIds
+      .filter((id) => id !== teamId)
+      .map((id) => new AutoBuilder(data, id, this.state.lanes[id]?.builderId ?? ''));
     this.refresh();
   }
 

@@ -31,10 +31,40 @@ function requireNumber(value: number | null, path: string, missing: string[]): n
   return value;
 }
 
+/**
+ * Seat a lane with a roster before the match starts (§7.1).
+ *
+ * For the server, which creates the match when the room opens and only learns
+ * what each player picked as they join. Refused once the lane has anything on
+ * it, because a roster is a commitment: §7.3's upgrades and §11.4's supply
+ * budget both run the length of a match, and swapping mid-match would strand
+ * whatever is already built.
+ */
+export function setLaneBuilder(
+  data: GameData,
+  state: MatchState,
+  teamId: TeamId,
+  builderId: string,
+): boolean {
+  const lane = state.lanes[teamId];
+  if (!lane) return false;
+  if (state.wave > 0 || lane.units.length > 0) return false;
+  if (!data.units.builders.some((b) => b.id === builderId)) return false;
+
+  lane.builderId = builderId;
+  return true;
+}
+
 export interface TeamSetup {
   id: TeamId;
   /** §2: one or more. v1 is free-for-all, so exactly one. */
   playerIds: PlayerId[];
+  /**
+   * Which roster this team builds from (§7.1). Defaults to the first builder in
+   * `units.json` so that a caller with no opinion - a test, the headless runner
+   * - still gets a playable lane.
+   */
+  builderId?: string;
 }
 
 export interface MatchOptions {
@@ -43,13 +73,19 @@ export interface MatchOptions {
   teams: TeamSetup[];
 }
 
-function createLane(data: GameData, teamId: TeamId, missing: string[]): Lane {
+function createLane(
+  data: GameData,
+  teamId: TeamId,
+  builderId: string,
+  missing: string[],
+): Lane {
   const maxHp = requireNumber(data.fortress.hp.base, 'fortress.hp.base', missing);
   const weaponType = data.matrix.damageTypes[0];
   if (!weaponType) missing.push('matrix.damageTypes[0]');
 
   return {
     teamId,
+    builderId,
     units: [],
     monsters: [],
     occupancy: createGrid(data.lane.buildZone.width, data.lane.buildZone.depth),
@@ -104,9 +140,21 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     vision: {},
   }));
 
+  const known = new Set(data.units.builders.map((b) => b.id));
+  const fallback = data.units.builders[0]?.id;
+  if (fallback === undefined) missing.push('units.builders[0].id');
+
   const lanes: Record<TeamId, Lane> = {};
-  for (const team of teams) {
-    lanes[team.id] = createLane(data, team.id, missing);
+  for (const setup of options.teams) {
+    const wanted = setup.builderId ?? fallback ?? '';
+    // An unknown builder is a caller bug, not a balance gap, and silently
+    // seating them with someone else's roster would be worse than saying so.
+    if (setup.builderId !== undefined && !known.has(setup.builderId)) {
+      throw new Error(
+        `No such builder '${setup.builderId}'. Known: ${[...known].join(', ')}`,
+      );
+    }
+    lanes[setup.id] = createLane(data, setup.id, wanted, missing);
   }
 
   if (missing.length > 0) throw new MissingDataError(missing);

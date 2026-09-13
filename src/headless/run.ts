@@ -107,7 +107,9 @@ function main(): number {
   }
 
   const ctx = createContext(data);
-  const builders = teams.map((t) => new AutoBuilder(data, t.id));
+  const builders = teams.map(
+    (t) => new AutoBuilder(data, t.id, state.lanes[t.id]?.builderId ?? ''),
+  );
 
   let lastWave = -1;
   let lastPhase = '';

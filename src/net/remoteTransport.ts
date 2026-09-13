@@ -66,6 +66,8 @@ export class RemoteTransport implements Transport {
   constructor(
     private readonly data: GameData,
     private readonly endpoint: string,
+    /** The roster this player picked before joining (§7.1). */
+    private readonly builderId: string,
   ) {
     this.connect().catch((error: unknown) => {
       this.status = 'error';
@@ -117,7 +119,7 @@ export class RemoteTransport implements Transport {
 
   private async connect(): Promise<void> {
     const client = new Client(this.endpoint);
-    const room = await client.joinOrCreate(ROOM_NAME);
+    const room = await client.joinOrCreate(ROOM_NAME, { builderId: this.builderId });
     if (this.disposed) {
       await room.leave();
       return;

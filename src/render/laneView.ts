@@ -207,7 +207,7 @@ export class LaneView extends Container {
     // One chip per monster type, on a single row: count, name, armour.
     let x = pad;
     for (const entry of entries) {
-      const colour = DAMAGE_COLOURS[entry.damageType as keyof typeof DAMAGE_COLOURS] ?? UI.text;
+      const colour = DAMAGE_COLOURS[entry.damageType];
       const text = label(`${entry.count}× ${entry.name}`, 11, colour, '700');
       const armour = label(` ${entry.armour}`, 10, UI.textMuted);
 

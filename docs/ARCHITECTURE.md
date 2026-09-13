@@ -92,7 +92,7 @@ is, and the renderer owns the single tile→pixel transform in
 
 ## Milestone status
 
-**M1 through M4 are complete.**
+**M1 through M5 are complete.**
 
 M1 (headless sim): `npm run sim` plays a single lane through five waves with a
 scripted builder and prints the result.
@@ -111,6 +111,11 @@ M4 (multiplayer): `npm run server` runs an authoritative Colyseus room and
 and spectating — see [the netcode section](#netcode-one-simulation-two-places)
 below.
 
+M5 (content): four builders of six units each, 58 unit definitions. A match now
+opens on the builder picker, and the three scripted lanes take the other three
+rosters — see [the builders section](#four-builders-differentiated-by-shape)
+below.
+
 The build bar is five tabs — Build, Tech, Fort, Aura, Send — one per distinct
 thing a player spends on. Send and Fort are adjacent on purpose: §11.2 says
 offence and defence compete for the same gems and calls that the intended
@@ -123,6 +128,55 @@ Three OPEN questions are answered, all recorded in
 wave 25** (§3.3, against the doc's recommendation — the endgame is a grind
 fought with what you brought), and §12's public record is fortress HP plus
 alive-or-out, with the balance sheet never public under any circumstance.
+
+### Four builders, differentiated by shape
+
+§6.1 is the constraint that makes this interesting: every builder must field all
+four damage types, because every lane faces the same wave. So builders cannot be
+differentiated by what they can answer — only by _distribution and quality_.
+Four rosters, each excelling at a different **pair** of damage types:
+
+| builder  | strongest       | armour lean | costs               | shape                                              |
+| -------- | --------------- | ----------- | ------------------- | -------------------------------------------------- |
+| Bastion  | Impact + Pierce | plate       | 40–95g, 2–3 supply  | the reference: a melee wall with snipers behind it |
+| Ashfall  | Blast + Impact  | flesh       | 48–98g, 2–3 supply  | hits hardest, dies fastest, charges most           |
+| Verdance | Arcane + Pierce | ward        | 34–84g, 1–2 supply  | cheap, quick, numerous; folds to an Impact wave    |
+| Tidemark | Blast + Arcane  | swarm       | 62–105g, 2–3 supply | longest reach, fewest bodies, thinnest line        |
+
+Two axes do the work, and both are consequences of rules that already existed:
+
+- **Armour lean decides which wave punishes you.** The matrix runs in both
+  directions (§6), so a roster built on ward bodies takes 1.5× from Impact —
+  and Impact is what the early waves mostly deal. Verdance is therefore
+  genuinely harder early and stronger later, without a single special case.
+- **Supply is the cap that binds** (§11.4), so a roster's character is its value
+  _per supply_, not per unit. Tidemark's identity is concentration: fewer, more
+  expensive bodies with the longest reach and the least health.
+
+Tier scaling is the same throughout, measured off builder A rather than
+invented: ×2.18 HP, ×2.21 damage, ×1.60 gold at tier 2; ×2.10, ×2.16, ×1.63 at
+tier 3. That satisfies §7.3's "~1.6× base cost for ~2.2× value", and a test
+asserts the property directly — an upgrade must cost proportionally less than it
+gives, or upgrading in place stops being the reason to hold board presence.
+
+Every body is 0.34 tiles across, whatever the roster. The flow field inflates
+obstacles by one lane-wide unit radius (`lane.unitRadius`), so a wider body
+would be offered routes it does not fit; a test enforces the ceiling. That is a
+real constraint from [PATHING.md](PATHING.md) leaking into the content, and it
+is the reason builders differ by numbers rather than by size.
+
+**Choosing a builder is a pre-match decision**, which DESIGN.md never states.
+Recorded in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md): §7.3's upgrades and §11.4's
+supply budget are both long-run commitments to a roster, and choosing mid-match
+would mean either stranding what is already built or letting a player
+cherry-pick the best unit of each roster, which deletes the §6.1 choice
+entirely. The simulation enforces it — `placeUnit` refuses another builder's
+unit with `wrong-builder`, because the UI is a client and a client is not
+trusted with rules.
+
+`npm run builders` plays all four side by side against identical waves and
+reports where each one leaked. It is a sanity check, not a verdict: the scripted
+player is a poor one.
 
 ### Netcode: one simulation, two places
 
@@ -430,7 +484,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (181 tests):
+Implemented and tested (216 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -476,6 +530,12 @@ Implemented and tested (181 tests):
   seating, per-client frames, a purchase landing only in the buyer's lane, a
   client failing to act for another lane, refusals reaching whoever asked, and a
   send buying sight of a lane without its wallet (§12, §15.1)
+- Every builder against the rules that define one: six units, all four damage
+  types, a tier 2 on everything, upgrade chains that resolve, upgrades priced
+  below their value, bodies that fit the lane's routing, and a distribution
+  distinct from every other roster's (§6.1, §7.1, §7.3)
+- One roster per lane: the default, an unknown builder refused, another
+  builder's unit refused, and the roster fixed once anything is on the board
 
 ### Deliberate departures from DESIGN.md
 
@@ -528,9 +588,6 @@ curve is now a JSON editing job.
   are swept on the tick they die, which is the shape pooling wants, but there is
   no free list yet. Scratch vectors and the occupancy grid already avoid
   per-tick allocation.
-- **Builders B, C and D, and units 4–6 of builder A** — M5, mostly data entry.
-  `bastion` has no Arcane unit, which the validator reports as a note and will
-  upgrade to an error the moment its `complete` flag flips to true.
 
 ## Stack
 

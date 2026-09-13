@@ -13,6 +13,15 @@
  * back as a rejection code to show, because "you cannot afford that" is a
  * normal outcome of tapping a button, not an error.
  *
+ * BEFORE THE MATCH
+ *
+ * A match cannot start until its lane has a roster (§7.1), so this class starts
+ * without a transport at all and shows the builder picker. Picking creates the
+ * transport - a local simulation or a join to a room, which is the same
+ * decision either way - and "play again" comes back here rather than replaying
+ * the last choice, since trying a different roster is the main reason to play
+ * again.
+ *
  * WATCHING SOMEBODY ELSE'S LANE
  *
  * One lane is on screen at a time (§14.1: fixed camera, no scrolling). Which
@@ -38,16 +47,12 @@ import { EntityLayer } from './entities.ts';
 import { computeLayout, type LaneLayout } from './layout.ts';
 import { LaneView as LaneViewLayer } from './laneView.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
+import { BuilderSelect } from './ui/builderSelect.ts';
 import { GameOver } from './ui/gameOver.ts';
 import { Hud } from './ui/hud.ts';
 import { OpponentTabs } from './ui/opponentTabs.ts';
 import { Toast } from './ui/toast.ts';
 import { WatchBanner } from './ui/watchBanner.ts';
-
-export interface GameHandlers {
-  /** Start a fresh match. The app owns transports, so it owns restarting. */
-  onRestart(): void;
-}
 
 export class Game extends Container {
   private layout: LaneLayout;
@@ -59,7 +64,10 @@ export class Game extends Container {
   private pendingUnitDefId: string | null = null;
   private summary: WaveSummary | null = null;
   private summarisedWave = -1;
+  private summarisedBuilder = '';
 
+  /** Null until a roster is picked and a match exists. */
+  private transport: Transport | null = null;
   /** The last view, held so the outgoing one can seed interpolation. */
   private view: MatchView | null = null;
   /** Whose lane is on screen. Null means your own. */
@@ -73,18 +81,18 @@ export class Game extends Container {
   private readonly buildBar: BuildBar;
   private readonly toast = new Toast();
   private readonly gameOver: GameOver;
+  private readonly builderSelect: BuilderSelect;
 
   constructor(
     private readonly data: GameData,
-    private transport: Transport,
+    /** Makes a transport for a chosen roster: local simulation, or a room. */
+    private readonly createTransport: (builderId: string) => Transport,
     width: number,
     height: number,
-    private readonly handlers: GameHandlers,
   ) {
     super();
 
     this.layout = computeLayout(width, height, data.lane);
-    this.view = transport.view();
 
     this.laneLayer = new LaneViewLayer(this.layout, data, {
       onTapTile: (x, y) => this.tapTile(x, y),
@@ -119,8 +127,11 @@ export class Game extends Container {
       onClearSelection: () => this.clearSelection(),
     });
     this.gameOver = new GameOver(this.layout, {
-      onRestart: () => this.handlers.onRestart(),
+      onRestart: () => this.chooseAgain(),
       onSpectate: () => this.spectateFirstAvailable(),
+    });
+    this.builderSelect = new BuilderSelect(this.layout, data, (builderId) => {
+      this.start(builderId);
     });
 
     this.addChild(
@@ -132,24 +143,36 @@ export class Game extends Container {
       this.buildBar,
       this.toast,
       this.gameOver,
+      this.builderSelect,
     );
   }
 
-  private get teamId(): string {
-    return this.transport.teamId ?? '';
-  }
-
-  /** Swap in a new transport - a restart, or connecting to a server. */
-  setTransport(transport: Transport): void {
-    this.transport.dispose();
-    this.transport = transport;
-    this.view = transport.view();
+  /** Pick a roster, then play it (§7.1). */
+  private start(builderId: string): void {
+    this.transport?.dispose();
+    this.transport = this.createTransport(builderId);
+    this.view = this.transport.view();
     this.watchingTeamId = null;
     this.selection = null;
     this.pendingUnitDefId = null;
     this.summarisedWave = -1;
+    this.summarisedBuilder = '';
     this.entities.reset();
     this.gameOver.reset();
+    this.builderSelect.visible = false;
+  }
+
+  /** Back to the picker: a different roster is the point of playing again. */
+  private chooseAgain(): void {
+    this.transport?.dispose();
+    this.transport = null;
+    this.view = null;
+    this.gameOver.reset();
+    this.builderSelect.visible = true;
+  }
+
+  private get teamId(): string {
+    return this.transport?.teamId ?? '';
   }
 
   resize(width: number, height: number): void {
@@ -161,24 +184,32 @@ export class Game extends Container {
     this.banner.setLayout(this.layout);
     this.buildBar.setLayout(this.layout);
     this.gameOver.setLayout(this.layout);
+    this.builderSelect.setLayout(this.layout);
   }
 
   /** One animation frame. `deltaMs` is wall time; the simulation never sees it. */
   frame(deltaMs: number): void {
-    this.transport.update(deltaMs);
-
-    if (this.transport.consumeTick()) {
-      // Seed interpolation from the view being replaced, then take the new one.
-      this.entities.captureTick(this.shownLane());
-      this.view = this.transport.view();
+    const transport = this.transport;
+    if (!transport) {
+      // Still choosing. Nothing to simulate and nothing to draw behind it.
+      this.toast.update(deltaMs, this.layout);
+      return;
     }
 
-    for (const rejection of this.transport.takeRejections()) this.toast.show(rejection);
+    transport.update(deltaMs);
+
+    if (transport.consumeTick()) {
+      // Seed interpolation from the view being replaced, then take the new one.
+      this.entities.captureTick(this.shownLane());
+      this.view = transport.view();
+    }
+
+    for (const rejection of transport.takeRejections()) this.toast.show(rejection);
 
     const view = this.view;
     if (!view) {
       // Still connecting. Say so rather than showing an empty lane.
-      this.banner.renderStatus(this.transport.status, this.transport.detail);
+      this.banner.renderStatus(transport.status, transport.detail);
       this.toast.update(deltaMs, this.layout);
       return;
     }
@@ -186,7 +217,7 @@ export class Game extends Container {
     // A connection that drops mid-match leaves a lane on screen that has
     // stopped moving, which looks exactly like the game having crashed. The
     // notice takes the banner over from the watch indicator while that is true.
-    const connected = this.transport.status === 'ready';
+    const connected = transport.status === 'ready';
 
     this.refreshSummary(view);
     this.dropStaleWatch(view);
@@ -198,12 +229,12 @@ export class Game extends Container {
 
     if (lane) {
       this.laneLayer.render(view, lane, selectedUnitId, this.summary);
-      this.entities.render(lane, this.transport.alpha);
+      this.entities.render(lane, transport.alpha);
     }
     this.hud.render(view, this.summary);
     this.tabs.render(view, this.watchingTeamId);
     if (connected) this.banner.render(view, this.watchingTeamId);
-    else this.banner.renderStatus(this.transport.status, this.transport.detail);
+    else this.banner.renderStatus(transport.status, transport.detail);
     if (view.lane) this.buildBar.render(view, view.lane, this.selection, this.summary);
     this.toast.update(deltaMs, this.layout);
     this.gameOver.render(view);
@@ -252,19 +283,25 @@ export class Game extends Container {
    */
   private refreshSummary(view: MatchView): void {
     const wave = view.phase === 'build' ? view.wave + 1 : view.wave;
-    if (wave === this.summarisedWave) return;
+    const builderId = view.lane?.builderId ?? '';
+    if (wave === this.summarisedWave && builderId === this.summarisedBuilder) return;
     this.summarisedWave = wave;
-    this.summary = summariseWave(this.data, view.seed, wave, 'bastion');
+    this.summarisedBuilder = builderId;
+    // §9.3's hints are "which of YOUR units counter this", so they are a
+    // function of the roster as well as the wave.
+    this.summary = summariseWave(this.data, view.seed, wave, builderId);
   }
 
   // ------------------------------------------------------------------- input
 
   private issue(command: Command): void {
-    this.transport.submit(command);
+    const transport = this.transport;
+    if (!transport) return;
+    transport.submit(command);
     // Locally this is already the post-command view, so a purchase shows up on
     // this frame rather than on the next tick. Remotely it is unchanged until
     // the server answers.
-    this.view = this.transport.view() ?? this.view;
+    this.view = transport.view() ?? this.view;
   }
 
   private selectUnitDef(unitDefId: string): void {

@@ -36,6 +36,7 @@ import {
   createContext,
   createMatch,
   secondsToTicks,
+  setLaneBuilder,
   step,
   viewFor,
   type Command,
@@ -117,7 +118,7 @@ export class LaneSiegeRoom extends Room {
     this.setSimulationInterval((deltaMs) => this.advance(deltaMs), MS_PER_TICK);
   }
 
-  override onJoin(client: Client): void {
+  override onJoin(client: Client, options?: { builderId?: string }): void {
     const seat = this.seats.find((s) => s.client === null);
     if (!seat) {
       client.leave(4000, 'room full');
@@ -125,6 +126,12 @@ export class LaneSiegeRoom extends Room {
     }
 
     seat.client = client;
+    // §7.1: the player picked a roster before joining. Refused silently if the
+    // match has already started, in which case they play whatever the lane was
+    // created with rather than being bounced out of the room for it.
+    if (options?.builderId) {
+      setLaneBuilder(this.data, this.match, seat.teamId, options.builderId);
+    }
     this.match.teams.find((t) => t.id === seat.teamId)?.playerIds.push(client.sessionId);
 
     const hello: WireHello = {
@@ -170,7 +177,13 @@ export class LaneSiegeRoom extends Room {
       // two empty lanes whose fortresses fall unopposed in wave one. The room
       // locks at kickoff, so no seat changes hands afterwards.
       for (const seat of this.seats) {
-        if (!seat.client) seat.bot = new AutoBuilder(this.data, seat.teamId);
+        if (!seat.client) {
+          seat.bot = new AutoBuilder(
+            this.data,
+            seat.teamId,
+            this.match.lanes[seat.teamId]?.builderId ?? '',
+          );
+        }
       }
     }
 

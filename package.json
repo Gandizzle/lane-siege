@@ -12,6 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "sim": "tsx src/headless/run.ts",
+    "builders": "tsx src/headless/builders.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
     "perf": "tsx src/headless/perf.ts",

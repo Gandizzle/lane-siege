@@ -84,6 +84,9 @@ const AURAS: { id: AuraType; name: string }[] = [
 
 const MIN_TOUCH = 44;
 
+/** §7.1: every builder has exactly six units. */
+const UNITS_PER_BUILDER = 6;
+
 class TabButton extends Container {
   private readonly bg = new Graphics();
   private readonly caption: Text;
@@ -133,7 +136,17 @@ export class BuildBar extends Container {
     send: new Container(),
   };
 
-  private readonly unitButtons: { def: UnitDef; button: GridButton }[] = [];
+  /**
+   * Six slots, not six fixed units.
+   *
+   * There are four rosters (§7.1) and a lane plays one of them, so which unit a
+   * slot stands for changes with the lane - but the BUTTON cannot, because a
+   * rebuilt interactive object never receives a tap (see the note at the top of
+   * this file). So the buttons are permanent and their contents are re-pointed
+   * each render.
+   */
+  private readonly unitButtons: GridButton[] = [];
+  private unitSlots: (UnitDef | undefined)[] = [];
   private readonly techButtons: { trackId: string; name: string; button: GridButton }[] = [];
   private readonly fortButtons: { id: string; name: string; button: GridButton }[] = [];
   private readonly supplyButton: GridButton;
@@ -174,9 +187,13 @@ export class BuildBar extends Container {
     }
 
     // Build tab: tier 1 only - higher tiers come from upgrading in place (§7.3).
-    for (const def of data.units.units.filter((u) => u.tier === 1)) {
-      const button = new GridButton(() => this.handlers.onSelectUnitDef(def.id));
-      this.unitButtons.push({ def, button });
+    // Six slots, because §7.1 gives every builder exactly six units.
+    for (let slot = 0; slot < UNITS_PER_BUILDER; slot++) {
+      const button = new GridButton(() => {
+        const def = this.unitSlots[slot];
+        if (def) this.handlers.onSelectUnitDef(def.id);
+      });
+      this.unitButtons.push(button);
       this.panels.build.addChild(button);
     }
 
@@ -272,7 +289,7 @@ export class BuildBar extends Container {
     const height = bar.height - tabH - 12;
 
     grid(
-      this.unitButtons.map((u) => u.button),
+      this.unitButtons,
       3,
       2,
       6,
@@ -368,7 +385,9 @@ export class BuildBar extends Container {
       this.selectedUnitId = null;
     }
 
-    if (this.panels.build.visible) this.renderUnits(economy, selection, summary, canBuild && alive);
+    if (this.panels.build.visible) {
+      this.renderUnits(lane.builderId, economy, selection, summary, canBuild && alive);
+    }
     if (this.panels.tech.visible) this.renderTech(economy, canAct && alive);
     if (this.panels.fort.visible) this.renderFort(economy, canAct && alive);
     if (this.panels.aura.visible) this.renderAura(lane, canChoose && alive);
@@ -437,12 +456,21 @@ export class BuildBar extends Container {
   }
 
   private renderUnits(
+    builderId: string,
     economy: EconomyView,
     selection: Selection,
     summary: WaveSummary | null,
     canBuild: boolean,
   ): void {
-    for (const { def, button } of this.unitButtons) {
+    this.unitSlots = this.data.units.units.filter(
+      (u) => u.tier === 1 && u.builderId === builderId,
+    );
+
+    this.unitButtons.forEach((button, slot) => {
+      const def = this.unitSlots[slot];
+      button.visible = def !== undefined;
+      if (!def) return;
+
       const gold = def.goldCost ?? 0;
       const supply = def.supplyCost ?? 0;
       const affordable =
@@ -461,7 +489,7 @@ export class BuildBar extends Container {
         enabled: affordable,
         selected: selection?.kind === 'unitDef' && selection.unitDefId === def.id,
       });
-    }
+    });
   }
 
   /** §7.4: tech is tied to damage types - one buy lifts every unit of that type. */

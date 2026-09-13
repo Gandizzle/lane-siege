@@ -41,13 +41,27 @@ export interface AppOptions {
   server?: string;
 }
 
-function newTransport(data: GameData, options: AppOptions): Transport {
-  if (options.server) return new RemoteTransport(data, options.server);
+/**
+ * A match for the roster the player picked (§7.1).
+ *
+ * The three scripted lanes take the OTHER rosters, in order, so a practice
+ * match shows all four on the board rather than four copies of one - which is
+ * also the only way to see whether the three new ones behave at all.
+ */
+function newTransport(data: GameData, options: AppOptions, builderId: string): Transport {
+  if (options.server) return new RemoteTransport(data, options.server, builderId);
+
+  const others = data.units.builders.map((b) => b.id).filter((id) => id !== builderId);
+  const teams = LANE_IDS.map((id, index) => ({
+    id,
+    playerIds: id === OWN_LANE ? ['you'] : ['bot'],
+    builderId: id === OWN_LANE ? builderId : (others[(index - 1) % Math.max(1, others.length)] ?? builderId),
+  }));
 
   return new LocalTransport(
     data,
     options.seed ?? Math.floor(Math.random() * 0x7fffffff),
-    LANE_IDS.map((id) => ({ id, playerIds: id === OWN_LANE ? ['you'] : ['bot'] })),
+    teams,
     OWN_LANE,
     LANE_IDS.filter((id) => id !== OWN_LANE),
   );
@@ -72,11 +86,15 @@ export async function startApp(
 
   mount.appendChild(app.canvas);
 
-  const game = new Game(data, newTransport(data, options), app.screen.width, app.screen.height, {
-    // A new match means a new transport: a local one starts a fresh simulation,
-    // and a remote one has to join a room again.
-    onRestart: () => game.setTransport(newTransport(data, options)),
-  });
+  // The game starts on the builder picker and asks for a transport once the
+  // player has chosen. A local one starts a fresh simulation; a remote one
+  // joins a room, telling it which roster to seat.
+  const game = new Game(
+    data,
+    (builderId) => newTransport(data, options, builderId),
+    app.screen.width,
+    app.screen.height,
+  );
   app.stage.addChild(game);
 
   // Drive the simulation from real elapsed time, NOT from `ticker.deltaMS`.

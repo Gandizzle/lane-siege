@@ -137,8 +137,8 @@ export interface WavePreviewEntry {
   defId: string;
   name: string;
   count: number;
-  armour: string;
-  damageType: string;
+  armour: ArmourType;
+  damageType: DamageType;
 }
 
 export function previewWave(data: GameData, seed: number, waveNumber: number): WavePreviewEntry[] {

@@ -26,7 +26,8 @@
  * uses only what §12 makes public: fortress HP, and who is still alive.
  */
 
-import type { GameData } from '../data/schema.ts';
+import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
+import { damageMultiplier, previewWave } from '../sim/index.ts';
 import type { Command, MatchState, TeamId } from '../sim/index.ts';
 
 /**
@@ -34,16 +35,19 @@ import type { Command, MatchState, TeamId } from '../sim/index.ts';
  * toward the fortress at +y, so LOW rows are the front line that absorbs and
  * HIGH rows are the back line that deals damage over the top of it (§4.1).
  */
-interface Slot {
-  unitDefId: string;
-  tileX: number;
-  tileY: number;
-}
-
-function buildOrder(data: GameData): Slot[] {
+/**
+ * Where the line goes: three rows, from the shortest-ranged unit at the front
+ * to the longest at the back.
+ *
+ * Only the POSITIONS are fixed here. Which unit fills a row is decided per wave
+ * by `pickRow`, because a roster that never changes what it builds is not
+ * playing the game §6.1 describes - it is measuring whether its two best damage
+ * types happen to match the wave sequence.
+ */
+function buildSlots(data: GameData): { tileX: number; tileY: number; row: number }[] {
   const width = data.lane.buildZone.width;
   const mid = Math.floor(width / 2);
-  const slots: Slot[] = [];
+  const slots: { tileX: number; tileY: number; row: number }[] = [];
 
   // Interleave so the line grows outward from the middle of the lane rather
   // than filling from one edge.
@@ -53,33 +57,99 @@ function buildOrder(data: GameData): Slot[] {
     if (x >= 0 && x < width) columns.push(x);
   }
 
-  // Round-robin the three types rather than filling on the cheapest one. A line
-  // of nothing but Hammers is all Impact damage, which loses to the first Swarm
-  // wave outright (§6.1) - and would make the M1 output prove nothing about the
-  // matrix.
-  const rows: { unitDefId: string; tileY: number }[] = [
-    { unitDefId: 'hammer', tileY: 3 },
-    { unitDefId: 'spike', tileY: 5 },
-    { unitDefId: 'mortar', tileY: 7 },
-  ];
-
-  for (let i = 0; i < columns.length; i++) {
-    for (const row of rows) {
-      slots.push({ unitDefId: row.unitDefId, tileX: columns[i]!, tileY: row.tileY });
-    }
+  const rows = [3, 5, 7];
+  for (const x of columns) {
+    rows.forEach((tileY, row) => slots.push({ tileX: x, tileY, row }));
   }
-
   return slots;
 }
 
+/**
+ * This builder's six units, split into three range classes: what holds the
+ * front, what fills the middle, and what shoots over the top (§4.2).
+ */
+function rangeClasses(data: GameData, builderId: string): UnitDef[][] {
+  const roster = data.units.units
+    .filter((u) => u.tier === 1 && u.builderId === builderId)
+    .sort((a, b) => (a.range ?? 0) - (b.range ?? 0));
+
+  const per = Math.max(1, Math.ceil(roster.length / 3));
+  return [roster.slice(0, per), roster.slice(per, per * 2), roster.slice(per * 2)];
+}
+
+/**
+ * The right unit of a range class for the wave that is coming.
+ *
+ * Scored through the damage matrix against the wave's actual composition, which
+ * is exactly the information §9.3 hands a human during the build phase. Without
+ * it the scripted player builds one line forever, and every roster's result is
+ * really a statement about the wave order rather than about the roster.
+ *
+ * The front row is scored differently on purpose. §4.1 gives it a job -
+ * "front line to absorb, back line to deal damage" - and scoring it on damage
+ * like the others meant a tank never got built at all: a 700 HP wall loses a
+ * damage contest to everything, so the bot fielded 95 HP artillery at the front
+ * and wondered why it died. The matrix runs in both directions (§6), so a
+ * front-liner is scored on how much of THIS wave's damage its armour shrugs off.
+ */
+function pickRow(
+  data: GameData,
+  candidates: UnitDef[],
+  wave: WaveShape,
+  absorbing: boolean,
+): UnitDef | undefined {
+  let best: UnitDef | undefined;
+  let bestScore = -Infinity;
+
+  for (const unit of candidates) {
+    let score: number;
+
+    if (absorbing) {
+      // Effective HP: how much of what this wave throws the armour turns away.
+      let taken = 0;
+      let total = 0;
+      for (const entry of wave) {
+        taken +=
+          entry.count * damageMultiplier(data.matrix.multipliers, entry.damageType, unit.armour);
+        total += entry.count;
+      }
+      const exposure = total > 0 ? taken / total : 1;
+      score = (unit.hp ?? 0) / Math.max(0.1, exposure);
+    } else {
+      let effect = 0;
+      for (const entry of wave) {
+        effect +=
+          entry.count * damageMultiplier(data.matrix.multipliers, unit.damageType, entry.armour);
+      }
+      score = effect * (unit.damage ?? 0) * (unit.attackSpeed ?? 0);
+    }
+
+    // Per supply, because supply is the cap that actually binds (§11.4).
+    score /= Math.max(1, unit.supplyCost ?? 1);
+
+    if (score > bestScore) {
+      bestScore = score;
+      best = unit;
+    }
+  }
+
+  return best;
+}
+
+/** The incoming wave, as much of it as a build decision needs. */
+type WaveShape = { count: number; armour: ArmourType; damageType: DamageType }[];
+
 export class AutoBuilder {
-  private readonly slots: Slot[];
+  private readonly slots: { tileX: number; tileY: number; row: number }[];
+  private readonly classes: UnitDef[][];
 
   constructor(
     private readonly data: GameData,
     private readonly teamId: TeamId,
+    builderId: string,
   ) {
-    this.slots = buildOrder(data);
+    this.slots = buildSlots(data);
+    this.classes = rangeClasses(data, builderId);
   }
 
   /**
@@ -107,11 +177,21 @@ export class AutoBuilder {
       lane.units.filter((u) => u.alive).map((u) => `${u.homeTileX},${u.homeTileY}`),
     );
 
+    // What is coming, as the build-phase preview shows it (§9.3).
+    const incoming: WaveShape = previewWave(this.data, state.seed, state.wave + 1).map((entry) => ({
+      count: entry.count,
+      armour: entry.armour,
+      damageType: entry.damageType,
+    }));
+    const perRow = this.classes.map((candidates, row) =>
+      pickRow(this.data, candidates, incoming, row === 0),
+    );
+
     // Go wide while supply allows.
     for (const slot of this.slots) {
       if (taken.has(`${slot.tileX},${slot.tileY}`)) continue;
 
-      const def = this.data.units.units.find((u) => u.id === slot.unitDefId);
+      const def = perRow[slot.row];
       if (!def) continue;
 
       const cost = def.goldCost ?? 0;
@@ -124,7 +204,7 @@ export class AutoBuilder {
       commands.push({
         kind: 'placeUnit',
         teamId: this.teamId,
-        unitDefId: slot.unitDefId,
+        unitDefId: def.id,
         tileX: slot.tileX,
         tileY: slot.tileY,
       });

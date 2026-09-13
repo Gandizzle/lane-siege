@@ -69,6 +69,10 @@ function placeUnit(
   if (state.phase !== 'build') return fail('not-build-phase');
   if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
+  // §7.1: you play one builder. Checked here rather than left to the UI,
+  // because the UI is a client and a client is not trusted with rules (§15.1).
+  if (def.builderId !== lane.builderId) return fail('wrong-builder');
+
   if (!inBounds(lane.occupancy, tileX, tileY)) return fail('tile-out-of-bounds');
   if (tileOccupiedByUnit(lane.units, tileX, tileY)) return fail('tile-occupied');
 

@@ -9,32 +9,35 @@ it.
 
 ## Status
 
-**M1 through M4 complete** (DESIGN.md §17).
+**M1 through M5 complete** (DESIGN.md §17).
 
-- `npm run dev` — a playable match in portrait, four lanes, with scripted
-  opponents in the other three. Build, upgrade in place, buy global tech,
-  upgrade the fortress, pick a weapon type and an aura, and send monsters at
-  whichever opponent is doing best.
+- `npm run dev` — a playable match in portrait. Pick one of four builders, then
+  four lanes with scripted opponents on the other three rosters. Build, upgrade
+  in place, buy global tech, upgrade the fortress, pick a weapon type and an
+  aura, and send monsters at whichever opponent is doing best.
 - `npm run server` then `?server=ws://localhost:2567` — the same match against
   three other people, with the server deciding everything.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-181 tests, plus three measurement harnesses that are part of how this is
+216 tests, plus four measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
-sockets), `npm run wire` (frame sizes at the §15.3 load) and `npm run routing`
-(movement, which is the weak spot — see [docs/PATHING.md](docs/PATHING.md)).
+sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`
+(movement, which is the weak spot — see [docs/PATHING.md](docs/PATHING.md)) and
+`npm run builders` (all four rosters against identical waves).
 
 Two things are knowingly unfinished:
 
-- **Balance is not playtested.** The scripted harness survives all 25 waves
-  comfortably, which almost certainly means the curve is too soft — §5.5 targets
-  a first elimination around wave 13–15. Every number lives in `data/`, so
-  tuning is a JSON job.
+- **Balance is not playtested.** All four rosters survive to about wave 25
+  against the scripted player, which almost certainly means the curve is too
+  soft — §5.5 targets a first elimination around wave 13–15. Every number lives
+  in `data/`, so tuning is a JSON job: `npm run builders` shows where each
+  roster currently leaks.
 - **Movement works but does not look good.** Ten approaches, what each measured,
   and what to try next are in [docs/PATHING.md](docs/PATHING.md).
 
-Next is M5: builders B, C and D — mostly data entry.
+Next is M6: Capacitor's Android build, a lobby, matchmaking and accounts — and
+somewhere to host the server, which is what a four-player match needs today.
 
 ## Getting started
 

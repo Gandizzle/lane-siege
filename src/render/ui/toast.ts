@@ -26,6 +26,7 @@ const MESSAGES: Record<CommandRejection, string> = {
   eliminated: 'You are out',
   'target-eliminated': 'That player is out',
   'invalid-target': 'Pick an opponent',
+  'wrong-builder': 'Not one of your units',
 };
 
 const VISIBLE_MS = 1600;

@@ -257,6 +257,14 @@ export interface Economy {
 
 export interface Lane {
   teamId: TeamId;
+  /**
+   * Which of the four rosters this lane builds from (§7.1).
+   *
+   * Chosen before the match and fixed for it: §6.1 makes a builder a complete
+   * package - all four damage types, at that builder's quality - and mixing two
+   * would hand a player the best unit of each and delete the choice.
+   */
+  builderId: string;
   units: DefensiveUnit[];
   monsters: Monster[];
   /**

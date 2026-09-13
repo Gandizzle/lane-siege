@@ -76,6 +76,50 @@ Drop. Placeholders like every other number, but coherent ones:
 - Sends close at wave 25 with every other purchase (§3.3, decided above), since
   a send costs gems and is therefore a purchase.
 
+### 7. When is a builder chosen? → **before the match, and fixed for it**
+
+_Not in DESIGN.md at all._ §7.1 gives four builders of six units and §6.1 makes
+each one a complete package, but nothing says how a player ends up with one.
+
+Decided: picked before the match starts, and unchangeable once anything is on
+the board. Mid-match switching would mean either stranding the units already
+placed or letting a player cherry-pick the best unit of each roster — and
+cherry-picking deletes the §6.1 choice, which is the whole point of having
+builders differ by distribution rather than coverage. §7.3's tier upgrades and
+§11.4's supply budget are both long-run commitments to a roster besides.
+
+- Built: a picker before the match; `Lane.builderId`; `placeUnit` refuses
+  another builder's unit with `wrong-builder`, in the simulation rather than in
+  the UI (§15.1). `setLaneBuilder` lets the server seat a joiner's choice, and
+  refuses once the lane has anything on it.
+- The three scripted lanes take the other three rosters, so a practice match
+  shows all four on the board.
+
+### 8. Two rosters needed structural correction, which is not the same as tuning
+
+Recorded because it looks like balance and is not. `npm run builders` played all
+four against identical waves; Verdance and Tidemark were eliminated every run
+while Bastion and Ashfall never leaked. Two of the causes were structural:
+
+- **Tidemark paid more supply per point of value than Bastion.** Supply is a
+  hard cap (§11.4), so "fewer, stronger units" landed as "less army" — strictly
+  worse, not a trade. One supply came off each of its units.
+- **Verdance's tank took 1.5× from Impact**, which is what most early waves
+  deal. A tank countered by the commonest damage type is not a tank; it is now
+  flesh-armoured, one supply class down, with HP cut to match.
+
+The third cause was the measuring instrument. The scripted player built one
+fixed line whatever the wave, so each roster's result was really a statement
+about the wave order — and it never built a tank at all, because a 700 HP wall
+loses a damage contest to everything. It now picks each row against the incoming
+wave using the same §9.3 preview a human gets, and scores the front row on how
+much of that wave its armour turns away (§4.1: front line to absorb). All four
+rosters then survive; Tidemark is the most fragile, which is its identity.
+
+**The curve is still soft for everyone** — nothing leaks before wave 25, where
+§5.5 wants a first elimination around 13–15. That is the balance pass, still
+deferred.
+
 ## Still open — needed before the milestone in brackets
 
 ### 3. Post-wave-25 purchases (§3.3) → **nothing can be bought**
@@ -95,16 +139,16 @@ player engaging with the matrix to the end.
 Taking the doc's recommendation: **gold**. The ladder is in `economy.json`; the
 cost field is the only thing that would change.
 
-### 7. Full monster and boss bank (§18) [M3]
+### 9. Full monster and boss bank (§18) [M3]
 
 Five monsters exist (four normal, one boss) — the M1 slice. Note that the boss
 is single-armour, where §3.4 wants bosses to carry a **mix** of armour types
 across their parts or spawns so no single damage type hard-counters them. That
 needs a multi-part boss model that does not exist yet.
 
-### 8. Lobby, matchmaking, accounts; reconnection and AFK handling (§18) [M6]
+### 10. Lobby, matchmaking, accounts; reconnection and AFK handling (§18) [M6]
 
-### 9. Monetisation and audio (§18) [post-ship]
+### 11. Monetisation and audio (§18) [post-ship]
 
 ## Answered by transcription, not by invention
 

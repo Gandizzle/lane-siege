@@ -91,6 +91,12 @@ export interface EconomyView {
 
 export interface LaneView {
   teamId: TeamId;
+  /**
+   * Which roster this lane builds from (§7.1). Public: what somebody is
+   * building is visible the moment a unit of theirs is, and the counter hints
+   * (§9.3) are per-builder, so the UI needs it for its own lane regardless.
+   */
+  builderId: string;
   units: EntityView[];
   monsters: EntityView[];
   fortress: FortressView;
@@ -174,6 +180,7 @@ function monsterViews(lane: Lane): EntityView[] {
 function laneView(lane: Lane, own: boolean): LaneView {
   return {
     teamId: lane.teamId,
+    builderId: lane.builderId,
     units: unitViews(lane),
     monsters: monsterViews(lane),
     fortress: {

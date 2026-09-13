@@ -13,7 +13,7 @@ export * from './constants.ts';
 export { Rng, waveRng } from './rng.ts';
 export { damageMultiplier, resolveDamage } from './damage.ts';
 export { enrageMultiplier, monsterEnrage, findWaveClock } from './enrage.ts';
-export { createMatch, MissingDataError } from './state.ts';
+export { createMatch, setLaneBuilder, MissingDataError } from './state.ts';
 export type { MatchOptions, TeamSetup } from './state.ts';
 export { createContext, step, snapshot } from './tick.ts';
 export type { SimContext } from './tick.ts';

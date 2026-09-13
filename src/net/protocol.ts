@@ -55,6 +55,8 @@ export type WireEntity = [number, number, number, number, number];
 export interface WireLane {
   /** Team index. */
   t: number;
+  /** Builder index (§7.1). */
+  b: number;
   u: WireEntity[];
   m: WireEntity[];
   /** `[hp, maxHp, destroyed, weaponTypeIndex, auraIndex, auraRadius]`. */
@@ -118,6 +120,7 @@ export interface WireTables {
   unitIds: string[];
   monsterIds: string[];
   sendIds: string[];
+  builderIds: string[];
   damageTypes: DamageType[];
   armourTypes: ArmourType[];
   auraIds: string[];
@@ -159,6 +162,7 @@ export function buildTables(data: GameData, teamIds: TeamId[], seed = 0): WireTa
     unitIds,
     monsterIds,
     sendIds: data.sends.sends.map((s) => s.id),
+    builderIds: data.units.builders.map((b) => b.id),
     damageTypes: [...data.matrix.damageTypes],
     armourTypes: [...data.matrix.armourTypes],
     auraIds: [...data.fortress.auras.types],
@@ -203,6 +207,7 @@ function decodeEntity(
 function encodeLane(lane: LaneView, tables: WireTables): WireLane {
   const out: WireLane = {
     t: tables.teamIds.indexOf(lane.teamId),
+    b: tables.builderIds.indexOf(lane.builderId),
     u: lane.units.map((u) => encodeEntity(u, tables.unitIndex)),
     m: lane.monsters.map((m) => encodeEntity(m, tables.monsterIndex)),
     f: [
@@ -268,6 +273,7 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
 
   return {
     teamId: tables.teamIds[wire.t] ?? '',
+    builderId: tables.builderIds[wire.b] ?? (tables.builderIds[0] ?? ''),
     units: wire.u.map((row) => decodeEntity(row, tables.unitIds, tables.unitTraits)),
     monsters: wire.m.map((row) => decodeEntity(row, tables.monsterIds, tables.monsterTraits)),
     fortress: {
