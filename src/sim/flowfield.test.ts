@@ -1,10 +1,13 @@
 /**
- * The distance field. See flowfield.ts for why it exists at all.
+ * The distance field. See flowfield.ts for the model.
  *
- * These cover the three properties the rest of the movement code relies on:
- * a goal body does not strand its own sweep, inflation really does mean
- * clearance for the body that will walk the route, and the result is identical
- * every time it is computed.
+ * What the rest of movement relies on: goals are the free positions an enemy
+ * is in range from and nothing else; a position taken by something standing
+ * still is not a goal, unless nothing is free; inflation really does mean
+ * clearance for the body that will walk the route; a body pressed against an
+ * obstacle reads the ground beside it, not a wall; the lane's spawn zone above
+ * the grid is part of the field; and the result is identical every time it is
+ * computed.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -13,122 +16,292 @@ import {
   cellAt,
   clearField,
   computeFlowField,
+  costAt,
   createFlowField,
-  markGoalBody,
   markObstacle,
-  markSource,
-  markSourceRow,
-  sampleCost,
+  goalOwner,
+  markRing,
+  SOURCE_WAIT,
+  standingCost,
   steerAlongField,
 } from './flowfield.ts';
 
-/** A wall across y = 4.5 with one body missing, leaving a gap at x = 3.5. */
-function wallWithGap(inflate: number) {
-  const field = createFlowField(8, 8, 4);
-  clearField(field);
+const SUB = 5;
+/** A melee reach: thinner than a cell, which is the case the ring has to get right. */
+const MELEE = 0.08;
 
-  for (const x of [0.5, 1.5, 2.5, 4.5, 5.5, 6.5, 7.5]) {
-    markObstacle(field, x, 4.5, 0.34, inflate);
+/** An 8-wide lane: 3 tiles of spawn zone above a 10-deep grid. */
+function laneField() {
+  const field = createFlowField(8, 13, -3, SUB);
+  clearField(field);
+  return field;
+}
+
+/**
+ * A wall of bodies across y = 4.5 with one gap at x = 3.5, 0.58 tiles wide:
+ * room for a 0.44-wide monster, not for a 0.88-wide boss.
+ */
+function wallWithGap(inflate: number) {
+  const field = laneField();
+  for (const x of [0.5, 1.5, 2.95, 4.05, 5.5, 6.5, 7.5]) {
+    markObstacle(field, x, 4.5, 0.26, inflate);
   }
   return field;
 }
 
-describe('a goal body seeds its whole blob', () => {
-  it('leaves the ground around it reachable', () => {
-    // An inflated body is several cells across, so seeding only its centre
-    // leaves every neighbour of that centre blocked: nothing expands and the
-    // whole field comes back unreachable. This was the bug.
-    const field = createFlowField(8, 8, 4);
-    clearField(field);
-    markObstacle(field, 4, 4, 0.34, 0.3);
-    markGoalBody(field, 4, 4, 0.34, 0.3);
+describe('goals are the free positions around an enemy', () => {
+  it('rings a body at touching distance and leaves its inside unreachable', () => {
+    const field = laneField();
+    markObstacle(field, 4, 4, 0.22, 0.26);
+    markRing(field, 4, 4, 0.22, 0.26, MELEE, 1);
     computeFlowField(field);
 
-    expect(field.cost[cellAt(field, 4, 2.5)]).toBeLessThan(UNREACHABLE);
-    expect(field.cost[cellAt(field, 1, 1)]).toBeLessThan(UNREACHABLE);
+    // Inside the body: nowhere a seeker can stand.
+    expect(costAt(field, 4, 4)).toBe(UNREACHABLE);
+    // A body-length away in any direction: on the ring, cost 0.
+    const touching = 0.22 + 0.26 + 0.05;
+    expect(costAt(field, 4 + touching, 4)).toBe(0);
+    expect(costAt(field, 4 - touching, 4)).toBe(0);
+    expect(costAt(field, 4, 4 + touching)).toBe(0);
+    // Far away: reachable, and further.
+    expect(costAt(field, 4, 1)).toBeGreaterThan(0);
+    expect(costAt(field, 4, 1)).toBeLessThan(UNREACHABLE);
   });
 
-  it('is stranded when only the centre cell is seeded', () => {
-    const field = createFlowField(8, 8, 4);
-    clearField(field);
-    markObstacle(field, 4, 4, 0.34, 0.3);
-    markSource(field, 4, 4);
+  it('does not count a position somebody is already standing in', () => {
+    const field = laneField();
+    const seeker = 0.22;
+    // The enemy, and an engaged ally touching it from the north.
+    markObstacle(field, 4, 4, 0.26, seeker);
+    markObstacle(field, 4, 4 - (0.26 + seeker), seeker, seeker);
+    markRing(field, 4, 4, 0.26, seeker, MELEE, 1);
     computeFlowField(field);
 
-    expect(field.cost[cellAt(field, 4, 2.5)]).toBe(UNREACHABLE);
+    // North of the enemy is taken; a seeker coming from the north is routed
+    // round to a side, so its cost is more than the straight-line distance.
+    const north = costAt(field, 4, 2.5);
+    const straightLine = Math.round((2.5 - 4 + 0.26 + seeker) * -1 * SUB) * 10;
+    expect(north).toBeGreaterThan(straightLine);
+    expect(north).toBeLessThan(UNREACHABLE);
+
+    // And a position on the west side is still a goal.
+    expect(costAt(field, 4 - (0.26 + seeker + 0.05), 4)).toBe(0);
+  });
+
+  it('is unreachable everywhere when every position is taken', () => {
+    const field = laneField();
+    const r = 0.22;
+    markObstacle(field, 4, 4, 0.26, r);
+    // Six bodies packed around it: a full ring at these sizes.
+    const ring = 0.26 + r;
+    const around: [number, number][] = [
+      [ring, 0],
+      [-ring, 0],
+      [ring * 0.5, ring * 0.866],
+      [-ring * 0.5, ring * 0.866],
+      [ring * 0.5, -ring * 0.866],
+      [-ring * 0.5, -ring * 0.866],
+    ];
+    for (const [dx, dy] of around) markObstacle(field, 4 + dx, 4 + dy, r, r);
+    markRing(field, 4, 4, 0.26, r, MELEE, 1);
+    expect(computeFlowField(field)).toBe(0);
+
+    expect(costAt(field, 4, 1)).toBe(UNREACHABLE);
+  });
+
+  it('sees a hole narrower than a cell that a body still fits through', () => {
+    // Two ring members leaving a gap: the free arc between them is a sliver,
+    // narrower than a field cell, so no cell CENTRE is both free and in range.
+    // The fine sampling finds it anyway.
+    const field = laneField();
+    const r = 0.22;
+    const enemy = 0.26;
+    markObstacle(field, 4, 4, enemy, r);
+    const ring = enemy + r + 0.04;
+    // Neighbours at ±56° (cos 0.559, sin 0.829): a body between them clears
+    // each by a few hundredths of a tile, in a sliver about half a cell wide.
+    markObstacle(field, 4 + ring * 0.559, 4 + ring * 0.829, r, r);
+    markObstacle(field, 4 + ring * 0.559, 4 - ring * 0.829, r, r);
+    // Everything else around the enemy is taken solidly: bodies at 110°, 150°,
+    // 190° and 230°.
+    for (const [c, sn] of [
+      [-0.342, 0.94],
+      [-0.866, 0.5],
+      [-0.985, -0.174],
+      [-0.643, -0.766],
+    ]) {
+      markObstacle(field, 4 + ring * c!, 4 + ring * sn!, r, r);
+    }
+    markRing(field, 4, 4, enemy, r, MELEE, 1);
+    expect(computeFlowField(field)).toBeGreaterThan(0);
+    // The hole is to the east, and a body approaching from the east is led in.
+    expect(costAt(field, 6, 4)).toBeLessThan(costAt(field, 6, 5.5));
+  });
+
+  it('marks waiting positions beside the attackers when nothing is free', () => {
+    const field = laneField();
+    const r = 0.22;
+    markObstacle(field, 4, 4, 0.26, r);
+    const ring = 0.26 + r;
+    const around: [number, number][] = [
+      [ring, 0],
+      [-ring, 0],
+      [ring * 0.5, ring * 0.866],
+      [-ring * 0.5, ring * 0.866],
+      [ring * 0.5, -ring * 0.866],
+      [-ring * 0.5, -ring * 0.866],
+    ];
+    for (const [dx, dy] of around) markObstacle(field, 4 + dx, 4 + dy, r, r);
+    markRing(field, 4, 4, 0.26, r, MELEE, 1);
+    expect(computeFlowField(field)).toBe(0);
+
+    for (const [dx, dy] of around) {
+      markRing(field, 4 + dx, 4 + dy, r, r, 1 / SUB, -1, SOURCE_WAIT);
+    }
+    expect(computeFlowField(field)).toBeGreaterThan(0);
+
+    // Far away is reachable now, and the slope runs toward the ring: a point
+    // just outside the second layer costs less than one further out.
+    expect(costAt(field, 4, 1)).toBeLessThan(UNREACHABLE);
+    expect(costAt(field, 4, 2.8)).toBeLessThan(costAt(field, 4, 1.5));
+    // And a body there is beside a waiting position, not an attack position.
+    expect(goalOwner(field, { x: 4, y: 2.95 })).toBe(-1);
+  });
+
+  it('is the whole reach of a ranged seeker, not a band at touching distance', () => {
+    const field = laneField();
+    markObstacle(field, 4, 6, 0.22, 0.26);
+    markRing(field, 4, 6, 0.22, 0.26, 3.9, 1);
+    computeFlowField(field);
+
+    // Three tiles away is in range, so it is a goal; five is not.
+    expect(costAt(field, 4, 3)).toBe(0);
+    expect(costAt(field, 4, 1)).toBeGreaterThan(0);
+    // Touching is in range too: the annulus starts at contact.
+    expect(costAt(field, 4, 6 - 0.53)).toBe(0);
+  });
+
+  it('remembers which enemy a goal cell belongs to', () => {
+    const field = laneField();
+    markObstacle(field, 2, 4, 0.22, 0.26);
+    markObstacle(field, 6, 4, 0.22, 0.26);
+    markRing(field, 2, 4, 0.22, 0.26, MELEE, 11);
+    markRing(field, 6, 4, 0.22, 0.26, MELEE, 22);
+    computeFlowField(field);
+
+    expect(field.owner[cellAt(field, 2.53, 4)]).toBe(11);
+    expect(field.owner[cellAt(field, 6.53, 4)]).toBe(22);
+  });
+});
+
+describe('a body pressed against an obstacle', () => {
+  it('reads the cost of the free ground beside it, not a wall', () => {
+    const field = laneField();
+    markObstacle(field, 4, 4, 0.22, 0.26);
+    markRing(field, 4, 4, 0.22, 0.26, MELEE, 1);
+    // An engaged ally on the east side, taking that position.
+    markObstacle(field, 4.48, 4, 0.22, 0.26);
+    computeFlowField(field);
+
+    // Touching the ally from the east: the body's own cell centre is inside
+    // the ally's inflation, so the cell is blocked...
+    const pressed = { x: 4.48 + 0.48 + 0.01, y: 4 };
+    expect(costAt(field, pressed.x, pressed.y)).toBe(UNREACHABLE);
+    // ...but the body is standing on free ground, and reads it as such.
+    const standing = standingCost(field, pressed);
+    expect(standing).toBeLessThan(UNREACHABLE);
+    // And it is not told to step away from the ally to get there: nothing
+    // within reach is strictly better than where it is, except a real goal.
+    const out = { x: 0, y: 0 };
+    const cell = steerAlongField(field, pressed, out, 3);
+    if (cell !== -1) expect(field.cost[cell]).toBeLessThan(standing);
   });
 });
 
 describe('inflation means real clearance', () => {
   it('routes a body that fits through the gap', () => {
-    const field = wallWithGap(0.34);
-    markSourceRow(field, 0, 8);
+    const field = wallWithGap(0.22);
+    markRing(field, 3.5, 1, 0.26, 0.22, MELEE, 1);
     computeFlowField(field);
-
-    // Reachable from below the wall, so the route through the gap exists.
-    expect(field.cost[cellAt(field, 3.5, 6.5)]).toBeLessThan(UNREACHABLE);
+    expect(costAt(field, 3.5, 7)).toBeLessThan(UNREACHABLE);
   });
 
   it('refuses the same gap to a body that does not fit', () => {
-    const field = wallWithGap(0.9);
-    markSourceRow(field, 0, 8);
+    const field = wallWithGap(0.44);
+    markRing(field, 3.5, 1, 0.26, 0.44, MELEE, 1);
     computeFlowField(field);
-
-    expect(field.cost[cellAt(field, 3.5, 6.5)]).toBe(UNREACHABLE);
+    expect(costAt(field, 3.5, 7)).toBe(UNREACHABLE);
   });
 
   it('steers toward the gap rather than into the wall', () => {
-    const field = wallWithGap(0.34);
-    markSourceRow(field, 0, 8);
+    const field = wallWithGap(0.22);
+    markRing(field, 3.5, 1, 0.26, 0.22, MELEE, 1);
     computeFlowField(field);
 
     const out = { x: 0, y: 0 };
-    const cell = steerAlongField(field, { x: 6.5, y: 6.5 }, out, 0);
-
+    const cell = steerAlongField(field, { x: 6.5, y: 7 }, out, 3);
     expect(cell).not.toBe(-1);
     // The goal is up (-y) and the only way through is left (-x).
     expect(out.y).toBeLessThan(0);
     expect(out.x).toBeLessThan(0);
   });
+
+  it('walks straight on open ground', () => {
+    const field = laneField();
+    markObstacle(field, 4, 1, 0.26, 0.22);
+    markRing(field, 4, 1, 0.26, 0.22, MELEE, 1);
+    computeFlowField(field);
+
+    const out = { x: 0, y: 0 };
+    // From a cell centre. On a cell boundary the two neighbours tie and the
+    // first wins, which is a half-cell lean the hysteresis then holds; that is
+    // the grid, not the steering, and the walk itself is checked in
+    // movement.test.ts.
+    steerAlongField(field, { x: 4.1, y: 9.1 }, out, 3);
+    expect(Math.abs(out.x)).toBeLessThan(0.05);
+    expect(out.y).toBeLessThan(-0.99);
+  });
+});
+
+describe('the field covers the spawn zone', () => {
+  it('maps a position above the grid to a real cell', () => {
+    const field = laneField();
+    const cell = cellAt(field, 4, -1.5);
+    expect(cell).toBeGreaterThanOrEqual(0);
+    expect(cell).toBeLessThan(field.width * field.depth);
+    // Rows above y = 0 are the first rows of the field, not clamped to row 0.
+    expect(Math.floor(cell / field.width)).toBe(Math.floor(1.5 * SUB));
+  });
+
+  it('reaches from the spawn centre to a goal on the grid', () => {
+    const field = laneField();
+    markObstacle(field, 4, 5, 0.26, 0.22);
+    markRing(field, 4, 5, 0.26, 0.22, MELEE, 1);
+    computeFlowField(field);
+    expect(costAt(field, 4, -1.5)).toBeLessThan(UNREACHABLE);
+  });
 });
 
 describe('cost model', () => {
   it('charges 10 for an orthogonal step and 14 for a diagonal', () => {
-    const field = createFlowField(4, 4, 1);
+    const field = createFlowField(4, 4, 0, 1);
     clearField(field);
-    markSource(field, 1.5, 1.5);
+    field.sources[cellAt(field, 1.5, 1.5)] = 1;
     computeFlowField(field);
 
-    expect(field.cost[cellAt(field, 1.5, 2.5)]).toBe(10);
-    expect(field.cost[cellAt(field, 2.5, 2.5)]).toBe(14);
-  });
-
-  it('reports a gradient rather than a plateau near the goal', () => {
-    // sampleCost charges for reaching the cell it reads, because the bare
-    // minimum over a neighbourhood reads 0 for everyone within a tile of the
-    // goal - and the yielding order runs on this number, so a plateau means
-    // the whole crowd ties.
-    const field = createFlowField(8, 8, 4);
-    clearField(field);
-    markObstacle(field, 4, 4, 0.34, 0.34);
-    markGoalBody(field, 4, 1, 0.3, 0.34);
-    computeFlowField(field);
-
-    const near = sampleCost(field, { x: 4, y: 2.2 }, 0.68);
-    const far = sampleCost(field, { x: 4, y: 6 }, 0.68);
-    expect(near).toBeLessThan(far);
+    expect(costAt(field, 1.5, 2.5)).toBe(10);
+    expect(costAt(field, 2.5, 2.5)).toBe(14);
   });
 });
 
 describe('determinism', () => {
   it('computes the same field twice', () => {
     const build = () => {
-      const field = wallWithGap(0.34);
-      markGoalBody(field, 3.5, 1, 0.3, 0.34);
+      const field = wallWithGap(0.22);
+      markRing(field, 3.5, 1, 0.26, 0.22, MELEE, 1);
       computeFlowField(field);
       return field;
     };
-
     expect(Array.from(build().cost)).toEqual(Array.from(build().cost));
   });
 });

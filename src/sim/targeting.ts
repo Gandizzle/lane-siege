@@ -1,20 +1,36 @@
 /**
  * Target acquisition. DESIGN.md §5.1 and §5.2.
  *
- * The two rules are deliberately different, and the difference matters:
+ * One rule now serves both kinds: hold the current target while it is alive and
+ * within range plus a little slack; otherwise take the nearest enemy that is in
+ * range; otherwise there is no target and the body is seeking (motion.ts). The
+ * slack is the hysteresis that stops a target drifting across the range
+ * boundary from flipping its attacker between fighting and walking every tick.
  *
- *   Monsters  - target the NEAREST defensive unit and re-evaluate continuously,
- *               switching if something becomes closer. Throttled to a fixed
- *               interval for CPU (§5.1, §15.3), not run every tick.
+ * §5.1 has monsters re-evaluating "nearest" continuously and §5.2 has units
+ * holding until the target dies or leaves range. Both are satisfied: a monster
+ * that is walking has no target and re-reads the field every tick, which is a
+ * stronger form of "nearest" than a distance scan; and once anything is in
+ * range, holding it is right for both kinds, because switching between two
+ * in-range enemies wastes the shots already landed on the first.
  *
- *   Units     - acquire the nearest valid target in range and HOLD it until it
- *               dies or leaves range. Only then reacquire. This is what stops
- *               target-switch jitter and wasted damage (§5.2).
+ * Range is EDGE TO EDGE: bodies are circles, so "in range" means the gap
+ * between the two circles is at most the range. A melee range near zero means
+ * "touching", which is what melee should look like.
  *
  * Distances are compared squared. Nothing here needs an actual square root.
  */
 
+import { ENGAGE_SLACK_TILES } from './constants.ts';
 import type { DefensiveUnit, EntityId, Monster, Vec2 } from './types.ts';
+
+/** What acquisition needs from either kind of body. */
+export interface Combatant {
+  id: EntityId;
+  pos: Vec2;
+  radius: number;
+  alive: boolean;
+}
 
 export function distanceSquared(a: Vec2, b: Vec2): number {
   const dx = a.x - b.x;
@@ -22,19 +38,50 @@ export function distanceSquared(a: Vec2, b: Vec2): number {
   return dx * dx + dy * dy;
 }
 
-export function unitPosition(unit: DefensiveUnit): Vec2 {
-  return { x: unit.pos.x, y: unit.pos.y };
+/** Is `other` within `range` of `self`, edge to edge? */
+export function withinRange(self: Combatant, other: Combatant, range: number): boolean {
+  const reach = range + self.radius + other.radius;
+  return distanceSquared(self.pos, other.pos) <= reach * reach;
+}
+
+/** Nearest living enemy whose edge is within `range` of `self`'s edge, or null. */
+export function nearestInRange<T extends Combatant>(
+  enemies: readonly T[],
+  self: Combatant,
+  range: number,
+): T | null {
+  let best: T | null = null;
+  let bestDist = Infinity;
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    const reach = range + self.radius + enemy.radius;
+    const dist = distanceSquared(self.pos, enemy.pos);
+    if (dist <= reach * reach && dist < bestDist) {
+      bestDist = dist;
+      best = enemy;
+    }
+  }
+  return best;
 }
 
 /**
- * The same, written into a caller-owned vector. Tick-rate code uses this one:
- * §15.3 forbids per-frame allocation, and unit positions are read for every
- * monster on every tick.
+ * The enemy `self` should be attacking this tick, or null if nothing is in
+ * range: the held one while it is alive and within range plus slack, else the
+ * nearest in range.
  */
-export function writeUnitPosition(unit: DefensiveUnit, out: Vec2): Vec2 {
-  out.x = unit.pos.x;
-  out.y = unit.pos.y;
-  return out;
+export function acquire<T extends Combatant>(
+  enemies: readonly T[],
+  self: Combatant & { targetId: EntityId | null },
+  range: number,
+): T | null {
+  if (self.targetId !== null) {
+    for (const enemy of enemies) {
+      if (enemy.id !== self.targetId) continue;
+      if (enemy.alive && withinRange(self, enemy, range + ENGAGE_SLACK_TILES)) return enemy;
+      break;
+    }
+  }
+  return nearestInRange(enemies, self, range);
 }
 
 /** Nearest living defensive unit to a point, or null if the lane is clear. */
@@ -43,7 +90,7 @@ export function nearestUnit(units: readonly DefensiveUnit[], from: Vec2): Defens
   let bestDist = Infinity;
   for (const unit of units) {
     if (!unit.alive) continue;
-    const dist = distanceSquared(from, unitPosition(unit));
+    const dist = distanceSquared(from, unit.pos);
     if (dist < bestDist) {
       bestDist = dist;
       best = unit;
@@ -52,26 +99,14 @@ export function nearestUnit(units: readonly DefensiveUnit[], from: Vec2): Defens
   return best;
 }
 
-/**
- * Nearest living monster in reach, or null.
- *
- * `range` is EDGE TO EDGE, so the bodies are added on: a melee range near zero
- * means "close enough to touch". Measuring centre to centre left attackers
- * standing a full body-width short of their target, which looked wrong.
- */
-export function nearestMonsterInRange(
-  monsters: readonly Monster[],
-  from: Vec2,
-  range: number,
-  selfRadius = 0,
-): Monster | null {
+/** Nearest living monster to a point, or null. */
+export function nearestMonster(monsters: readonly Monster[], from: Vec2): Monster | null {
   let best: Monster | null = null;
   let bestDist = Infinity;
   for (const monster of monsters) {
     if (!monster.alive) continue;
-    const reach = range + selfRadius + monster.radius;
     const dist = distanceSquared(from, monster.pos);
-    if (dist <= reach * reach && dist < bestDist) {
+    if (dist < bestDist) {
       bestDist = dist;
       best = monster;
     }
@@ -79,43 +114,26 @@ export function nearestMonsterInRange(
   return best;
 }
 
-export function findMonster(monsters: readonly Monster[], id: EntityId | null): Monster | null {
-  if (id === null) return null;
-  const found = monsters.find((m) => m.id === id);
-  return found && found.alive ? found : null;
-}
-
-export function findUnit(
-  units: readonly DefensiveUnit[],
-  id: EntityId | null,
-): DefensiveUnit | null {
-  if (id === null) return null;
-  const found = units.find((u) => u.id === id);
-  return found && found.alive ? found : null;
-}
-
 /**
- * A unit's held target stays valid while it is alive AND in range (§5.2).
- * Returns the target to keep, or null meaning "reacquire".
+ * Nearest living monster within `range` of a POINT with its own radius - the
+ * fortress weapon, which fires from a place rather than from a body.
  */
-/**
- * Slack on the hold, in tiles.
- *
- * §5.2 has a unit hold its target until that target leaves range. Taken
- * exactly, melee ranges of a tenth of a tile mean the separation pass jostling
- * a unit by a hair drops its target, which restarts the advance, which brings it
- * back in range - a stop/go cycle that never settles. The hold is stickier than
- * the acquire, which is the same hysteresis idea as everywhere else here.
- */
-const HOLD_MARGIN = 0.25;
-
-export function holdOrDrop(
+export function nearestMonsterInRange(
   monsters: readonly Monster[],
-  unit: DefensiveUnit,
+  from: Vec2,
   range: number,
+  fromRadius = 0,
 ): Monster | null {
-  const current = findMonster(monsters, unit.targetId);
-  if (!current) return null;
-  const reach = range + unit.radius + current.radius + HOLD_MARGIN;
-  return distanceSquared(unitPosition(unit), current.pos) <= reach * reach ? current : null;
+  let best: Monster | null = null;
+  let bestDist = Infinity;
+  for (const monster of monsters) {
+    if (!monster.alive) continue;
+    const reach = range + fromRadius + monster.radius;
+    const dist = distanceSquared(from, monster.pos);
+    if (dist <= reach * reach && dist < bestDist) {
+      bestDist = dist;
+      best = monster;
+    }
+  }
+  return best;
 }

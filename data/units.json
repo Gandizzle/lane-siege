@@ -42,7 +42,7 @@
       "attackSpeed": 1.0,
       "range": 0.1,
       "moveSpeed": 0.55,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "hammer_2",
@@ -59,7 +59,7 @@
       "attackSpeed": 1.0,
       "range": 0.1,
       "moveSpeed": 0.55,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "hammer_3",
@@ -75,7 +75,7 @@
       "attackSpeed": 1.05,
       "range": 0.15,
       "moveSpeed": 0.55,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "bulwark",
@@ -92,7 +92,7 @@
       "attackSpeed": 0.6,
       "range": 0.1,
       "moveSpeed": 0.35,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "bulwark_2",
@@ -108,7 +108,7 @@
       "attackSpeed": 0.6,
       "range": 0.1,
       "moveSpeed": 0.35,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "spike",
@@ -125,7 +125,7 @@
       "attackSpeed": 1.4,
       "range": 2.4,
       "moveSpeed": 0.45,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "spike_2",
@@ -141,7 +141,7 @@
       "attackSpeed": 1.4,
       "range": 2.6,
       "moveSpeed": 0.45,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "lance",
@@ -158,7 +158,7 @@
       "attackSpeed": 0.35,
       "range": 4.9,
       "moveSpeed": 0.25,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "lance_2",
@@ -174,7 +174,7 @@
       "attackSpeed": 0.35,
       "range": 5.2,
       "moveSpeed": 0.25,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "mortar",
@@ -191,7 +191,7 @@
       "attackSpeed": 0.5,
       "range": 3.9,
       "moveSpeed": 0.3,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "mortar_2",
@@ -208,7 +208,7 @@
       "attackSpeed": 0.5,
       "range": 4.2,
       "moveSpeed": 0.3,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "mortar_3",
@@ -224,7 +224,7 @@
       "attackSpeed": 0.55,
       "range": 4.4,
       "moveSpeed": 0.3,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "prism",
@@ -241,7 +241,7 @@
       "attackSpeed": 1.8,
       "range": 2.9,
       "moveSpeed": 0.5,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "prism_2",
@@ -258,7 +258,7 @@
       "attackSpeed": 1.8,
       "range": 3.0,
       "moveSpeed": 0.5,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "prism_3",
@@ -274,7 +274,7 @@
       "attackSpeed": 1.9,
       "range": 3.2,
       "moveSpeed": 0.5,
-      "bodyRadius": 0.34
+      "bodyRadius": 0.26
     },
     {
       "id": "cinder",
@@ -290,7 +290,7 @@
       "damageType": "impact",
       "attackSpeed": 1.0,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.6
     },
     {
@@ -307,7 +307,7 @@
       "damageType": "impact",
       "attackSpeed": 1.0,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.6
     },
     {
@@ -323,7 +323,7 @@
       "damageType": "impact",
       "attackSpeed": 1.05,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.6
     },
     {
@@ -340,7 +340,7 @@
       "damageType": "impact",
       "attackSpeed": 0.55,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.35
     },
     {
@@ -356,7 +356,7 @@
       "damageType": "impact",
       "attackSpeed": 0.55,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.35
     },
     {
@@ -373,7 +373,7 @@
       "damageType": "blast",
       "attackSpeed": 0.55,
       "range": 3.6,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.3
     },
     {
@@ -390,7 +390,7 @@
       "damageType": "blast",
       "attackSpeed": 0.55,
       "range": 3.85,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.3
     },
     {
@@ -406,7 +406,7 @@
       "damageType": "blast",
       "attackSpeed": 0.6,
       "range": 4.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.3
     },
     {
@@ -423,7 +423,7 @@
       "damageType": "blast",
       "attackSpeed": 1.3,
       "range": 2.2,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.45
     },
     {
@@ -439,7 +439,7 @@
       "damageType": "blast",
       "attackSpeed": 1.3,
       "range": 2.4,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.45
     },
     {
@@ -456,7 +456,7 @@
       "damageType": "pierce",
       "attackSpeed": 0.35,
       "range": 4.6,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.25
     },
     {
@@ -472,7 +472,7 @@
       "damageType": "pierce",
       "attackSpeed": 0.35,
       "range": 4.9,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.25
     },
     {
@@ -489,7 +489,7 @@
       "damageType": "arcane",
       "attackSpeed": 1.7,
       "range": 2.8,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.5
     },
     {
@@ -505,7 +505,7 @@
       "damageType": "arcane",
       "attackSpeed": 1.7,
       "range": 2.95,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.5
     },
     {
@@ -522,7 +522,7 @@
       "damageType": "pierce",
       "attackSpeed": 1.6,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.65
     },
     {
@@ -539,7 +539,7 @@
       "damageType": "pierce",
       "attackSpeed": 1.6,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.65
     },
     {
@@ -555,7 +555,7 @@
       "damageType": "pierce",
       "attackSpeed": 1.7,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.65
     },
     {
@@ -572,7 +572,7 @@
       "damageType": "impact",
       "attackSpeed": 0.55,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.35
     },
     {
@@ -588,7 +588,7 @@
       "damageType": "impact",
       "attackSpeed": 0.55,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.35
     },
     {
@@ -605,7 +605,7 @@
       "damageType": "arcane",
       "attackSpeed": 1.9,
       "range": 3.0,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.5
     },
     {
@@ -622,7 +622,7 @@
       "damageType": "arcane",
       "attackSpeed": 1.9,
       "range": 3.15,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.5
     },
     {
@@ -638,7 +638,7 @@
       "damageType": "arcane",
       "attackSpeed": 2.0,
       "range": 3.3,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.5
     },
     {
@@ -655,7 +655,7 @@
       "damageType": "arcane",
       "attackSpeed": 2.1,
       "range": 1.9,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.55
     },
     {
@@ -671,7 +671,7 @@
       "damageType": "arcane",
       "attackSpeed": 2.1,
       "range": 2.05,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.55
     },
     {
@@ -688,7 +688,7 @@
       "damageType": "pierce",
       "attackSpeed": 0.45,
       "range": 4.7,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.25
     },
     {
@@ -705,7 +705,7 @@
       "damageType": "pierce",
       "attackSpeed": 0.45,
       "range": 5.0,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.25
     },
     {
@@ -721,7 +721,7 @@
       "damageType": "pierce",
       "attackSpeed": 0.45,
       "range": 5.3,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.25
     },
     {
@@ -738,7 +738,7 @@
       "damageType": "blast",
       "attackSpeed": 0.7,
       "range": 2.3,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.4
     },
     {
@@ -754,7 +754,7 @@
       "damageType": "blast",
       "attackSpeed": 0.7,
       "range": 2.5,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.4
     },
     {
@@ -771,7 +771,7 @@
       "damageType": "impact",
       "attackSpeed": 0.5,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.3
     },
     {
@@ -787,7 +787,7 @@
       "damageType": "impact",
       "attackSpeed": 0.5,
       "range": 0.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.3
     },
     {
@@ -804,7 +804,7 @@
       "damageType": "pierce",
       "attackSpeed": 0.8,
       "range": 2.0,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.4
     },
     {
@@ -820,7 +820,7 @@
       "damageType": "pierce",
       "attackSpeed": 0.8,
       "range": 2.2,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.4
     },
     {
@@ -837,7 +837,7 @@
       "damageType": "blast",
       "attackSpeed": 0.3,
       "range": 5.4,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.2
     },
     {
@@ -854,7 +854,7 @@
       "damageType": "blast",
       "attackSpeed": 0.3,
       "range": 5.7,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.2
     },
     {
@@ -870,7 +870,7 @@
       "damageType": "blast",
       "attackSpeed": 0.35,
       "range": 6.0,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.2
     },
     {
@@ -887,7 +887,7 @@
       "damageType": "blast",
       "attackSpeed": 0.7,
       "range": 3.3,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.35
     },
     {
@@ -903,7 +903,7 @@
       "damageType": "blast",
       "attackSpeed": 0.7,
       "range": 3.55,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.35
     },
     {
@@ -920,7 +920,7 @@
       "damageType": "arcane",
       "attackSpeed": 0.35,
       "range": 5.0,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.2
     },
     {
@@ -937,7 +937,7 @@
       "damageType": "arcane",
       "attackSpeed": 0.35,
       "range": 5.3,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.2
     },
     {
@@ -953,7 +953,7 @@
       "damageType": "arcane",
       "attackSpeed": 0.4,
       "range": 5.6,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.2
     },
     {
@@ -970,7 +970,7 @@
       "damageType": "arcane",
       "attackSpeed": 1.5,
       "range": 3.1,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.4
     },
     {
@@ -986,7 +986,7 @@
       "damageType": "arcane",
       "attackSpeed": 1.5,
       "range": 3.3,
-      "bodyRadius": 0.34,
+      "bodyRadius": 0.26,
       "moveSpeed": 0.4
     }
   ]

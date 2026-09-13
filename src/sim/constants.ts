@@ -26,18 +26,15 @@ export function ticksToSeconds(ticks: number): number {
 }
 
 /**
- * Monsters re-evaluate their nearest target on this interval rather than every
- * tick (§5.1, §15.3). The doc gives a range of 0.25-0.5s; 0.25s is the
- * responsive end. Raise it first if the CPU budget is tight.
+ * Hysteresis on being in range, in tiles.
+ *
+ * A body engages when an enemy's edge is within its range, and stays engaged
+ * until that enemy is further than range PLUS this. Without the slack a target
+ * drifting a hair across the boundary flips its attacker between "attacking"
+ * and "walking" every tick, which is the face-to-face shiver. With it there is
+ * no boundary to sit on.
+ *
+ * Engine, not balance: it is about float noise at a threshold, and it is far
+ * smaller than any range in data/.
  */
-export const MONSTER_RETARGET_TICKS = secondsToTicks(0.25);
-
-/**
- * Stuck detection (§5.3). If a monster's net displacement over this window is
- * below the threshold, it stops steering and attacks whatever is nearest.
- * This fallback must exist or monsters vibrate against obstacles forever.
- */
-export const STUCK_WINDOW_TICKS = secondsToTicks(1);
-
-/** Tiles of net displacement below which a monster counts as stuck. */
-export const STUCK_DISPLACEMENT_TILES = 0.1;
+export const ENGAGE_SLACK_TILES = 0.12;

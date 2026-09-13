@@ -73,7 +73,7 @@ function placeUnit(
   // because the UI is a client and a client is not trusted with rules (§15.1).
   if (def.builderId !== lane.builderId) return fail('wrong-builder');
 
-  if (!inBounds(lane.occupancy, tileX, tileY)) return fail('tile-out-of-bounds');
+  if (!inBounds(ctx.data.lane.buildZone, tileX, tileY)) return fail('tile-out-of-bounds');
   if (tileOccupiedByUnit(lane.units, tileX, tileY)) return fail('tile-occupied');
 
   const goldCost = stat(def.goldCost);
@@ -89,7 +89,6 @@ function placeUnit(
   lane.economy.gold -= goldCost;
   lane.economy.supplyUsed += supplyCost;
   lane.units.push(createUnit(state, def, tileX, tileY));
-  lane.occupancyDirty = true;
   recomputeUnitBuffs(ctx.data, ctx.defs, lane);
 
   return OK;
@@ -370,6 +369,8 @@ function upgradeUnit(
   unit.armour = next.armour;
   unit.damageType = next.damageType;
   unit.moveSpeed = stat(next.moveSpeed);
+  unit.radius = stat(next.bodyRadius);
+  unit.range = stat(next.range);
   unit.targetId = null;
   recomputeUnitBuffs(ctx.data, ctx.defs, lane);
 

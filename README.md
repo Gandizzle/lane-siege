@@ -20,21 +20,20 @@ it.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-216 tests, plus four measurement harnesses that are part of how this is
+212 tests, plus four measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
 sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`
-(movement, which is the weak spot — see [docs/PATHING.md](docs/PATHING.md)) and
-`npm run builders` (all four rosters against identical waves).
+(movement — see [docs/PATHING.md](docs/PATHING.md)) and `npm run builders`
+(all four rosters against identical waves).
 
-Two things are knowingly unfinished:
+One thing is knowingly unfinished:
 
-- **Balance is not playtested.** All four rosters survive to about wave 25
-  against the scripted player, which almost certainly means the curve is too
-  soft — §5.5 targets a first elimination around wave 13–15. Every number lives
-  in `data/`, so tuning is a JSON job: `npm run builders` shows where each
-  roster currently leaks.
-- **Movement works but does not look good.** Ten approaches, what each measured,
-  and what to try next are in [docs/PATHING.md](docs/PATHING.md).
+- **Balance is not playtested.** All four rosters now clear 25 waves without a
+  leak against the scripted player, which means the curve is too soft — §5.5
+  targets a first elimination around wave 13–15, and the movement rework made
+  the defence stronger by letting every unit reach the fight. Every number
+  lives in `data/`, so tuning is a JSON job: `npm run builders` is the
+  yardstick.
 
 Next is M6: Capacitor's Android build, a lobby, matchmaking and accounts — and
 somewhere to host the server, which is what a four-player match needs today.

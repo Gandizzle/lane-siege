@@ -4,12 +4,11 @@ import type { LaneFile } from '../data/schema.ts';
 
 const lane: LaneFile = {
   buildZone: { width: 8, depth: 10 },
-  spawnZoneDepth: 1,
+  spawnZoneDepth: 3,
   fortressZoneDepth: 1,
+  fortressRadius: 0.4,
   unitsBlockMovement: null,
-  unitRadius: 0.34,
-  monsterRadius: 0.3,
-  pathSubdivision: 4,
+  pathSubdivision: 5,
 };
 
 describe('portrait layout (DESIGN.md §4.1)', () => {

@@ -18,16 +18,15 @@ import type { LaneFile } from '../data/schema.ts';
  * Vertical share of the screen for each band. Presentation, not balance.
  *
  * The top band grew at M4: §4.1 always reserved it for opponent tabs, and now
- * there are opponents to put in it. It carries the wave clock and your
- * resources on one row and the four lanes on another, and the build zone gives
- * up the difference - the grid is square-fitted and centred, so it loses a
- * little height rather than changing shape.
+ * there are opponents to put in it. The lane - spawn zone, build grid and
+ * fortress zone together - is one band, because they are one continuous
+ * stretch of ground in tile space and are square-fitted as one: a tile is the
+ * same size in the spawn zone as on the grid, so a monster standing in the
+ * open is the same size as one standing on the line.
  */
 const BAND_WEIGHTS = {
   tabs: 0.115,
-  spawn: 0.07,
-  build: 0.465,
-  fortress: 0.1,
+  lane: 0.635,
   buildBar: 0.25,
 } as const;
 
@@ -65,21 +64,29 @@ export function computeLayout(width: number, height: number, lane: LaneFile): La
   });
 
   const tabs = band(0, BAND_WEIGHTS.tabs);
-  const spawn = band(BAND_WEIGHTS.tabs, BAND_WEIGHTS.spawn);
-  const build = band(BAND_WEIGHTS.tabs + BAND_WEIGHTS.spawn, BAND_WEIGHTS.build);
-  const fortress = band(
-    BAND_WEIGHTS.tabs + BAND_WEIGHTS.spawn + BAND_WEIGHTS.build,
-    BAND_WEIGHTS.fortress,
-  );
+  const laneBand = band(BAND_WEIGHTS.tabs, BAND_WEIGHTS.lane);
   const buildBar = band(1 - BAND_WEIGHTS.buildBar, BAND_WEIGHTS.buildBar);
 
   const grid = { width: lane.buildZone.width, depth: lane.buildZone.depth };
+  const tilesDeep = lane.spawnZoneDepth + grid.depth + lane.fortressZoneDepth;
 
-  // Square tiles, fitted to whichever axis binds first, then centred.
-  const tileSize = Math.min(build.width / grid.width, build.height / grid.depth);
+  // Square tiles, fitted to whichever axis binds first, then centred - the
+  // whole lane at once, so the spawn zone is drawn at the same scale it is
+  // simulated at.
+  const tileSize = Math.min(laneBand.width / grid.width, laneBand.height / tilesDeep);
+  const laneTop = laneBand.y + (laneBand.height - tileSize * tilesDeep) / 2;
   const gridOrigin = {
-    x: build.x + (build.width - tileSize * grid.width) / 2,
-    y: build.y + (build.height - tileSize * grid.depth) / 2,
+    x: laneBand.x + (laneBand.width - tileSize * grid.width) / 2,
+    y: laneTop + lane.spawnZoneDepth * tileSize,
+  };
+
+  const spawn: Rect = { x: 0, y: laneTop, width, height: lane.spawnZoneDepth * tileSize };
+  const build: Rect = { x: 0, y: gridOrigin.y, width, height: grid.depth * tileSize };
+  const fortress: Rect = {
+    x: 0,
+    y: gridOrigin.y + grid.depth * tileSize,
+    width,
+    height: lane.fortressZoneDepth * tileSize,
   };
 
   return {

@@ -11,7 +11,6 @@
  */
 
 import type { ArmourType, DamageType } from '../data/schema.ts';
-import type { OccupancyGrid } from './grid.ts';
 
 export type EntityId = number;
 export type PlayerId = string;
@@ -64,76 +63,41 @@ export interface DefensiveUnit {
    * it plants and holds, which is what keeps §5.2's no-jitter guarantee.
    */
   pos: Vec2;
-  /** Tiles per second while advancing. */
+  /** Tiles per second while advancing. 0 pins it: it is then terrain. */
   moveSpeed: number;
-  /** Collision radius in tiles. The renderer draws it at this size too. */
+  /**
+   * Body radius in tiles. The one circle that is collision shape, hit shape and
+   * drawn size at once - the silhouette is drawn inside it.
+   */
   radius: number;
-  /** Distance to this unit's goal from the flow field; the yielding order. */
-  pathCost: number;
+  /** Reach, edge to edge, in tiles. Copied from the definition on build and upgrade. */
+  range: number;
   /**
-   * Which field cell it steered to last tick, or -1.
-   *
-   * Kept purely as hysteresis: standing on a cell boundary between two equally
-   * good neighbours, a mover with no memory alternates between them every tick
-   * and shivers. Preferring last tick's choice breaks that.
+   * In range of something and attacking it. An engaged body does not move and
+   * nothing moves it: it is an obstacle to everyone else, ally or enemy. That
+   * one asymmetry is what keeps two bodies in contact perfectly still - see
+   * motion.ts.
    */
-  fieldCell: number;
+  engaged: boolean;
   /**
-   * The monster this unit is walking toward, held until it dies or something
-   * is clearly closer. Without this hysteresis a unit flips between two
-   * near-equidistant monsters every tick and visibly shivers.
-   */
-  advanceTargetId: EntityId | null;
-  /**
-   * Which approach slot this unit holds, and around whom. Sticky: recomputed
-   * only when the target changes, because recounting every tick reshuffles
-   * everyone's slot the moment one unit retargets, and the whole group walks to
-   * new positions for nothing.
-   */
-  slotIndex: number;
-  slotTargetId: EntityId | null;
-  /**
-   * Parked at its slot. Stop and restart use different thresholds, because a
-   * single one is a limit cycle: the unit stops just inside it, the
-   * separation pass nudges it just outside, and it sets off again, forever.
+   * Where it is going to be this tick: engaged, pinned, or already moved. A
+   * seeker that has not moved yet yields to those that have (motion.ts).
    */
   settled: boolean;
   /**
-   * Which ally this unit is currently rounding, and which way round (+1/-1).
-   *
-   * Committed until that ally stops blocking. Recomputing the side every tick
-   * is what made earlier attempts oscillate: the choice flips on a fraction of
-   * a tile of movement and the unit shuffles instead of going round.
+   * Distance to the nearest free attack position, from the distance field.
+   * The priority order among seekers: whoever is nearer moves first and the
+   * rest slide around it.
    */
-  avoidBlockerId: EntityId | null;
-  avoidSide: number;
+  pathCost: number;
   /**
-   * Closest this unit has got to its slot, and how long since it improved.
-   *
-   * Rounding an ally is a detour, so a unit can legitimately move for a while
-   * without getting nearer. But if it never gets nearer, it is orbiting a crowd
-   * that has no room for it - and orbiting forever is just jitter with extra
-   * steps. After a couple of seconds without progress it parks where it stands.
+   * Which field cell it steered to last tick, or -1. Hysteresis only: a body on
+   * a cell boundary with no memory alternates between two equal neighbours.
    */
-  slotBestDistSq: number;
-  slotStallTicks: number;
-  /**
-   * Lowest field cost this unit has reached since it picked its target.
-   *
-   * The other half of the progress test. Rounding a wall means travelling for
-   * seconds without getting one tile nearer the slot, so slot distance alone
-   * reads as "no progress" and parks the unit halfway - which is exactly what
-   * it did, and why the field was being wasted. Field cost falls all the way
-   * along a detour, so between them the two measures recognise real progress
-   * whichever route a unit is taking.
-   */
-  routeBestCost: number;
-  /** Stuck-detection window, same fallback the monsters use (§5.3). */
-  stuckAnchor: Vec2;
-  /** Last candidate direction taken; steering hysteresis (see steering.ts). */
-  lastStepIndex: number;
-  stuckTicks: number;
-  isStuck: boolean;
+  fieldCell: number;
+  /** The direction it wants to walk this tick, decided before anyone moves. */
+  moveX: number;
+  moveY: number;
   hp: number;
   maxHp: number;
   armour: ArmourType;
@@ -166,7 +130,7 @@ export interface Monster {
   moveSpeed: number;
   range: number;
   bounty: number;
-  /** Collision radius in tiles. The renderer draws it at this size too. */
+  /** Body radius in tiles: collision, hit and drawn size at once. */
   radius: number;
   /**
    * Which wave this monster belongs to. Enrage is tracked per wave, not per
@@ -181,24 +145,17 @@ export interface Monster {
   damageType: DamageType;
   cooldown: number;
   targetId: EntityId | null;
-  /** Ticks until this monster re-evaluates nearest target (§5.1). */
-  retargetIn: number;
-  /** Distance to this monster's goal from the flow field; the yielding order. */
+  /** In range and attacking; immovable. See DefensiveUnit.engaged. */
+  engaged: boolean;
+  /** See DefensiveUnit.settled. */
+  settled: boolean;
+  /** Distance to the nearest free attack position; the priority order. */
   pathCost: number;
   /** Field cell steered to last tick, or -1; steering hysteresis. */
   fieldCell: number;
-  /** Approach slot, and around whom. Sticky, as for units. */
-  slotIndex: number;
-  slotTargetId: EntityId | null;
-  /** Position at the start of the current stuck-detection window (§5.3). */
-  stuckAnchor: Vec2;
-  /** Last candidate direction taken; steering hysteresis (see steering.ts). */
-  lastStepIndex: number;
-  stuckTicks: number;
-  /** True once stuck detection has fired; the monster attacks what is nearest. */
-  isStuck: boolean;
-  /** True when besieging the fortress: all defenders dead (§5.5). */
-  besieging: boolean;
+  /** The direction it wants to walk this tick, decided before anyone moves. */
+  moveX: number;
+  moveY: number;
   alive: boolean;
 }
 
@@ -267,12 +224,6 @@ export interface Lane {
   builderId: string;
   units: DefensiveUnit[];
   monsters: Monster[];
-  /**
-   * Which tiles are impassable (§4.2 - units block movement). Rebuilt when
-   * units change, never per tick (§15.3); `occupancyDirty` says when.
-   */
-  occupancy: OccupancyGrid;
-  occupancyDirty: boolean;
   /**
    * Overflow beyond maxConcurrentMonsters. Spawns one at a time as active
    * monsters die, into its own wave's current enrage state (§8.1).

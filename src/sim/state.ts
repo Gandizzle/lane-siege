@@ -9,7 +9,6 @@
 
 import type { GameData } from '../data/schema.ts';
 import { secondsToTicks } from './constants.ts';
-import { createGrid } from './grid.ts';
 import { Rng } from './rng.ts';
 import type { Lane, MatchState, PlayerId, Team, TeamId } from './types.ts';
 
@@ -88,8 +87,6 @@ function createLane(
     builderId,
     units: [],
     monsters: [],
-    occupancy: createGrid(data.lane.buildZone.width, data.lane.buildZone.depth),
-    occupancyDirty: false,
     reserve: [],
     incomingSends: [],
     sendLog: [],

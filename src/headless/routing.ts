@@ -1,5 +1,5 @@
 /**
- * Routing measurements. `npm run routing`.
+ * Movement measurements. `npm run routing`.
  *
  * The numbers quoted in docs/PATHING.md come from here. Movement is the only
  * thing being measured, so both sides are disarmed and monsters are pinned
@@ -7,21 +7,17 @@
  * contact" quietly becomes "units that arrived and then survived", which is a
  * different question and was briefly the wrong answer to this one.
  *
- * Each case prints one line. They are deliberately the cases that were
- * reported from play rather than cases chosen to pass.
+ * Each case prints one line. They are the cases the model was designed
+ * against - thirty melee bodies on one tank, and the gap that opens when one
+ * of them dies - plus the ones reported from play under earlier versions.
  */
 
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { applyCommand, createContext, createMatch, step } from '../sim/index.ts';
+import { applyCommand, createContext, createMatch, gap, step } from '../sim/index.ts';
 import type { GameData } from '../data/schema.ts';
-import type { MatchState, SimContext } from '../sim/index.ts';
+import type { Body, MatchState, SimContext } from '../sim/index.ts';
 
 const { data } = loadDataFromDisk();
-
-interface Body {
-  pos: { x: number; y: number };
-  radius: number;
-}
 
 function passive(options: { immobileUnit?: string; monsterSpeed?: number } = {}): GameData {
   const d = structuredClone(data);
@@ -32,7 +28,7 @@ function passive(options: { immobileUnit?: string; monsterSpeed?: number } = {})
   }
   for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) {
     m.damage = 0;
-    m.moveSpeed = options.monsterSpeed ?? 0;
+    if (options.monsterSpeed !== undefined) m.moveSpeed = options.monsterSpeed;
   }
   return d;
 }
@@ -76,37 +72,128 @@ function loneTarget(state: MatchState, x: number, y: number) {
   return target;
 }
 
-function gap(a: Body, b: Body): number {
-  return Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y) - a.radius - b.radius;
-}
-
 function run(ctx: SimContext, state: MatchState, ticks: number): void {
   for (let t = 0; t < ticks; t++) step(ctx, state);
 }
 
+type Fighter = Body & { engaged: boolean };
+
+/** Deepest overlap among living bodies; with `engagedOnly`, only pairs touching an engaged one. */
+function worstOverlap(sets: readonly (readonly Fighter[])[], engagedOnly = false): number {
+  const all: Fighter[] = [];
+  for (const set of sets) for (const b of set) if (b.alive) all.push(b);
+  let worst = 0;
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      if (engagedOnly && !all[i]!.engaged && !all[j]!.engaged) continue;
+      const g = gap(all[i]!, all[j]!);
+      if (-g > worst) worst = -g;
+    }
+  }
+  return worst;
+}
+
 const results: string[] = [];
 
-// Two rows converging on a target off to one side. The reported bug was the
-// back row jamming behind the front row. Six is the geometric maximum: the
-// first ring holds six at these body sizes, so two of the eight belong on a
-// second ring by construction.
+// Thirty melee monsters on one tank: the ring fills, the rest wait, and when a
+// ring member dies the hole is filled. The hole killed each round is the one
+// whose neighbours are furthest apart - ring members are immovable, so a hole
+// between two that packed tightly can be narrower than a body, and that one
+// staying open is geometry rather than pathing.
 {
-  const { state, ctx, lane } = setup(passive());
-  for (const y of [7, 8]) for (let x = 2; x < 6; x++) place(ctx, state, 'hammer', x, y);
+  const d = passive();
+  d.waves.composition = [{ wave: 1, entries: [{ monsterId: 'grub', count: 30 }] }];
+  d.waves.maxConcurrentMonsters = 40;
+  const { state, ctx, lane } = setup(d);
+  place(ctx, state, 'bulwark', 3, 6);
   startCombat(ctx, state);
-  const target = loneTarget(state, 1.5, 2.5);
-  run(ctx, state, 1200);
+  run(ctx, state, 500);
+  const tank = lane.units[0]!;
 
-  const contact = lane.units.filter((u) => u.alive && gap(u, target) < 0.4).length;
+  const ringSize = lane.monsters.filter((m) => m.alive && m.engaged).length;
+  const angle = (m: Body) => Math.atan2(m.pos.y - tank.pos.y, m.pos.x - tank.pos.x);
+
+  let slowestFill = 0;
+  let unfilled = 0;
+  let ringMoved = 0;
+  let overlap = 0;
+  for (let round = 0; round < 8; round++) {
+    const ring = lane.monsters
+      .filter((m) => m.alive && m.engaged)
+      .sort((a, b) => angle(a) - angle(b));
+    const n = ring.length;
+    let loosest = 0;
+    let widest = -1;
+    for (let i = 0; i < n; i++) {
+      let span = angle(ring[(i + 1) % n]!) - angle(ring[(i + n - 1) % n]!);
+      while (span <= 0) span += Math.PI * 2;
+      if (span > widest) {
+        widest = span;
+        loosest = i;
+      }
+    }
+    const victim = ring[loosest]!;
+    const survivors = ring.filter((m) => m !== victim);
+    const before = survivors.map((m) => ({ x: m.pos.x, y: m.pos.y }));
+    victim.hp = 0;
+
+    let filledAt = -1;
+    for (let t = 1; t <= 100; t++) {
+      step(ctx, state);
+      const engaged = lane.monsters.filter((m) => m.alive && m.engaged).length;
+      if (engaged >= n && filledAt < 0) filledAt = t;
+      overlap = Math.max(overlap, worstOverlap([lane.units, lane.monsters], true));
+    }
+    if (filledAt < 0) unfilled++;
+    else slowestFill = Math.max(slowestFill, filledAt);
+    survivors.forEach((m, i) => {
+      ringMoved = Math.max(ringMoved, Math.hypot(m.pos.x - before[i]!.x, m.pos.y - before[i]!.y));
+    });
+  }
   results.push(
-    `two rows, target off to one side   ${contact}/8 in contact (6 is the geometric max)`,
+    `thirty melee on one tank           ring of ${ringSize}; 8 kills, ${8 - unfilled} holes refilled, slowest in ${slowestFill} ticks; ring members moved ${ringMoved.toFixed(3)} tiles; deepest overlap on an engaged body ${overlap.toFixed(4)}`,
   );
 }
 
-// A wall of allies with a gap at one end: the local minimum that local steering
-// cannot solve, and the case the distance field exists for.
+// Face to face: two bodies in contact, and whether either moves at all.
 {
-  const { state, ctx, lane } = setup(passive({ immobileUnit: 'mortar' }));
+  const { state, ctx, lane } = setup(passive());
+  place(ctx, state, 'hammer', 3, 5);
+  startCombat(ctx, state);
+  const target = lane.monsters.find((m) => m.alive)!;
+  for (const m of lane.monsters) if (m !== target) m.alive = false;
+  run(ctx, state, 200);
+  const unit = lane.units[0]!;
+  const before = [unit.pos.x, unit.pos.y, target.pos.x, target.pos.y];
+  run(ctx, state, 400);
+  const moved = Math.max(
+    Math.hypot(unit.pos.x - before[0]!, unit.pos.y - before[1]!),
+    Math.hypot(target.pos.x - before[2]!, target.pos.y - before[3]!),
+  );
+  results.push(
+    `face to face for 20s               both engaged: ${unit.engaged && target.engaged}; movement ${moved.toFixed(6)} tiles`,
+  );
+}
+
+// Two rows converging on a target off to one side. The reported bug was the
+// back row jamming behind the front row. Six is the geometric maximum: a 0.22
+// body is ringed by six 0.26 bodies at these ranges, so two of the eight
+// belong on a second layer by construction.
+{
+  const { state, ctx, lane } = setup(passive({ monsterSpeed: 0 }));
+  for (const y of [7, 8]) for (let x = 2; x < 6; x++) place(ctx, state, 'hammer', x, y);
+  startCombat(ctx, state);
+  loneTarget(state, 1.5, 2.5);
+  run(ctx, state, 1200);
+
+  const engaged = lane.units.filter((u) => u.alive && u.engaged).length;
+  results.push(`two rows, target off to one side   ${engaged}/8 engaged (6 is the geometric max)`);
+}
+
+// A wall of immobile allies with a gap at one end: the local minimum that
+// local steering cannot solve, and the case the distance field exists for.
+{
+  const { state, ctx, lane } = setup(passive({ immobileUnit: 'mortar', monsterSpeed: 0 }));
   for (let x = 0; x < 7; x++) place(ctx, state, 'mortar', x, 5);
   for (let x = 2; x < 6; x++) for (const y of [8, 9]) place(ctx, state, 'hammer', x, y);
   startCombat(ctx, state);
@@ -119,30 +206,34 @@ const results: string[] = [];
   results.push(`wall of allies, gap at one end     ${through}/8 through, ${contact}/8 in contact`);
 }
 
-// A unit that gave up in a crowd, after the crowd is gone. The park used to be
-// permanent: bests-ever baselines that a stationary unit can never beat.
+// A monster crossing open ground: how straight it walks.
 {
-  const { state, ctx, lane } = setup(passive());
-  for (const y of [7, 8]) for (let x = 2; x < 6; x++) place(ctx, state, 'hammer', x, y);
+  const d = passive();
+  for (const u of d.units.units) u.moveSpeed = 0;
+  const { state, ctx, lane } = setup(d);
+  place(ctx, state, 'hammer', 3, 8);
   startCombat(ctx, state);
-  const target = loneTarget(state, 1.5, 2.5);
-  run(ctx, state, 900);
-
-  const parked = lane.units.filter(
-    (u) => u.alive && gap(u, target) > 0.4 && u.slotStallTicks > 200,
+  const monster = loneTarget(state, 3.5, -1.5);
+  const start = { x: monster.pos.x, y: monster.pos.y };
+  let travelled = 0;
+  while (!monster.engaged && travelled < 30) {
+    const px = monster.pos.x;
+    const py = monster.pos.y;
+    step(ctx, state);
+    travelled += Math.hypot(monster.pos.x - px, monster.pos.y - py);
+  }
+  const straight = Math.hypot(monster.pos.x - start.x, monster.pos.y - start.y);
+  results.push(
+    `open ground, spawn to a unit       path efficiency ${((straight / travelled) * 100).toFixed(1)}%`,
   );
-  const before = parked.map((u) => gap(u, target));
-  for (const u of lane.units) if (gap(u, target) < 0.4) u.hp = 0;
-  run(ctx, state, 400);
-  const resumed = parked.filter((u, i) => gap(u, target) < before[i]! - 0.1).length;
-  results.push(`parked units released once clear   ${resumed}/${parked.length} resumed`);
+  void lane;
 }
 
 // A real wave against a real formation, for regression rather than for a claim:
 // how many monsters end up engaged, and how much the crowd still moves once it
 // should have settled.
 {
-  const { state, ctx, lane } = setup(passive({ monsterSpeed: 1.2 }));
+  const { state, ctx, lane } = setup(passive());
   for (let y = 5; y < 8; y++) for (let x = 1; x < 7; x++) place(ctx, state, 'hammer', x, y);
   startCombat(ctx, state);
   run(ctx, state, 600);
@@ -161,9 +252,9 @@ const results: string[] = [];
   }
 
   const alive = lane.monsters.filter((m) => m.alive);
-  const engaged = alive.filter((m) => lane.units.some((u) => u.alive && gap(u, m) < 0.5)).length;
+  const engaged = alive.filter((m) => m.engaged).length;
   results.push(
-    `real wave vs a 3-deep block        ${engaged}/${alive.length} monsters engaged, ${travelled.toFixed(1)} tiles of movement in the last 2s`,
+    `real wave vs a 3-deep block        ${engaged}/${alive.length} monsters engaged, ${travelled.toFixed(2)} tiles of movement in the last 2s`,
   );
 }
 

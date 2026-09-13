@@ -50,20 +50,17 @@ export interface MatrixFile {
 
 export interface LaneFile {
   buildZone: { width: number; depth: number };
+  /** Open ground above the build grid, in tiles. Monsters spawn at its centre. */
   spawnZoneDepth: number;
   fortressZoneDepth: number;
+  /** The fortress as a body: what "in range of it" is measured against (§5.5). */
+  fortressRadius: number;
   /**
-   * §4.2, decided: units DO block movement. Monsters steer around occupied
-   * tiles and attack whatever is nearest when boxed in.
+   * §4.2, decided: units DO block movement. A monster treats every unit as a
+   * solid circle it must route around.
    */
   unitsBlockMovement: Unfilled<boolean>;
-  /**
-   * Body radii in tiles. Two entities of the same kind never come closer than
-   * the sum of their radii, so nothing overlaps anything it is drawn touching.
-   */
-  unitRadius: number;
-  monsterRadius: number;
-  /** Cells per tile for the flow field. Finer routing, linearly more work. */
+  /** Cells per tile for the distance field. Finer routing, linearly more work. */
   pathSubdivision: number;
 }
 

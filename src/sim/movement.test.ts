@@ -1,28 +1,27 @@
 /**
- * Movement behaviour: the stuck-flag deadlock, and mobile defensive units.
+ * Movement behaviour. See docs/PATHING.md for the model these guard.
  *
- * The first describe below covers a bug found in play: monsters froze in place
- * permanently once the units blocking them died. Stuck detection had latched
- * while they stood in attack range, and movement was gated on that flag, so
- * displacement stayed zero and the flag could never clear. It is the reason
- * steering.ts now never gates movement on `isStuck`.
+ * Every case here is one that was reported from play or reproduced from an
+ * earlier version's failure, not one chosen to pass. The important ones are the
+ * two rules the model rests on - an engaged body never moves, and no two bodies
+ * ever overlap - and the scenario that drove the redesign: thirty melee bodies
+ * against one, with the gaps filling as the ring dies.
  */
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { applyCommand, createContext, createMatch, step } from './index.ts';
+import { applyCommand, createContext, createMatch, gap, step } from './index.ts';
 import type { GameData } from '../data/schema.ts';
-import type { MatchState, SimContext } from './index.ts';
+import type { Body, MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
 
 /**
  * Disarmed on both sides, so nothing dies and movement is all that happens.
  *
- * Monsters were left armed here at first, which quietly corrupted every count
- * of "units that reached contact": the ones that arrived first were the ones
- * that got killed, so the measurement partly reported combat rather than
- * routing.
+ * Monsters were left armed here once, which quietly corrupted every count of
+ * "units that reached contact": the ones that arrived first were the ones that
+ * got killed, so the measurement partly reported combat rather than routing.
  */
 function passiveData(): GameData {
   const d = structuredClone(data);
@@ -47,523 +46,437 @@ function run(ctx: SimContext, state: MatchState, ticks: number): void {
   for (let i = 0; i < ticks; i++) step(ctx, state);
 }
 
-describe('monsters never freeze permanently (§5.3)', () => {
-  it('resumes advancing once the wall blocking it is destroyed', () => {
-    const d = passiveData();
-    // Pin the units so this isolates monster movement.
-    for (const u of d.units.units) u.moveSpeed = 0;
+function place(ctx: SimContext, state: MatchState, unitDefId: string, x: number, y: number) {
+  applyCommand(ctx, state, { kind: 'placeUnit', teamId: 'l1', unitDefId, tileX: x, tileY: y });
+}
 
+function startCombat(ctx: SimContext, state: MatchState): void {
+  while (state.phase !== 'combat') step(ctx, state);
+}
+
+type Fighter = Body & { engaged: boolean };
+
+/**
+ * The deepest overlap between any two living bodies, in tiles. 0 is clean.
+ * With `engagedOnly`, only pairs where at least one body is engaged count.
+ */
+function worstOverlap(sets: readonly (readonly Fighter[])[], engagedOnly = false): number {
+  const all: Fighter[] = [];
+  for (const set of sets) for (const b of set) if (b.alive) all.push(b);
+  let worst = 0;
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      if (engagedOnly && !all[i]!.engaged && !all[j]!.engaged) continue;
+      const g = gap(all[i]!, all[j]!);
+      if (-g > worst) worst = -g;
+    }
+  }
+  return worst;
+}
+
+/**
+ * A body that has been pushed to touching and then slid a hair by a neighbour
+ * can read as overlapping by float noise. Anything a hundredth of a tile deep
+ * is real.
+ */
+const OVERLAP_TOLERANCE = 0.01;
+
+describe('an engaged body never moves', () => {
+  it('holds a monster and a unit perfectly still once they are in contact', () => {
+    // The face-to-face jitter: two bodies fighting used to shiver, because the
+    // separation pass kept nudging one and the range check kept flipping.
+    const d = passiveData();
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
+    place(ctx, state, 'hammer', 3, 5);
+    startCombat(ctx, state);
+    const target = lane.monsters.find((m) => m.alive)!;
+    for (const m of lane.monsters) if (m !== target) m.alive = false;
 
-    for (let x = 0; x < 8; x++) {
-      applyCommand(ctx, state, {
-        kind: 'placeUnit',
-        teamId: 'l1',
-        unitDefId: 'hammer',
-        tileX: x,
-        tileY: 3,
-      });
-    }
+    // Let them meet.
+    run(ctx, state, 200);
+    const unit = lane.units[0]!;
+    expect(unit.engaged).toBe(true);
+    expect(target.engaged).toBe(true);
 
-    while (state.phase !== 'combat') step(ctx, state);
-    // Long enough that the old code would have latched isStuck.
+    const ux = unit.pos.x;
+    const uy = unit.pos.y;
+    const mx = target.pos.x;
+    const my = target.pos.y;
     run(ctx, state, 200);
 
-    const held = lane.monsters.filter((m) => m.alive);
-    expect(held.length).toBeGreaterThan(0);
-    expect(held.every((m) => m.pos.y < 3)).toBe(true);
-
-    const before = held.map((m) => m.pos.y);
-    for (const unit of lane.units) unit.hp = 0;
-    step(ctx, state);
-    run(ctx, state, 200);
-
-    const after = lane.monsters.filter((m) => m.alive).map((m) => m.pos.y);
-    expect(after).toHaveLength(before.length);
-    after.forEach((y, i) => expect(y).toBeGreaterThan(before[i]! + 1));
+    expect(unit.pos.x).toBe(ux);
+    expect(unit.pos.y).toBe(uy);
+    expect(target.pos.x).toBe(mx);
+    expect(target.pos.y).toBe(my);
   });
 
-  it('keeps moving even when the stuck flag is set', () => {
-    // The flag itself is harmless - it only enables attacking whatever is
-    // nearest. The original bug was that movement was GATED on it, so a monster
-    // that stopped once could never move again. This is that guarantee.
+  it('is not displaced by a crowd pressing on it', () => {
     const d = passiveData();
-    for (const u of d.units.units) u.moveSpeed = 0;
-
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    for (let x = 0; x < 8; x++) {
-      applyCommand(ctx, state, {
-        kind: 'placeUnit',
-        teamId: 'l1',
-        unitDefId: 'hammer',
-        tileX: x,
-        tileY: 3,
-      });
-    }
-
-    while (state.phase !== 'combat') step(ctx, state);
+    place(ctx, state, 'bulwark', 3, 5);
+    startCombat(ctx, state);
     run(ctx, state, 300);
 
-    const before = lane.monsters.filter((m) => m.alive).map((m) => ({ id: m.id, y: m.pos.y }));
-    for (const unit of lane.units) unit.hp = 0;
-    step(ctx, state);
-    run(ctx, state, 200);
+    const engaged = lane.monsters.filter((m) => m.alive && m.engaged);
+    expect(engaged.length).toBeGreaterThan(0);
+    const before = engaged.map((m) => ({ x: m.pos.x, y: m.pos.y }));
 
-    for (const snapshot of before) {
-      const monster = lane.monsters.find((m) => m.id === snapshot.id);
-      if (!monster?.alive) continue;
-      expect(monster.pos.y).toBeGreaterThan(snapshot.y + 1);
+    run(ctx, state, 200);
+    engaged.forEach((m, i) => {
+      expect(m.pos.x).toBe(before[i]!.x);
+      expect(m.pos.y).toBe(before[i]!.y);
+    });
+  });
+});
+
+describe('bodies do not overlap', () => {
+  // The rule has two halves. An engaged body is never overlapped by anything:
+  // it is immovable, so an overlap with it could never be resolved and would
+  // be frozen into the fight. Two walkers may brush for a tick - a body that
+  // yields to one with priority can have nowhere clean to go until the next
+  // tick - but never by more than a step, and never for long.
+  it('never overlaps an engaged body, from spawn to contact', () => {
+    const d = passiveData();
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    for (let x = 1; x < 7; x++) place(ctx, state, 'hammer', x, 5);
+    startCombat(ctx, state);
+
+    let worst = 0;
+    for (let t = 0; t < 400; t++) {
+      step(ctx, state);
+      worst = Math.max(worst, worstOverlap([lane.units, lane.monsters], true));
     }
+    expect(worst).toBeLessThan(OVERLAP_TOLERANCE);
+  });
+
+  it('resolves a brush between two walkers within a few ticks', () => {
+    const d = passiveData();
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    for (let x = 1; x < 7; x++) place(ctx, state, 'hammer', x, 5);
+    startCombat(ctx, state);
+
+    let worst = 0;
+    let longest = 0;
+    let streak = 0;
+    for (let t = 0; t < 400; t++) {
+      step(ctx, state);
+      const overlap = worstOverlap([lane.units, lane.monsters]);
+      worst = Math.max(worst, overlap);
+      streak = overlap >= OVERLAP_TOLERANCE ? streak + 1 : 0;
+      longest = Math.max(longest, streak);
+    }
+    // A grub's step is 0.055 tiles: a brush is shallower than one step.
+    expect(worst).toBeLessThan(0.055);
+    expect(longest).toBeLessThanOrEqual(3);
+  });
+
+  it('spawns a wave as one packed clump in the spawn zone', () => {
+    const d = passiveData();
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    startCombat(ctx, state);
+
+    const alive = lane.monsters.filter((m) => m.alive);
+    expect(alive.length).toBeGreaterThan(1);
+    // Above the grid, in the spawn zone, and together.
+    for (const m of alive) {
+      expect(m.pos.y).toBeLessThan(0);
+      expect(m.pos.y).toBeGreaterThan(-d.lane.spawnZoneDepth);
+    }
+    const cx = alive.reduce((s, m) => s + m.pos.x, 0) / alive.length;
+    expect(Math.abs(cx - d.lane.buildZone.width / 2)).toBeLessThan(0.3);
+    expect(worstOverlap([lane.monsters])).toBeLessThan(OVERLAP_TOLERANCE);
+  });
+});
+
+describe('thirty melee monsters against one tank', () => {
+  // The scenario the model was designed against: those that can hit it stand
+  // still and hit it; the rest wait; when one dies, one shifts in to fill the
+  // gap; nobody blocks anybody else out of it.
+  function tankAndThirty() {
+    const d = passiveData();
+    // A wave with plenty of bodies: grub_pack's shape, thirty times.
+    d.waves.composition = [{ wave: 1, entries: [{ monsterId: 'grub', count: 30 }] }];
+    d.waves.maxConcurrentMonsters = 40;
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    place(ctx, state, 'bulwark', 3, 6);
+    startCombat(ctx, state);
+    return { state, ctx, lane, tank: lane.units[0]! };
+  }
+
+  it('fills the ring, and only the ring, with the rest waiting behind', () => {
+    const { state, ctx, lane } = tankAndThirty();
+    run(ctx, state, 500);
+
+    const engaged = lane.monsters.filter((m) => m.alive && m.engaged).length;
+    const alive = lane.monsters.filter((m) => m.alive).length;
+    expect(alive).toBe(30);
+    // At these body sizes the ring around a 0.26 body holds about six 0.22
+    // bodies; the point is that it is full and that the other two dozen are
+    // not on it.
+    expect(engaged).toBeGreaterThanOrEqual(5);
+    expect(engaged).toBeLessThanOrEqual(8);
+    expect(worstOverlap([lane.units, lane.monsters])).toBeLessThan(OVERLAP_TOLERANCE);
+  });
+
+  it('fills a gap when a ring member dies, without anyone deadlocking', () => {
+    const { state, ctx, lane, tank } = tankAndThirty();
+    run(ctx, state, 500);
+
+    const angle = (m: { pos: { x: number; y: number } }) =>
+      Math.atan2(m.pos.y - tank.pos.y, m.pos.x - tank.pos.x);
+
+    for (let round = 0; round < 6; round++) {
+      const ring = lane.monsters
+        .filter((m) => m.alive && m.engaged)
+        .sort((a, b) => angle(a) - angle(b));
+      const before = ring.length;
+
+      // Kill the member whose neighbours are furthest apart. Ring members are
+      // immovable, and a ring packs first come first served, so the hole one
+      // leaves is sometimes too narrow for a body: that hole staying open is
+      // the geometry, not the pathing. The widest hole always fits one.
+      let loosest = 0;
+      let widest = -1;
+      for (let i = 0; i < before; i++) {
+        const prev = angle(ring[(i + before - 1) % before]!);
+        const next = angle(ring[(i + 1) % before]!);
+        let span = next - prev;
+        while (span <= 0) span += Math.PI * 2;
+        if (span > widest) {
+          widest = span;
+          loosest = i;
+        }
+      }
+      ring[loosest]!.hp = 0;
+      step(ctx, state);
+
+      // Within a second the ring is full again.
+      run(ctx, state, 20);
+      const after = lane.monsters.filter((m) => m.alive && m.engaged).length;
+      expect(after).toBeGreaterThanOrEqual(before);
+      expect(worstOverlap([lane.units, lane.monsters])).toBeLessThan(OVERLAP_TOLERANCE);
+    }
+  });
+
+  it('leaves the engaged ring perfectly still while the rest jostle', () => {
+    const { state, ctx, lane } = tankAndThirty();
+    run(ctx, state, 500);
+
+    const ring = lane.monsters.filter((m) => m.alive && m.engaged);
+    const before = ring.map((m) => ({ x: m.pos.x, y: m.pos.y }));
+    run(ctx, state, 100);
+    ring.forEach((m, i) => {
+      expect(m.pos.x).toBe(before[i]!.x);
+      expect(m.pos.y).toBe(before[i]!.y);
+    });
   });
 });
 
 describe('defensive units advance when nothing is in range (§5.2, amended)', () => {
-  it('walks toward the nearest monster instead of standing idle', () => {
-    const { state, ctx } = setup(passiveData());
+  it('walks toward the monsters instead of standing idle', () => {
+    const d = passiveData();
+    for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
+    const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
+    place(ctx, state, 'hammer', 3, 8);
+    startCombat(ctx, state);
 
-    // Placed at the back, far from where monsters enter.
-    applyCommand(ctx, state, {
-      kind: 'placeUnit',
-      teamId: 'l1',
-      unitDefId: 'hammer',
-      tileX: 4,
-      tileY: 9,
-    });
     const unit = lane.units[0]!;
     const startY = unit.pos.y;
-
-    while (state.phase !== 'combat') step(ctx, state);
     run(ctx, state, 60);
-
-    expect(unit.pos.y).toBeLessThan(startY);
+    // Monsters are pinned in the spawn zone, so the unit has to come up.
+    expect(unit.pos.y).toBeLessThan(startY - 1);
   });
 
   it('plants and holds once something is in range', () => {
-    const { state, ctx } = setup(passiveData());
+    const d = passiveData();
+    for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
+    const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
+    place(ctx, state, 'lance', 3, 8);
+    startCombat(ctx, state);
 
-    applyCommand(ctx, state, {
-      kind: 'placeUnit',
-      teamId: 'l1',
-      unitDefId: 'hammer',
-      tileX: 4,
-      tileY: 5,
-    });
     const unit = lane.units[0]!;
-
-    while (state.phase !== 'combat') step(ctx, state);
-    run(ctx, state, 200);
-
-    const settled = unit.pos.y;
-    run(ctx, state, 40);
-    // Once engaged it stops - §5.2's no-chase rule still holds.
-    expect(Math.abs(unit.pos.y - settled)).toBeLessThan(0.2);
-  });
-
-  it('stays inside the build zone', () => {
-    const { state, ctx } = setup(passiveData());
-    const lane = state.lanes.l1!;
-    const depth = data.lane.buildZone.depth;
-
-    for (let x = 0; x < 4; x++) {
-      applyCommand(ctx, state, {
-        kind: 'placeUnit',
-        teamId: 'l1',
-        unitDefId: 'hammer',
-        tileX: x,
-        tileY: 8,
-      });
-    }
-
-    while (state.phase !== 'combat') step(ctx, state);
     run(ctx, state, 400);
-
-    for (const unit of lane.units) {
-      expect(unit.pos.y).toBeGreaterThanOrEqual(0);
-      expect(unit.pos.y).toBeLessThan(depth);
-      expect(unit.pos.x).toBeGreaterThanOrEqual(0);
-      expect(unit.pos.x).toBeLessThan(data.lane.buildZone.width);
-    }
+    expect(unit.engaged).toBe(true);
+    const x = unit.pos.x;
+    const y = unit.pos.y;
+    run(ctx, state, 100);
+    expect(unit.pos.x).toBe(x);
+    expect(unit.pos.y).toBe(y);
   });
 
-  it('keeps units a full body apart, not merely on separate tiles', () => {
-    // Tile occupancy alone let two units in adjacent tiles sit half a tile
-    // apart, which overlaps visibly at the size they are drawn. Separation is
-    // by radius so what you see is what collides.
-    const { state, ctx } = setup(passiveData());
+  it('may fight in the spawn zone: the lane is one stretch of ground', () => {
+    const d = passiveData();
+    for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
+    const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
+    place(ctx, state, 'hammer', 3, 3);
+    startCombat(ctx, state);
 
-    // A column in one file: every unit wants the same monster, so they queue.
-    for (let y = 2; y < 10; y++) {
-      applyCommand(ctx, state, {
-        kind: 'placeUnit',
-        teamId: 'l1',
-        unitDefId: 'hammer',
-        tileX: 4,
-        tileY: y,
-      });
-    }
-
-    while (state.phase !== 'combat') step(ctx, state);
     run(ctx, state, 400);
-
-    // Relaxation converges asymptotically, so allow a 1% slack - about a third
-    // of a pixel on screen, and far tighter than anything visible.
-    const minimum = data.lane.unitRadius * 2 * 0.99;
-    const live = lane.units.filter((u) => u.alive);
-    expect(live.length).toBeGreaterThan(4);
-
-    for (let i = 0; i < live.length; i++) {
-      for (let j = i + 1; j < live.length; j++) {
-        const gap = Math.hypot(live[i]!.pos.x - live[j]!.pos.x, live[i]!.pos.y - live[j]!.pos.y);
-        expect(gap).toBeGreaterThanOrEqual(minimum - 1e-6);
-      }
-    }
-  });
-
-  it('keeps monsters a full body apart too', () => {
-    const { state, ctx } = setup(passiveData());
-    const lane = state.lanes.l1!;
-
-    while (state.phase !== 'combat') step(ctx, state);
-    run(ctx, state, 300);
-
-    const minimum = data.lane.monsterRadius * 2 * 0.99;
-    const live = lane.monsters.filter((m) => m.alive);
-    expect(live.length).toBeGreaterThan(4);
-
-    for (let i = 0; i < live.length; i++) {
-      for (let j = i + 1; j < live.length; j++) {
-        const gap = Math.hypot(live[i]!.pos.x - live[j]!.pos.x, live[i]!.pos.y - live[j]!.pos.y);
-        expect(gap).toBeGreaterThanOrEqual(minimum - 1e-6);
-      }
-    }
-  });
-
-  it('does not stack a wave on a single spawn point', () => {
-    // A wave wider than the lane used to put several monsters on the same
-    // point, which reads exactly like passing through each other.
-    const { state, ctx } = setup(passiveData());
-    const lane = state.lanes.l1!;
-    state.wave = 21;
-
-    while (state.phase !== 'combat') step(ctx, state);
-    step(ctx, state);
-
-    const points = new Set(lane.monsters.map((m) => `${m.pos.x.toFixed(2)},${m.pos.y.toFixed(2)}`));
-    expect(points.size).toBe(lane.monsters.length);
+    const unit = lane.units[0]!;
+    expect(unit.engaged).toBe(true);
+    expect(unit.pos.y).toBeLessThan(0);
   });
 
   it('returns the line to its build tiles at the next build phase', () => {
-    const { state, ctx } = setup(passiveData());
+    const d = passiveData();
+    const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
+    place(ctx, state, 'hammer', 2, 7);
+    place(ctx, state, 'hammer', 5, 7);
+    startCombat(ctx, state);
+    run(ctx, state, 100);
+    expect(lane.units.some((u) => Math.floor(u.pos.y) !== 7)).toBe(true);
 
-    applyCommand(ctx, state, {
-      kind: 'placeUnit',
-      teamId: 'l1',
-      unitDefId: 'hammer',
-      tileX: 4,
-      tileY: 9,
-    });
-    const unit = lane.units[0]!;
+    for (const m of lane.monsters) m.hp = 0;
+    while (state.phase !== 'build') step(ctx, state);
 
-    while (state.phase !== 'combat') step(ctx, state);
-    run(ctx, state, 80);
-    expect(unit.pos.y).toBeLessThan(9.5);
-
-    // Clear the lane so combat ends, then check the unit went home.
-    for (const monster of lane.monsters) monster.hp = 0;
-    lane.reserve.length = 0;
-    run(ctx, state, 5);
-
-    expect(state.phase).toBe('build');
-    expect(unit.pos.x).toBeCloseTo(unit.homeTileX + 0.5, 6);
-    expect(unit.pos.y).toBeCloseTo(unit.homeTileY + 0.5, 6);
+    for (const unit of lane.units) {
+      expect(unit.pos.x).toBe(unit.homeTileX + 0.5);
+      expect(unit.pos.y).toBe(unit.homeTileY + 0.5);
+      expect(unit.engaged).toBe(false);
+    }
   });
 });
 
-describe('pathing around obstacles (flow field)', () => {
-  it('routes to a unit that is only reachable the long way round', () => {
-    // A wall across the lane with one gap, and the only reachable unit sitting
-    // behind it. Greedy steering presses into the wall forever - this is the
-    // local minimum the distance field exists to solve.
+describe('monsters route rather than press', () => {
+  it('reaches a unit that is only reachable the long way round', () => {
+    // A wall of units across the lane with a gap at one end, and the unit the
+    // monsters are nearest to on the far side of the wall's solid part. The
+    // wall itself is in range, so a monster's job is to find SOMETHING to hit
+    // - and every one of them does.
     const d = passiveData();
-    for (const u of d.units.units) u.moveSpeed = 0;
-
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
+    for (let x = 0; x < 7; x++) place(ctx, state, 'bulwark', x, 4);
+    startCombat(ctx, state);
+    run(ctx, state, 600);
 
-    // Wall at row 4, gap at x = 7.
-    for (let x = 0; x < 7; x++) {
-      applyCommand(ctx, state, {
-        kind: 'placeUnit',
-        teamId: 'l1',
-        unitDefId: 'hammer',
-        tileX: x,
-        tileY: 4,
-      });
-    }
-    while (state.phase !== 'combat') step(ctx, state);
+    const alive = lane.monsters.filter((m) => m.alive);
+    const engaged = alive.filter((m) => m.engaged).length;
+    expect(engaged).toBeGreaterThanOrEqual(Math.min(alive.length, 6));
+  });
 
-    // Kill the wall's own claim on being a target so the monsters must go
-    // through the gap for the one behind it.
-    for (let i = 0; i < 6000; i++) {
-      step(ctx, state);
-      if (lane.monsters.some((m) => m.alive && m.pos.y > 4.5)) break;
-    }
+  it('attacks whatever it is touching when it can get no further (§5.3)', () => {
+    // A solid wall: nothing to route through. Every monster that reaches the
+    // wall must be engaged with it, not standing behind a neighbour waiting for
+    // a gap that will never open.
+    const d = passiveData();
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    for (let x = 0; x < 8; x++) place(ctx, state, 'bulwark', x, 3);
+    startCombat(ctx, state);
+    run(ctx, state, 600);
 
-    // With the wall as their nearest target they legitimately stop at it, so
-    // the meaningful assertion is that the field found the gap at all: at least
-    // one monster is past the wall, or every monster is engaged against it.
-    const live = lane.monsters.filter((m) => m.alive);
-    const past = live.filter((m) => m.pos.y > 4.5).length;
-    const engaged = live.filter((m) => m.pos.y > 2.5).length;
-    expect(past + engaged).toBeGreaterThan(0);
+    const alive = lane.monsters.filter((m) => m.alive);
+    const touchingWall = alive.filter((m) => lane.units.some((u) => u.alive && gap(m, u) < 0.05));
+    for (const m of touchingWall) expect(m.engaged).toBe(true);
+    expect(touchingWall.length).toBeGreaterThan(0);
   });
 
   it('walks a straight line when nothing is in the way', () => {
-    // The field is only for getting around something. On open ground an agent
-    // must not wobble between neighbouring tiles chasing a shifting gradient.
-    const { state, ctx } = setup(passiveData());
+    const d = passiveData();
+    for (const u of d.units.units) u.moveSpeed = 0;
+    const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-
-    while (state.phase !== 'combat') step(ctx, state);
-    step(ctx, state);
+    place(ctx, state, 'hammer', 3, 8);
+    startCombat(ctx, state);
 
     const monster = lane.monsters.find((m) => m.alive)!;
-    const start = { x: monster.pos.x, y: monster.pos.y };
+    for (const m of lane.monsters) if (m !== monster) m.alive = false;
+    monster.pos.x = 3.5;
+    monster.pos.y = -1.5;
 
     let travelled = 0;
-    for (let i = 0; i < 40; i++) {
-      const before = { x: monster.pos.x, y: monster.pos.y };
+    const start = { x: monster.pos.x, y: monster.pos.y };
+    while (!monster.engaged && travelled < 30) {
+      const px = monster.pos.x;
+      const py = monster.pos.y;
       step(ctx, state);
-      travelled += Math.hypot(monster.pos.x - before.x, monster.pos.y - before.y);
+      travelled += Math.hypot(monster.pos.x - px, monster.pos.y - py);
     }
-
-    const net = Math.hypot(monster.pos.x - start.x, monster.pos.y - start.y);
-    // Efficiency near 1 means it went somewhere rather than shuffling.
-    expect(net / Math.max(travelled, 1e-6)).toBeGreaterThan(0.95);
+    const straight = Math.hypot(monster.pos.x - start.x, monster.pos.y - start.y);
+    // Path efficiency: distance covered against distance closed.
+    expect(straight / travelled).toBeGreaterThan(0.97);
   });
 });
 
-describe('no jitter under crowding', () => {
-  it('settles instead of shuffling forever with forty units converging', () => {
-    // The regression this guards: a unit whose way forward was blocked used to
-    // sidestep left, then right, then left, at two ticks per cycle, forever.
-    //
-    // Measured as whether the crowd comes to REST, not as path length - routing
-    // around an ally is a longer path on purpose, so penalising distance would
-    // penalise the very behaviour we want.
-    // Static targets, so anything still moving at the end is jitter rather than
-    // legitimate tracking of something that moved.
-    const d = passiveData();
-    for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
-
-    const { state, ctx } = setup(d);
-    const lane = state.lanes.l1!;
-
-    for (let x = 0; x < 8; x++) {
-      for (let y = 5; y < 10; y++) {
-        applyCommand(ctx, state, {
-          kind: 'placeUnit',
-          teamId: 'l1',
-          unitDefId: 'hammer',
-          tileX: x,
-          tileY: y,
-        });
-      }
-    }
-    while (state.phase !== 'combat') step(ctx, state);
-
-    // Give the crowd time to arrive and arrange itself.
-    run(ctx, state, 600);
-
-    // Then measure how much it is still moving.
-    let late = 0;
-    for (let t = 0; t < 200; t++) {
-      const before = new Map(lane.units.map((u) => [u.id, { x: u.pos.x, y: u.pos.y }]));
-      step(ctx, state);
-      for (const u of lane.units) {
-        if (!u.alive) continue;
-        const b = before.get(u.id)!;
-        late += Math.hypot(u.pos.x - b.x, u.pos.y - b.y);
-      }
-    }
-
-    // A jittering crowd of 40 never stops: the old two-tick oscillation alone
-    // moved each unit a full step every tick, roughly 220 tiles over this
-    // window. What remains is about 7 - some 0.02 tiles per unit per second, or
-    // under a pixel - which is settling, not shuffling. The threshold leaves
-    // room for that while still catching anything resembling the old
-    // behaviour.
-    expect(late).toBeLessThan(15);
-  });
-
-  it('leaves nobody permanently unable to move', () => {
-    const { state, ctx } = setup(passiveData());
-    const lane = state.lanes.l1!;
-
-    for (let x = 2; x < 7; x++) {
-      for (let y = 6; y < 10; y++) {
-        applyCommand(ctx, state, {
-          kind: 'placeUnit',
-          teamId: 'l1',
-          unitDefId: 'hammer',
-          tileX: x,
-          tileY: y,
-        });
-      }
-    }
-    while (state.phase !== 'combat') step(ctx, state);
-
-    const start = new Map(lane.units.map((u) => [u.id, { x: u.pos.x, y: u.pos.y }]));
-    run(ctx, state, 400);
-
-    const stuck = lane.units.filter((u) => {
-      const s = start.get(u.id)!;
-      return u.alive && Math.hypot(u.pos.x - s.x, u.pos.y - s.y) < 0.5;
-    });
-    expect(stuck).toHaveLength(0);
-  });
-});
-
-describe('routing around allies', () => {
+describe('units route around allies', () => {
   it('gets a whole group through a gap in a wall of allies', () => {
-    // What local steering cannot do, and the reason for the distance field: a
-    // line of allies spanning the lane is a local minimum. Every direction that
-    // points at the target is blocked, so the group presses flat against the
-    // wall and stays there - measured 1 of 8 through with tangent steering
-    // alone, against 7 of 8 with the field.
+    // A line of immobile allies across the lane with one gap. Local steering
+    // pressed flat against it; the field finds the gap.
     const d = passiveData();
-    // The wall has to stay a wall, so it is built from a unit type pinned in
-    // place; the hammers do the walking.
     for (const u of d.units.units) if (u.id === 'mortar') u.moveSpeed = 0;
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
-
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
 
-    for (let x = 0; x < 7; x++) {
-      applyCommand(ctx, state, {
-        kind: 'placeUnit',
-        teamId: 'l1',
-        unitDefId: 'mortar',
-        tileX: x,
-        tileY: 5,
-      });
-    }
-    for (let x = 2; x < 6; x++) {
-      for (const y of [8, 9]) {
-        applyCommand(ctx, state, {
-          kind: 'placeUnit',
-          teamId: 'l1',
-          unitDefId: 'hammer',
-          tileX: x,
-          tileY: y,
-        });
-      }
-    }
+    for (let x = 0; x < 7; x++) place(ctx, state, 'mortar', x, 5);
+    for (let x = 2; x < 6; x++) for (const y of [8, 9]) place(ctx, state, 'hammer', x, y);
+    startCombat(ctx, state);
 
-    while (state.phase !== 'combat') step(ctx, state);
-
-    const movers = lane.units.filter((u) => u.defId === 'hammer');
     const target = lane.monsters.find((m) => m.alive)!;
     for (const m of lane.monsters) if (m !== target) m.alive = false;
     target.pos.x = 3.5;
     target.pos.y = 1.5;
 
     run(ctx, state, 1200);
-
-    // Past the wall, which is the whole question. Where they end up around the
-    // target after that is the slots' business, tested separately.
+    const movers = lane.units.filter((u) => u.defId === 'hammer');
     const through = movers.filter((u) => u.pos.y < 4.5).length;
-    expect(through).toBeGreaterThanOrEqual(6);
+    expect(through).toBe(8);
   });
 
   it('gets the back row past the front row to the target', () => {
-    // The reported bug: two rows of units, and the back row jams behind the
-    // front row rather than going round. Measured at 3 of 8 reaching a target
-    // that had open lane on either side of it.
     const d = passiveData();
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
-
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
+    for (const y of [7, 8]) for (let x = 2; x < 6; x++) place(ctx, state, 'hammer', x, y);
+    startCombat(ctx, state);
 
-    for (const y of [7, 8]) {
-      for (let x = 2; x < 6; x++) {
-        applyCommand(ctx, state, {
-          kind: 'placeUnit',
-          teamId: 'l1',
-          unitDefId: 'hammer',
-          tileX: x,
-          tileY: y,
-        });
-      }
-    }
-
-    while (state.phase !== 'combat') step(ctx, state);
-
-    // A single stationary target off to one side, with room all around it.
     const target = lane.monsters.find((m) => m.alive)!;
     for (const m of lane.monsters) if (m !== target) m.alive = false;
     target.pos.x = 1.5;
     target.pos.y = 2.5;
 
     run(ctx, state, 1200);
-
-    const inContact = lane.units.filter(
-      (u) =>
-        u.alive &&
-        Math.hypot(u.pos.x - target.pos.x, u.pos.y - target.pos.y) - u.radius - target.radius < 0.4,
-    ).length;
-
-    // Only the first ring can touch, and it holds six at these body sizes, so
-    // six is the geometric maximum rather than eight - the last two belong on a
-    // second ring by construction. Measured 3 before any of this, and 6 with
-    // tangent steering and the field together; the floor here is the regression
-    // guard, not the target.
-    expect(inContact).toBeGreaterThanOrEqual(5);
+    // A 0.22 body is ringed by up to seven 0.26 bodies; six is comfortable.
+    const engaged = lane.units.filter((u) => u.alive && u.engaged).length;
+    expect(engaged).toBeGreaterThanOrEqual(6);
   });
+});
 
-  it('commits to one side rather than reversing mid-detour', () => {
-    // Re-deciding which way round whenever a different ally becomes the nearest
-    // obstacle made units orbit the cluster forever. The side is held until
-    // nothing is blocking.
+describe('the crowd comes to rest', () => {
+  it('stops moving once everything that can engage has engaged', () => {
     const d = passiveData();
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
-
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
+    for (let x = 2; x < 7; x++) for (let y = 6; y < 10; y++) place(ctx, state, 'hammer', x, y);
+    startCombat(ctx, state);
+    run(ctx, state, 1400);
 
-    for (let y = 6; y < 10; y++) {
-      applyCommand(ctx, state, {
-        kind: 'placeUnit',
-        teamId: 'l1',
-        unitDefId: 'hammer',
-        tileX: 4,
-        tileY: y,
-      });
-    }
-    while (state.phase !== 'combat') step(ctx, state);
-
-    let flips = 0;
-    const lastSide = new Map<number, number>();
-    for (let t = 0; t < 600; t++) {
+    // Once settled, the sum of all movement over two seconds should be tiny:
+    // the engaged are still by rule, and the waiting have nowhere to go.
+    const before = new Map(lane.units.map((u) => [u.id, { x: u.pos.x, y: u.pos.y }]));
+    let late = 0;
+    for (let t = 0; t < 40; t++) {
       step(ctx, state);
       for (const u of lane.units) {
-        if (!u.alive || u.avoidSide === 0) continue;
-        const previous = lastSide.get(u.id);
-        if (previous !== undefined && previous !== u.avoidSide) flips++;
-        lastSide.set(u.id, u.avoidSide);
+        const b = before.get(u.id)!;
+        late += Math.hypot(u.pos.x - b.x, u.pos.y - b.y);
+        b.x = u.pos.x;
+        b.y = u.pos.y;
       }
     }
-
-    // A few flips are legitimate - a unit finishes one detour and starts
-    // another. Dozens per unit would mean it is reversing on the spot.
-    expect(flips).toBeLessThan(lane.units.length * 3);
+    expect(late).toBeLessThan(3);
   });
 });

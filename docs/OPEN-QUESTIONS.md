@@ -24,15 +24,14 @@ before the next one lands on top of it.
 Decided against the doc's own v1 recommendation: units _do_ block.
 
 - Data: `lane.unitsBlockMovement: true`
-- Built: `grid.ts` holds a per-lane occupancy grid, rebuilt when units change and
-  never per tick (§15.3). `steering.ts` ranks eight candidate directions by how
-  closely each matches the desired heading and takes the best unblocked one.
-  Ties fall to straight down the lane — which is exactly the §5.3 tie-break, now
-  load-bearing rather than decorative.
-- Two consequences are now real rather than theoretical: a monster can be boxed
-  in completely, so stuck detection is a genuine safety net; and a monster
-  standing on a tile where a unit gets built is explicitly allowed to leave by
-  any route, or it would be trapped there forever.
+- Built: every unit is a solid circle that a monster's distance field routes
+  around, inflated by the monster's own radius so every route offered has real
+  clearance ([PATHING.md](PATHING.md)). There is no tile occupancy; tiles only
+  say where a unit may be built.
+- The consequence that used to need a safety net no longer does: a monster
+  that can get no further is pressed against a unit, which puts that unit in
+  range, and "attack the nearest thing in range" covers the boxed-in case with
+  no stuck detector at all.
 
 ### 5. What exactly is publicly visible on opponent tabs? (§12) → **fortress HP and alive-or-out, and nothing else ever**
 
@@ -162,19 +161,18 @@ Already decided in DESIGN.md and simply written into `data/`:
   because that formula's code block is empty in the document as supplied.
   Verified by `src/sim/enrage.test.ts`. Worth a glance to confirm.
 
-## Known weak spot: movement
+## Movement
 
-**Movement works but does not look good, and will need another pass.** It has
-taken more attempts than anything else here and is still the weakest thing to
-watch: crowds arrive in a clump rather than fanning out, the last unit or two
-never find a place, and bodies at contact never quite come to rest.
-
-This is deliberately recorded rather than quietly carried. Every approach tried,
-what each one measured, the seven problems that remain and the candidates for
-the next attempt are in [PATHING.md](PATHING.md), and `npm run routing`
-reproduces the numbers. Nothing downstream depends on the current approach
-beyond `advanceUnit` and `monstersAct` in `src/sim/tick.ts`, so replacing it
-later is a contained change.
+**Movement is solved to the standard the game needs, after eleven attempts.**
+The first ten were patches on a local-steering model and each fixed one
+measured case while the crowd still looked wrong; the eleventh replaced them
+with two rules — an engaged body never moves, and a seeker walks downhill on a
+field to the nearest free attack position — and thirty melee bodies on one tank
+now behave the way a good RTS's do. The model, the measurements, the lessons
+and the known limits are in [PATHING.md](PATHING.md); `npm run routing`
+reproduces the numbers. The one deliberate trade: engaged bodies do not
+shuffle to make room, so a hole narrower than a body stays open until the next
+death.
 
 ## Design changes to DESIGN.md
 
@@ -186,48 +184,45 @@ Decisions that override the document rather than filling a gap in it:
   others hostage; that is now handled at the other end instead — enrage keeps
   climbing on a lane that cannot clear, and when its fortress falls the lane is
   wiped and stops receiving waves, so it cannot stall the match indefinitely.
-- **§5.3 — pathing is a sub-tile Dijkstra field, not greedy steering.** §5.3
-  explicitly ruled out A\*, navmeshes and flow fields. Greedy steering could not
-  solve a wall with a gap in it — a measured 0 of 8 monsters got through, and 1
-  of 8 units once tangent steering was added — so a multi-source Dijkstra field
-  replaced it. A\* was considered and rejected as the wrong shape: many agents,
-  few goals, so one shared sweep beats 30 individual searches. Cells are a
-  quarter tile (`lane.pathSubdivision`) and obstacles are inflated by the
-  mover's kind radius, so free space is where that body's centre may legally be
-  and every route offered has real clearance. Whole tick: 1.65% of the budget,
-  up from 0.50%. The field is used only when something is in the way; on open
-  ground agents still walk straight at their target.
-- **§5.3 — the field routes, local steering arrives.** The field and tangent
-  steering are complementary rather than alternatives. The field is global and
-  solves the wall (1 of 8 units through, to 7 of 8); tangent steering handles
-  what it hands back — the last two tiles to a slot, and units the field has no
-  clear cell to offer at all. Letting the field steer all the way in points
-  every attacker at the same body and undoes the slots (6 of 8 in contact with
-  the handover, 3 without). Two consequences worth naming: inflation is per
-  _kind_, so a boss can be offered a route it does not quite fit and falls back
-  on local steering there; and the give-up-and-park rule applies to local
-  steering only, since a unit on a global gradient cannot orbit, and parking one
-  that was mid-detour froze it for the rest of the fight.
-- **§5.1/§5.2 — attackers take approach slots around a target.** Rather than all
-  walking at the target's centre, each takes its own position on a ring around
-  it, so a group surrounds rather than forming a queue. Reactive alternatives
-  (vetoing blocked directions, deflecting away from neighbours) were both built
-  and both oscillated; the numbers are in ARCHITECTURE.md.
+- **§5.3 — movement is engaged-or-seeking on a distance field, not greedy
+  steering.** §5.3 explicitly ruled out A\*, navmeshes and flow fields. Greedy
+  steering could not solve a wall with a gap in it (a measured 0 of 8 through),
+  and every patch on it — slots, tangent steering, stuck detection, give-up
+  timers — fixed one case and left the crowd wrong. The model now is two
+  rules: a body with something in range is engaged and immovable; a body with
+  nothing in range walks downhill on a multi-source Dijkstra field whose goals
+  are the free positions from which an enemy is in range, sliding off whatever
+  it touches and yielding to whoever is nearer a goal. Cells are a fifth of a
+  tile (`lane.pathSubdivision`), obstacles are inflated by the mover's own
+  radius, and there is one field per (kind, radius, range) in play. Whole
+  tick: 3.6% of the budget. [PATHING.md](PATHING.md) has the rest.
+- **§5.1 — monsters hold a target while it is in range; there is no
+  retarget interval.** §5.1 has monsters re-evaluating "nearest" continuously.
+  A walking monster has no target and re-reads the field every tick, which is
+  a stronger form of that; once something is in range it holds it, as units
+  do, because switching between two in-range enemies wastes the hits already
+  landed. `retargetIntervalSeconds` is gone from the data.
+- **§4 — a spawn zone above the build grid.** Monsters spawn as one packed
+  clump at the centre of a three-tile band above the grid
+  (`lane.spawnZoneDepth`) and cross it before the first contact, rather than
+  appearing on the top build row. Both sides may fight anywhere in the lane,
+  spawn zone included.
 - **§5.1 — `range` is measured edge to edge.** A melee value near zero means
   walking up until the bodies touch. Centre-to-centre range left attackers a
   full body-width short of their target.
-- **§4.2 — same-kind collision is by body radius, not by tile.** Tile occupancy
-  is right for monster-versus-unit, where a line of units is a wall. It is too
-  coarse between entities of the same kind moving continuously: two in adjacent
-  tiles could sit half a tile apart and visibly overlap, and a wave wider than
-  the lane used to spawn several monsters onto the same point. Units now keep
-  `unitRadius * 2` apart and monsters `monsterRadius * 2`, both matching what is
-  drawn, so what you see is what collides.
+- **§4.2 — every body is one circle: collision shape, hit shape and drawn
+  size.** There is no tile occupancy and no separate hit box. Contact between
+  two circles is exact, edge-to-edge range reads off the same circle, and what
+  is drawn is exactly what collides and exactly what counts as in range. Bodies
+  are about half a tile wide (0.26 for units, 0.22 for monsters, 0.44 for
+  bosses) so a crowd has room to move between them.
 - **§5.2 — defensive units are no longer permanently stationary.** A unit with
-  nothing in range advances on the nearest monster until something comes into
-  range, then plants and fights. It still never chases a target it is already
-  engaging, so §5.2's anti-jitter guarantee is intact. `moveSpeed` is per unit in
-  `units.json`; `0` restores the original stationary behaviour.
+  nothing in range advances toward the nearest free attack position until
+  something comes into range, then plants and fights — anywhere in the lane,
+  spawn zone included. It never moves while engaged, so §5.2's anti-jitter
+  guarantee is stronger than before, not weaker. `moveSpeed` is per unit in
+  `units.json`; `0` pins a unit in place, and a pinned unit is terrain to its
+  allies' routing. The line returns to its build tiles at each build phase.
 - **§3.2 — the ready button is gone.** The build phase is short enough that
   skipping it was not worth a button. Its corner of the build bar now holds the
   fortress weapon damage-type selector (§10.1).
@@ -265,8 +260,9 @@ Everything else numeric in `data/` is a placeholder in the doc's own sense, and
 Three fenced code blocks in the document arrived empty — the surrounding prose
 survived but the code did not:
 
-- **§5.3**, the movement/steering pseudocode. `steering.ts` is written from the
-  prose and says so at the top.
+- **§5.3**, the movement/steering pseudocode. The prose was implemented and
+  then replaced; `src/sim/tick.ts` and `src/sim/motion.ts` are the movement
+  now, and [PATHING.md](PATHING.md) records why.
 - **§8**, the enrage formula. Reconstructed from the worked example, as above.
 - **§16**, the JSON schemas for `matrix.json`, `units.json`, `monsters.json` and
   `waves.json`. The shapes in `data/` and in `src/data/schema.ts` are inferred

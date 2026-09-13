@@ -73,11 +73,14 @@ real spawns to pool.
 
 ## Coordinates
 
-The simulation works entirely in **tile** coordinates. `y = 0` is the spawn
-edge, `y = depth` is the fortress. The simulation has no idea how big the screen
-is, and the renderer owns the single tile→pixel transform in
-`src/render/layout.ts`, recomputed on boot and on resize only. The fixed camera
-(§4.1, §14.1) is what makes one transform enough.
+The simulation works entirely in **tile** coordinates. `y = 0` is the top of
+the build grid, `y = depth` is its bottom; the spawn zone is the band of
+negative `y` above the grid and the fortress zone the band below it, so the
+whole lane is one stretch of ground from `-spawnZoneDepth` to
+`depth + fortressZoneDepth`. The simulation has no idea how big the screen is,
+and the renderer owns the single tile→pixel transform in `src/render/layout.ts`,
+recomputed on boot and on resize only. The fixed camera (§4.1, §14.1) is what
+makes one transform enough.
 
 ## Determinism
 
@@ -159,11 +162,14 @@ tier 3. That satisfies §7.3's "~1.6× base cost for ~2.2× value", and a test
 asserts the property directly — an upgrade must cost proportionally less than it
 gives, or upgrading in place stops being the reason to hold board presence.
 
-Every body is 0.34 tiles across, whatever the roster. The flow field inflates
-obstacles by one lane-wide unit radius (`lane.unitRadius`), so a wider body
-would be offered routes it does not fit; a test enforces the ceiling. That is a
-real constraint from [PATHING.md](PATHING.md) leaking into the content, and it
-is the reason builders differ by numbers rather than by size.
+Every unit body is a circle of radius 0.26 tiles, whatever the roster, and a
+test enforces that no body is wider than 0.7 of a tile. Size is a movement
+lever, not a balance one: bodies are deliberately about half a tile so that a
+crowd has room to move between them (see [PATHING.md](PATHING.md)), and a roster
+that packed the lane tighter would fight differently for reasons that have
+nothing to do with its numbers. Builders therefore differ by numbers rather
+than by size. Monsters are 0.22 and bosses 0.44; the distance field is built
+per body size, so a boss is never offered a route it does not fit.
 
 **Choosing a builder is a pre-match decision**, which DESIGN.md never states.
 Recorded in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md): §7.3's upgrades and §11.4's
@@ -251,205 +257,78 @@ path — both go through the same `viewFor`, and `npm run netcheck` exercises th
 real one with real sockets — but it does mean a four-player match needs someone
 to run `npm run server`. Hosting, a lobby and matchmaking are M6.
 
-### Pathing: a distance field, not A\*
+### The lane: spawn zone, build grid, fortress zone
 
-§5.3 ruled out A\*, navmeshes and flow fields, and greedy steering was a
-reasonable first guess — but it fails on the geometry this game makes. A wall of
-units with a gap at one end is a local minimum: every greedy step is blocked, no
-tie-break finds the gap, and whoever is behind it presses flat against it
-forever. Measured with local steering alone: **1 of 8 units through a gap at one
-end of a wall of allies**.
+A lane is three bands of open ground, all in the same tile space. Above the
+8 × 10 build grid is a spawn zone three tiles deep (`lane.spawnZoneDepth`),
+where a wave lands as one packed hexagonal clump at the centre and crosses
+before the first contact, so the fight starts in the open rather than on the
+top build row. Below the grid is the fortress zone, one tile deep, with the
+fortress as a body of radius 0.4 at its centre. Tiles matter for exactly one
+thing — where a unit may be _built_ — and both sides may fight anywhere in the
+lane, spawn zone included. The renderer square-fits the whole 8 × 14 lane and
+derives the three bands from one tile size.
 
-A\* fixes that but is the wrong shape here. A\* answers "one agent, one goal";
-this is _many_ agents converging on _few_ goals — up to 30 monsters all heading
-for the nearest unit — so per-agent A\* re-solves nearly the same search 30 times
-and redoes it whenever the line changes.
+### Movement: engaged or seeking
 
-A Dijkstra distance field inverts it: one sweep from every goal at once labels
-each cell with its distance to the nearest, and every agent walks downhill off
-the same answer. One search serves the whole lane, and it cannot be trapped,
-because the field encodes global connectivity rather than what is immediately
-adjacent.
+Movement is described in full in [PATHING.md](PATHING.md), with every number
+and the ten attempts that preceded it. The short version is two rules.
 
-Four things make it work on bodies that have size:
+**Every body is either engaged or seeking.** Engaged means something is in
+range: it attacks, it does not move, and _nothing moves it_ — it is an
+immovable obstacle to ally and enemy alike. Seeking means nothing is in range:
+it walks. Two bodies in contact could only shiver if something kept nudging one
+of them, and now nothing can, which is where every version of face-to-face
+jitter went.
 
-1. **Sub-tile cells.** A tile is wider than a body, so at one cell per tile
-   "blocked" and "clear" are the only answers and clearance cannot be
-   represented at all. `lane.pathSubdivision` (4) gives quarter-tile cells —
-   32 × 40 for the 8 × 10 build zone — which is finer than a body is wide
-   (0.68).
-2. **Inflated obstacles.** Every obstacle is grown by the mover's radius before
-   the sweep, the standard Minkowski trick, so free space is exactly where that
-   body's _centre_ may legally be and any downhill route it is offered has
-   genuine clearance. That is why there are two fields per lane rather than one:
-   a monster and a unit need different inflation.
-3. **Goals seed their whole blob, not their centre.** A goal is a body, so it is
-   also an obstacle, and an inflated body is several cells across — seed only
-   its centre and every neighbour of that centre is blocked, nothing expands,
-   and the entire field comes back unreachable. Seeding the blob puts cost 0 on
-   its rim, which is where a mover's centre sits when the two bodies touch, so a
-   downhill walk ends at contact.
-4. **Octile costs, Dial's algorithm.** 10 orthogonal, 14 diagonal (10·√2
-   rounded); plain breadth-first would treat both as equal and bend routes into
-   staircases. Integer weights bounded by 14 mean a small ring of buckets works
-   instead of a heap, so the sweep is linear and allocates nothing.
+**A seeker walks downhill on a distance field whose goals are the free attack
+positions.** One multi-source Dijkstra sweep per (kind, body radius, range)
+labels every cell with its distance to the nearest position from which an
+enemy is in range and nothing is already standing — the annulus from touching
+distance out to touching distance plus the range, around every enemy, minus
+whatever is occupied. Obstacles are what will not move: enemies, engaged
+allies, allies that cannot walk, each inflated by the seeker's radius. Allies
+that are walking are not obstacles, because treating a moving crowd as terrain
+is what made every earlier attempt oscillate. Goals are found at 4 × 4 samples
+per cell, so a hole narrower than a cell that a body still fits is seen; and
+when every attack position is taken, the goals become the positions beside the
+allies that are attacking, so the rest wait where the next hole will open.
 
-The defensive line is the obstacle set in _both_ fields, because it is the only
-thing in a lane that forms a wall: monsters have to get round it, and the units
-that make it up have to get round each other. Same geometry, two inflations.
+Contact is move-and-slide: a proposed step is pushed out of everything settled
+it would overlap, along the line between centres, so the component into an
+obstacle is cancelled and the component along it survives. Seekers move in
+order of distance to a goal, each resolving against the ones that have already
+moved and walking through the ones that have not — which then yield when their
+turn comes. Two bodies wanting the same hole cannot jam: the one further away
+moves second and gives way.
 
-Inflation uses each _kind's_ declared radius, since one field serves every
-member of that kind. Bosses are wider, so a boss can be offered a route it does
-not quite fit and falls back on local steering and separation there. That is the
-accepted cost of one shared sweep over a sweep per body.
+| case                                          | result                                                        |
+| --------------------------------------------- | ------------------------------------------------------------- |
+| thirty melee monsters on one tank             | ring of 7; holes refilled in under a second; ring never moves |
+| face to face for 20 seconds                   | movement 0.000000 tiles                                       |
+| two rows of units, target off to one side     | 6 of 8 engaged (the geometric maximum)                        |
+| wall of immobile allies with a gap at one end | 8 of 8 through                                                |
+| a real wave against a 3-deep block            | 8 of 8 engaged, 0.00 tiles of movement in the last 2 seconds  |
 
-The field is used only when something is in the way. With a clear run an agent
-walks straight at its target, because following a gradient whose sources are
-moving adds wobble for nothing. And near the target the field hands over to
-slots (`FIELD_HANDOVER`, 2 tiles): the field routes to the nearest _monster_,
-while the slot decides where around it to stand, so letting the field win to the
-end points every attacker at the same body and re-forms the queue that slots
-exist to prevent — 6 of 8 in contact with the handover, 3 without it.
-
-| case                               | local steering only | with the field |
-| ---------------------------------- | ------------------- | -------------- |
-| wall of allies, gap at one end     | 1 of 8 through      | 7 of 8         |
-| two rows, target off to one side   | 6 of 8 in contact   | 6 of 8         |
-| a real wave against a 3-deep block | 8 of 8 engaged      | 8 of 8         |
-
-So the field is a strict addition: it solves the case local steering cannot and
-costs nothing in the cases local steering already handled. It is not, however,
-where this should end: movement is the weakest part of the game to watch, and
-[PATHING.md](PATHING.md) records every approach tried so far, what each
-measured, what is still wrong, and the candidates for the next attempt. At the full §15.3
-load (4 lanes, 120 monsters, 160 units) the whole tick went from **0.25ms to
-0.83ms — 0.50% to 1.65% of the 50ms budget**. `npm run perf` re-checks it.
-
-One more consequence, and it is the one that actually stranded a group against a
-wall they had a route around: the give-up condition below now applies to local
-steering only. A unit on the field cannot orbit — the field is a global
-gradient, so downhill is always real progress — and if it is not moving, bodies
-are in the way, which is queuing rather than orbiting. Parking it there froze it
-for the rest of the fight, because a unit standing still cannot make the
-progress that would clear its own stall. That is the same absorbing-state
-deadlock the stuck flag used to cause (see `steering.ts`), one level up.
-
-### Three rules that keep crowds from jittering
-
-Jitter and deadlock were the hard part, and each had a distinct cause:
-
-1. **Ally tiles are not terrain.** Treating them as terrain made a blocked unit
-   sidestep left, then right, then left — a clean two-tick oscillation, forever.
-   Units are blocked only by yielding and separation; the occupancy grid governs
-   monster-versus-unit, where a line of units really is a wall.
-2. **Blocking is asymmetric.** Whoever is closer to the goal holds its ground;
-   whoever is further yields. Symmetric shoving both oscillates (each agent
-   undoes the other's step) and deadlocks (a ring can all block each other). A
-   strict order cannot contain a cycle, so a crowd resolves into a queue.
-3. **Steering has hysteresis.** Last tick's direction gets a bonus in the
-   ranking, so a marginal geometry change cannot flip the choice.
-
-Together these took path efficiency from 0.57 to **0.999** and wasted travel
-from 68 tiles to 0.01 over the same 20-second window, with all 40 units still
-making progress.
-
-### Getting there: tangent steering with side commitment
-
-Slots settle _where_ to stand; they do nothing about getting there. A unit
-walking at its slot walks into the back of an ally between it and the slot and
-stops. Two rows of units, and the back row never arrives — measured at 3 of 8
-reaching a target that had open lane on either side of it.
-
-Tangent steering fixes it in four parts, and the third is the one that matters:
-
-1. Find the nearest ally **actually blocking** — inside the corridor between
-   here and the goal, not merely nearby. Swerving around everything close by
-   would have units dodging each other constantly.
-2. Pick the side whose tangent points more toward the goal: the shorter way past.
-3. **Commit to the side**, not to the blocker. Re-deciding whenever a different
-   ally becomes the nearest obstacle makes a unit reverse mid-manoeuvre and
-   orbit the cluster forever. This was the difference between 3 of 8 arriving
-   and 6 of 8.
-4. Head for the tangent point. Once past, the ally leaves the corridor and the
-   unit resumes course on its own.
-
-Plus a give-up condition, which applies while steering locally and not while on
-the field: a detour means no progress for a while, which is fine, but _never_
-getting nearer means orbiting a crowd with no room in it. After four seconds
-without improvement a unit parks where it stands. That window is tuned against
-two measurements pulling opposite ways — at 6s a unit parks mid-detour (5 of 8
-arrive), at 8s the stragglers orbit instead of settling. "Progress" counts
-either getting nearer the slot or getting further down the field, since a detour
-around a wall makes no headway on the first measure by construction.
-
-This is deliberately **local**. It rounds one or several allies, not a wall of
-them spanning the lane. That limit turned out to matter in play, which is why
-the distance field above now answers the global case; tangent steering handles
-what the field hands back — the last stretch to a slot, and the units the field
-has no clear cell to offer at all.
-
-It also rounds the _target_, not only allies. Slots ring the target, so the far
-ones sit behind it: walk straight at one of those and you walk into the target
-and stop, parked in whoever's slot you happened to reach — which is precisely
-what left one unit stranded at 0.75 tiles while an ally sat in its slot.
-
-### Approach slots, not crowd steering
-
-Attackers converging on one target contend for the same point, and every
-_reactive_ scheme for resolving that contention oscillates. Both were built and
-measured over the same twenty-second window:
-
-| approach                            | wasted travel | surrounding  |
-| ----------------------------------- | ------------- | ------------ |
-| veto blocked directions             | 203 tiles     | queue        |
-| deflect away from neighbours        | 266 tiles     | queue        |
-| **give each attacker its own slot** | **~7 tiles**  | **fans out** |
-
-The churn comes from the ordering itself — who outranks whom flips as the crowd
-shifts — so no amount of damping settles it. Removing the contention is what
-works: each attacker takes its own slot on a ring around the target and walks
-there, so no two ever want the same spot. Surrounding falls out for free, because
-the ring _is_ a surround.
-
-Three details matter:
-
-- **Ring capacity is geometric.** Eight slots at contact distance would place
-  neighbours closer than their own bodies, so the slots would fight the
-  separation pass. Capacity is `π·r / bodyRadius`, and the overflow takes a
-  wider ring.
-- **Slots are sticky.** Recounting every tick reshuffles everyone the moment one
-  unit retargets, and the whole group walks to new positions for nothing.
-- **Parking has hysteresis.** A single distance threshold is a limit cycle: park
-  just inside it, get nudged just outside, set off again. Stop and restart use
-  different distances.
+There is no slot assignment, tangent steering, side commitment, stuck
+detection, give-up timer, retarget interval, separation pass or tile
+occupancy. Each existed to correct a symptom of the previous model and none is
+needed under this one. Whole tick at the §15.3 load: 1.8ms of the 50ms budget.
 
 ### Bodies, contact and range
 
-Every entity carries its own `radius`, and the renderer draws it at exactly that
-size — so what you see is what collides. A boss is genuinely bigger; previously
-it was drawn at 2.1× its collision circle and its silhouette clipped through its
-own escort.
+Every body is one circle, and that circle is its collision shape, its hit
+shape and its drawn size at once, with the radius on the unit or monster
+definition. There are no other shapes and no tile occupancy: a unit is a solid
+round thing a monster walks around, not a square it may not enter. What you
+see touching is what is touching.
 
 Attack `range` is measured **edge to edge**, not centre to centre. A melee value
 near zero therefore means "walk up until the bodies touch". Centre-to-centre
 range left every attacker standing a full body-width short of its target, which
-looked wrong for melee.
-
-Monster-versus-unit overlap is resolved by backing the monster out to exactly
-touching — the defender holds its ground. Tile occupancy alone is a whole tile
-wide, so on its own it let bodies sink about a tenth of a tile into each other.
-
-### Collision comes in two flavours
-
-Monster-versus-unit is **tile** occupancy: a line of units is a wall, and the
-grid is the right granularity for walking into it.
-
-Same-kind separation is by **body radius**, matching the drawn size. Tiles are
-too coarse here — two entities in adjacent tiles can sit half a tile apart and
-visibly overlap — so units keep `unitRadius * 2` apart and monsters
-`monsterRadius * 2`. A move that increases the distance to a neighbour is always
-allowed, so anything that does end up overlapping can separate instead of
-deadlocking.
+looked wrong for melee. A range check has 0.12 tiles of hysteresis, so a target
+drifting across the boundary cannot flip its attacker between fighting and
+walking.
 
 ### How the renderer drives the simulation
 
@@ -484,14 +363,15 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (216 tests):
+Implemented and tested (212 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
 - Enrage: additive, capped, per-wave clocks (§8)
-- Targeting — monsters re-evaluate on an interval, units hold their target until
-  it dies or leaves range (§5.1, §5.2)
-- Greedy steering **with collision** and stuck detection (§5.3, §4.2)
+- Targeting — both kinds hold a target while it is alive and in range, and
+  otherwise take the nearest in range (§5.1, §5.2, amended)
+- Movement — engaged-or-seeking bodies, a distance field to the free attack
+  positions, move-and-slide with yielding (§5.3 and §4.2, both amended)
 - Wave generation as a pure function of (seed, waveNumber), boss waves, scaling
   past the authored range, and the build-phase preview (§9.1–§9.3, §3.4)
 - The reserve queue and the lane cap (§8.1)
@@ -586,7 +466,7 @@ curve is now a JSON editing job.
   build if the round trip turns out to feel bad.
 - **Object pooling** (§15.3) — entities carry an `alive` flag and dead monsters
   are swept on the tick they die, which is the shape pooling wants, but there is
-  no free list yet. Scratch vectors and the occupancy grid already avoid
+  no free list yet. Scratch vectors and the reused distance fields already avoid
   per-tick allocation.
 
 ## Stack

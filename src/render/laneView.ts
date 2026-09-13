@@ -157,9 +157,10 @@ export class LaneView extends Container {
   }
 
   /**
-   * The spawn band is short, so this lays out in two fixed rows and never lets
-   * the two halves of row one collide: heading on the left, counter hint on the
-   * right, trimmed to whatever space the heading leaves.
+   * Two fixed rows across the top of the spawn zone - heading on the left,
+   * counter hint on the right, trimmed to whatever space the heading leaves -
+   * kept to the top so the clump spawning at the zone's centre is not drawn
+   * through text.
    */
   private drawWavePreview(view: MatchView, summary: WaveSummary | null): void {
     const l = this.layout;
@@ -169,7 +170,7 @@ export class LaneView extends Container {
     if (entries.length === 0) return;
 
     const rowOne = l.spawn.y + 5;
-    const rowTwo = l.spawn.y + l.spawn.height - 20;
+    const rowTwo = l.spawn.y + 21;
 
     const heading = label(
       view.phase === 'build' ? `next wave ${nextWave}` : `wave ${nextWave}`,

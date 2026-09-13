@@ -145,7 +145,9 @@ describe('placing units (§11.4)', () => {
       tileY: 3,
     });
     step(ctx, state);
-    expect(state.lanes.lane1!.occupancy.cells[3 * 8 + 3]).toBe(1);
+    const built = state.lanes.lane1!.units[0]!;
+    expect(Math.floor(built.pos.x)).toBe(3);
+    expect(Math.floor(built.pos.y)).toBe(3);
   });
 });
 

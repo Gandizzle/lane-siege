@@ -74,12 +74,12 @@ describe('every builder is a complete package (§6.1, §7.1)', () => {
         }
       });
 
-      it('fits one lane body, so the field can route it', () => {
-        // The flow field inflates obstacles by one lane-wide unit radius, so a
-        // wider body than that would be offered routes it does not fit. See
-        // docs/PATHING.md.
+      it('is narrower than a build tile, so the line has room to move', () => {
+        // Bodies smaller than the tile they are built on leave the gaps that
+        // routing needs. A body the width of its tile would make a full row a
+        // sealed wall.
         for (const unit of unitsOf(builder.id)) {
-          expect(unit.bodyRadius).toBeLessThanOrEqual(data.lane.unitRadius);
+          expect((unit.bodyRadius ?? 0) * 2).toBeLessThan(0.7);
         }
       });
     });
