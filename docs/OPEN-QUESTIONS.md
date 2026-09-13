@@ -119,6 +119,58 @@ rosters then survive; Tidemark is the most fragile, which is its identity.
 §5.5 wants a first elimination around 13–15. That is the balance pass, still
 deferred.
 
+### 10. Lobby, matchmaking, accounts; reconnection and AFK handling (§18) → **a code, a seat, and an identity that is a claim rather than a proof**
+
+Four questions §18 leaves open, answered together because each one's answer only
+makes sense given the others.
+
+**Matchmaking is one filter.** `filterBy(['code'])` on the room definition, and
+nothing else. Quick match joins with the empty code, so everyone asking for a
+quick match lands in the same open room until it fills; a private room joins
+with four characters from an alphabet that has no ambiguous pairs in it, so
+whoever arrives first opens the room and the rest type the code. There is no
+room browser, no friends list and no invitation system, because a code you say
+out loud covers all three for a game of four people. A mistyped code opens an
+empty room of that name rather than failing, which is visible on screen and
+fixed by retyping — "nobody is here yet" and "you typed it wrong" want the same
+next action.
+
+**A lobby, with a countdown that is always a number.** Four seats, each showing
+who is in it, which roster they brought and whether they are ready. The match
+starts when everyone present is ready and the room is full; or when everyone
+present is ready and the room has been open ten seconds, so a fast solo player
+does not take a four-player room to themselves; or after sixty seconds
+regardless. That last one is the **AFK rule**, and it is the same principle
+§3.2 already applies to waves — one slow player may not hold three others up. A
+player who has not readied still plays; they simply did not confirm a roster.
+Empty seats are played by a scripted builder from kickoff, as they already were.
+
+**"Accounts" means an identity, not a credential.** A player id generated once
+on the device and kept, plus a display name. That is what the game actually
+needs an account for: giving a seat back to the player who left it, and making a
+name in a lobby mean the same person twice. There is deliberately no password,
+no server-side record and no stats history — credentials need a server to hold
+them and there is nowhere to run one (§15.2), and an id that cannot be proven is
+no weaker than the seat-by-session-id it replaces. The server treats a player id
+as a claim and never grants anything on the strength of it beyond a seat, so the
+worst a forged one achieves is taking a seat in a room whose code you already
+had. Anything that must not be forgeable — a ladder, purchases — needs the real
+thing first, and is not in v1.
+
+**Reconnection: the seat is held, the lane is not played for you.** Before
+kickoff, leaving frees the seat; there is nothing to come back to. After
+kickoff it is held for ninety seconds, because there is: a half-built lane with
+your name on it. While you are away nobody defends it and it keeps taking waves,
+which is exactly what §13 already describes for a player who leaves, so a
+dropped connection costs the time you were gone rather than the match. A bot
+taking over was considered and rejected: it would play somebody's lane for them,
+and play it differently from how they would.
+
+- Built: `src/net/lobby.ts` (the rules, as pure functions), `src/net/identity.ts`,
+  `server/room.ts`, `src/render/ui/homeScreen.ts` and `lobbyScreen.ts`.
+- Checked: `src/net/lobby.test.ts` and `identity.test.ts` without a network;
+  `npm run lobby` with real sockets, including a drop and a reclaim.
+
 ## Still open — needed before the milestone in brackets
 
 ### 3. Post-wave-25 purchases (§3.3) → **nothing can be bought**
@@ -144,8 +196,6 @@ Five monsters exist (four normal, one boss) — the M1 slice. Note that the boss
 is single-armour, where §3.4 wants bosses to carry a **mix** of armour types
 across their parts or spawns so no single damage type hard-counters them. That
 needs a multi-part boss model that does not exist yet.
-
-### 10. Lobby, matchmaking, accounts; reconnection and AFK handling (§18) [M6]
 
 ### 11. Monetisation and audio (§18) [post-ship]
 
@@ -225,7 +275,9 @@ Decisions that override the document rather than filling a gap in it:
   allies' routing. The line returns to its build tiles at each build phase.
 - **§3.2 — the ready button is gone.** The build phase is short enough that
   skipping it was not worth a button. Its corner of the build bar now holds the
-  fortress weapon damage-type selector (§10.1).
+  fortress weapon damage-type selector (§10.1). The lobby has one, but that is a
+  different thing: it confirms a roster before a match, not a build phase during
+  one.
 - **§13 — an eliminated player's lane is wiped.** Their monsters are removed and
   no further waves spawn there. Without this a dead lane's leftovers would stall
   combat forever, since combat now ends only when every lane is empty.

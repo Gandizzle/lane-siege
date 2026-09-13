@@ -15,12 +15,19 @@
  *
  * BEFORE THE MATCH
  *
- * A match cannot start until its lane has a roster (§7.1), so this class starts
- * without a transport at all and shows the builder picker. Picking creates the
- * transport - a local simulation or a join to a room, which is the same
- * decision either way - and "play again" comes back here rather than replaying
- * the last choice, since trying a different roster is the main reason to play
- * again.
+ * Three screens, in order, and only the first two for a practice match:
+ *
+ *   1. **Home** - your name, and which kind of match (§17, M6).
+ *   2. **The builder picker** - a match cannot start until its lane has a
+ *      roster (§7.1).
+ *   3. **The lobby** - only when the match is on a server, because only then is
+ *      there anybody to wait for. It is the same room the match will run in, so
+ *      the transport exists from here on and the lobby is a phase of it rather
+ *      than a separate connection.
+ *
+ * "Play again" comes back to the first of them rather than replaying the last
+ * choice, since trying a different roster - or a different opponent - is the
+ * main reason to play again.
  *
  * WATCHING SOMEBODY ELSE'S LANE
  *
@@ -49,10 +56,32 @@ import { LaneView as LaneViewLayer } from './laneView.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { BuilderSelect } from './ui/builderSelect.ts';
 import { GameOver } from './ui/gameOver.ts';
+import { HomeScreen, type MatchMode } from './ui/homeScreen.ts';
+import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Hud } from './ui/hud.ts';
 import { OpponentTabs } from './ui/opponentTabs.ts';
 import { Toast } from './ui/toast.ts';
 import { WatchBanner } from './ui/watchBanner.ts';
+
+/**
+ * What the game needs from the app around it. Everything that touches the DOM
+ * or the network lives behind this, so this class stays a renderer.
+ */
+export interface GameServices {
+  /** Makes a transport for a chosen roster: a local simulation, or a room. */
+  createTransport(mode: MatchMode, builderId: string): Transport;
+  /** The player's display name right now (identity.ts). */
+  name(): string;
+  /** Ask for a new name and persist it. Null if the player backed out. */
+  editName(): Promise<string | null>;
+  /** Ask for a room code. Null if the player backed out. */
+  askRoomCode(): Promise<string | null>;
+  /** Whether a server is configured at all. Practice needs none. */
+  online: boolean;
+}
+
+/** Which screen is in front. The match is what is behind all of them. */
+type Screen = 'home' | 'builder' | 'lobby' | 'match';
 
 export class Game extends Container {
   private layout: LaneLayout;
@@ -68,6 +97,9 @@ export class Game extends Container {
 
   /** Null until a roster is picked and a match exists. */
   private transport: Transport | null = null;
+  private screen: Screen = 'home';
+  /** How the current match was found. Kept so Change roster can reuse it. */
+  private mode: MatchMode = { kind: 'practice' };
   /** The last view, held so the outgoing one can seed interpolation. */
   private view: MatchView | null = null;
   /** Whose lane is on screen. Null means your own. */
@@ -82,11 +114,12 @@ export class Game extends Container {
   private readonly toast = new Toast();
   private readonly gameOver: GameOver;
   private readonly builderSelect: BuilderSelect;
+  private readonly home: HomeScreen;
+  private readonly lobbyScreen: LobbyScreen;
 
   constructor(
     private readonly data: GameData,
-    /** Makes a transport for a chosen roster: local simulation, or a room. */
-    private readonly createTransport: (builderId: string) => Transport,
+    private readonly services: GameServices,
     width: number,
     height: number,
   ) {
@@ -131,7 +164,17 @@ export class Game extends Container {
       onSpectate: () => this.spectateFirstAvailable(),
     });
     this.builderSelect = new BuilderSelect(this.layout, data, (builderId) => {
-      this.start(builderId);
+      this.chooseBuilder(builderId);
+    });
+    this.home = new HomeScreen(this.layout, {
+      onChoose: (mode) => this.chooseMode(mode),
+      onEditName: () => void this.editName(),
+      onPrivateRoom: () => void this.askRoomCode(),
+    });
+    this.lobbyScreen = new LobbyScreen(this.layout, data, {
+      onReady: (ready) => this.transport?.setReady(ready),
+      onChangeBuilder: () => this.showScreen('builder'),
+      onLeave: () => this.goHome(),
     });
 
     this.addChild(
@@ -144,13 +187,76 @@ export class Game extends Container {
       this.toast,
       this.gameOver,
       this.builderSelect,
+      this.lobbyScreen,
+      this.home,
     );
+
+    this.showScreen('home');
+  }
+
+  // ------------------------------------------------------- getting to a match
+
+  /** Exactly one of the front screens is up at a time; the match is behind. */
+  private showScreen(screen: Screen): void {
+    this.screen = screen;
+    this.home.visible = screen === 'home';
+    this.builderSelect.visible = screen === 'builder';
+    if (screen === 'home') this.home.setState(this.services.name(), this.services.online);
+    if (screen !== 'lobby') this.lobbyScreen.reset();
+  }
+
+  private async editName(): Promise<void> {
+    await this.services.editName();
+    if (this.screen === 'home') this.home.setState(this.services.name(), this.services.online);
+    // A name changed while sitting in a lobby should reach the other three
+    // people looking at it.
+    this.transport?.setName(this.services.name());
+  }
+
+  private async askRoomCode(): Promise<void> {
+    const code = await this.services.askRoomCode();
+    if (code === null) return;
+    this.chooseMode({ kind: 'private', code });
+  }
+
+  private chooseMode(mode: MatchMode): void {
+    this.mode = mode;
+    this.showScreen('builder');
+  }
+
+  /**
+   * A roster is picked. For a match that does not exist yet this creates it;
+   * for one already sitting in a lobby it just changes the roster, because
+   * rejoining the room would give up the seat.
+   */
+  private chooseBuilder(builderId: string): void {
+    if (
+      this.transport &&
+      this.screen === 'builder' &&
+      this.transport.hasLobby &&
+      !this.transport.matchStarted
+    ) {
+      this.transport.setBuilder(builderId);
+      this.showScreen('lobby');
+      return;
+    }
+    this.start(builderId);
+  }
+
+  /** Leave whatever is going on and come back to the front. */
+  private goHome(): void {
+    this.transport?.dispose();
+    this.transport = null;
+    this.view = null;
+    this.gameOver.reset();
+    this.entities.reset();
+    this.showScreen('home');
   }
 
   /** Pick a roster, then play it (§7.1). */
   private start(builderId: string): void {
     this.transport?.dispose();
-    this.transport = this.createTransport(builderId);
+    this.transport = this.services.createTransport(this.mode, builderId);
     this.view = this.transport.view();
     this.watchingTeamId = null;
     this.selection = null;
@@ -159,16 +265,14 @@ export class Game extends Container {
     this.summarisedBuilder = '';
     this.entities.reset();
     this.gameOver.reset();
-    this.builderSelect.visible = false;
+    // A remote match opens in its lobby, even before the room has answered; a
+    // practice match has no lobby and is already running.
+    this.showScreen(this.transport.hasLobby && !this.transport.matchStarted ? 'lobby' : 'match');
   }
 
-  /** Back to the picker: a different roster is the point of playing again. */
+  /** Back to the front: a different roster, or a different room. */
   private chooseAgain(): void {
-    this.transport?.dispose();
-    this.transport = null;
-    this.view = null;
-    this.gameOver.reset();
-    this.builderSelect.visible = true;
+    this.goHome();
   }
 
   private get teamId(): string {
@@ -185,18 +289,41 @@ export class Game extends Container {
     this.buildBar.setLayout(this.layout);
     this.gameOver.setLayout(this.layout);
     this.builderSelect.setLayout(this.layout);
+    this.home.setLayout(this.layout);
+    this.lobbyScreen.setLayout(this.layout);
   }
 
   /** One animation frame. `deltaMs` is wall time; the simulation never sees it. */
   frame(deltaMs: number): void {
     const transport = this.transport;
     if (!transport) {
-      // Still choosing. Nothing to simulate and nothing to draw behind it.
+      // On the home screen or the picker, with no match yet. Nothing to
+      // simulate and nothing to draw behind them.
       this.toast.update(deltaMs, this.layout);
       return;
     }
 
     transport.update(deltaMs);
+
+    // A room exists before the match in it does, so kickoff is a transition
+    // the renderer watches for rather than a message it has to handle. It is
+    // checked for the picker too, because a player can still be changing
+    // roster when the room starts without them.
+    const waitingToStart = transport.hasLobby && !transport.matchStarted;
+    if (!waitingToStart && (this.screen === 'lobby' || this.screen === 'builder')) {
+      this.showScreen('match');
+    }
+    if (waitingToStart && this.screen === 'lobby') {
+      this.lobbyScreen.render(transport.lobby(), transport.status, transport.detail);
+      this.toast.update(deltaMs, this.layout);
+      return;
+    }
+    if (waitingToStart && this.screen === 'builder') {
+      // Changing roster from inside a lobby. The picker is in front and there
+      // is no board behind it yet.
+      this.toast.update(deltaMs, this.layout);
+      return;
+    }
 
     if (transport.consumeTick()) {
       // Seed interpolation from the view being replaced, then take the new one.
@@ -333,9 +460,7 @@ export class Game extends Container {
     const lane = this.view?.lane;
     if (!lane) return;
 
-    const existing = lane.units.find(
-      (u) => Math.floor(u.x) === tileX && Math.floor(u.y) === tileY,
-    );
+    const existing = lane.units.find((u) => Math.floor(u.x) === tileX && Math.floor(u.y) === tileY);
 
     // Tapping one of your own units always opens its upgrade panel - that is
     // the only route to upgrading, so it must not be blocked by having a build

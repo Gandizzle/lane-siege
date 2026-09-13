@@ -32,11 +32,25 @@
  * it. `alpha` therefore comes from a local clock running at the simulation rate
  * and is reset when a frame lands, so entities slide between the last two
  * frames instead of stepping whenever a packet arrives.
+ *
+ * COMING BACK (§18, M6)
+ *
+ * A phone that locks, a tab that reloads, a train that enters a tunnel: all
+ * three close the socket, and none of them means the player quit. The server
+ * holds their seat for a while (server/room.ts), and getting back into it needs
+ * one string - Colyseus's reconnection token - which is kept in `sessionStorage`
+ * so that it survives a reload of the page but not a new tab, which would be a
+ * different player as far as anyone can tell.
+ *
+ * So connecting tries the token first and falls back to a normal join. A stale
+ * token costs one failed round trip and nothing else.
  */
 
 import { Client, type Room } from 'colyseus.js';
 import type { GameData } from '../data/schema.ts';
 import type { Command, CommandRejection, MatchView } from '../sim/index.ts';
+import type { Identity } from './identity.ts';
+import { PUBLIC_CODE, type LobbyView } from './lobby.ts';
 import {
   ROOM_NAME,
   buildTables,
@@ -48,8 +62,44 @@ import {
 import { MS_PER_TICK } from '../util/loop.ts';
 import type { Transport, TransportStatus } from './transport.ts';
 
+/** Where the reconnection token is kept, per server. */
+function tokenKey(endpoint: string): string {
+  return `lane-siege.reconnect.${endpoint}`;
+}
+
+function readToken(endpoint: string): string | null {
+  try {
+    return globalThis.sessionStorage?.getItem(tokenKey(endpoint)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeToken(endpoint: string, token: string | null): void {
+  try {
+    const storage = globalThis.sessionStorage;
+    if (!storage) return;
+    if (token) storage.setItem(tokenKey(endpoint), token);
+    else storage.removeItem(tokenKey(endpoint));
+  } catch {
+    // No session storage: everything works except surviving a reload.
+  }
+}
+
+export interface RemoteOptions {
+  /** Who this player is, for their seat and their name (identity.ts). */
+  identity: Identity;
+  /** The roster they arrived with (§7.1). Changeable until kickoff. */
+  builderId: string;
+  /** A private room's code, or `PUBLIC_CODE` for a quick match. */
+  code?: string;
+}
+
 export class RemoteTransport implements Transport {
   readonly kind = 'remote' as const;
+  /** A room always has a lobby, even on the tick before it has answered. */
+  readonly hasLobby = true;
+  matchStarted = false;
   status: TransportStatus = 'connecting';
   detail: string | null = null;
   teamId: string | null = null;
@@ -57,6 +107,7 @@ export class RemoteTransport implements Transport {
   private room: Room | null = null;
   private tables: WireTables | null = null;
   private current: MatchView | null = null;
+  private currentLobby: LobbyView | null = null;
   private sinceFrameMs = 0;
   private ticked = false;
   private readonly rejections: CommandRejection[] = [];
@@ -66,8 +117,7 @@ export class RemoteTransport implements Transport {
   constructor(
     private readonly data: GameData,
     private readonly endpoint: string,
-    /** The roster this player picked before joining (§7.1). */
-    private readonly builderId: string,
+    private readonly options: RemoteOptions,
   ) {
     this.connect().catch((error: unknown) => {
       this.status = 'error';
@@ -87,6 +137,23 @@ export class RemoteTransport implements Transport {
 
   view(): MatchView | null {
     return this.current;
+  }
+
+  /** The last description of the lobby, or null before one has arrived. */
+  lobby(): LobbyView | null {
+    return this.matchStarted ? null : this.currentLobby;
+  }
+
+  setReady(ready: boolean): void {
+    this.room?.send('ready', ready);
+  }
+
+  setBuilder(builderId: string): void {
+    this.room?.send('builder', builderId);
+  }
+
+  setName(name: string): void {
+    this.room?.send('name', name);
   }
 
   consumeTick(): boolean {
@@ -113,19 +180,56 @@ export class RemoteTransport implements Transport {
   dispose(): void {
     this.disposed = true;
     this.status = 'closed';
-    this.room?.leave().catch(() => {});
+    // A deliberate leave, so the server frees the seat rather than holding it
+    // for a player who chose to go. `true` is Colyseus's "consented".
+    this.room?.leave(true).catch(() => {});
     this.room = null;
+    writeToken(this.endpoint, null);
+  }
+
+  /**
+   * The token first, then a normal join.
+   *
+   * A token is only ever stale or good, and trying a stale one costs a failed
+   * round trip - much less than the alternative, which is asking the player
+   * whether they meant to come back.
+   */
+  private async open(client: Client): Promise<Room> {
+    const token = readToken(this.endpoint);
+    if (token) {
+      try {
+        return await client.reconnect(token);
+      } catch {
+        writeToken(this.endpoint, null);
+      }
+    }
+
+    return client.joinOrCreate(ROOM_NAME, {
+      code: this.options.code ?? PUBLIC_CODE,
+      playerId: this.options.identity.playerId,
+      name: this.options.identity.name,
+      builderId: this.options.builderId,
+    });
   }
 
   private async connect(): Promise<void> {
     const client = new Client(this.endpoint);
-    const room = await client.joinOrCreate(ROOM_NAME, { builderId: this.builderId });
+    const room = await this.open(client);
     if (this.disposed) {
       await room.leave();
       return;
     }
 
     this.room = room;
+    writeToken(this.endpoint, room.reconnectionToken);
+
+    room.onMessage('lobby', (lobby: LobbyView) => {
+      this.currentLobby = lobby;
+      if (lobby.started) this.matchStarted = true;
+      // A lobby message is proof of a seat, which is what the player is
+      // waiting on before the screen can show them anything.
+      if (this.status === 'connecting' && this.tables) this.status = 'ready';
+    });
 
     room.onMessage('hello', (hello: WireHello) => {
       this.teamId = hello.teamId;
@@ -140,6 +244,9 @@ export class RemoteTransport implements Transport {
 
     room.onMessage('frame', (frame: WireFrame) => {
       if (!this.tables) return;
+      // Frames only flow after kickoff, so one arriving is proof of it -
+      // including for a client that reconnected straight into a running match.
+      this.matchStarted = true;
       this.current = decodeFrame(frame, this.tables);
       this.sinceFrameMs = 0;
       this.ticked = true;
@@ -151,8 +258,15 @@ export class RemoteTransport implements Transport {
 
     room.onLeave((code) => {
       this.status = 'closed';
-      this.detail = code === 4000 ? 'That room is full' : 'Disconnected from the server';
+      this.detail =
+        code === 4000
+          ? 'That room is full'
+          : code === 4001
+            ? 'That match has already started'
+            : 'Disconnected from the server';
       this.room = null;
+      // A room that turned us away is not one to try to reconnect to.
+      if (code === 4000 || code === 4001) writeToken(this.endpoint, null);
     });
 
     room.onError((code, message) => {

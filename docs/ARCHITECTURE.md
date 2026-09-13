@@ -95,7 +95,8 @@ makes one transform enough.
 
 ## Milestone status
 
-**M1 through M5 are complete.**
+**M1 through M5 are complete. M6 is complete except for hosting, which is not
+a code problem.**
 
 M1 (headless sim): `npm run sim` plays a single lane through five waves with a
 scripted builder and prints the result.
@@ -117,6 +118,13 @@ below.
 M5 (content): four builders of six units each, 58 unit definitions. A match now
 opens on the builder picker, and the three scripted lanes take the other three
 rosters — see [the builders section](#four-builders-differentiated-by-shape)
+below.
+
+M6 (ship): a home screen with a name on it, quick match and private rooms by
+code, a lobby with ready ticks, reconnection into your own lane, and a Capacitor
+Android project that `npm run build:android` produces from a clean clone. The
+one piece left is somewhere to run `npm run server`, which is money rather than
+code — see [getting into a match](#getting-into-a-match-code-seat-identity)
 below.
 
 The build bar is five tabs — Build, Tech, Fort, Aura, Send — one per distinct
@@ -183,6 +191,107 @@ trusted with rules.
 `npm run builders` plays all four side by side against identical waves and
 reports where each one leaked. It is a sanity check, not a verdict: the scripted
 player is a poor one.
+
+### Getting into a match: code, seat, identity
+
+Three ways in, and the front screen offers all three because the answer to "can
+I play right now" should never be a menu waiting for a server:
+
+- **Practice** is simulated in this tab with scripted builders in the other
+  three lanes. It needs nothing, and it is what the GitHub Pages build serves.
+- **Quick match** joins the next open room.
+- **Private room** is four characters you say out loud.
+
+The last two need `?server=`, and are drawn disabled with the reason underneath
+when there is none. Hiding them would leave a one-button menu that explains
+nothing.
+
+**Matchmaking is one line.** `filterBy(['code'])` on the room definition, and
+`joinOrCreate` with a code from the client. Quick match sends the empty code,
+so everyone asking for one lands in the same room until it fills. A private room
+sends four characters from an alphabet with no ambiguous pairs in it (no I, O,
+0 or 1), so whoever arrives first opens the room and the rest type the code.
+A mistyped code opens an empty room of that name instead of erroring, because
+"nobody is here yet" and "you typed it wrong" want the same next action from
+the player.
+
+There is no lobby server, no room list and no database. None of them add
+anything a four-player game with a shareable code needs.
+
+**A seat belongs to a player, not to a connection.** Colyseus hands out a new
+session id every time a socket opens, so a player who drops and comes back
+would otherwise be a stranger seated into somebody else's half-built lane.
+Seats are keyed by a player id the client generates once and keeps, which is
+also what makes reconnection mean "your lane back" rather than "a lane".
+
+The rules — who sits where, when the match starts, what the countdown says —
+are pure functions in `src/net/lobby.ts` with no socket in them, so they are
+tested without a network. The room owns the sockets and asks that module what to
+do. `npm run lobby` then checks that those are the rules the room actually
+applies, over real sockets, including a drop and a reclaim.
+
+**The match starts** when everyone present is ready and the room is full; or
+when everyone present is ready and the room has been open ten seconds, so the
+first player to arrive and tap Ready does not take a four-player room to
+themselves; or after sixty seconds regardless. The last is the AFK rule, and it
+is §3.2's principle applied to the lobby: one slow player may not hold three
+others up.
+
+**Identity is a claim, not a proof.** §17 lists "accounts" and §18 leaves the
+system OPEN; what the game needs from one is an id that survives a restart and
+a name other people see. There is no password and no server-side record, because
+credentials need a server to hold them and there is nowhere to run one — and an
+unprovable id is no weaker than the session id it replaces. The server treats it
+accordingly: it seats by id and grants nothing else on the strength of it. Names
+are cleaned on both sides, the server's pass being the one that counts, because
+a name is drawn on three other people's screens and the client is not trusted
+with text any more than with rules.
+
+**Reconnection** holds a seat for ninety seconds after kickoff. While its player
+is away the lane keeps taking waves with nobody defending it, which is what §13
+already describes for a player who leaves, so a drop costs the time you were
+gone rather than the match. A bot taking over was rejected: it would play
+somebody's lane for them, and differently from how they would. Before kickoff
+there is nothing to come back to, so leaving frees the seat for somebody else.
+
+The client keeps its reconnection token in `sessionStorage`, which survives a
+reload of the page but not a new tab — a new tab is a different player as far as
+anyone can tell. Connecting tries the token first and falls back to a normal
+join, so a stale one costs a failed round trip and nothing else.
+
+### The one piece of DOM
+
+Everything the player touches is drawn in Pixi except text entry, and that
+exception is not close. A canvas cannot raise the on-screen keyboard, show the
+caret the operating system draws, offer autocorrect, or be dictated into.
+So a real `<input>` appears over the canvas for as long as it takes to type a
+name or a room code and is removed afterwards (`src/render/ui/textPrompt.ts`).
+It is deliberately not `prompt()`, which is blocking, unstyleable, suppressed in
+some mobile browsers, and inside a Capacitor shell looks like a browser error
+rather than part of the game.
+
+### Android: Capacitor, and what is generated
+
+§1 says Android first. Capacitor is the shell: a WebView, the web build inside
+it, and no second codebase. `npm run build:android` does the whole thing from a
+clean clone — builds with a relative base (an absolute one resolves to the
+device's filesystem root and every asset 404s), creates the native project if it
+is not there, copies the build in, and applies the manifest edits the config
+file has no field for.
+
+`android/` is generated and has been in `.gitignore` since the first commit, so
+the one attribute Capacitor cannot express — `screenOrientation="portrait"`,
+which §1, §4.1 and §14.1 all assume — is applied by `scripts/prepare-android.mjs`
+rather than by committing sixty files of Gradle scaffolding. The script is
+idempotent and fails loudly rather than leaving the app quietly wrong.
+
+Producing the APK needs the Android SDK and Google's Maven repository, so it
+happens on a developer's machine or in CI with the SDK installed, not here:
+
+```
+npm run build:android     # web build + native project, ready to open
+npm run android:open      # Android Studio, to run or sign it
+```
 
 ### Netcode: one simulation, two places
 
@@ -363,7 +472,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (212 tests):
+Implemented and tested (246 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -455,12 +564,17 @@ curve is now a JSON editing job.
   its parts or spawns so no single damage type hard-counters it. The bank spreads
   four armour types across four bosses as a stopgap; real parts need a model that
   does not exist yet.
-- **Hosting, a lobby and matchmaking** (§15.2, §18) — M6. A four-player match
-  currently needs someone to run `npm run server`, and clients reach it with
-  `?server=`. GitHub Pages is static and cannot host a room.
-- **Reconnection** (§18) — M6. A room locks at kickoff and a player who drops
-  loses their lane's inputs for good; their fortress then falls in its own time,
-  which §13 permits but is not the same as letting them back in.
+- **Hosting** (§15.2) — the last piece of M6, and the only one that is money
+  rather than code. A four-player match needs someone to run `npm run server`,
+  and clients reach it with `?server=`; GitHub Pages is static and cannot host a
+  room. The lobby, matchmaking and reconnection that were listed here are built.
+- **A signed APK** — `npm run build:android` produces the native project, but
+  compiling it needs the Android SDK and Google's Maven repository. Nothing is
+  missing from the project; it is a machine with the SDK on it.
+- **Server-side accounts** (§18) — identity is a player id this device
+  generated, which is what seats and reconnection need and no more. A ladder or
+  anything purchasable needs a credential a server holds, and that needs the
+  server first.
 - **Client-side prediction** — deliberately absent, see the netcode section. The
   cheap version, predicting the wallet rather than the simulation, is the one to
   build if the round trip turns out to feel bad.
@@ -472,9 +586,8 @@ curve is now a JSON editing job.
 ## Stack
 
 Per DESIGN.md §15.2. TypeScript everywhere, Pixi.js for rendering, Vite for the
-build, Vitest for tests, Colyseus for multiplayer. Capacitor (Android packaging)
-is not installed yet — it arrives at M6 and would otherwise be a dependency with
-nothing to do.
+build, Vitest for tests, Colyseus for multiplayer, Capacitor for the Android
+build (§17, M6).
 
 Colyseus is pinned at 0.16 on both sides, because the JavaScript client has not
 been released past 0.16 while the server is at 0.18, and a mismatched pair is

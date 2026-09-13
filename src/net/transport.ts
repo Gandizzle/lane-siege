@@ -21,6 +21,7 @@
  */
 
 import type { Command, CommandRejection, MatchView } from '../sim/index.ts';
+import type { LobbyView } from './lobby.ts';
 
 export type TransportStatus = 'connecting' | 'ready' | 'closed' | 'error';
 
@@ -57,6 +58,34 @@ export interface Transport {
 
   /** True on the frame a tick just happened, so the renderer can snapshot. */
   consumeTick(): boolean;
+
+  /**
+   * Does this kind of match gather in a lobby before it starts? A room does; a
+   * practice match against scripted builders has nobody to wait for.
+   *
+   * Constant for the life of the transport, and known before anything has
+   * connected - which is the point. `lobby()` cannot answer this, because it is
+   * also null for the moment between asking for a room and hearing back, and a
+   * caller that read that as "no lobby" would blink past it to an empty board.
+   */
+  readonly hasLobby: boolean;
+
+  /**
+   * Has the match itself begun? Always true where there is no lobby. This is
+   * the transition the front screens wait on.
+   */
+  readonly matchStarted: boolean;
+
+  /**
+   * The lobby as the server last described it, or null before the first word
+   * of it arrives. Only meaningful while `hasLobby` and not `matchStarted`.
+   */
+  lobby(): LobbyView | null;
+
+  /** Lobby actions. No-ops where there is no lobby. */
+  setReady(ready: boolean): void;
+  setBuilder(builderId: string): void;
+  setName(name: string): void;
 
   /** Ask for a command to be applied. */
   submit(command: Command): void;

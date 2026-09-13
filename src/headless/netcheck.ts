@@ -74,6 +74,10 @@ async function main(): Promise<void> {
     seen.push(mine);
 
     let tables: ReturnType<typeof buildTables> | null = null;
+    // Registered so Colyseus does not warn about it. This harness is about
+    // frames and fog of war; the lobby has its own harness (npm run lobby).
+    room.onMessage('lobby', () => {});
+
     room.onMessage('hello', (hello: WireHello) => {
       mine.teamId = hello.teamId;
       tables = buildTables(data, hello.teamIds, hello.seed);

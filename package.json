@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:android": "VITE_BASE=./ npm run build && node scripts/prepare-android.mjs",
+    "android:open": "cap open android",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -19,13 +21,17 @@
     "routing": "tsx src/headless/routing.ts",
     "wire": "tsx src/headless/wire.ts",
     "server": "tsx server/index.ts",
-    "netcheck": "tsx src/headless/netcheck.ts"
+    "netcheck": "tsx src/headless/netcheck.ts",
+    "lobby": "tsx src/headless/lobby.ts"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "colyseus.js": "^0.16.22",
     "pixi.js": "^8.20.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.2",
     "@colyseus/ws-transport": "^0.16.5",
     "@eslint/js": "^10.0.1",
     "@types/node": "^22.20.2",

@@ -91,6 +91,31 @@ export class LocalTransport implements Transport {
     }
   }
 
+  /**
+   * A practice match has no lobby: there is nobody to wait for, the other three
+   * lanes are scripted, and the roster was chosen on the way in. It is running
+   * the moment it is made.
+   */
+  readonly hasLobby = false;
+  readonly matchStarted = true;
+
+  lobby(): null {
+    return null;
+  }
+
+  setReady(): void {
+    // Nothing to be ready for.
+  }
+
+  setBuilder(): void {
+    // The roster is fixed when the match is created (§7.1); a practice match
+    // has no window in which to change it.
+  }
+
+  setName(): void {
+    // Nobody to show it to.
+  }
+
   view(): MatchView | null {
     return this.current;
   }

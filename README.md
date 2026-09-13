@@ -9,24 +9,32 @@ it.
 
 ## Status
 
-**M1 through M5 complete** (DESIGN.md §17).
+**M1 through M6 complete** (DESIGN.md §17), except for hosting a server, which
+is money rather than code.
 
-- `npm run dev` — a playable match in portrait. Pick one of four builders, then
-  four lanes with scripted opponents on the other three rosters. Build, upgrade
-  in place, buy global tech, upgrade the fortress, pick a weapon type and an
-  aura, and send monsters at whichever opponent is doing best.
+- `npm run dev` — a playable match in portrait. Set a name, then take a practice
+  match, a quick match, or a private room with a four-letter code. Pick one of
+  four builders. Build, upgrade in place, buy global tech, upgrade the fortress,
+  pick a weapon type and an aura, and send monsters at whichever opponent is
+  doing best.
 - `npm run server` then `?server=ws://localhost:2567` — the same match against
-  three other people, with the server deciding everything.
+  three other people, with the server deciding everything. Players gather in a
+  lobby, pick rosters, and ready up; a dropped connection keeps your lane for
+  ninety seconds.
+- `npm run build:android` — the Capacitor Android project, from a clean clone.
+  Compiling the APK needs the Android SDK, so that part happens on a machine
+  with one.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-212 tests, plus four measurement harnesses that are part of how this is
+246 tests, plus five measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
-sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`
+sockets), `npm run lobby` (matchmaking, the lobby and reconnection, also over
+real sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`
 (movement — see [docs/PATHING.md](docs/PATHING.md)) and `npm run builders`
 (all four rosters against identical waves).
 
-One thing is knowingly unfinished:
+Two things are knowingly unfinished:
 
 - **Balance is not playtested.** All four rosters now clear 25 waves without a
   leak against the scripted player, which means the curve is too soft — §5.5
@@ -34,9 +42,12 @@ One thing is knowingly unfinished:
   the defence stronger by letting every unit reach the fight. Every number
   lives in `data/`, so tuning is a JSON job: `npm run builders` is the
   yardstick.
+- **Nothing hosts the server.** Multiplayer works, over real sockets, between
+  real browsers — but somebody has to run `npm run server` somewhere and hand
+  out the address. That is the last item in §17's M6 and the only one that is
+  not a code problem.
 
-Next is M6: Capacitor's Android build, a lobby, matchmaking and accounts — and
-somewhere to host the server, which is what a four-player match needs today.
+Next: a balance pass against `npm run builders`, and a host for the server.
 
 ## Getting started
 
@@ -48,6 +59,8 @@ npm test           # vitest
 npm run typecheck  # tsc --noEmit
 npm run lint       # eslint
 npm run build      # production build into dist/
+npm run lobby      # matchmaking, lobby and reconnection over real sockets
+npm run build:android   # web build + the Capacitor Android project
 ```
 
 Node 20.19+ or 22.12+.
