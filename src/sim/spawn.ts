@@ -180,6 +180,7 @@ export function createMonster(
     range: stats.range,
     bounty: stats.bounty,
     radius: stats.radius,
+    halfWidth: 0,
     waveNumber: spec.waveNumber,
     pos: { x: pos.x, y: pos.y },
     hp: stats.hp,
@@ -214,6 +215,7 @@ export function createUnit(
     pos,
     moveSpeed: stat(def.moveSpeed),
     radius: stat(def.bodyRadius),
+    halfWidth: 0,
     range: stat(def.range),
     // What it cost is stamped on by the command that bought it (apply.ts):
     // creation does not know whether this is a purchase or a test fixture.

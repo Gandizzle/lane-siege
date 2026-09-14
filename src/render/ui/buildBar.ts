@@ -36,6 +36,7 @@ import type { AuraType, DamageType, GameData, UnitDef } from '../../data/schema.
 import { sellValue, ticksToSeconds } from '../../sim/index.ts';
 import type { EconomyView, LaneView, MatchView, WaveSummary } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
+import { auraColour } from '../aura.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { GridButton } from './gridButton.ts';
 import { centreOn, label, wrapped } from './text.ts';
@@ -86,7 +87,7 @@ const FORT_UPGRADES: { id: string; name: string }[] = [
 
 const AURAS: { id: AuraType; name: string }[] = [
   { id: 'damage', name: 'Damage' },
-  { id: 'attackSpeed', name: 'Attack Spd' },
+  { id: 'attackSpeed', name: 'Atk Spd' },
   { id: 'armour', name: 'Armour' },
   { id: 'regeneration', name: 'Regen' },
 ];
@@ -604,11 +605,17 @@ export class BuildBar extends Container {
     }
     for (const { id, button } of this.auraButtons) {
       const meta = AURAS.find((a) => a.id === id);
-      button.setSwatch(null);
+      // The same colour the ground is drawn in when this aura is running
+      // (aura.ts), so the chip and the lane say the same thing.
+      button.setSwatch(auraColour(id));
+      // §10.1 sells strength and radius separately, so the chip says both:
+      // otherwise Aura Power is a purchase with no visible consequence here.
+      const strength = Math.round(lane.fortress.auraStrength * 100);
       button.update({
         title: meta?.name ?? id,
-        detail: 'aura',
-        note: lane.fortress.auraRadius > 0 ? `r ${lane.fortress.auraRadius.toFixed(1)}` : '',
+        detail: lane.fortress.auraRadius > 0 ? `r ${lane.fortress.auraRadius.toFixed(1)}` : 'aura',
+        note: `+${strength}%`,
+        noteColour: auraColour(id),
         enabled: canAct,
         selected: lane.fortress.activeAura === id,
       });

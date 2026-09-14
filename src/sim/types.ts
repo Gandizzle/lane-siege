@@ -87,6 +87,11 @@ export interface DefensiveUnit {
    * drawn size at once - the silhouette is drawn inside it.
    */
   radius: number;
+  /**
+   * Half-length of the horizontal spine the radius is swept along (motion.ts).
+   * 0: a unit is a circle. The fortress is the only body that is not.
+   */
+  halfWidth: number;
   /** Reach, edge to edge, in tiles. Copied from the definition on build and upgrade. */
   range: number;
   /** What has been paid for this unit, and when (§11, sell). */
@@ -153,6 +158,11 @@ export interface Monster {
   bounty: number;
   /** Body radius in tiles: collision, hit and drawn size at once. */
   radius: number;
+  /**
+   * Half-length of the horizontal spine the radius is swept along (motion.ts).
+   * 0: a monster is a circle. The fortress is the only body that is not.
+   */
+  halfWidth: number;
   /**
    * Which wave this monster belongs to. Enrage is tracked per wave, not per
    * lane or per monster (§8): a fresh wave joining a still-alive enraged wave

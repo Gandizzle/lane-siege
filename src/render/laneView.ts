@@ -15,7 +15,7 @@ import type { GameData } from '../data/schema.ts';
 import type { LaneView as SimLaneView, MatchView, WaveSummary } from '../sim/index.ts';
 import { previewWave } from '../sim/index.ts';
 import type { LaneLayout } from './layout.ts';
-import { screenToTile } from './layout.ts';
+import { fortressShape, screenToTile } from './layout.ts';
 import { DAMAGE_COLOURS, UI } from './palette.ts';
 import { label } from './ui/text.ts';
 
@@ -85,20 +85,36 @@ export class LaneView extends Container {
     g.stroke({ width: 1, color: UI.gridLine });
   }
 
-  /** §10: the fortress is attackable; the resource building beside it is not. */
+  /**
+   * §10: the fortress is attackable; the resource building on it is not.
+   *
+   * Drawn from the simulation's own geometry rather than from a shape that
+   * looked about right - the fortress is a body like any other (motion.ts), a
+   * disc of `fortressRadius` swept along a horizontal spine, and the rule that
+   * what you see is what you hit applies to it too. It spans the lane, so a
+   * wave meets a wall across the whole end of it rather than a target it has to
+   * queue for.
+   */
   private drawFurniture(): void {
     const g = this.furniture;
     const l = this.layout;
+    const lane = this.data.lane;
     g.clear();
 
-    const h = l.fortress.height * 0.22;
-    const cy = l.fortress.y + l.fortress.height * 0.3;
-    const cx = l.screen.width / 2;
+    const { cx, cy, halfWidth, radius } = fortressShape(l, lane);
 
-    g.rect(cx - h * 1.6, cy - h, h * 3.2, h * 2)
-      .fill({ color: UI.gridLine })
+    // A stadium: the exact set of points within `radius` of the spine.
+    g.roundRect(cx - halfWidth - radius, cy - radius, (halfWidth + radius) * 2, radius * 2, radius)
+      .fill({ color: UI.fortressStone })
       .stroke({ width: 1.5, color: UI.textMuted });
-    g.rect(cx + h * 2.2, cy - h * 0.7, h * 1.4, h * 1.4).fill({ color: UI.gridLine });
+
+    // Battlements along the top edge, so the wall reads as masonry rather than
+    // as a bar. Decoration, drawn inside the body: nothing here moves the edge
+    // monsters actually hit.
+    const merlon = radius * 0.5;
+    for (let x = cx - halfWidth + merlon; x <= cx + halfWidth; x += merlon * 2.8) {
+      g.rect(x - merlon / 2, cy - radius, merlon, radius * 0.4).fill({ color: UI.fortressZone });
+    }
   }
 
   /**

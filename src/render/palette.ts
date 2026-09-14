@@ -40,6 +40,8 @@ export const UI = {
   buildZone: 0x161a24,
   gridLine: 0x232936,
   fortressZone: 0x1a2030,
+  /** The fortress wall itself: masonry, a shade above the ground it stands on. */
+  fortressStone: 0x2f3648,
   buildBar: 0x0d0f15,
   tabs: 0x0d0f15,
   outline: 0xf2f4f8,

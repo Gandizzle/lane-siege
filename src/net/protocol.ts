@@ -66,8 +66,12 @@ export interface WireLane {
   b: number;
   u: WireEntity[];
   m: WireEntity[];
-  /** `[hp, maxHp, destroyed, weaponTypeIndex, auraIndex, auraRadius]`. */
-  f: [number, number, number, number, number, number];
+  /**
+   * `[hp, maxHp, destroyed, weaponTypeIndex, auraIndex, auraRadius,
+   * auraStrength]`. The last two are hundredths, like every other fraction
+   * here.
+   */
+  f: [number, number, number, number, number, number, number];
   /** Reserve count (§8.1). */
   r: number;
   /** `[sendIndex, fromTeamIndex]` per send received. */
@@ -277,6 +281,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
       tables.damageTypes.indexOf(lane.fortress.weaponDamageType),
       lane.fortress.activeAura === null ? -1 : tables.auraIds.indexOf(lane.fortress.activeAura),
       Math.round(lane.fortress.auraRadius * POSITION_SCALE),
+      Math.round(lane.fortress.auraStrength * POSITION_SCALE),
     ],
     r: lane.reserveCount,
     s: lane.sendLog.map(
@@ -311,7 +316,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
 }
 
 function decodeLane(wire: WireLane, tables: WireTables): LaneView {
-  const [hp, maxHp, destroyed, weaponIndex, auraIndex, auraRadius] = wire.f;
+  const [hp, maxHp, destroyed, weaponIndex, auraIndex, auraRadius, auraStrength] = wire.f;
 
   const economy = wire.e
     ? {
@@ -345,6 +350,7 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
       weaponDamageType: tables.damageTypes[weaponIndex] ?? tables.damageTypes[0]!,
       activeAura: auraIndex < 0 ? null : (tables.auraIds[auraIndex] ?? null),
       auraRadius: auraRadius / POSITION_SCALE,
+      auraStrength: auraStrength / POSITION_SCALE,
     },
     economy,
     reserveCount: wire.r,

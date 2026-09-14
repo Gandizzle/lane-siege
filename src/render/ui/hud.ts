@@ -15,8 +15,9 @@ import type { GameData } from '../../data/schema.ts';
 import type { MatchView, WaveSummary } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
+import { fortressShape } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
-import { label } from './text.ts';
+import { centreOn, label } from './text.ts';
 
 export class Hud extends Container {
   private readonly background = new Graphics();
@@ -123,24 +124,39 @@ export class Hud extends Container {
     this.drawFortress(lane.fortress.hp, lane.fortress.maxHp);
   }
 
-  /** §10.1: the fortress is attackable, so its HP is the match's life bar. */
+  /**
+   * §10.1: the fortress is attackable, so its HP is the match's life bar.
+   *
+   * Drawn INSIDE the wall rather than beside it. The wall spans the lane and
+   * fills its whole band (laneView.ts), so a separate bar would have to sit on
+   * top of the stonework anyway - and a gauge set into the rampart says the
+   * thing the number says twice over: this wall is what is left of you.
+   */
   private drawFortress(hp: number, maxHp: number): void {
-    const l = this.layout;
     const fraction = Math.max(0, Math.min(1, maxHp > 0 ? hp / maxHp : 0));
+    const { cx, cy, halfWidth, radius } = fortressShape(this.layout, this.data.lane);
 
-    const barWidth = l.fortress.width - 24;
-    const barHeight = 10;
-    const x = 12;
-    const y = l.fortress.y + l.fortress.height - barHeight - 8;
+    const inset = radius * 0.34;
+    const y = cy - radius + inset;
+    const height = (radius - inset) * 2;
+    const x = cx - halfWidth;
+    const width = halfWidth * 2;
 
-    this.bars.rect(x, y, barWidth, barHeight).fill({ color: UI.background });
-    this.bars
-      .rect(x, y, barWidth * fraction, barHeight)
-      .fill({ color: fraction > 0.35 ? UI.healthGood : UI.healthLow });
+    this.bars.roundRect(x, y, width, height, height / 2).fill({ color: UI.background });
+    if (fraction > 0) {
+      const filled = Math.max(height, width * fraction);
+      this.bars
+        .roundRect(x, y, filled, height, height / 2)
+        .fill({ color: fraction > 0.35 ? UI.healthGood : UI.healthLow });
+    }
 
-    const text = label(`fortress ${Math.max(0, Math.round(hp))} / ${Math.round(maxHp)}`, 10);
-    text.x = x;
-    text.y = y - 14;
+    const text = label(
+      `${Math.max(0, Math.round(hp))} / ${Math.round(maxHp)}`,
+      Math.min(11, height - 6),
+      UI.background,
+      '700',
+    );
+    centreOn(text, cx, y + (height - text.height) / 2);
     this.content.addChild(text);
   }
 }

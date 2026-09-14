@@ -39,16 +39,17 @@ import {
   goalOwner,
   markObstacle,
   markRing,
+  NO_OWNER,
   SOURCE_WAIT,
   standingCost,
   steerAlongField,
   UNREACHABLE,
   W_DIAG,
 } from './flowfield.ts';
-import type { FlowField } from './flowfield.ts';
+import type { FieldShape, FlowField } from './flowfield.ts';
 import { orderByPriority, slideStep, type Body, type Bounds } from './motion.ts';
 import { admitFromReserve, countLiving, createMonster, placeWave } from './spawn.ts';
-import { acquire, nearestMonsterInRange, withinRange } from './targeting.ts';
+import { acquire, nearestInRange, withinRange } from './targeting.ts';
 import {
   FORTRESS_ID,
   type DefensiveUnit,
@@ -67,6 +68,11 @@ export interface SimContext {
   fortressPosition: Vec2;
   /** The fortress as a body, for what counts as being in range of it. */
   fortress: Body;
+  /**
+   * The same body as a one-element contact set, so the movement code can
+   * include it without allocating an array every tick (§15.3).
+   */
+  fortressBodies: readonly Body[];
   /** The lane's edges. Bodies stay inside them. */
   bounds: Bounds;
   /**
@@ -84,17 +90,25 @@ export function createContext(data: GameData): SimContext {
     x: lane.buildZone.width / 2,
     y: lane.buildZone.depth + lane.fortressZoneDepth * 0.5,
   };
+  // §4: a wall across the end of the lane, not a pebble at the middle of it -
+  // a horizontal spine with a radius swept along it (motion.ts). Settled and
+  // alive forever: it never moves and it is never removed, and a destroyed
+  // fortress ends the lane rather than clearing the obstacle.
+  const fortress: Body = {
+    id: FORTRESS_ID,
+    pos: fortressPosition,
+    radius: lane.fortressRadius,
+    halfWidth: lane.fortressHalfWidth,
+    alive: true,
+    settled: true,
+  };
+
   return {
     data,
     defs: buildDefIndex(data),
     fortressPosition,
-    fortress: {
-      id: -1,
-      pos: fortressPosition,
-      radius: lane.fortressRadius,
-      alive: true,
-      settled: true,
-    },
+    fortress,
+    fortressBodies: [fortress],
     bounds: {
       minX: 0,
       maxX: lane.buildZone.width,
@@ -244,6 +258,21 @@ function holdsStill(body: Walker): boolean {
 }
 
 /**
+ * A body in the form the field wants it. One shared record, refilled per call:
+ * `markObstacle` and `markRing` read it and are done with it before the next
+ * call, and a tick marks hundreds of bodies (§15.3: no per-frame allocation).
+ * Nothing may hold on to what this returns.
+ */
+const scratchShape: FieldShape = { x: 0, y: 0, radius: 0, halfWidth: 0 };
+function shapeOf(body: Body): FieldShape {
+  scratchShape.x = body.pos.x;
+  scratchShape.y = body.pos.y;
+  scratchShape.radius = body.radius;
+  scratchShape.halfWidth = body.halfWidth;
+  return scratchShape;
+}
+
+/**
  * Give every seeking body of one kind its direction for the tick.
  *
  * One field per (radius, range) present among the seekers: obstacles are every
@@ -298,22 +327,25 @@ function planMoves(
 
     if (enemiesBlock) {
       for (const enemy of enemies) {
-        if (enemy.alive) markObstacle(field, enemy.pos.x, enemy.pos.y, enemy.radius, radius);
+        if (enemy.alive) markObstacle(field, shapeOf(enemy), radius);
       }
     }
     for (const ally of allies) {
       if (ally.alive && holdsStill(ally)) {
-        markObstacle(field, ally.pos.x, ally.pos.y, ally.radius, radius);
+        markObstacle(field, shapeOf(ally), radius);
       }
     }
+    // The fortress is solid to everyone. Without this a monster with nothing
+    // else to do walks into the wall and out the bottom of the lane.
+    markObstacle(field, shapeOf(ctx.fortress), radius);
 
     // Rings go on after every obstacle, so a covered ring cell is not a goal.
     if (goal) {
-      markRing(field, goal.pos.x, goal.pos.y, goal.radius, radius, range, goal.id);
+      markRing(field, shapeOf(goal), radius, range, goal.id);
     } else {
       for (const enemy of enemies) {
         if (!enemy.alive) continue;
-        markRing(field, enemy.pos.x, enemy.pos.y, enemy.radius, radius, range, enemy.id);
+        markRing(field, shapeOf(enemy), radius, range, enemy.id);
       }
     }
     const sources = computeFlowField(field);
@@ -323,7 +355,7 @@ function planMoves(
       const beside = 1 / field.subdivision;
       for (const ally of allies) {
         if (!ally.alive || !holdsStill(ally)) continue;
-        markRing(field, ally.pos.x, ally.pos.y, ally.radius, radius, beside, -1, SOURCE_WAIT);
+        markRing(field, shapeOf(ally), radius, beside, NO_OWNER, SOURCE_WAIT);
       }
       computeFlowField(field);
     }
@@ -357,7 +389,7 @@ function planMoves(
       seeker.moveX = 0;
       seeker.moveY = 0;
       const ownerId = goalOwner(field, seeker.pos);
-      if (ownerId === -1) continue;
+      if (ownerId === NO_OWNER) continue;
       const target = bodyById(enemies, ctx, ownerId);
       if (!target) continue;
       const dx = target.pos.x - seeker.pos.x;
@@ -505,9 +537,13 @@ function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
   // 3. Everyone walks: units first, then monsters. Whichever kind is not
   // moving is settled - where it is now is where it will be - and monsters
   // carry enrage on their speed (§8).
-  const obstacles: (readonly Body[])[] = unitsBlock ? [lane.units, lane.monsters] : [lane.monsters];
+  // The fortress is in every contact set: it is solid to both kinds, and
+  // without it a besieging crowd presses straight through the wall.
+  const obstacles: (readonly Body[])[] = unitsBlock
+    ? [lane.units, lane.monsters, ctx.fortressBodies]
+    : [lane.monsters, ctx.fortressBodies];
   for (const monster of lane.monsters) monster.settled = true;
-  moveSeekers(ctx, lane.units, (u) => u.moveSpeed, [lane.units, lane.monsters]);
+  moveSeekers(ctx, lane.units, (u) => u.moveSpeed, [lane.units, lane.monsters, ctx.fortressBodies]);
   for (const unit of lane.units) unit.settled = true;
   moveSeekers(
     ctx,
@@ -536,7 +572,9 @@ function fortressActs(ctx: SimContext, lane: Lane): void {
   }
 
   const weapon = ctx.data.fortress.weapon;
-  const target = nearestMonsterInRange(lane.monsters, ctx.fortressPosition, stat(weapon.range));
+  // From the wall, not from a point at the middle of it: a monster chewing the
+  // far end of a five-tile fortress is in range of the fortress.
+  const target = nearestInRange(lane.monsters, ctx.fortress, stat(weapon.range));
   if (!target) return;
 
   target.hp -= resolveDamage(

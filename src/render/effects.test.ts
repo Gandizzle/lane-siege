@@ -55,6 +55,7 @@ function lane(overrides: Partial<LaneView> = {}): LaneView {
       weaponDamageType: 'impact',
       activeAura: null,
       auraRadius: 0,
+      auraStrength: 0,
     },
     economy: null,
     reserveCount: 0,

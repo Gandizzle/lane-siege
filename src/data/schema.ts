@@ -53,8 +53,15 @@ export interface LaneFile {
   /** Open ground above the build grid, in tiles. Monsters spawn at its centre. */
   spawnZoneDepth: number;
   fortressZoneDepth: number;
-  /** The fortress as a body: what "in range of it" is measured against (§5.5). */
+  /**
+   * The fortress as a body: what "in range of it" is measured against (§5.5).
+   * It is a disc of `fortressRadius` swept along a horizontal spine of
+   * `fortressHalfWidth` either side of the lane's centre - a wall, not a
+   * pebble - so a wave can bring its whole front to bear on it at once.
+   * Setting the half-width to 0 makes it the circle it used to be.
+   */
   fortressRadius: number;
+  fortressHalfWidth: number;
   /**
    * §4.2, decided: units DO block movement. A monster treats every unit as a
    * solid circle it must route around.

@@ -6,7 +6,8 @@ const lane: LaneFile = {
   buildZone: { width: 8, depth: 10 },
   spawnZoneDepth: 3,
   fortressZoneDepth: 1,
-  fortressRadius: 0.4,
+  fortressRadius: 0.45,
+  fortressHalfWidth: 3.55,
   unitsBlockMovement: null,
   pathSubdivision: 5,
 };

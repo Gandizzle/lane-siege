@@ -20,19 +20,38 @@ import {
   createFlowField,
   markObstacle,
   goalOwner,
+  NO_OWNER,
   markRing,
   SOURCE_WAIT,
   standingCost,
   steerAlongField,
 } from './flowfield.ts';
+import type { FieldShape } from './flowfield.ts';
 
 const SUB = 5;
 /** A melee reach: thinner than a cell, which is the case the ring has to get right. */
 const MELEE = 0.08;
 
+/** A plain circular body, which is what every body but the fortress is. */
+function disc(x: number, y: number, radius: number): FieldShape {
+  return { x, y, radius, halfWidth: 0 };
+}
+
+/** The fortress shape: a disc swept along a horizontal spine. */
+function wall(x: number, y: number, radius: number, halfWidth: number): FieldShape {
+  return { x, y, radius, halfWidth };
+}
+
 /** An 8-wide lane: 3 tiles of spawn zone above a 10-deep grid. */
 function laneField() {
   const field = createFlowField(8, 13, -3, SUB);
+  clearField(field);
+  return field;
+}
+
+/** The same lane with its 1-tile fortress zone on the bottom, as the sim builds it. */
+function fullLaneField() {
+  const field = createFlowField(8, 14, -3, SUB);
   clearField(field);
   return field;
 }
@@ -44,7 +63,7 @@ function laneField() {
 function wallWithGap(inflate: number) {
   const field = laneField();
   for (const x of [0.5, 1.5, 2.95, 4.05, 5.5, 6.5, 7.5]) {
-    markObstacle(field, x, 4.5, 0.26, inflate);
+    markObstacle(field, disc(x, 4.5, 0.26), inflate);
   }
   return field;
 }
@@ -52,8 +71,8 @@ function wallWithGap(inflate: number) {
 describe('goals are the free positions around an enemy', () => {
   it('rings a body at touching distance and leaves its inside unreachable', () => {
     const field = laneField();
-    markObstacle(field, 4, 4, 0.22, 0.26);
-    markRing(field, 4, 4, 0.22, 0.26, MELEE, 1);
+    markObstacle(field, disc(4, 4, 0.22), 0.26);
+    markRing(field, disc(4, 4, 0.22), 0.26, MELEE, 1);
     computeFlowField(field);
 
     // Inside the body: nowhere a seeker can stand.
@@ -72,9 +91,9 @@ describe('goals are the free positions around an enemy', () => {
     const field = laneField();
     const seeker = 0.22;
     // The enemy, and an engaged ally touching it from the north.
-    markObstacle(field, 4, 4, 0.26, seeker);
-    markObstacle(field, 4, 4 - (0.26 + seeker), seeker, seeker);
-    markRing(field, 4, 4, 0.26, seeker, MELEE, 1);
+    markObstacle(field, disc(4, 4, 0.26), seeker);
+    markObstacle(field, disc(4, 4 - (0.26 + seeker), seeker), seeker);
+    markRing(field, disc(4, 4, 0.26), seeker, MELEE, 1);
     computeFlowField(field);
 
     // North of the enemy is taken; a seeker coming from the north is routed
@@ -91,7 +110,7 @@ describe('goals are the free positions around an enemy', () => {
   it('is unreachable everywhere when every position is taken', () => {
     const field = laneField();
     const r = 0.22;
-    markObstacle(field, 4, 4, 0.26, r);
+    markObstacle(field, disc(4, 4, 0.26), r);
     // Six bodies packed around it: a full ring at these sizes.
     const ring = 0.26 + r;
     const around: [number, number][] = [
@@ -102,8 +121,8 @@ describe('goals are the free positions around an enemy', () => {
       [ring * 0.5, -ring * 0.866],
       [-ring * 0.5, -ring * 0.866],
     ];
-    for (const [dx, dy] of around) markObstacle(field, 4 + dx, 4 + dy, r, r);
-    markRing(field, 4, 4, 0.26, r, MELEE, 1);
+    for (const [dx, dy] of around) markObstacle(field, disc(4 + dx, 4 + dy, r), r);
+    markRing(field, disc(4, 4, 0.26), r, MELEE, 1);
     expect(computeFlowField(field)).toBe(0);
 
     expect(costAt(field, 4, 1)).toBe(UNREACHABLE);
@@ -116,12 +135,12 @@ describe('goals are the free positions around an enemy', () => {
     const field = laneField();
     const r = 0.22;
     const enemy = 0.26;
-    markObstacle(field, 4, 4, enemy, r);
+    markObstacle(field, disc(4, 4, enemy), r);
     const ring = enemy + r + 0.04;
     // Neighbours at ±56° (cos 0.559, sin 0.829): a body between them clears
     // each by a few hundredths of a tile, in a sliver about half a cell wide.
-    markObstacle(field, 4 + ring * 0.559, 4 + ring * 0.829, r, r);
-    markObstacle(field, 4 + ring * 0.559, 4 - ring * 0.829, r, r);
+    markObstacle(field, disc(4 + ring * 0.559, 4 + ring * 0.829, r), r);
+    markObstacle(field, disc(4 + ring * 0.559, 4 - ring * 0.829, r), r);
     // Everything else around the enemy is taken solidly: bodies at 110°, 150°,
     // 190° and 230°.
     for (const [c, sn] of [
@@ -130,9 +149,9 @@ describe('goals are the free positions around an enemy', () => {
       [-0.985, -0.174],
       [-0.643, -0.766],
     ]) {
-      markObstacle(field, 4 + ring * c!, 4 + ring * sn!, r, r);
+      markObstacle(field, disc(4 + ring * c!, 4 + ring * sn!, r), r);
     }
-    markRing(field, 4, 4, enemy, r, MELEE, 1);
+    markRing(field, disc(4, 4, enemy), r, MELEE, 1);
     expect(computeFlowField(field)).toBeGreaterThan(0);
     // The hole is to the east, and a body approaching from the east is led in.
     expect(costAt(field, 6, 4)).toBeLessThan(costAt(field, 6, 5.5));
@@ -141,7 +160,7 @@ describe('goals are the free positions around an enemy', () => {
   it('marks waiting positions beside the attackers when nothing is free', () => {
     const field = laneField();
     const r = 0.22;
-    markObstacle(field, 4, 4, 0.26, r);
+    markObstacle(field, disc(4, 4, 0.26), r);
     const ring = 0.26 + r;
     const around: [number, number][] = [
       [ring, 0],
@@ -151,12 +170,12 @@ describe('goals are the free positions around an enemy', () => {
       [ring * 0.5, -ring * 0.866],
       [-ring * 0.5, -ring * 0.866],
     ];
-    for (const [dx, dy] of around) markObstacle(field, 4 + dx, 4 + dy, r, r);
-    markRing(field, 4, 4, 0.26, r, MELEE, 1);
+    for (const [dx, dy] of around) markObstacle(field, disc(4 + dx, 4 + dy, r), r);
+    markRing(field, disc(4, 4, 0.26), r, MELEE, 1);
     expect(computeFlowField(field)).toBe(0);
 
     for (const [dx, dy] of around) {
-      markRing(field, 4 + dx, 4 + dy, r, r, 1 / SUB, -1, SOURCE_WAIT);
+      markRing(field, disc(4 + dx, 4 + dy, r), r, 1 / SUB, NO_OWNER, SOURCE_WAIT);
     }
     expect(computeFlowField(field)).toBeGreaterThan(0);
 
@@ -165,13 +184,13 @@ describe('goals are the free positions around an enemy', () => {
     expect(costAt(field, 4, 1)).toBeLessThan(UNREACHABLE);
     expect(costAt(field, 4, 2.8)).toBeLessThan(costAt(field, 4, 1.5));
     // And a body there is beside a waiting position, not an attack position.
-    expect(goalOwner(field, { x: 4, y: 2.95 })).toBe(-1);
+    expect(goalOwner(field, { x: 4, y: 2.95 })).toBe(NO_OWNER);
   });
 
   it('is the whole reach of a ranged seeker, not a band at touching distance', () => {
     const field = laneField();
-    markObstacle(field, 4, 6, 0.22, 0.26);
-    markRing(field, 4, 6, 0.22, 0.26, 3.9, 1);
+    markObstacle(field, disc(4, 6, 0.22), 0.26);
+    markRing(field, disc(4, 6, 0.22), 0.26, 3.9, 1);
     computeFlowField(field);
 
     // Three tiles away is in range, so it is a goal; five is not.
@@ -183,10 +202,10 @@ describe('goals are the free positions around an enemy', () => {
 
   it('remembers which enemy a goal cell belongs to', () => {
     const field = laneField();
-    markObstacle(field, 2, 4, 0.22, 0.26);
-    markObstacle(field, 6, 4, 0.22, 0.26);
-    markRing(field, 2, 4, 0.22, 0.26, MELEE, 11);
-    markRing(field, 6, 4, 0.22, 0.26, MELEE, 22);
+    markObstacle(field, disc(2, 4, 0.22), 0.26);
+    markObstacle(field, disc(6, 4, 0.22), 0.26);
+    markRing(field, disc(2, 4, 0.22), 0.26, MELEE, 11);
+    markRing(field, disc(6, 4, 0.22), 0.26, MELEE, 22);
     computeFlowField(field);
 
     expect(field.owner[cellAt(field, 2.53, 4)]).toBe(11);
@@ -197,10 +216,10 @@ describe('goals are the free positions around an enemy', () => {
 describe('a body pressed against an obstacle', () => {
   it('reads the cost of the free ground beside it, not a wall', () => {
     const field = laneField();
-    markObstacle(field, 4, 4, 0.22, 0.26);
-    markRing(field, 4, 4, 0.22, 0.26, MELEE, 1);
+    markObstacle(field, disc(4, 4, 0.22), 0.26);
+    markRing(field, disc(4, 4, 0.22), 0.26, MELEE, 1);
     // An engaged ally on the east side, taking that position.
-    markObstacle(field, 4.48, 4, 0.22, 0.26);
+    markObstacle(field, disc(4.48, 4, 0.22), 0.26);
     computeFlowField(field);
 
     // Touching the ally from the east: the body's own cell centre is inside
@@ -221,21 +240,21 @@ describe('a body pressed against an obstacle', () => {
 describe('inflation means real clearance', () => {
   it('routes a body that fits through the gap', () => {
     const field = wallWithGap(0.22);
-    markRing(field, 3.5, 1, 0.26, 0.22, MELEE, 1);
+    markRing(field, disc(3.5, 1, 0.26), 0.22, MELEE, 1);
     computeFlowField(field);
     expect(costAt(field, 3.5, 7)).toBeLessThan(UNREACHABLE);
   });
 
   it('refuses the same gap to a body that does not fit', () => {
     const field = wallWithGap(0.44);
-    markRing(field, 3.5, 1, 0.26, 0.44, MELEE, 1);
+    markRing(field, disc(3.5, 1, 0.26), 0.44, MELEE, 1);
     computeFlowField(field);
     expect(costAt(field, 3.5, 7)).toBe(UNREACHABLE);
   });
 
   it('steers toward the gap rather than into the wall', () => {
     const field = wallWithGap(0.22);
-    markRing(field, 3.5, 1, 0.26, 0.22, MELEE, 1);
+    markRing(field, disc(3.5, 1, 0.26), 0.22, MELEE, 1);
     computeFlowField(field);
 
     const out = { x: 0, y: 0 };
@@ -248,8 +267,8 @@ describe('inflation means real clearance', () => {
 
   it('walks straight on open ground', () => {
     const field = laneField();
-    markObstacle(field, 4, 1, 0.26, 0.22);
-    markRing(field, 4, 1, 0.26, 0.22, MELEE, 1);
+    markObstacle(field, disc(4, 1, 0.26), 0.22);
+    markRing(field, disc(4, 1, 0.26), 0.22, MELEE, 1);
     computeFlowField(field);
 
     const out = { x: 0, y: 0 };
@@ -275,8 +294,8 @@ describe('the field covers the spawn zone', () => {
 
   it('reaches from the spawn centre to a goal on the grid', () => {
     const field = laneField();
-    markObstacle(field, 4, 5, 0.26, 0.22);
-    markRing(field, 4, 5, 0.26, 0.22, MELEE, 1);
+    markObstacle(field, disc(4, 5, 0.26), 0.22);
+    markRing(field, disc(4, 5, 0.26), 0.22, MELEE, 1);
     computeFlowField(field);
     expect(costAt(field, 4, -1.5)).toBeLessThan(UNREACHABLE);
   });
@@ -298,10 +317,52 @@ describe('determinism', () => {
   it('computes the same field twice', () => {
     const build = () => {
       const field = wallWithGap(0.22);
-      markRing(field, 3.5, 1, 0.26, 0.22, MELEE, 1);
+      markRing(field, disc(3.5, 1, 0.26), 0.22, MELEE, 1);
       computeFlowField(field);
       return field;
     };
     expect(Array.from(build().cost)).toEqual(Array.from(build().cost));
+  });
+});
+
+describe('a body with a spine is a wall, not a point', () => {
+  // The fortress (§4) is a disc swept along a horizontal segment. Everything
+  // else in the lane is a circle, which is the same code with a spine of zero.
+  const SPINE = 3.55;
+  const THICK = 0.45;
+  const MONSTER = 0.22;
+
+  it('blocks the whole length of itself, not just its middle', () => {
+    const field = fullLaneField();
+    markObstacle(field, wall(4, 10.5, THICK, SPINE), MONSTER);
+
+    // Solid end to end at its own depth...
+    for (const x of [0.4, 2, 4, 6, 7.6]) {
+      expect(field.blocked[cellAt(field, x, 10.5)]).toBe(1);
+    }
+    // ...and not a tile above it, where the front rank stands.
+    expect(field.blocked[cellAt(field, 4, 9.2)]).toBe(0);
+  });
+
+  it('offers attack positions along its whole face', () => {
+    const field = fullLaneField();
+    markObstacle(field, wall(4, 10.5, THICK, SPINE), MONSTER);
+    markRing(field, wall(4, 10.5, THICK, SPINE), MONSTER, MELEE, 7);
+
+    // A place to stand in front of every part of the wall, each one knowing
+    // which body it belongs to - this is what a circle of the same area could
+    // not give, and what lets a wave hit the fortress all at once.
+    for (const x of [1, 2.5, 4, 5.5, 7]) {
+      expect(goalOwner(field, { x, y: 9.8 })).toBe(7);
+    }
+  });
+
+  it('is exactly the circle it used to be when the spine has no length', () => {
+    const spined = fullLaneField();
+    const round = fullLaneField();
+    markRing(spined, wall(4, 6, 0.22, 0), 0.26, MELEE, 1);
+    markRing(round, disc(4, 6, 0.22), 0.26, MELEE, 1);
+    expect(Array.from(spined.sources)).toEqual(Array.from(round.sources));
+    expect(Array.from(spined.owner)).toEqual(Array.from(round.owner));
   });
 });

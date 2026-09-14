@@ -83,9 +83,17 @@ export interface FortressView {
   destroyed: boolean;
   /** Public: the weapon visibly fires in this colour (§10.1). */
   weaponDamageType: DamageType;
-  /** Public: an active aura is drawn as a ring around the fortress. */
+  /**
+   * Public: an active aura is drawn as a ring around the fortress (§10.1).
+   *
+   * All three together, because all three are visible. The radius is where the
+   * ring is, and the strength is how hard the effect inside it reads - §10.1
+   * upgrades them separately on purpose, and a player choosing between Aura
+   * Power and Aura Radius can only see that choice if both show.
+   */
   activeAura: string | null;
   auraRadius: number;
+  auraStrength: number;
 }
 
 /** Your own balance sheet. Never anyone else's. */
@@ -237,6 +245,7 @@ function laneView(lane: Lane, own: boolean): LaneView {
       weaponDamageType: lane.fortress.weaponDamageType,
       activeAura: lane.fortress.activeAura,
       auraRadius: lane.fortress.auraRadius,
+      auraStrength: lane.fortress.auraStrength,
     },
     economy: own
       ? {

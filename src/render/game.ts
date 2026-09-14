@@ -50,6 +50,7 @@ import {
   type WaveSummary,
 } from '../sim/index.ts';
 import type { Transport } from '../net/transport.ts';
+import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
 import { computeLayout, type LaneLayout } from './layout.ts';
@@ -107,6 +108,7 @@ export class Game extends Container {
   private watchingTeamId: string | null = null;
 
   private readonly laneLayer: LaneViewLayer;
+  private readonly auraLayer: AuraLayer;
   private readonly entities: EntityLayer;
   /** Named `effectsLayer`: Pixi's Container already owns `effects`. */
   private readonly effectsLayer: EffectsLayer;
@@ -138,6 +140,7 @@ export class Game extends Container {
     // everywhere (§9.2) - so the renderer indexes them itself rather than being
     // sent them with every frame.
     const defs = buildDefIndex(data);
+    this.auraLayer = new AuraLayer(this.layout, data.lane);
     this.entities = new EntityLayer(this.layout, defs);
     // Above the bodies, so a swing reads as landing ON what it hits (§14.2).
     this.effectsLayer = new EffectsLayer(this.layout, data, defs);
@@ -192,6 +195,9 @@ export class Game extends Container {
 
     this.addChild(
       this.laneLayer,
+      // Between the ground and the bodies: the aura is held ground, and it
+      // must never obscure the fight standing on it (§10.1).
+      this.auraLayer,
       this.entities,
       this.effectsLayer,
       this.hud,
@@ -298,6 +304,7 @@ export class Game extends Container {
   resize(width: number, height: number): void {
     this.layout = computeLayout(width, height, this.data.lane);
     this.laneLayer.setLayout(this.layout);
+    this.auraLayer.setLayout(this.layout);
     this.entities.setLayout(this.layout);
     this.effectsLayer.setLayout(this.layout);
     this.hud.setLayout(this.layout);
@@ -356,6 +363,7 @@ export class Game extends Container {
     // Effects run on wall time, not on ticks: a 170ms swing at 60fps is ten
     // frames, and at 20Hz it would be three.
     this.effectsLayer.update(deltaMs);
+    this.auraLayer.update(deltaMs);
 
     for (const rejection of transport.takeRejections()) this.toast.show(rejection);
 
@@ -380,8 +388,10 @@ export class Game extends Container {
     const selectedUnitId =
       !watching && this.selection?.kind === 'placedUnit' ? this.selection.unitId : null;
 
+    this.auraLayer.read(lane);
     if (lane) {
       this.laneLayer.render(view, lane, selectedUnitId, this.summary);
+      this.auraLayer.render();
       this.entities.render(lane, transport.alpha);
       this.effectsLayer.render();
     }

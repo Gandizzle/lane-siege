@@ -102,6 +102,31 @@ export function computeLayout(width: number, height: number, lane: LaneFile): La
   };
 }
 
+/**
+ * The fortress as the screen sees it, in pixels: a stadium of `radius` swept
+ * along a horizontal spine `halfWidth` either side of (cx, cy).
+ *
+ * One function because two things draw it - the lane draws the wall and the HUD
+ * draws the health inside it - and a fortress whose gauge did not line up with
+ * its stonework would look like a bug in both.
+ */
+export function fortressShape(
+  layout: LaneLayout,
+  lane: LaneFile,
+): { cx: number; cy: number; halfWidth: number; radius: number } {
+  const centre = tileToScreen(
+    layout,
+    lane.buildZone.width / 2,
+    lane.buildZone.depth + lane.fortressZoneDepth * 0.5,
+  );
+  return {
+    cx: centre.x,
+    cy: centre.y,
+    halfWidth: lane.fortressHalfWidth * layout.tileSize,
+    radius: lane.fortressRadius * layout.tileSize,
+  };
+}
+
 /** Tile space -> screen pixels. The simulation never sees pixels. */
 export function tileToScreen(
   layout: LaneLayout,

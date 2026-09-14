@@ -22,6 +22,7 @@
  */
 
 import { ENGAGE_SLACK_TILES } from './constants.ts';
+import { spineDx } from './motion.ts';
 import type { DefensiveUnit, EntityId, Monster, Vec2 } from './types.ts';
 
 /** What acquisition needs from either kind of body. */
@@ -29,6 +30,8 @@ export interface Combatant {
   id: EntityId;
   pos: Vec2;
   radius: number;
+  /** Half-length of the body's horizontal spine; 0 for a circle (motion.ts). */
+  halfWidth: number;
   alive: boolean;
 }
 
@@ -38,10 +41,25 @@ export function distanceSquared(a: Vec2, b: Vec2): number {
   return dx * dx + dy * dy;
 }
 
+/**
+ * Centre-to-spine distance squared between two bodies.
+ *
+ * Range is measured to the nearest point of the other body's spine, not to its
+ * centre. For two circles that is the same thing. For the fortress it is the
+ * difference between "in range of the wall you are standing at" and "in range
+ * of a point five tiles away", which is the difference between a wave
+ * besieging it and a wave standing at it.
+ */
+function bodyDistanceSquared(a: Combatant, b: Combatant): number {
+  const dx = spineDx(a.pos.x, a.halfWidth, b.pos.x, b.halfWidth);
+  const dy = a.pos.y - b.pos.y;
+  return dx * dx + dy * dy;
+}
+
 /** Is `other` within `range` of `self`, edge to edge? */
 export function withinRange(self: Combatant, other: Combatant, range: number): boolean {
   const reach = range + self.radius + other.radius;
-  return distanceSquared(self.pos, other.pos) <= reach * reach;
+  return bodyDistanceSquared(self, other) <= reach * reach;
 }
 
 /** Nearest living enemy whose edge is within `range` of `self`'s edge, or null. */
@@ -55,7 +73,7 @@ export function nearestInRange<T extends Combatant>(
   for (const enemy of enemies) {
     if (!enemy.alive) continue;
     const reach = range + self.radius + enemy.radius;
-    const dist = distanceSquared(self.pos, enemy.pos);
+    const dist = bodyDistanceSquared(self, enemy);
     if (dist <= reach * reach && dist < bestDist) {
       bestDist = dist;
       best = enemy;

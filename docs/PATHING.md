@@ -39,6 +39,14 @@ not a square it may not enter. Contact between two circles is one subtraction
 and one comparison, it is exact, and what you see touching is what is touching.
 Range is measured edge to edge, so a melee value near zero means "touching".
 
+One body is not a circle: the fortress. It is the same disc swept along a
+horizontal segment — a wall across the end of the lane — because a wave has to
+be able to bring its whole front to bear on it, and a circle wide enough for
+that would be a dome bulging several tiles up into the build grid. Every
+formula below takes the segment instead of the centre, which costs one clamp on
+the x axis; with a segment of zero length each one is the circle arithmetic it
+was, and that is what every unit and monster has.
+
 Bodies are deliberately smaller than a tile (0.26 for units, 0.22 for monsters,
 0.44 for bosses, against a tile of 1.0) so that there is room to move between
 them. Monsters spawn as one packed hexagonal clump at the centre of a spawn

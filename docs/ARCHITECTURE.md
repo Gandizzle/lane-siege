@@ -505,6 +505,40 @@ Effects run on wall time rather than ticks — a 170ms swing is ten frames at
 mid-flight carries them with everything else. They are capped at 256 live, an
 order of magnitude above what a busy tick produces.
 
+### The fortress aura, drawn
+
+§10.1 sells two upgrades and offers one choice — Aura Power, Aura Radius, and
+which of four auras is running — and until now all three were invisible. The
+weapon's damage type at least recoloured the shots it fired; an aura changed
+numbers behind the scenes and nothing on screen, which makes the whole tab a
+guess.
+
+Three channels, one per thing the player bought:
+
+| channel  | comes from   | drawn as                                       |
+| -------- | ------------ | ---------------------------------------------- |
+| radius   | Aura Radius  | a bright rim with a wash of held ground inside |
+| type     | the aura tab | a motif that differs per aura                  |
+| strength | Aura Power   | opacity, and how much of the motif there is    |
+
+The motifs say what the aura does rather than merely differing: **damage** puts
+chevrons on the rim pointing out of the fortress, because that is the direction
+the buff acts in; **attack speed** runs rings outward, because speed is the one
+channel that reads as motion rather than as shape; **armour** is a still lattice
+of scales, because armour does nothing until something hits you; and
+**regeneration** drifts motes up the lane, because a thing being given back
+should look like it is travelling.
+
+The rim is drawn at the radius `auraFor` actually measures, centred where it
+measures from, so a unit inside the line is buffed and a unit outside it is not
+— the drawing is the rule rather than an illustration of it. The aura tab's
+chips carry the same four colours and now print the radius and the strength, so
+buying Aura Power changes a number there and the ground in the lane at the same
+time. It sits under the bodies so it never obscures a fight, runs on wall time
+like the effects layer, and the simulation neither reads it nor knows it exists
+— `aura.test.ts` asserts that literally, and that each channel moves when the
+thing it stands for is bought.
+
 ### The selected unit: what it says, and selling it back
 
 Tapping a unit on the board replaces the Build grid with a panel about that
@@ -553,18 +587,40 @@ would say so.
 
 ### Bodies, contact and range
 
-Every body is one circle, and that circle is its collision shape, its hit
-shape and its drawn size at once, with the radius on the unit or monster
-definition. There are no other shapes and no tile occupancy: a unit is a solid
-round thing a monster walks around, not a square it may not enter. What you
-see touching is what is touching.
+Every body is a disc swept along a horizontal segment, and that shape is its
+collision shape, its hit shape and its drawn size at once, with the radius on
+the unit or monster definition. There are no other shapes and no tile occupancy:
+a unit is a solid round thing a monster walks around, not a square it may not
+enter. What you see touching is what is touching.
 
-Attack `range` is measured **edge to edge**, not centre to centre. A melee value
-near zero therefore means "walk up until the bodies touch". Centre-to-centre
-range left every attacker standing a full body-width short of its target, which
-looked wrong for melee. A range check has 0.12 tiles of hysteresis, so a target
-drifting across the boundary cannot flip its attacker between fighting and
-walking.
+The segment has no length for every unit and every monster, which makes them
+circles — one clamp on the x axis and the arithmetic is identical. It exists
+for the **fortress**, which is a wall across the end of the lane rather than a
+pebble at the middle of it. It spans the full eight tiles, so nothing walks
+around behind it, and its front face is a straight line the width of the lane:
+a wave meets it along a front and a dozen or more monsters hit it at once
+instead of queueing for the two contact points a 0.4-tile circle offered. It is
+solid to units and monsters alike, and the renderer draws it from these numbers
+rather than from a rectangle that looked about right, so the wall you see is
+the wall that stops you.
+
+Attack `range` is measured **edge to edge**, not centre to centre, and against
+the nearest point of the other body's segment rather than its centre. A melee
+value near zero therefore means "walk up until the bodies touch". Centre-to-
+centre range left every attacker standing a full body-width short of its target,
+which looked wrong for melee. A range check has 0.12 tiles of hysteresis, so a
+target drifting across the boundary cannot flip its attacker between fighting
+and walking.
+
+**A besieged fortress used to take no damage at all.** The field records which
+enemy each attack position belongs to, so a melee body that reaches a cell can
+walk the last fraction into contact; cells with no goal recorded read as
+`NO_OWNER`. That sentinel was −1, and `FORTRESS_ID` is also −1, so every
+position around the fortress read as unmarked. Monsters walked to the wall,
+stood on a goal cell, and never took the last step. It looked exactly like a
+pathing quirk and was an id collision; the sentinel is now a value no entity can
+hold, and `src/sim/siege.test.ts` fails if a monster at the wall stops hitting
+it.
 
 ### How the renderer drives the simulation
 
@@ -599,7 +655,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (295 tests):
+Implemented and tested (316 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -659,6 +715,15 @@ Implemented and tested (295 tests):
   combat and from wave 25 (§11, decided)
 - What the selected-unit panel says: the arrow only where a tier moves the
   number, never between two identical readings, across every unit in the game
+- Besieging the fortress: a monster that reaches the wall engages it and keeps
+  hitting it, a whole wave brings its weight to bear at once rather than
+  queueing, and nothing walks through the wall or around behind it (§5.5)
+- The fortress as a swept disc: blocked along its whole length, offering attack
+  positions along its whole face, and identical to the old circle when the
+  spine has no length
+- The aura: nothing drawn without one, something for every aura the data
+  defines, each of the four visibly different, and all three channels moving
+  when the thing they stand for is bought (§10.1)
 
 ### Deliberate departures from DESIGN.md
 

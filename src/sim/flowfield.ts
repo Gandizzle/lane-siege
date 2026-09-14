@@ -82,6 +82,36 @@ const FINE = 4;
 export const SOURCE_ATTACK = 1;
 export const SOURCE_WAIT = 2;
 
+/**
+ * `owner` where no goal has been marked.
+ *
+ * Deliberately not -1. The fortress is a body with an id of its own
+ * (`FORTRESS_ID`, which IS -1), and it is the goal every monster walks to once
+ * a lane is clear (§5.5). Sharing the sentinel made every fortress attack
+ * position read as unmarked, so monsters walked to the wall, stood on a goal
+ * cell, and never took the last step into contact - a besieged fortress took no
+ * damage at all. Any value no entity can hold will do; this one cannot be
+ * confused with an id by accident.
+ */
+export const NO_OWNER = -0x7fffffff;
+
+/**
+ * A body as the field sees it: a disc of `radius` swept along a horizontal
+ * spine of half-length `halfWidth`, centred on (x, y). `halfWidth` 0 is a plain
+ * circle, which is every body but the fortress - see motion.ts for why the
+ * fortress is not one.
+ *
+ * Passed as a record rather than as four loose numbers because the argument
+ * lists below already carry an inflation, a range, an owner and a kind, and a
+ * fourth bare scalar in the middle of that is a bug waiting for a refactor.
+ */
+export interface FieldShape {
+  x: number;
+  y: number;
+  radius: number;
+  halfWidth: number;
+}
+
 /** Orthogonal and diagonal step costs. 14/10 approximates √2. */
 export const W_ORTH = 10;
 export const W_DIAG = 14;
@@ -132,7 +162,7 @@ export function createFlowField(
     blocked: new Uint8Array(cells),
     blockedFine: new Uint8Array(cells * FINE * FINE),
     sources: new Uint8Array(cells),
-    owner: new Int32Array(cells).fill(-1),
+    owner: new Int32Array(cells).fill(NO_OWNER),
     bucketHead: new Int32Array(BUCKETS),
     nextInBucket: new Int32Array(cells),
   };
@@ -154,7 +184,7 @@ export function clearField(field: FlowField): void {
   field.blocked.fill(0);
   field.blockedFine.fill(0);
   field.sources.fill(0);
-  field.owner.fill(-1);
+  field.owner.fill(NO_OWNER);
 }
 
 /** Tile-space position to cell index, clamped into the grid. */
@@ -174,31 +204,28 @@ export function costAt(field: FlowField, x: number, y: number): number {
 
 /**
  * Mark every cell a body of radius `inflate` would overlap if it stood there -
- * every cell whose centre lies strictly within `bodyRadius + inflate` of the
- * body's centre - and the same at the fine resolution. Circles only; there are
- * no other shapes in this simulation.
+ * every cell whose centre lies strictly within `shape.radius + inflate` of the
+ * shape's spine - and the same at the fine resolution.
  */
-export function markObstacle(
-  field: FlowField,
-  x: number,
-  y: number,
-  bodyRadius: number,
-  inflate: number,
-): void {
+export function markObstacle(field: FlowField, shape: FieldShape, inflate: number): void {
   const sub = field.subdivision;
-  const cx = x * sub;
-  const cy = (y - field.originY) * sub;
-  const reach = (bodyRadius + inflate) * sub;
+  const cx = shape.x * sub;
+  const cy = (shape.y - field.originY) * sub;
+  const spine = shape.halfWidth * sub;
+  const spineMin = cx - spine;
+  const spineMax = cx + spine;
+  const reach = (shape.radius + inflate) * sub;
   const reachSq = reach * reach;
 
   {
-    const minX = Math.max(0, Math.floor(cx - reach));
-    const maxX = Math.min(field.width - 1, Math.ceil(cx + reach));
+    const minX = Math.max(0, Math.floor(spineMin - reach));
+    const maxX = Math.min(field.width - 1, Math.ceil(spineMax + reach));
     const minY = Math.max(0, Math.floor(cy - reach));
     const maxY = Math.min(field.depth - 1, Math.ceil(cy + reach));
     for (let gy = minY; gy <= maxY; gy++) {
       for (let gx = minX; gx <= maxX; gx++) {
-        const dx = gx + 0.5 - cx;
+        const px = gx + 0.5;
+        const dx = px < spineMin ? px - spineMin : px > spineMax ? px - spineMax : 0;
         const dy = gy + 0.5 - cy;
         // Strict: a cell exactly at touching distance is standable.
         if (dx * dx + dy * dy < reachSq) field.blocked[gy * field.width + gx] = 1;
@@ -208,22 +235,29 @@ export function markObstacle(
 
   {
     const fineWidth = field.width * FINE;
-    const fx = cx * FINE;
+    const fineMin = spineMin * FINE;
+    const fineMax = spineMax * FINE;
     const fy = cy * FINE;
     const fineReach = reach * FINE;
     const fineReachSq = fineReach * fineReach;
-    const minX = Math.max(0, Math.floor(fx - fineReach));
-    const maxX = Math.min(fineWidth - 1, Math.ceil(fx + fineReach));
+    const minX = Math.max(0, Math.floor(fineMin - fineReach));
+    const maxX = Math.min(fineWidth - 1, Math.ceil(fineMax + fineReach));
     const minY = Math.max(0, Math.floor(fy - fineReach));
     const maxY = Math.min(field.depth * FINE - 1, Math.ceil(fy + fineReach));
     for (let gy = minY; gy <= maxY; gy++) {
       for (let gx = minX; gx <= maxX; gx++) {
-        const dx = gx + 0.5 - fx;
+        const px = gx + 0.5;
+        const dx = px < fineMin ? px - fineMin : px > fineMax ? px - fineMax : 0;
         const dy = gy + 0.5 - fy;
         if (dx * dx + dy * dy < fineReachSq) field.blockedFine[gy * fineWidth + gx] = 1;
       }
     }
   }
+}
+
+/** How far one x sits outside the spine's interval. 0 anywhere along it. */
+function offSpine(px: number, spineMin: number, spineMax: number): number {
+  return px < spineMin ? spineMin - px : px > spineMax ? px - spineMax : 0;
 }
 
 /**
@@ -248,22 +282,23 @@ export function markObstacle(
  */
 export function markRing(
   field: FlowField,
-  x: number,
-  y: number,
-  bodyRadius: number,
+  shape: FieldShape,
   inflate: number,
   range: number,
   ownerId: number,
   kind: number = SOURCE_ATTACK,
 ): void {
   const sub = field.subdivision;
-  const cx = x * sub;
-  const cy = (y - field.originY) * sub;
-  const near = (bodyRadius + inflate) * sub;
+  const cx = shape.x * sub;
+  const cy = (shape.y - field.originY) * sub;
+  const spine = shape.halfWidth * sub;
+  const spineMin = cx - spine;
+  const spineMax = cx + spine;
+  const near = (shape.radius + inflate) * sub;
   const far = near + range * sub;
 
-  const minX = Math.max(0, Math.floor(cx - far));
-  const maxX = Math.min(field.width - 1, Math.ceil(cx + far));
+  const minX = Math.max(0, Math.floor(spineMin - far));
+  const maxX = Math.min(field.width - 1, Math.ceil(spineMax + far));
   const minY = Math.max(0, Math.floor(cy - far));
   const maxY = Math.min(field.depth - 1, Math.ceil(cy + far));
   const nearSq = near * near;
@@ -271,14 +306,20 @@ export function markRing(
   const fineWidth = field.width * FINE;
 
   for (let gy = minY; gy <= maxY; gy++) {
-    // Nearest and farthest the cell's row gets to the centre, in y.
+    // Nearest and farthest the cell's row gets to the spine, in y.
     const dyNear = gy > cy ? gy - cy : cy > gy + 1 ? cy - (gy + 1) : 0;
     const dyFar = Math.max(cy - gy, gy + 1 - cy);
     for (let gx = minX; gx <= maxX; gx++) {
-      const dxNear = gx > cx ? gx - cx : cx > gx + 1 ? cx - (gx + 1) : 0;
-      const dxFar = Math.max(cx - gx, gx + 1 - cx);
+      // The cell's x-interval against the spine's: 0 where they overlap.
+      const dxNear = gx > spineMax ? gx - spineMax : gx + 1 < spineMin ? spineMin - (gx + 1) : 0;
+      // Distance to an interval is convex along x, so the cell's farthest
+      // point from the spine is at one of its two edges.
+      const dxFar = Math.max(
+        offSpine(gx, spineMin, spineMax),
+        offSpine(gx + 1, spineMin, spineMax),
+      );
       // The square meets the annulus when its nearest point is inside the
-      // outer circle and its farthest point is outside the inner one.
+      // outer boundary and its farthest point is outside the inner one.
       if (dxNear * dxNear + dyNear * dyNear > farSq) continue;
       if (dxFar * dxFar + dyFar * dyFar < nearSq) continue;
 
@@ -290,7 +331,7 @@ export function markRing(
           const dy = py - cy;
           for (let sx = 0; sx < FINE; sx++) {
             if (field.blockedFine[(gy * FINE + sy) * fineWidth + gx * FINE + sx] === 1) continue;
-            const dx = gx + (sx + 0.5) / FINE - cx;
+            const dx = offSpine(gx + (sx + 0.5) / FINE, spineMin, spineMax);
             const d = dx * dx + dy * dy;
             if (d >= nearSq && d <= farSq) {
               found = true;
@@ -437,8 +478,8 @@ export function standingCost(field: FlowField, from: Vec2): number {
  * The enemy a body standing at `from` should close on: the owner of the attack
  * goal under it, or of one touching its cell - a body pressed against a ring
  * member is usually on a blocked cell beside the goal rather than on it.
- * Returns -1 when no attack goal is within a cell: the body is somewhere to
- * wait, or nowhere in particular, and should stand still.
+ * Returns `NO_OWNER` when no attack goal is within a cell: the body is
+ * somewhere to wait, or nowhere in particular, and should stand still.
  */
 export function goalOwner(field: FlowField, from: Vec2): number {
   const { width, depth, sources, owner } = field;
@@ -459,7 +500,7 @@ export function goalOwner(field: FlowField, from: Vec2): number {
       if (sources[n] === SOURCE_ATTACK) return owner[n]!;
     }
   }
-  return -1;
+  return NO_OWNER;
 }
 
 /**

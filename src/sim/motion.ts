@@ -1,11 +1,19 @@
 /**
  * Bodies, contact, and how a body moves through a crowd.
  *
- * Every body in this simulation is a circle, and that one circle is its
- * collision shape, its hit shape and its drawn size at once. There are no other
- * shapes here on purpose: contact between two circles is one subtraction and
- * one comparison, it is exact, and it means that what you see touching is what
- * is touching.
+ * Every body in this simulation is a disc swept along a horizontal segment -
+ * a circle when the segment has no length, which is every unit and every
+ * monster. That one shape is its collision shape, its hit shape and its drawn
+ * size at once. Contact between two of them is a clamp, a subtraction and a
+ * comparison; it is exact, and it means that what you see touching is what is
+ * touching.
+ *
+ * The segment exists for one body: the fortress (§4, §5.5), which is a wall
+ * across the end of the lane rather than a pebble in the middle of it. A wave
+ * has to be able to bring its weight to bear on it, and a circle wide enough
+ * for that would be a dome bulging several tiles up into the build grid. The
+ * generalisation costs one clamp on the x axis and nothing else: set
+ * `halfWidth` to 0 and every line below is the circle arithmetic it was.
  *
  * THE RULE
  *
@@ -55,8 +63,14 @@ import type { Vec2 } from './types.ts';
 /** What contact needs to know about a body. Units and monsters both qualify. */
 export interface Body {
   id: number;
+  /** Centre of the spine. For a circle, simply the centre. */
   pos: Vec2;
   radius: number;
+  /**
+   * Half the length of the horizontal spine the radius is swept along. 0 makes
+   * the body a circle, which is what every unit and monster is.
+   */
+  halfWidth: number;
   alive: boolean;
   /**
    * Is this body where it is going to be this tick? Engaged and pinned bodies
@@ -77,14 +91,21 @@ export interface Bounds {
 /**
  * Passes over the contact set per step. Two contacts resolved in sequence can
  * push a body back into the first, by a fraction that depends on the angle
- * between them; each pass shrinks what is left by that fraction. Neighbours in
- * a packed crowd sit at sixty degrees, which halves the residue per pass, so
- * eight passes take a full step's overlap below a thousandth of a tile. It has
- * to converge HERE, in one tick: a body that ends the tick overlapping and
- * then engages is frozen with the overlap in it. Passes end early the moment
- * nothing touches, which is nearly always after the first.
+ * between them; each pass shrinks what is left by that fraction. It has to
+ * converge HERE, in one tick: a body that ends the tick overlapping and then
+ * engages is frozen with the overlap in it.
+ *
+ * Neighbours in an open crowd sit at sixty degrees, which halves the residue
+ * per pass, and eight passes were enough for that. A crowd pressed against the
+ * fortress wall is a harder case: bodies wedge between two immovable surfaces
+ * that are nearly parallel, the residue per pass is much closer to 1, and eight
+ * passes left up to 0.015 tiles of overlap on engaged bodies in the thirty-on-
+ * one-tank scenario (`npm run routing`). Twenty-four take the same scenario to
+ * zero. They are nearly free: passes end the moment nothing touches, which is
+ * after the first in open ground, so the extra iterations are only ever spent
+ * where a pile actually needs them - the §15.3 budget went from 6.8% to 7.3%.
  */
-const SLIDE_PASSES = 8;
+const SLIDE_PASSES = 24;
 
 /**
  * A hair of clearance left after resolving a contact, so two bodies that were
@@ -94,10 +115,22 @@ const SLIDE_PASSES = 8;
 const CONTACT_EPSILON = 1e-4;
 
 /**
- * Edge-to-edge distance between two circles. Negative means overlapping.
+ * The x-offset between two horizontal spines: the gap between the intervals
+ * they cover, and 0 where they overlap. With two zero-length spines it is
+ * plain `ax - bx`, which is what makes a circle a special case rather than a
+ * different code path.
+ */
+export function spineDx(ax: number, ahw: number, bx: number, bhw: number): number {
+  const d = ax - bx;
+  const slack = ahw + bhw;
+  return d > slack ? d - slack : d < -slack ? d + slack : 0;
+}
+
+/**
+ * Edge-to-edge distance between two bodies. Negative means overlapping.
  */
 export function gap(a: Body, b: Body): number {
-  const dx = a.pos.x - b.pos.x;
+  const dx = spineDx(a.pos.x, a.halfWidth, b.pos.x, b.halfWidth);
   const dy = a.pos.y - b.pos.y;
   return Math.sqrt(dx * dx + dy * dy) - a.radius - b.radius;
 }
@@ -112,10 +145,11 @@ function deepestOverlap(
   bounds: Bounds,
 ): number {
   const r = self.radius;
+  const halfSpan = r + self.halfWidth;
   let worst = Math.max(
     0,
-    bounds.minX + r - at.x,
-    at.x - (bounds.maxX - r),
+    bounds.minX + halfSpan - at.x,
+    at.x - (bounds.maxX - halfSpan),
     bounds.minY + r - at.y,
     at.y - (bounds.maxY - r),
   );
@@ -123,7 +157,7 @@ function deepestOverlap(
     for (const other of set) {
       if (!other.alive || !other.settled || other === self) continue;
       const minDistance = self.radius + other.radius;
-      const dx = at.x - other.pos.x;
+      const dx = spineDx(at.x, self.halfWidth, other.pos.x, other.halfWidth);
       const dy = at.y - other.pos.y;
       const overlap = minDistance - Math.sqrt(dx * dx + dy * dy);
       if (overlap > worst) worst = overlap;
@@ -147,16 +181,17 @@ function resolveContacts(
   bounds: Bounds,
 ): boolean {
   const r = self.radius;
+  const halfSpan = r + self.halfWidth;
   let touched = false;
 
   for (let pass = 0; pass < SLIDE_PASSES; pass++) {
     touched = false;
 
-    if (proposed.x < bounds.minX + r) {
-      proposed.x = bounds.minX + r;
+    if (proposed.x < bounds.minX + halfSpan) {
+      proposed.x = bounds.minX + halfSpan;
       touched = true;
-    } else if (proposed.x > bounds.maxX - r) {
-      proposed.x = bounds.maxX - r;
+    } else if (proposed.x > bounds.maxX - halfSpan) {
+      proposed.x = bounds.maxX - halfSpan;
       touched = true;
     }
     if (proposed.y < bounds.minY + r) {
@@ -172,7 +207,7 @@ function resolveContacts(
         if (!other.alive || !other.settled || other === self) continue;
 
         const minDistance = self.radius + other.radius;
-        let dx = proposed.x - other.pos.x;
+        let dx = spineDx(proposed.x, self.halfWidth, other.pos.x, other.halfWidth);
         let dy = proposed.y - other.pos.y;
         const distSq = dx * dx + dy * dy;
         if (distSq >= minDistance * minDistance) continue;
