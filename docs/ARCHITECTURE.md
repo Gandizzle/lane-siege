@@ -476,10 +476,24 @@ circle and its hit circle, so moving it to animate an attack would either be a
 lie about where it is or a change to where it is — and the crowd behaviour that
 took eleven attempts to get right depends on it not moving (see
 [PATHING.md](PATHING.md)). So the attacker stays exactly put and the animation
-happens around it: an arc struck outside its own circle, sweeping through the
-direction of the blow, and a spark on the target's edge where the blow lands.
-Nothing in the effects layer reads or writes a body. A test asserts that
-literally, by comparing the attacker and target before and after a frame.
+happens around it: a crescent sweeping across its near face through the
+direction of the blow, fattening to the middle of the swing and thinning away
+again, with slivers thrown off the point of contact. Nothing in the effects
+layer reads or writes a body. A test asserts that literally, by comparing the
+attacker and target before and after a frame.
+
+The flash is drawn at the attacker's damage-type colour mixed halfway to white.
+A hammer and a grub are both Impact, and an amber swing between two amber
+bodies is invisible; lightening keeps §14.2's colour channel while making the
+blow readable against a body wearing the same hue.
+
+**Every effect is a filled shape; nothing strokes a path.** Pixi v8 carries path
+state between draws — after each fill or stroke it seeds the next path with a
+point from the previous one, falling back to (0, 0) when there is none — so a
+stroked path can pick that up and draw a line to the corner of the screen. Each
+effect is therefore an explicit vertex list passed to `poly()` and filled, with
+a `moveTo` at the shape's own first vertex pinning the seed to the shape. A
+connector cannot be drawn because there is nothing to connect.
 
 Effects run on wall time rather than ticks — a 170ms swing is ten frames at
 60fps and three at 20Hz — and store their positions in tiles, so a resize

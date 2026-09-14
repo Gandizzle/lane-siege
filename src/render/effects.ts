@@ -18,6 +18,18 @@
  * layer stays strictly decorative, and the crowd behaviour that took eleven
  * attempts to get right stays untouched.
  *
+ * EVERY EFFECT IS A FILLED SHAPE, NEVER A STROKED PATH
+ *
+ * Pixi v8 carries path state between draws: after each fill or stroke it seeds
+ * the next path with a `moveTo` at the previous path's last point, and where
+ * there is no previous point it seeds (0, 0) - the top-left of the screen. A
+ * stroked path that picks that seed up draws a line to it, which reads as a
+ * laser fired from the corner of the screen. Rather than guard every call site
+ * against that, nothing here strokes a path: every effect is an explicit list
+ * of vertices passed to `poly()` and filled, and a `moveTo` at the shape's own
+ * first vertex pins the seed to the shape itself. A connector cannot be drawn
+ * because there is nothing to connect.
+ *
  * POSITIONS ARE IN TILES
  *
  * An effect stores where it is in tile space and is converted to pixels at draw
@@ -41,6 +53,21 @@ import type { GameData } from '../data/schema.ts';
 import { stat } from '../sim/defs.ts';
 import type { LaneLayout } from './layout.ts';
 import { attackStyle, type AttackStyle } from './attackStyle.ts';
+
+/**
+ * Melee happens ON TOP of the bodies, and an attacker's own colour is the
+ * colour of the thing it is hitting as often as not - a hammer and a grub are
+ * both Impact, so an amber swing between two amber bodies disappears. So the
+ * flash is drawn at the same hue, mixed toward white: still the damage-type
+ * channel §14.2 defines, but bright enough to read against a body wearing it.
+ */
+function lighten(colour: number, amount: number): number {
+  const mix = (channel: number) => Math.round(channel + (255 - channel) * amount);
+  return (mix((colour >> 16) & 0xff) << 16) | (mix((colour >> 8) & 0xff) << 8) | mix(colour & 0xff);
+}
+
+/** How much of the way to white a melee flash sits. */
+const FLASH_LIGHTEN = 0.5;
 
 /** How long a melee swing lasts, in milliseconds. */
 const SWING_MS = 170;
@@ -307,14 +334,25 @@ export class EffectsLayer extends Container {
       case 'slug':
         g.circle(head.x, head.y, r).fill({ color: effect.colour });
         break;
-      case 'shell':
+      case 'shell': {
         g.circle(head.x, head.y, r).fill({ color: effect.colour });
-        g.circle(head.x, head.y, r * 1.75).stroke({
-          width: Math.max(1, r * 0.4),
-          color: effect.colour,
-          alpha: 0.65,
-        });
+        // The ring is a filled annulus rather than a stroked circle, for the
+        // same reason everything else here is filled.
+        const ring = r * 1.75;
+        const band = Math.max(0.6, r * 0.4);
+        const steps = 12;
+        const points: number[] = [];
+        for (let i = 0; i <= steps; i++) {
+          const a = (Math.PI * 2 * i) / steps;
+          points.push(head.x + Math.cos(a) * (ring + band), head.y + Math.sin(a) * (ring + band));
+        }
+        for (let i = steps; i >= 0; i--) {
+          const a = (Math.PI * 2 * i) / steps;
+          points.push(head.x + Math.cos(a) * ring, head.y + Math.sin(a) * ring);
+        }
+        this.fillShape(points, effect.colour, 0.65);
         break;
+      }
       case 'mote': {
         const d = r * 1.35;
         g.poly([
@@ -334,60 +372,114 @@ export class EffectsLayer extends Container {
   }
 
   /**
-   * A swing: an arc struck outside the attacker's own circle, sweeping through
-   * the direction of the blow and fading as it goes.
+   * A swing: a crescent sweeping across the attacker's near face, in the
+   * direction of the blow.
+   *
+   * Built as one polygon - an outer arc and an inner arc back again - so it is
+   * a single filled shape with no path state to leak (see the note at the top).
+   * It grows to full width halfway through its life and thins away again, which
+   * is what makes it read as a swing rather than as a shape being switched on.
    */
   private drawSwing(effect: Swing): void {
     const t = Math.min(1, effect.age / effect.life);
     const centre = this.toPixel(effect.at);
     const tile = this.layout.tileSize;
-    const radius = effect.radius * tile * 1.32;
 
-    // Sweeps through the target direction rather than starting on it, so the
-    // blow reads as passing through the enemy rather than stopping at it.
-    const sweep = (-0.55 + 1.1 * t) * Math.PI * 0.5;
-    const span = Math.PI * 0.34;
-    const from = effect.angle + sweep - span / 2;
+    // Just clear of the silhouette, reaching toward what was hit.
+    const middle = effect.radius * tile * 1.25;
+    // Fat in the middle of the swing, nothing at either end.
+    const envelope = Math.sin(t * Math.PI);
+    const thickness = effect.radius * tile * 0.5 * envelope;
+    if (thickness < 0.4) return;
 
-    // `moveTo` first: an arc appended to whatever path came before it draws a
-    // stray line from the end of that one to the start of this.
-    this.graphics
-      .moveTo(centre.x + Math.cos(from) * radius, centre.y + Math.sin(from) * radius)
-      .arc(centre.x, centre.y, radius, from, from + span)
-      .stroke({
-        width: Math.max(1.5, effect.radius * tile * 0.3 * (1 - t * 0.5)),
-        color: effect.colour,
-        alpha: 0.85 * (1 - t),
-        cap: 'round',
-      });
+    // Sweeps THROUGH the direction of the blow rather than starting on it, so
+    // it reads as passing across the enemy rather than stopping at it.
+    const span = Math.PI * 0.62;
+    const from = effect.angle + (-0.5 + t) * Math.PI * 0.45 - span / 2;
+
+    const steps = 10;
+    const outer = middle + thickness / 2;
+    const inner = middle - thickness / 2;
+    const points: number[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const a = from + (span * i) / steps;
+      points.push(centre.x + Math.cos(a) * outer, centre.y + Math.sin(a) * outer);
+    }
+    for (let i = steps; i >= 0; i--) {
+      const a = from + (span * i) / steps;
+      points.push(centre.x + Math.cos(a) * inner, centre.y + Math.sin(a) * inner);
+    }
+
+    this.fillShape(points, lighten(effect.colour, FLASH_LIGHTEN), 0.95 * (1 - t * t));
   }
 
-  /** Short lines fanning out of the point of contact. */
+  /**
+   * The blow landing: a few short filled slivers fanning out of the point of
+   * contact, thrown along the line of the strike.
+   */
   private drawSpark(effect: Spark): void {
     const t = Math.min(1, effect.age / effect.life);
     const at = this.toPixel(effect.at);
     const tile = this.layout.tileSize;
-    const length = effect.size * tile * (0.35 + 0.5 * t);
-    const alpha = 0.9 * (1 - t);
-    const g = this.graphics;
+    const length = effect.size * tile * (0.5 + 0.9 * t);
+    const width = Math.max(0.6, effect.size * tile * 0.26 * (1 - t));
+    const alpha = 0.95 * (1 - t);
 
     for (let i = -1; i <= 1; i++) {
-      const angle = effect.angle + i * 0.55;
-      g.moveTo(at.x, at.y).lineTo(at.x + Math.cos(angle) * length, at.y + Math.sin(angle) * length);
+      // The outer two are shorter, so the burst has a shape rather than being
+      // three lines of equal length.
+      const reach = length * (i === 0 ? 1 : 0.7);
+      const a = effect.angle + i * 0.6;
+      const tipX = at.x + Math.cos(a) * reach;
+      const tipY = at.y + Math.sin(a) * reach;
+      // A sliver: wide at the contact point, a point at the far end.
+      const nx = -Math.sin(a) * width;
+      const ny = Math.cos(a) * width;
+      this.fillShape(
+        [at.x + nx, at.y + ny, tipX, tipY, at.x - nx, at.y - ny],
+        lighten(effect.colour, FLASH_LIGHTEN),
+        alpha,
+      );
     }
-    g.stroke({ width: Math.max(1, tile * 0.035), color: effect.colour, alpha, cap: 'round' });
   }
 
-  /** A ring opening where a shot landed. */
+  /** A ring opening where a shot landed. A filled annulus, not a stroke. */
   private drawImpact(effect: Impact): void {
     const t = Math.min(1, effect.age / effect.life);
     const at = this.toPixel(effect.at);
     const radius = effect.size * this.layout.tileSize * (0.5 + t);
-    this.graphics.circle(at.x, at.y, radius).stroke({
-      width: Math.max(1, radius * 0.22),
-      color: effect.colour,
-      alpha: 0.7 * (1 - t),
-    });
+    const thickness = Math.max(0.6, radius * 0.3 * (1 - t));
+
+    const steps = 14;
+    const points: number[] = [];
+    for (let i = 0; i <= steps; i++) {
+      const a = (Math.PI * 2 * i) / steps;
+      points.push(
+        at.x + Math.cos(a) * (radius + thickness),
+        at.y + Math.sin(a) * (radius + thickness),
+      );
+    }
+    for (let i = steps; i >= 0; i--) {
+      const a = (Math.PI * 2 * i) / steps;
+      points.push(at.x + Math.cos(a) * radius, at.y + Math.sin(a) * radius);
+    }
+    this.fillShape(points, effect.colour, 0.75 * (1 - t));
+  }
+
+  /**
+   * One filled polygon, with the path seed pinned to its own first vertex.
+   *
+   * The `moveTo` is the whole reason this is a method rather than two lines at
+   * each call site: it guarantees that whatever point Pixi carried over from
+   * the previous draw is replaced by a point on this shape, so a connector
+   * drawn from it would have zero length. See the note at the top of the file.
+   */
+  private fillShape(points: readonly number[], colour: number, alpha: number): void {
+    if (alpha <= 0.01 || points.length < 6) return;
+    this.graphics
+      .moveTo(points[0]!, points[1]!)
+      .poly(points as number[])
+      .fill({ color: colour, alpha });
   }
 
   // ----------------------------------------------------------------- lookups
