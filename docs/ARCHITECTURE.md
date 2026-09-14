@@ -140,6 +140,11 @@ wave 25** (§3.3, against the doc's recommendation — the endgame is a grind
 fought with what you brought), and §12's public record is fortress HP plus
 alive-or-out, with the balance sheet never public under any circumstance.
 
+Selling a unit back is answered in the same register, though §11 never asked:
+full price inside the build phase that bought it, so a misclick on a 30-second
+clock is undoable, and half in any later one — see
+[the selected unit](#the-selected-unit-what-it-says-and-selling-it-back).
+
 ### Four builders, differentiated by shape
 
 §6.1 is the constraint that makes this interesting: every builder must field all
@@ -500,6 +505,52 @@ Effects run on wall time rather than ticks — a 170ms swing is ten frames at
 mid-flight carries them with everything else. They are capped at 256 live, an
 order of magnitude above what a busy tick produces.
 
+### The selected unit: what it says, and selling it back
+
+Tapping a unit on the board replaces the Build grid with a panel about that
+unit: what it is, six numbers, a line of prose, and three buttons.
+
+The six numbers are HP, Damage, Dmg/s, Range, Atk spd and Move, two across and
+three down. Each reads `now` or `now → after the upgrade`, and **the arrow
+appears only where the tier actually changes the number** — a panel that draws
+an arrow between two identical readings is claiming an upgrade bought something
+it did not. `Dmg/s` is derived rather than authored, because damage and attack
+speed mean little apart: a tier that trades one for the other looks like an
+upgrade in one cell and a downgrade in the next until you multiply them. Range
+below the melee threshold prints as `melee`; §5.2 measures reach edge to edge,
+so a melee value is a hair over zero and the digits are true but useless.
+
+These are **definition** numbers. Tech (§7.4) and the fortress aura (§10.1)
+multiply on top of them and are shown on their own tabs. Folding them in would
+make the tier comparison — which is what the panel is for — move for reasons
+that have nothing to do with the tier.
+
+The prose line is `UnitDef.traits`, and it is **descriptive only**. Nothing in
+the simulation reads it. A line there does not give a unit an ability; it
+describes one the rules already give it, so the mechanic is built first and the
+line written second, or the panel starts lying. It is empty for every unit
+today; the place exists and the schema carries it.
+
+**Selling** is the third button, and the rule is in
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — full price inside the build phase that
+bought it, half afterwards, per purchase rather than per unit. What matters
+architecturally is where the price is computed. Each unit carries two numbers,
+gold spent this build phase and gold spent earlier, and the view sends **those
+two numbers rather than the refund they add up to**, so the client prices the
+sale by calling the simulation's own `sellValue`. There is one rule in one
+place, and the number on the button cannot drift from the number the command
+pays. The alternative — the server quoting a price the client displays — would
+need a round trip per selection and would lag the tap.
+
+This is the one place the wire format knowingly does not follow its own
+"derivation over transmission" rule. The total paid for a unit _is_ derivable
+— it is the sum of gold costs along its upgrade chain — and only the split by
+phase would then need sending, at a measured 37.1 against 33.1 KiB/s for a
+player at the §15.3 load. It is sent whole anyway, because the derivation
+quietly assumes every unit on the board was paid for at list price. The day
+something grants a free unit, the two numbers would part company and nothing
+would say so.
+
 ### Bodies, contact and range
 
 Every body is one circle, and that circle is its collision shape, its hit
@@ -548,7 +599,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (268 tests):
+Implemented and tested (295 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -601,6 +652,13 @@ Implemented and tested (268 tests):
   distinct from every other roster's (§6.1, §7.1, §7.3)
 - One roster per lane: the default, an unknown builder refused, another
   builder's unit refused, and the roster fixed once anything is on the board
+- Selling a unit back: full price inside the build phase that bought it,
+  including an upgrade bought in it; half in a later one; a fresh upgrade on an
+  old body still refunded in full; supply returned whole; the tile freed; the
+  unit removed rather than killed, so it does not respawn; and refused in
+  combat and from wave 25 (§11, decided)
+- What the selected-unit panel says: the arrow only where a tier moves the
+  number, never between two identical readings, across every unit in the game
 
 ### Deliberate departures from DESIGN.md
 

@@ -188,6 +188,55 @@ and play it differently from how they would.
 - Checked: `src/net/lobby.test.ts` and `identity.test.ts` without a network;
   `npm run lobby` with real sockets, including a drop and a reclaim.
 
+### 12. Can a unit be sold, and for how much? (§11) → **yes: full price inside the build phase that bought it, half afterwards, and the rate applies per purchase**
+
+_Not in DESIGN.md at all._ §11 prices everything that can be bought and says
+nothing about anything coming back, which leaves a misclick permanent: on a
+phone, on a 30-second clock, laying a line of units means tapping a grid at
+speed, and a tap one tile out or on the wrong unit is not a decision anybody
+made.
+
+Decided in three parts.
+
+**Full price inside the build phase that bought it.** This is the undo button,
+and calling it that is the point — it costs nothing, so it corrects a mistake
+without also being a tactic. Nothing is learned between placing a unit and
+selling it in the same breath, because no wave has run.
+
+**Half afterwards.** Once a wave has been fought, selling is a real decision
+made with real information — you have seen what came and what is coming (§9.3)
+— so it is priced. Half is high enough that a board can be rebuilt around a
+counter and low enough that churning every wave loses to committing.
+
+**The rate is per PURCHASE, not per unit.** A unit carries two numbers: gold
+spent in the build phase now in progress, and gold spent in any earlier one.
+The first refunds in full and the second at half, so an upgrade bought by
+mistake on a unit that has stood there for ten waves is as undoable as a unit
+bought by mistake. The alternative — one rate per unit, decided by when the
+body was placed — makes the upgrade ladder the one purchase with no undo, which
+is backwards: it is the expensive one.
+
+Two smaller decisions fell out of it:
+
+- **Supply comes back whole, always.** It is a slot the unit occupies, not a
+  price it paid, and a half-returned slot would mean a player who sold and
+  rebuilt the same unit slowly lost their army cap.
+- **A sold unit is removed, not killed.** §5.4 respawns casualties at the next
+  build phase; a sale is not a casualty, and a unit that walked back onto its
+  tile with the refund already paid would be free money.
+
+Selling is closed outside the build phase, and closed from wave 25 like every
+other transaction (question 3): the attrition endgame is fought with what you
+brought, and turning a line into gold nobody can spend would be a strange
+exception to that.
+
+- Data: `economy.sell.sameBuildPhase: 1`, `economy.sell.later: 0.5`.
+- Built: `sellUnit` and `sellValue` in `src/sim/apply.ts`, the phase rollover in
+  `src/sim/tick.ts`, `unitSpend` on `LaneView`, and the Sell button in
+  `src/render/ui/buildBar.ts` — which prices the sale with the simulation's own
+  `sellValue`, so the number on the button is the number the command pays.
+- Checked: `src/sim/selling.test.ts`.
+
 ## Still open — needed before the milestone in brackets
 
 ### 3. Post-wave-25 purchases (§3.3) → **nothing can be bought**

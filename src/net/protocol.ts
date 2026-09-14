@@ -35,7 +35,14 @@
 import type { GameData } from '../data/schema.ts';
 import type { ArmourType, DamageType } from '../data/schema.ts';
 import { FORTRESS_UPGRADE_IDS } from '../sim/index.ts';
-import type { AttackView, LaneView, MatchView, EntityView, TeamId } from '../sim/index.ts';
+import type {
+  AttackView,
+  LaneView,
+  MatchView,
+  EntityView,
+  TeamId,
+  UnitSpend,
+} from '../sim/index.ts';
 
 /**
  * The Colyseus room type. Shared, because a client asking for a name the server
@@ -73,6 +80,23 @@ export interface WireLane {
   a: number[];
   /** Own lane only: `[gold, gems, supplyUsed, supplyCap, passiveIncome]`. */
   e?: [number, number, number, number, number];
+  /**
+   * Own lane only: what each unit cost, flat and parallel to `u`: gold spent
+   * this build phase, gold spent earlier, next unit's, ... Two numbers rather
+   * than the refund they add up to, so the sell price is computed by the one
+   * rule in `sellValue` on both ends (§11).
+   *
+   * This is the one place the file's own "derivation over transmission" rule is
+   * knowingly not followed. The total paid for a unit IS derivable - it is the
+   * sum of gold costs along its upgrade chain, which every client has - and
+   * only the split by phase would then need sending. It is sent whole anyway,
+   * at a measured 33.1 -> 37.1 KiB/s for a player at the §15.3 load, because
+   * the derivation would quietly couple the wire format to the assumption that
+   * a unit on the board was always paid for at list price. The day something
+   * grants a free unit, the refund the panel quotes and the refund the
+   * simulation pays would part company, and nothing would say so.
+   */
+  sp?: number[];
   /** Own lane only: `[trackIndex, level]`. */
   tc?: [number, number][];
   /** Own lane only: `[upgradeIndex, level]`. */
@@ -225,6 +249,21 @@ function unflattenAttacks(flat: readonly number[] | undefined): AttackView[] {
   return out;
 }
 
+function flattenSpend(spend: readonly UnitSpend[]): number[] {
+  const out: number[] = [];
+  for (const entry of spend) out.push(Math.round(entry.thisPhase), Math.round(entry.earlier));
+  return out;
+}
+
+function unflattenSpend(flat: readonly number[] | undefined): UnitSpend[] {
+  const out: UnitSpend[] = [];
+  if (!flat) return out;
+  for (let i = 0; i + 1 < flat.length; i += 2) {
+    out.push({ thisPhase: flat[i]!, earlier: flat[i + 1]! });
+  }
+  return out;
+}
+
 function encodeLane(lane: LaneView, tables: WireTables): WireLane {
   const out: WireLane = {
     t: tables.teamIds.indexOf(lane.teamId),
@@ -265,6 +304,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
     out.up = Object.entries(e.upgrades).map(
       ([id, level]) => [tables.fortressUpgradeIds.indexOf(id), level] as [number, number],
     );
+    out.sp = flattenSpend(lane.unitSpend);
   }
 
   return out;
@@ -315,6 +355,7 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
         fromTeamId: tables.teamIds[fromIndex] ?? '',
       })),
     attacks: unflattenAttacks(wire.a),
+    unitSpend: unflattenSpend(wire.sp),
   };
 }
 

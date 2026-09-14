@@ -46,12 +46,17 @@ export class GridButton extends Container {
     this.ring.roundRect(0, 0, width, height, 8).stroke({ width: 2, color: UI.selected });
     this.ring.visible = false;
 
+    // Detail and note hang off the BOTTOM, so a tall grid tile has its price
+    // where the eye lands rather than crowding the name. A short button - the
+    // 44px action row in the selected-unit panel - has no such room, and the
+    // bottom-up positions walk straight into the title, so they stack from the
+    // title down instead. Whichever is lower wins.
     this.title.x = 8;
     this.title.y = 6;
     this.detail.x = 8;
-    this.detail.y = height - 30;
+    this.detail.y = Math.max(22, height - 30);
     this.note.x = 8;
-    this.note.y = height - 16;
+    this.note.y = Math.max(this.detail.y + 11, height - 16);
   }
 
   /** A coloured square in the top-right, for damage types and unit glyphs. */

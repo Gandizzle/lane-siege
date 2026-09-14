@@ -26,6 +26,17 @@ export interface UpgradeUnitCommand {
   unitId: EntityId;
 }
 
+/**
+ * Sell a unit back. §11, decided: full price for anything bought in the build
+ * phase now in progress - so a misclick is undoable - and half for anything
+ * bought earlier. Build phase only.
+ */
+export interface SellUnitCommand {
+  kind: 'sellUnit';
+  teamId: TeamId;
+  unitId: EntityId;
+}
+
 export interface BuyTechCommand {
   kind: 'buyTech';
   teamId: TeamId;
@@ -68,6 +79,7 @@ export interface SendCommand {
 export type Command =
   | PlaceUnitCommand
   | UpgradeUnitCommand
+  | SellUnitCommand
   | BuyTechCommand
   | BuyFortressUpgradeCommand
   | BuySupplyCommand

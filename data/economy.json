@@ -55,6 +55,11 @@
       }
     ]
   },
+  "sell": {
+    "_comment": "DESIGN.md §11, decided (not in the document). Selling returns this fraction of what was paid for a unit, including its upgrades. Full price within the build phase that bought it, so building by mistake is undoable; half afterwards, so rebuilding the board between waves costs something. Rates are per PURCHASE, not per unit: an upgrade bought this phase refunds in full even on an old body.",
+    "sameBuildPhase": 1,
+    "later": 0.5
+  },
   "tech": {
     "_comment": "\u00a77.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
     "tracks": [

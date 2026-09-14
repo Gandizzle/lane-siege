@@ -136,6 +136,32 @@ describe('a frame survives the round trip', () => {
     expect(wallet.upgrades.weapon).toBe(1);
   });
 
+  it('carries what each unit cost, so the sell price needs no round trip', () => {
+    const { state, ctx } = match();
+    state.lanes.a!.economy.gold = 99_999;
+    state.lanes.a!.economy.supplyCap = 99;
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'a',
+      unitDefId: 'hammer',
+      tileX: 1,
+      tileY: 1,
+    });
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'a',
+      unitDefId: 'bulwark',
+      tileX: 2,
+      tileY: 1,
+    });
+
+    const { original, decoded } = roundTrip(state, 'a');
+    expect(decoded.lane!.unitSpend).toEqual(original.lane!.unitSpend);
+    // Parallel to `units`, which is the whole reason it needs no ids of its own.
+    expect(decoded.lane!.unitSpend).toHaveLength(decoded.lane!.units.length);
+    expect(decoded.lane!.unitSpend[0]!.thisPhase).toBeGreaterThan(0);
+  });
+
   it('carries the fortress, the reserve and the send log', () => {
     const { state, ctx } = match();
     // The send comes from b, so b is the one who needs the gems.
@@ -200,6 +226,31 @@ describe('a frame cannot leak what the view withheld', () => {
     const decoded = decodeFrame(frame, tables);
     expect(decoded.watching.b).toBeDefined();
     expect(decoded.watching.b!.economy).toBeNull();
+  });
+
+  it('omits what an opponent paid for their units', () => {
+    // Spend rides with the wallet, and §12 keeps the wallet private. A watcher
+    // seeing it would be reading the balance sheet through the side door.
+    const { state, ctx } = match();
+    state.lanes.a!.economy.gems = 500;
+    state.lanes.b!.economy.gold = 99_999;
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'b',
+      unitDefId: 'hammer',
+      tileX: 1,
+      tileY: 1,
+    });
+    applyCommand(ctx, state, {
+      kind: 'send',
+      teamId: 'a',
+      targetTeamId: 'b',
+      sendId: 'swarm_probe',
+    });
+
+    const decoded = decodeFrame(encodeFrame(viewFor(state, 'a'), tables), tables);
+    expect(decoded.watching.b!.units).toHaveLength(1);
+    expect(decoded.watching.b!.unitSpend).toEqual([]);
   });
 
   it('omits lanes nobody can see', () => {

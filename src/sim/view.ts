@@ -52,7 +52,7 @@
  */
 
 import type { ArmourType, DamageType } from '../data/schema.ts';
-import type { Attack, EntityId, Lane, MatchState, Phase, TeamId } from './types.ts';
+import type { Attack, EntityId, Lane, MatchState, Phase, TeamId, UnitSpend } from './types.ts';
 
 /**
  * One drawable body. Everything §14.2 needs to pick a silhouette, a fill and a
@@ -123,6 +123,16 @@ export interface LaneView {
    * some would be a different lie from the one fog of war tells.
    */
   attacks: AttackView[];
+  /**
+   * Own lane only: what has been paid for each unit, parallel to `units`.
+   *
+   * The two raw numbers rather than the refund they add up to, so the client
+   * prices a sale with the same `sellValue` the simulation charges - one rule
+   * in one place, and the panel cannot drift from what the button does. It is
+   * per unit because selection is a client-side thing that changes between
+   * ticks, and a price that needed a round trip would lag the tap.
+   */
+  unitSpend: UnitSpend[];
 }
 
 /**
@@ -174,10 +184,14 @@ export interface MatchView {
   watching: Record<TeamId, LaneView>;
 }
 
+/** The living units, in one pass, so the views and the spend stay in step. */
+function livingUnits(lane: Lane) {
+  return lane.units.filter((unit) => unit.alive);
+}
+
 function unitViews(lane: Lane): EntityView[] {
   const out: EntityView[] = [];
-  for (const unit of lane.units) {
-    if (!unit.alive) continue;
+  for (const unit of livingUnits(lane)) {
     out.push({
       id: unit.id,
       defId: unit.defId,
@@ -241,6 +255,7 @@ function laneView(lane: Lane, own: boolean): LaneView {
       attackerId: a.attackerId,
       targetId: a.targetId,
     })),
+    unitSpend: own ? livingUnits(lane).map((unit) => ({ ...unit.spend })) : [],
   };
 }
 

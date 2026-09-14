@@ -21,7 +21,7 @@ import { createUnit } from './spawn.ts';
 import { recomputeUnitBuffs } from './buffs.ts';
 import type { UpgradeLevel } from '../data/schema.ts';
 import type { GameData } from '../data/schema.ts';
-import type { Lane, MatchState } from './types.ts';
+import type { Lane, MatchState, UnitSpend } from './types.ts';
 
 export interface CommandResult {
   ok: boolean;
@@ -88,10 +88,30 @@ function placeUnit(
 
   lane.economy.gold -= goldCost;
   lane.economy.supplyUsed += supplyCost;
-  lane.units.push(createUnit(state, def, tileX, tileY));
+
+  const unit = createUnit(state, def, tileX, tileY);
+  // Stamped here rather than in `createUnit`, which also builds units for
+  // tests and fixtures that nobody paid for.
+  unit.spend.thisPhase = goldCost;
+  unit.supplyPaid = supplyCost;
+  lane.units.push(unit);
   recomputeUnitBuffs(ctx.data, ctx.defs, lane);
 
   return OK;
+}
+
+/**
+ * What selling this unit returns right now (§11, decided).
+ *
+ * Per purchase, not per unit: gold spent in the build phase now in progress
+ * comes back in full and gold spent earlier at the discount, so an upgrade
+ * bought by mistake is as undoable as a unit bought by mistake.
+ */
+export function sellValue(data: GameData, spend: UnitSpend): number {
+  const rates = data.economy.sell;
+  const full = stat(rates.sameBuildPhase);
+  const later = stat(rates.later);
+  return Math.floor(spend.thisPhase * full + spend.earlier * later);
 }
 
 /** The next unbought level of a ladder, or undefined at the top. */
@@ -361,6 +381,8 @@ function upgradeUnit(
 
   lane.economy.gold -= goldCost;
   lane.economy.supplyUsed += supplyCost;
+  unit.spend.thisPhase += goldCost;
+  unit.supplyPaid += supplyCost;
 
   // In place: same id, same tile. Only the definition and the stats change.
   unit.defId = next.id;
@@ -372,6 +394,39 @@ function upgradeUnit(
   unit.radius = stat(next.bodyRadius);
   unit.range = stat(next.range);
   unit.targetId = null;
+  recomputeUnitBuffs(ctx.data, ctx.defs, lane);
+
+  return OK;
+}
+
+/**
+ * §11, decided: sell a unit back for what `sellValue` says.
+ *
+ * Build phase only, and closed from the attrition wave like every other
+ * transaction (§3.3) - after that the endgame is fought with what you brought,
+ * and converting a line into gold nobody can spend would be a strange
+ * exception to that.
+ *
+ * The unit is REMOVED rather than killed. A dead unit respawns at the next
+ * build phase (§5.4); a sold one is gone, and its tile is free again.
+ */
+function sellUnit(
+  ctx: { data: GameData; defs: DefIndex },
+  state: MatchState,
+  lane: Lane,
+  unitId: number,
+): CommandResult {
+  if (state.phase !== 'build') return fail('not-build-phase');
+  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
+
+  const unit = lane.units.find((u) => u.id === unitId);
+  if (!unit) return fail('no-such-unit');
+
+  lane.economy.gold += sellValue(ctx.data, unit.spend);
+  // Supply comes back whole whatever the gold does: it is a slot the unit was
+  // occupying, not a price it paid.
+  lane.economy.supplyUsed = Math.max(0, lane.economy.supplyUsed - unit.supplyPaid);
+  lane.units = lane.units.filter((u) => u !== unit);
   recomputeUnitBuffs(ctx.data, ctx.defs, lane);
 
   return OK;
@@ -394,6 +449,9 @@ export function applyCommand(
 
     case 'upgradeUnit':
       return upgradeUnit(ctx, state, lane, command.unitId);
+
+    case 'sellUnit':
+      return sellUnit(ctx, state, lane, command.unitId);
 
     case 'buyTech':
       return buyTech(ctx, state, lane, command.trackId);

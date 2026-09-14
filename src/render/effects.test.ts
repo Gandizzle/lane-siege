@@ -60,6 +60,7 @@ function lane(overrides: Partial<LaneView> = {}): LaneView {
     reserveCount: 0,
     sendLog: [],
     attacks: [],
+    unitSpend: [],
     ...overrides,
   };
 }

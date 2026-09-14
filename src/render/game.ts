@@ -151,6 +151,13 @@ export class Game extends Container {
     this.buildBar = new BuildBar(this.layout, data, {
       onSelectUnitDef: (id) => this.selectUnitDef(id),
       onUpgrade: (id) => this.issue({ kind: 'upgradeUnit', teamId: this.teamId, unitId: id }),
+      onSell: (id) => {
+        this.issue({ kind: 'sellUnit', teamId: this.teamId, unitId: id });
+        // The unit ceases to exist, so the panel describing it has to go with
+        // it. Clearing rather than cancelling puts back whatever was in hand,
+        // which is what makes an accidental build a true undo.
+        this.clearSelection();
+      },
       onSelectWeapon: (damageType) => {
         this.issue({ kind: 'setWeaponType', teamId: this.teamId, damageType });
       },

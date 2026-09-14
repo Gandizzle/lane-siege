@@ -44,6 +44,23 @@ export interface Team {
   vision: Record<TeamId, number>;
 }
 
+/**
+ * What has been paid for one unit, split by WHEN it was paid, so selling can
+ * refund a mistake in full and an old investment at a discount (§11, sell).
+ *
+ * `thisPhase` is everything spent on it during the build phase now in progress
+ * - the unit itself and any upgrade bought since - and rolls into `earlier`
+ * when the next build phase opens. Splitting per PURCHASE rather than per unit
+ * is what makes an upgrade bought by mistake undoable too: the alternative
+ * refunds a fresh upgrade at half price because the body under it is old.
+ */
+export interface UnitSpend {
+  /** Gold spent during the build phase now in progress. */
+  thisPhase: number;
+  /** Gold spent in any earlier build phase. */
+  earlier: number;
+}
+
 export interface DefensiveUnit {
   id: EntityId;
   /** Key into units.json. Tier upgrades swap this in place (§7.3). */
@@ -72,6 +89,10 @@ export interface DefensiveUnit {
   radius: number;
   /** Reach, edge to edge, in tiles. Copied from the definition on build and upgrade. */
   range: number;
+  /** What has been paid for this unit, and when (§11, sell). */
+  spend: UnitSpend;
+  /** Supply this unit occupies, returned in full when it is sold. */
+  supplyPaid: number;
   /**
    * In range of something and attacking it. An engaged body does not move and
    * nothing moves it: it is an obstacle to everyone else, ally or enemy. That

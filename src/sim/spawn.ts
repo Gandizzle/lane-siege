@@ -215,6 +215,10 @@ export function createUnit(
     moveSpeed: stat(def.moveSpeed),
     radius: stat(def.bodyRadius),
     range: stat(def.range),
+    // What it cost is stamped on by the command that bought it (apply.ts):
+    // creation does not know whether this is a purchase or a test fixture.
+    spend: { thisPhase: 0, earlier: 0 },
+    supplyPaid: 0,
     engaged: false,
     settled: false,
     pathCost: 0,

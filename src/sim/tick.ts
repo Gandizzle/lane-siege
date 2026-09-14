@@ -630,6 +630,22 @@ function respawnUnits(ctx: SimContext, lane: Lane, state: MatchState): void {
   }
 }
 
+/**
+ * A new build phase opens: what was bought in the last one is no longer a
+ * mistake that can be taken back at full price (§11, sell).
+ *
+ * Every lane, including eliminated ones - they cannot sell anyway, and a rule
+ * that skips lanes is a rule with an exception to remember.
+ */
+function rollOverUnitSpend(state: MatchState): void {
+  for (const lane of Object.values(state.lanes)) {
+    for (const unit of lane.units) {
+      unit.spend.earlier += unit.spend.thisPhase;
+      unit.spend.thisPhase = 0;
+    }
+  }
+}
+
 /** Put a wave into every living lane. All lanes face identical waves (§9.2). */
 function spawnWave(ctx: SimContext, state: MatchState): void {
   const specs = generateWave(ctx.data, state.seed, state.wave);
@@ -740,6 +756,7 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
 
   state.phase = 'build';
   state.phaseTicksLeft = secondsToTicks(ctx.data.waves.buildPhaseSeconds);
+  rollOverUnitSpend(state);
 
   for (const team of state.teams) {
     if (team.eliminated) continue;

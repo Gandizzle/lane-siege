@@ -17,6 +17,26 @@ export function label(
   });
 }
 
+/**
+ * A label that wraps rather than running off the edge, for prose rather than
+ * numbers. The caller sets `style.wordWrapWidth` on resize, because how wide
+ * the column is is a layout decision, not a text one.
+ */
+export function wrapped(text: string, size: number, colour: number = UI.textMuted): Text {
+  return new Text({
+    text,
+    style: {
+      fill: colour,
+      fontSize: size,
+      fontFamily: FONT,
+      fontWeight: '500',
+      wordWrap: true,
+      wordWrapWidth: 200,
+      lineHeight: size + 4,
+    },
+  });
+}
+
 /** Centres a text object horizontally on `cx`. */
 export function centreOn(text: Text, cx: number, y: number): Text {
   text.x = cx - text.width / 2;

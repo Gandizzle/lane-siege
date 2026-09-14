@@ -119,6 +119,15 @@ export interface UnitDef {
   /** Collision and drawn radius in tiles. */
   bodyRadius: Unfilled<number>;
   /**
+   * Short lines describing what is special about this unit, shown in the panel
+   * when it is selected.
+   *
+   * DESCRIPTIVE ONLY. Nothing in the simulation reads these: a line here does
+   * not give a unit an ability, it describes one the rules already give it. Add
+   * the mechanic first and the line second, or the panel starts lying.
+   */
+  traits?: string[];
+  /**
    * Tiles per second while advancing on a distant monster. DESIGN CHANGE from
    * §5.2 (units were stationary); 0 restores the original behaviour per unit.
    */
@@ -262,6 +271,18 @@ export interface EconomyFile {
     capUpgrades: UpgradeLevel[];
   };
   tech: { tracks: TechTrack[] };
+  /**
+   * §11, decided: what selling a unit returns. A fraction of what was paid,
+   * split by when it was paid - full price inside the build phase that bought
+   * it, so a misclick is undoable, and a discount afterwards so that churning
+   * the board is a real cost.
+   */
+  sell: {
+    /** Refund on gold spent during the build phase now in progress. */
+    sameBuildPhase: Unfilled<number>;
+    /** Refund on gold spent in any earlier build phase. */
+    later: Unfilled<number>;
+  };
 }
 
 // ---------------------------------------------------------------------- bundle

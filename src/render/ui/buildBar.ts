@@ -33,12 +33,19 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { AuraType, DamageType, GameData, UnitDef } from '../../data/schema.ts';
-import { ticksToSeconds } from '../../sim/index.ts';
+import { sellValue, ticksToSeconds } from '../../sim/index.ts';
 import type { EconomyView, LaneView, MatchView, WaveSummary } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { GridButton } from './gridButton.ts';
-import { centreOn, label } from './text.ts';
+import { centreOn, label, wrapped } from './text.ts';
+import {
+  STAT_CELLS,
+  STAT_COLUMNS,
+  STAT_ROW_HEIGHT,
+  STAT_VALUE_INSET,
+  statText,
+} from './unitStats.ts';
 
 export type Selection =
   { kind: 'unitDef'; unitDefId: string } | { kind: 'placedUnit'; unitId: number } | null;
@@ -48,6 +55,8 @@ export interface BuildBarHandlers {
   /** §11.5: the sender picks the target, which is the point of the mechanic. */
   onSend(sendId: string, targetTeamId: string): void;
   onUpgrade(unitId: number): void;
+  /** §11, decided: sell a placed unit back. Build phase only. */
+  onSell(unitId: number): void;
   onBuyTech(trackId: string): void;
   onBuyFortress(upgradeId: string): void;
   onBuySupply(): void;
@@ -83,6 +92,9 @@ const AURAS: { id: AuraType; name: string }[] = [
 ];
 
 const MIN_TOUCH = 44;
+
+/** Side margin of the selected-unit panel. */
+const PANEL_INSET = 18;
 
 /** §7.1: every builder has exactly six units. */
 const UNITS_PER_BUILDER = 6;
@@ -168,8 +180,12 @@ export class BuildBar extends Container {
 
   private readonly upgradePanel = new Container();
   private readonly upgradeTitle: Text;
-  private readonly upgradeDetail: Text;
+  private readonly upgradeSubtitle: Text;
+  /** One `name  value` pair per cell of the stat block, in reading order. */
+  private readonly statCells: { name: Text; value: Text }[] = [];
+  private readonly traitText: Text;
   private readonly upgradeButton: GridButton;
+  private readonly sellButton: GridButton;
   private readonly backButton: GridButton;
   private selectedUnitId: number | null = null;
 
@@ -241,15 +257,26 @@ export class BuildBar extends Container {
     }
 
     this.upgradeTitle = label('', 13, UI.text, '700');
-    this.upgradeDetail = label('', 10, UI.textMuted);
+    this.upgradeSubtitle = label('', 9, UI.textMuted);
+    this.traitText = wrapped('', 10, UI.textMuted);
+    for (let i = 0; i < STAT_CELLS.length; i++) {
+      const cell = { name: label('', 9, UI.textMuted), value: label('', 10, UI.text, '600') };
+      this.statCells.push(cell);
+      this.upgradePanel.addChild(cell.name, cell.value);
+    }
     this.upgradeButton = new GridButton(() => {
       if (this.selectedUnitId !== null) this.handlers.onUpgrade(this.selectedUnitId);
+    });
+    this.sellButton = new GridButton(() => {
+      if (this.selectedUnitId !== null) this.handlers.onSell(this.selectedUnitId);
     });
     this.backButton = new GridButton(() => this.handlers.onClearSelection());
     this.upgradePanel.addChild(
       this.upgradeTitle,
-      this.upgradeDetail,
+      this.upgradeSubtitle,
+      this.traitText,
       this.upgradeButton,
+      this.sellButton,
       this.backButton,
     );
 
@@ -333,12 +360,34 @@ export class BuildBar extends Container {
     );
 
     // Upgrade panel replaces the Build grid when a placed unit is selected.
-    this.upgradeTitle.x = 18;
-    this.upgradeTitle.y = top + 6;
-    this.upgradeDetail.x = 18;
-    this.upgradeDetail.y = top + 26;
-    this.upgradeButton.layout(18, top + height - 46, 150, Math.max(MIN_TOUCH, 44));
-    this.backButton.layout(bar.width - 106, top + height - 46, 88, Math.max(MIN_TOUCH, 44));
+    // Top to bottom: what it is, what it does, what is special about it, and
+    // the three things you can do about it.
+    const column = (bar.width - PANEL_INSET * 2) / STAT_COLUMNS;
+    this.upgradeTitle.position.set(PANEL_INSET, top + 2);
+    this.upgradeSubtitle.position.set(PANEL_INSET, top + 21);
+
+    const statTop = top + 37;
+    this.statCells.forEach((cell, i) => {
+      const x = PANEL_INSET + (i % STAT_COLUMNS) * column;
+      const y = statTop + Math.floor(i / STAT_COLUMNS) * STAT_ROW_HEIGHT;
+      cell.name.position.set(x, y + 1);
+      cell.value.position.set(x + STAT_VALUE_INSET, y);
+    });
+
+    const rows = Math.ceil(STAT_CELLS.length / STAT_COLUMNS);
+    this.traitText.position.set(PANEL_INSET, statTop + rows * STAT_ROW_HEIGHT + 6);
+    this.traitText.style.wordWrapWidth = bar.width - PANEL_INSET * 2;
+
+    // Buttons pinned to the bottom of the bar, where the thumb already is.
+    // Upgrade and Sell together on the left because they are the two things
+    // being decided between; Back apart on the right because it is neither.
+    const buttonTop = top + height - MIN_TOUCH - 2;
+    const backWidth = 88;
+    const gap = 8;
+    const actionWidth = Math.min(140, (bar.width - PANEL_INSET * 2 - backWidth - gap * 2) / 2);
+    this.upgradeButton.layout(PANEL_INSET, buttonTop, actionWidth, MIN_TOUCH);
+    this.sellButton.layout(PANEL_INSET + actionWidth + gap, buttonTop, actionWidth, MIN_TOUCH);
+    this.backButton.layout(bar.width - backWidth - PANEL_INSET, buttonTop, backWidth, MIN_TOUCH);
   }
 
   render(view: MatchView, lane: LaneView, selection: Selection, summary: WaveSummary | null): void {
@@ -566,14 +615,21 @@ export class BuildBar extends Container {
     }
   }
 
-  /** §7.3: upgrading happens in place - same tile, same identity. */
+  /**
+   * The selected unit: what it is, what it does, and the two ways to spend it.
+   *
+   * §7.3 upgrading happens in place - same tile, same identity - and §11
+   * selling takes it off the board for what was paid. Both are shown together
+   * because they are the same decision seen from two sides.
+   */
   private renderUpgrade(
     lane: LaneView,
     economy: EconomyView,
     unitId: number,
     canAct: boolean,
   ): void {
-    const unit = lane.units.find((u) => u.id === unitId);
+    const index = lane.units.findIndex((u) => u.id === unitId);
+    const unit = index < 0 ? undefined : lane.units[index];
     const current = unit ? this.data.units.units.find((u) => u.id === unit.defId) : undefined;
     const next = current?.upgradesTo
       ? this.data.units.units.find((u) => u.id === current.upgradesTo)
@@ -583,30 +639,92 @@ export class BuildBar extends Container {
     this.backButton.update({ title: 'Back', detail: '', enabled: true });
 
     if (!current) {
+      // Sold, or killed and not yet respawned. Nothing left to describe.
       this.upgradeTitle.text = 'Unit lost';
-      this.upgradeDetail.text = '';
+      this.upgradeSubtitle.text = '';
+      this.traitText.text = '';
+      this.showStats(null, null);
       this.upgradeButton.visible = false;
+      this.sellButton.visible = false;
       return;
     }
 
+    this.upgradeTitle.text = next ? `${current.name} → ${next.name}` : current.name;
+    this.upgradeSubtitle.text = next
+      ? `Tier ${current.tier} → ${next.tier} · ${current.damageType} · ${current.armour}`
+      : `Tier ${current.tier} · max · ${current.damageType} · ${current.armour}`;
+    this.showStats(current, next ?? null);
+    // §7.1: authored per unit, and usually absent. An empty area is better than
+    // a placeholder, so the block simply collapses when there is nothing to say.
+    this.traitText.text = (current.traits ?? []).join('\n');
+
+    this.renderUpgradeButton(economy, next, canAct);
+    this.renderSellButton(lane, index, canAct);
+  }
+
+  /** Fills the stat block. `next` null means there is no tier to compare to. */
+  private showStats(current: UnitDef | null, next: UnitDef | null): void {
+    this.statCells.forEach((cell, i) => {
+      const meta = STAT_CELLS[i];
+      if (!meta || !current) {
+        cell.name.text = '';
+        cell.value.text = '';
+        return;
+      }
+      cell.name.text = meta.name;
+      cell.value.text = statText(meta.key, current, next);
+    });
+  }
+
+  private renderUpgradeButton(
+    economy: EconomyView,
+    next: UnitDef | undefined,
+    canAct: boolean,
+  ): void {
+    this.upgradeButton.visible = true;
     if (!next) {
-      this.upgradeTitle.text = `${current.name} — max tier`;
-      this.upgradeDetail.text = 'Nothing further to buy for this unit.';
-      this.upgradeButton.visible = false;
+      // Shown but dead at the top of the ladder, rather than removed. A button
+      // that vanishes leaves Sell sitting in a hole where it used to be, and
+      // "max tier" is worth saying anyway - §7.3 gives different units
+      // different ladder lengths, so where the top is is not obvious.
+      this.upgradeButton.setSwatch(null);
+      this.upgradeButton.update({ title: 'Upgrade', detail: 'max tier', enabled: false });
       return;
     }
 
     const gold = next.goldCost ?? 0;
     const supply = next.supplyCost ?? 0;
-    this.upgradeTitle.text = `${current.name} → ${next.name}`;
-    this.upgradeDetail.text = `${current.hp ?? 0}→${next.hp ?? 0} hp   ${current.damage ?? 0}→${next.damage ?? 0} dmg`;
-
-    this.upgradeButton.visible = true;
     this.upgradeButton.setSwatch(DAMAGE_COLOURS[next.damageType]);
     this.upgradeButton.update({
       title: 'Upgrade',
       detail: `${gold}g${supply ? ` · +${supply} supply` : ''}`,
       enabled: canAct && economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap,
+    });
+  }
+
+  /**
+   * §11, decided: full price back inside the build phase that bought it, half
+   * afterwards.
+   *
+   * The refund is computed with the simulation's own `sellValue` from the two
+   * raw numbers the view carries, so the price on the button is the price the
+   * command pays - there is no second copy of the rule to drift.
+   */
+  private renderSellButton(lane: LaneView, index: number, canAct: boolean): void {
+    const spend = lane.unitSpend[index] ?? { thisPhase: 0, earlier: 0 };
+    const refund = sellValue(this.data, spend);
+    const paid = spend.thisPhase + spend.earlier;
+
+    this.sellButton.visible = true;
+    this.sellButton.setSwatch(null);
+    this.sellButton.update({
+      title: 'Sell',
+      detail: `+${refund}g`,
+      // Which rate applied, so a half refund never looks like a bug. "undo"
+      // rather than "100%" because that is what the full rate is FOR.
+      note: paid === 0 ? '' : spend.earlier === 0 ? 'undo · full' : `of ${paid}g`,
+      noteColour: spend.earlier === 0 ? UI.healthGood : UI.textMuted,
+      enabled: canAct,
     });
   }
 }
