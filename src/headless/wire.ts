@@ -70,8 +70,39 @@ report('player', 'a');
 state.teams.find((t) => t.id === 'a')!.eliminated = true;
 report('spectator', 'a');
 
-// And prove the frame still says what the view said.
+/**
+ * The attack list (§14.2's animations) is the one part of a frame that varies
+ * tick to tick: it is empty between swings and full when a whole line fires at
+ * once. An average would flatter it, so this reports the worst tick over two
+ * seconds of real combat - which is the one the connection has to carry.
+ */
+{
+  let worstFrame = 0;
+  let worstAttacks = 0;
+  let totalAttacks = 0;
+  const ticks = TICKS_PER_SECOND * 2;
+  for (let i = 0; i < ticks; i++) {
+    step(ctx, state);
+    const view = viewFor(state, 'a');
+    const attacks = Object.values(view.watching).reduce(
+      (sum, l) => sum + l.attacks.length,
+      view.lane?.attacks.length ?? 0,
+    );
+    totalAttacks += attacks;
+    const size = JSON.stringify(encodeFrame(view, tables)).length;
+    if (size > worstFrame) {
+      worstFrame = size;
+      worstAttacks = attacks;
+    }
+  }
+  console.log(
+    `spectator worst tick over 2s: ${(worstFrame / 1024).toFixed(2)} KiB ` +
+      `with ${worstAttacks} attacks (${(totalAttacks / ticks).toFixed(1)} per tick on average)`,
+  );
+}
 state.teams.find((t) => t.id === 'a')!.eliminated = false;
+
+// And prove the frame still says what the view said.
 const original = viewFor(state, 'a');
 const round = decodeFrame(encodeFrame(original, tables), tables);
 const drift = Math.max(

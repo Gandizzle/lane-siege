@@ -1,5 +1,5 @@
 {
-  "_comment": "DESIGN.md \u00a74. Lane geometry. Not one of the seven files listed in \u00a716 - added because \u00a74 numbers must not be hardcoded either. Tile space: y=0 is the top of the build grid, the spawn zone is the band of negative y above it, the fortress zone sits below y=depth. Monsters may fight anywhere in the lane; units may advance anywhere in it too.",
+  "_comment": "DESIGN.md §4. Lane geometry. Not one of the seven files listed in §16 - added because §4 numbers must not be hardcoded either. Tile space: y=0 is the top of the build grid, the spawn zone is the band of negative y above it, the fortress zone sits below y=depth. Monsters may fight anywhere in the lane; units may advance anywhere in it too.",
   "buildZone": {
     "width": 8,
     "depth": 10
@@ -8,9 +8,11 @@
   "_spawnNote": "Tiles of open ground above the build grid. Monsters spawn as one packed clump at its centre and cross it before reaching the line, so the first contact happens in the open rather than on the top build row.",
   "fortressZoneDepth": 1,
   "fortressRadius": 0.4,
-  "_fortressNote": "Radius of the fortress as a body, in tiles, for what counts as being in range of it (\u00a75.5).",
+  "_fortressNote": "Radius of the fortress as a body, in tiles, for what counts as being in range of it (§5.5).",
   "unitsBlockMovement": true,
-  "_decided": "\u00a74.2 was OPEN. Answered: units DO block movement. A monster treats every unit as a solid circle it must route around, and attacks whatever it is touching when it can get no further.",
+  "_decided": "§4.2 was OPEN. Answered: units DO block movement. A monster treats every unit as a solid circle it must route around, and attacks whatever it is touching when it can get no further.",
+  "opponentLanes": "combat",
+  "_visibilityNote": "§12, decided: every lane is visible while a wave is running and none during the build phase. Watching four lanes fight at once is most of what makes this a competitive game rather than four solitaires, and it costs the defender nothing - what you are BUILDING is still private until it fights. Set to 'granted' for §12 as written (sight only where a send bought it), or 'always' for no fog. Sends still grant vision; with 'combat' that part of a send is simply redundant until the fog comes back.",
   "_radiusNote": "Every body is a circle, and its radius is on its own definition (units.json, monsters.json). That circle is the collision shape, the hit shape and the drawn size all at once - the silhouette is drawn inside it - so what you see is exactly what collides and exactly what counts as in range.",
   "pathSubdivision": 5,
   "_pathNote": "Cells per tile for the distance field. 5 gives fifth-tile cells, comfortably finer than a body (0.44-0.52 wide), so a gap one body wide registers as a gap. Raising it sharpens routing and costs a linear amount more per sweep."

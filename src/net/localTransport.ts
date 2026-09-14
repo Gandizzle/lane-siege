@@ -59,6 +59,8 @@ export class LocalTransport implements Transport {
   private current: MatchView | null = null;
   private ticked = false;
   private readonly bots: AutoBuilder[];
+  /** §12: how much of an opponent's lane this match shows. Data, not code. */
+  private readonly visibility: GameData['lane']['opponentLanes'];
 
   constructor(
     data: GameData,
@@ -71,6 +73,7 @@ export class LocalTransport implements Transport {
     this.state = createMatch(data, { seed, teams });
     this.ctx = createContext(data);
     this.teamId = teamId;
+    this.visibility = data.lane.opponentLanes;
     this.bots = botTeamIds
       .filter((id) => id !== teamId)
       .map((id) => new AutoBuilder(data, id, this.state.lanes[id]?.builderId ?? ''));
@@ -158,6 +161,6 @@ export class LocalTransport implements Transport {
   }
 
   private refresh(): void {
-    this.current = viewFor(this.state, this.teamId);
+    this.current = viewFor(this.state, this.teamId, this.visibility);
   }
 }

@@ -401,7 +401,7 @@ export class LaneSiegeRoom extends Room {
    */
   private sendFrame(seat: Seat): void {
     if (!seat.client || !this.started) return;
-    const view = viewFor(this.match, seat.lobby.teamId);
+    const view = viewFor(this.match, seat.lobby.teamId, this.data.lane.opponentLanes);
     seat.client.send('frame', encodeFrame(view, this.tables));
   }
 

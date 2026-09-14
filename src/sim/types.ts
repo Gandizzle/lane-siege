@@ -212,6 +212,26 @@ export interface Economy {
   tech: Record<string, number>;
 }
 
+/**
+ * One blow landed this tick: who swung, and at what. Purely a record for the
+ * renderer to animate from (§14.2) - nothing in the simulation reads it back,
+ * and the match plays out identically whether or not anybody is looking.
+ *
+ * Ids rather than positions, because the renderer already has every body's
+ * position and its own interpolation history, and two numbers on the wire is a
+ * twentieth of what four would cost at the §15.3 load.
+ *
+ * `FORTRESS_ID` stands in on either side: a monster besieging the fortress
+ * (§5.5) attacks it, and the fortress weapon (§10.1) attacks from it.
+ */
+export interface Attack {
+  attackerId: EntityId;
+  targetId: EntityId;
+}
+
+/** Neither a unit nor a monster: the fortress, as an attacker or a target. */
+export const FORTRESS_ID = -1;
+
 export interface Lane {
   teamId: TeamId;
   /**
@@ -236,6 +256,11 @@ export interface Lane {
    * by X" notice. Cleared when the wave they joined spawns.
    */
   sendLog: { sendId: string; fromTeamId: TeamId }[];
+  /**
+   * Blows landed on THIS tick, cleared at the top of the next one. Written by
+   * the combat stages and read by nothing in the simulation - see `Attack`.
+   */
+  attacks: Attack[];
   fortress: Fortress;
   economy: Economy;
 }

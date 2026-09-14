@@ -14,7 +14,18 @@
  *   - Once you are eliminated: the same for every lane, because §13 says an
  *     eliminated player may stay and spectate.
  *
- * So the thing that is never public under any circumstance is the balance
+ * HOW MUCH OF THAT IS SWITCHED ON
+ *
+ * `LaneVisibility` decides which of those rules is in force, because §12's fog
+ * is a design lever rather than a law of the game and the interesting question
+ * is how much information a player should have, not how little. The rules above
+ * are `granted`; `combat` opens every lane while a wave is running and closes
+ * them again for the build phase, so you watch the fight and build in private;
+ * `always` never closes them. The setting lives in data (`lane.opponentLanes`)
+ * and the filter is the same code either way, so turning fog back on is a
+ * one-word change rather than a re-plumbing.
+ *
+ * What is never public under ANY setting is the balance
  * sheet: gold, gems, supply, tech levels, fortress upgrade levels. Seeing
  * someone's army is a tactical read a send can buy. Seeing their bank balance
  * and their upgrade sheet tells you what they are about to do, and nothing in
@@ -41,7 +52,7 @@
  */
 
 import type { ArmourType, DamageType } from '../data/schema.ts';
-import type { EntityId, Lane, MatchState, Phase, TeamId } from './types.ts';
+import type { Attack, EntityId, Lane, MatchState, Phase, TeamId } from './types.ts';
 
 /**
  * One drawable body. Everything §14.2 needs to pick a silhouette, a fill and a
@@ -106,6 +117,28 @@ export interface LaneView {
   reserveCount: number;
   /** §11.5: who has sent what at this lane, for the incoming-attack notice. */
   sendLog: { sendId: string; fromTeamId: TeamId }[];
+  /**
+   * Blows landed on this tick, for the renderer to animate (§14.2). Cosmetic
+   * and complete: a lane you can see shows every swing in it, because hiding
+   * some would be a different lie from the one fog of war tells.
+   */
+  attacks: AttackView[];
+}
+
+/**
+ * How much of an opponent's lane a player may see (§12).
+ *
+ *   - `granted`: only what a send bought, or everything once eliminated.
+ *   - `combat`:  every lane while a wave is running; nothing in the build
+ *                phase, so what you are building stays yours until it fights.
+ *   - `always`:  every lane, all the time.
+ */
+export type LaneVisibility = 'granted' | 'combat' | 'always';
+
+/** One blow, for the renderer to animate. See `Attack` in types.ts. */
+export interface AttackView {
+  attackerId: EntityId;
+  targetId: EntityId;
 }
 
 /** What one player knows about another (§12). */
@@ -204,6 +237,10 @@ function laneView(lane: Lane, own: boolean): LaneView {
       : null,
     reserveCount: lane.reserve.length,
     sendLog: lane.sendLog.map((s) => ({ sendId: s.sendId, fromTeamId: s.fromTeamId })),
+    attacks: lane.attacks.map((a: Attack) => ({
+      attackerId: a.attackerId,
+      targetId: a.targetId,
+    })),
   };
 }
 
@@ -214,12 +251,19 @@ function laneView(lane: Lane, own: boolean): LaneView {
  * broadcast - should use this and nothing else. Reaching into `MatchState`
  * directly is how fog of war springs a leak.
  */
-export function viewFor(state: MatchState, teamId: TeamId): MatchView {
+export function viewFor(
+  state: MatchState,
+  teamId: TeamId,
+  visibility: LaneVisibility = 'granted',
+): MatchView {
   const self = state.teams.find((t) => t.id === teamId) ?? null;
   const ownLane = state.lanes[teamId] ?? null;
 
   // §13: being out is what buys you the run of the place.
   const spectating = self?.eliminated ?? false;
+  // Open to everyone, for reasons that have nothing to do with this viewer.
+  const openToAll =
+    visibility === 'always' || (visibility === 'combat' && state.phase === 'combat');
 
   const opponents: OpponentView[] = [];
   const watching: Record<TeamId, LaneView> = {};
@@ -229,7 +273,7 @@ export function viewFor(state: MatchState, teamId: TeamId): MatchView {
 
     const lane = state.lanes[team.id];
     const visionTicksLeft = self?.vision[team.id] ?? 0;
-    const canWatch = (spectating || visionTicksLeft > 0) && lane !== undefined;
+    const canWatch = (openToAll || spectating || visionTicksLeft > 0) && lane !== undefined;
 
     opponents.push({
       teamId: team.id,

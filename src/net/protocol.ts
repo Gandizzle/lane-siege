@@ -35,7 +35,7 @@
 import type { GameData } from '../data/schema.ts';
 import type { ArmourType, DamageType } from '../data/schema.ts';
 import { FORTRESS_UPGRADE_IDS } from '../sim/index.ts';
-import type { LaneView, MatchView, EntityView, TeamId } from '../sim/index.ts';
+import type { AttackView, LaneView, MatchView, EntityView, TeamId } from '../sim/index.ts';
 
 /**
  * The Colyseus room type. Shared, because a client asking for a name the server
@@ -65,6 +65,12 @@ export interface WireLane {
   r: number;
   /** `[sendIndex, fromTeamIndex]` per send received. */
   s: [number, number][];
+  /**
+   * Blows landed this tick, flat: attacker id, target id, attacker id, ... A
+   * flat array rather than pairs because msgpack charges per array, and at a
+   * busy tick there are dozens of these.
+   */
+  a: number[];
   /** Own lane only: `[gold, gems, supplyUsed, supplyCap, passiveIncome]`. */
   e?: [number, number, number, number, number];
   /** Own lane only: `[trackIndex, level]`. */
@@ -204,6 +210,21 @@ function decodeEntity(
   };
 }
 
+function flattenAttacks(attacks: readonly AttackView[]): number[] {
+  const out: number[] = [];
+  for (const attack of attacks) out.push(attack.attackerId, attack.targetId);
+  return out;
+}
+
+function unflattenAttacks(flat: readonly number[] | undefined): AttackView[] {
+  const out: AttackView[] = [];
+  if (!flat) return out;
+  for (let i = 0; i + 1 < flat.length; i += 2) {
+    out.push({ attackerId: flat[i]!, targetId: flat[i + 1]! });
+  }
+  return out;
+}
+
 function encodeLane(lane: LaneView, tables: WireTables): WireLane {
   const out: WireLane = {
     t: tables.teamIds.indexOf(lane.teamId),
@@ -226,6 +247,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
           number,
         ],
     ),
+    a: flattenAttacks(lane.attacks),
   };
 
   if (lane.economy) {
@@ -273,7 +295,7 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
 
   return {
     teamId: tables.teamIds[wire.t] ?? '',
-    builderId: tables.builderIds[wire.b] ?? (tables.builderIds[0] ?? ''),
+    builderId: tables.builderIds[wire.b] ?? tables.builderIds[0] ?? '',
     units: wire.u.map((row) => decodeEntity(row, tables.unitIds, tables.unitTraits)),
     monsters: wire.m.map((row) => decodeEntity(row, tables.monsterIds, tables.monsterTraits)),
     fortress: {
@@ -292,6 +314,7 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
         sendId: tables.sendIds[sendIndex]!,
         fromTeamId: tables.teamIds[fromIndex] ?? '',
       })),
+    attacks: unflattenAttacks(wire.a),
   };
 }
 

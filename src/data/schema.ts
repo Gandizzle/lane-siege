@@ -62,6 +62,21 @@ export interface LaneFile {
   unitsBlockMovement: Unfilled<boolean>;
   /** Cells per tile for the distance field. Finer routing, linearly more work. */
   pathSubdivision: number;
+  /**
+   * §12, decided: how much of an opponent's lane a player may see.
+   *
+   *   - `combat`  every lane while a wave is running, nothing during the build
+   *               phase. The default: watching the fight is most of the fun and
+   *               costs nothing, while what you are BUILDING stays yours until
+   *               it fights.
+   *   - `granted` only what a send bought (§11.5), which is §12 as written.
+   *   - `always`  no fog at all.
+   *
+   * A word rather than a boolean because "no fog" and "fog except during a
+   * wave" are different games, and the register in docs/OPEN-QUESTIONS.md needs
+   * to be able to say which one is being played.
+   */
+  opponentLanes?: 'granted' | 'combat' | 'always';
 }
 
 // ----------------------------------------------------------------- units.json

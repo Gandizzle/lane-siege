@@ -288,15 +288,7 @@ export class BuildBar extends Container {
     const top = bar.y + tabH + 7;
     const height = bar.height - tabH - 12;
 
-    grid(
-      this.unitButtons,
-      3,
-      2,
-      6,
-      top,
-      bar.width - 12,
-      height,
-    );
+    grid(this.unitButtons, 3, 2, 6, top, bar.width - 12, height);
     grid(
       this.techButtons.map((t) => t.button),
       3,
@@ -349,12 +341,7 @@ export class BuildBar extends Container {
     this.backButton.layout(bar.width - 106, top + height - 46, 88, Math.max(MIN_TOUCH, 44));
   }
 
-  render(
-    view: MatchView,
-    lane: LaneView,
-    selection: Selection,
-    summary: WaveSummary | null,
-  ): void {
+  render(view: MatchView, lane: LaneView, selection: Selection, summary: WaveSummary | null): void {
     // §3.3, decided: from wave 25 nothing can be bought at all. The free
     // weapon/aura choices stay live, so they use `canChoose` instead.
     const canChoose = view.phase === 'build';
@@ -428,7 +415,14 @@ export class BuildBar extends Container {
       button.update({
         title: laneName(target.teamId),
         detail: `${fraction}% fortress`,
-        note: target.watching ? `visible ${Math.ceil(ticksToSeconds(target.visionTicksLeft))}s` : '',
+        // A countdown only where there is one to count: sight can also come
+        // from the lane simply being open during a wave (§12), which does not
+        // run out on a clock of its own.
+        note: target.watching
+          ? target.visionTicksLeft > 0
+            ? `visible ${Math.ceil(ticksToSeconds(target.visionTicksLeft))}s`
+            : 'visible'
+          : '',
         noteColour: UI.accent,
         enabled: canAct,
         selected: this.sendTarget === target.teamId,
@@ -462,9 +456,7 @@ export class BuildBar extends Container {
     summary: WaveSummary | null,
     canBuild: boolean,
   ): void {
-    this.unitSlots = this.data.units.units.filter(
-      (u) => u.tier === 1 && u.builderId === builderId,
-    );
+    this.unitSlots = this.data.units.units.filter((u) => u.tier === 1 && u.builderId === builderId);
 
     this.unitButtons.forEach((button, slot) => {
       const def = this.unitSlots[slot];
@@ -474,9 +466,7 @@ export class BuildBar extends Container {
       const gold = def.goldCost ?? 0;
       const supply = def.supplyCost ?? 0;
       const affordable =
-        canBuild &&
-        economy.gold >= gold &&
-        economy.supplyUsed + supply <= economy.supplyCap;
+        canBuild && economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap;
 
       const verdict = summary?.units.find((u) => u.unitId === def.id)?.verdict;
       button.setSwatch(DAMAGE_COLOURS[def.damageType]);
@@ -616,10 +606,7 @@ export class BuildBar extends Container {
     this.upgradeButton.update({
       title: 'Upgrade',
       detail: `${gold}g${supply ? ` · +${supply} supply` : ''}`,
-      enabled:
-        canAct &&
-        economy.gold >= gold &&
-        economy.supplyUsed + supply <= economy.supplyCap,
+      enabled: canAct && economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap,
     });
   }
 }

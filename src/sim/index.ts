@@ -36,9 +36,11 @@ export { placeWave, spawnCentre } from './spawn.ts';
 export { countLiving } from './spawn.ts';
 export { viewFor } from './view.ts';
 export type {
+  AttackView,
   EconomyView,
   EntityView,
   FortressView,
+  LaneVisibility,
   LaneView,
   MatchView,
   OpponentView,

@@ -90,6 +90,7 @@ function createLane(
     reserve: [],
     incomingSends: [],
     sendLog: [],
+    attacks: [],
     fortress: {
       hp: maxHp,
       maxHp,

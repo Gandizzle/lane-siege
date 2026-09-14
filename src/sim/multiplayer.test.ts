@@ -260,6 +260,45 @@ describe('fog of war (§12)', () => {
     expect(Object.values(view.watching).every((l) => l.economy === null)).toBe(true);
   });
 
+  it('opens every lane during a wave when that is the setting, and closes them after', () => {
+    const { state, ctx } = fourPlayerMatch();
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'b',
+      unitDefId: 'hammer',
+      tileX: 2,
+      tileY: 5,
+    });
+
+    // The build phase stays private: what you are BUILDING is still yours.
+    state.phase = 'build';
+    expect(viewFor(state, 'a', 'combat').watching.b).toBeUndefined();
+    expect(viewFor(state, 'a', 'combat').opponents.find((o) => o.teamId === 'b')!.watching).toBe(
+      false,
+    );
+
+    // Once the wave is running, everyone can watch everyone.
+    state.phase = 'combat';
+    const watching = viewFor(state, 'a', 'combat');
+    expect(Object.keys(watching.watching).sort()).toEqual(['b', 'c', 'd']);
+    expect(watching.watching.b!.units).toHaveLength(1);
+    // And still never the balance sheet, whatever the setting.
+    expect(Object.values(watching.watching).every((l) => l.economy === null)).toBe(true);
+  });
+
+  it('never closes a lane when the setting says always', () => {
+    const { state } = fourPlayerMatch();
+    state.phase = 'build';
+    expect(Object.keys(viewFor(state, 'a', 'always').watching).sort()).toEqual(['b', 'c', 'd']);
+  });
+
+  it('keeps §12 as written when the setting says granted, which is the default', () => {
+    const { state } = fourPlayerMatch();
+    state.phase = 'combat';
+    expect(viewFor(state, 'a', 'granted').watching.b).toBeUndefined();
+    expect(viewFor(state, 'a').watching.b).toBeUndefined();
+  });
+
   it('serialises without leaking anything the view left out', () => {
     const { state, ctx } = fourPlayerMatch();
     applyCommand(ctx, state, {

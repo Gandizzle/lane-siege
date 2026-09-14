@@ -51,6 +51,7 @@ import {
 } from '../sim/index.ts';
 import type { Transport } from '../net/transport.ts';
 import { EntityLayer } from './entities.ts';
+import { EffectsLayer } from './effects.ts';
 import { computeLayout, type LaneLayout } from './layout.ts';
 import { LaneView as LaneViewLayer } from './laneView.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
@@ -107,6 +108,8 @@ export class Game extends Container {
 
   private readonly laneLayer: LaneViewLayer;
   private readonly entities: EntityLayer;
+  /** Named `effectsLayer`: Pixi's Container already owns `effects`. */
+  private readonly effectsLayer: EffectsLayer;
   private readonly hud: Hud;
   private readonly tabs: OpponentTabs;
   private readonly banner: WatchBanner;
@@ -134,7 +137,10 @@ export class Game extends Container {
     // §14.2 reads tier off the definition, and the definitions are the same
     // everywhere (§9.2) - so the renderer indexes them itself rather than being
     // sent them with every frame.
-    this.entities = new EntityLayer(this.layout, buildDefIndex(data));
+    const defs = buildDefIndex(data);
+    this.entities = new EntityLayer(this.layout, defs);
+    // Above the bodies, so a swing reads as landing ON what it hits (§14.2).
+    this.effectsLayer = new EffectsLayer(this.layout, data, defs);
     this.hud = new Hud(this.layout, data);
     this.tabs = new OpponentTabs(this.layout, {
       onWatch: (teamId) => this.watch(teamId),
@@ -180,6 +186,7 @@ export class Game extends Container {
     this.addChild(
       this.laneLayer,
       this.entities,
+      this.effectsLayer,
       this.hud,
       this.tabs,
       this.banner,
@@ -250,6 +257,7 @@ export class Game extends Container {
     this.view = null;
     this.gameOver.reset();
     this.entities.reset();
+    this.effectsLayer.reset();
     this.showScreen('home');
   }
 
@@ -264,6 +272,7 @@ export class Game extends Container {
     this.summarisedWave = -1;
     this.summarisedBuilder = '';
     this.entities.reset();
+    this.effectsLayer.reset();
     this.gameOver.reset();
     // A remote match opens in its lobby, even before the room has answered; a
     // practice match has no lobby and is already running.
@@ -283,6 +292,7 @@ export class Game extends Container {
     this.layout = computeLayout(width, height, this.data.lane);
     this.laneLayer.setLayout(this.layout);
     this.entities.setLayout(this.layout);
+    this.effectsLayer.setLayout(this.layout);
     this.hud.setLayout(this.layout);
     this.tabs.setLayout(this.layout);
     this.banner.setLayout(this.layout);
@@ -327,9 +337,18 @@ export class Game extends Container {
 
     if (transport.consumeTick()) {
       // Seed interpolation from the view being replaced, then take the new one.
-      this.entities.captureTick(this.shownLane());
+      const outgoing = this.shownLane();
+      this.entities.captureTick(outgoing);
       this.view = transport.view();
+      // Blows landed on this tick become effects, for the lane on screen only:
+      // a fight you cannot see does not need animating.
+      const incoming = this.shownLane();
+      if (incoming) this.effectsLayer.spawn(incoming, outgoing);
     }
+
+    // Effects run on wall time, not on ticks: a 170ms swing at 60fps is ten
+    // frames, and at 20Hz it would be three.
+    this.effectsLayer.update(deltaMs);
 
     for (const rejection of transport.takeRejections()) this.toast.show(rejection);
 
@@ -357,6 +376,7 @@ export class Game extends Container {
     if (lane) {
       this.laneLayer.render(view, lane, selectedUnitId, this.summary);
       this.entities.render(lane, transport.alpha);
+      this.effectsLayer.render();
     }
     this.hud.render(view, this.summary);
     this.tabs.render(view, this.watchingTeamId);
@@ -379,8 +399,10 @@ export class Game extends Container {
     if (this.watchingTeamId === teamId) return;
     this.watchingTeamId = teamId;
     // Two lanes have unrelated entity ids, so interpolating across the switch
-    // would slide bodies between lanes for one tick.
+    // would slide bodies between lanes for one tick - and a shot still in the
+    // air belongs to the lane it was fired in.
     this.entities.reset();
+    this.effectsLayer.reset();
     // Nothing selected in a lane you are only looking at.
     this.selection = null;
     this.pendingUnitDefId = null;

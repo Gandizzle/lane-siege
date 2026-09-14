@@ -49,7 +49,14 @@ import type { FlowField } from './flowfield.ts';
 import { orderByPriority, slideStep, type Body, type Bounds } from './motion.ts';
 import { admitFromReserve, countLiving, createMonster, placeWave } from './spawn.ts';
 import { acquire, nearestMonsterInRange, withinRange } from './targeting.ts';
-import type { DefensiveUnit, Lane, MatchState, Monster, Vec2 } from './types.ts';
+import {
+  FORTRESS_ID,
+  type DefensiveUnit,
+  type Lane,
+  type MatchState,
+  type Monster,
+  type Vec2,
+} from './types.ts';
 import { generateWave, resolveMonsterStats, type SpawnSpec } from './waves.ts';
 
 /** Everything a tick needs that is not match state: the data and its index. */
@@ -441,6 +448,7 @@ function unitsAttack(ctx: SimContext, lane: Lane): void {
       target.armour,
     );
     unit.cooldown = cooldownTicks(stat(def.attackSpeed) * unit.techAttackSpeed * aura.attackSpeed);
+    lane.attacks.push({ attackerId: unit.id, targetId: target.id });
   }
 }
 
@@ -461,6 +469,7 @@ function monstersAttack(ctx: SimContext, lane: Lane, state: MatchState): void {
       target.hp -=
         resolveDamage(ctx.data.matrix.multipliers, damage, monster.damageType, target.armour) *
         auraFor(lane, target, ctx.fortressPosition).damageTaken;
+      lane.attacks.push({ attackerId: monster.id, targetId: target.id });
     } else {
       // Sieging the fortress (§5.5).
       lane.fortress.hp -= resolveDamage(
@@ -469,6 +478,7 @@ function monstersAttack(ctx: SimContext, lane: Lane, state: MatchState): void {
         monster.damageType,
         ctx.data.fortress.armour,
       );
+      lane.attacks.push({ attackerId: monster.id, targetId: FORTRESS_ID });
     }
 
     monster.cooldown = cooldownTicks(monster.attackSpeed * multiplier);
@@ -479,6 +489,10 @@ function monstersAttack(ctx: SimContext, lane: Lane, state: MatchState): void {
 function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
   const enrageConfig = ctx.data.waves.enrage;
   const unitsBlock = ctx.data.lane.unitsBlockMovement !== false;
+
+  // Last tick's blows are last tick's news. Emptied in place rather than
+  // replaced, so the common tick allocates nothing (§15.3).
+  lane.attacks.length = 0;
 
   // 1. Who is fighting and who is walking, from where everyone is now.
   classifyUnits(lane);
@@ -532,6 +546,7 @@ function fortressActs(ctx: SimContext, lane: Lane): void {
     target.armour,
   );
   lane.fortress.weaponCooldown = cooldownTicks(stat(weapon.attackSpeed));
+  lane.attacks.push({ attackerId: FORTRESS_ID, targetId: target.id });
 }
 
 /**
@@ -759,6 +774,9 @@ function wipeLane(state: MatchState, lane: Lane): void {
   }
 
   lane.monsters.length = 0;
+  // Nothing is swinging in a wiped lane, so nothing should still be drawn
+  // swinging in it either.
+  lane.attacks.length = 0;
   lane.reserve.length = 0;
   lane.incomingSends.length = 0;
 }

@@ -87,6 +87,38 @@ describe('a frame survives the round trip', () => {
     }
   });
 
+  it('carries this tick\u2019s blows, so a watcher sees the same fight', () => {
+    const { state, ctx } = match();
+    for (let x = 1; x < 7; x++) {
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'a',
+        unitDefId: 'hammer',
+        tileX: x,
+        tileY: 5,
+      });
+    }
+    while (state.phase !== 'combat') step(ctx, state);
+
+    // Run until a tick actually lands a blow: attacks are what this is about,
+    // and an empty list would pass a test that proves nothing.
+    let attacks = 0;
+    for (let i = 0; i < 400 && attacks === 0; i++) {
+      step(ctx, state);
+      attacks = state.lanes.a!.attacks.length;
+    }
+    expect(attacks).toBeGreaterThan(0);
+
+    const { original, decoded } = roundTrip(state, 'a');
+    expect(decoded.lane!.attacks).toEqual(original.lane!.attacks);
+  });
+
+  it('carries an empty attack list as an empty list, not as absent', () => {
+    const { state } = match();
+    const { decoded } = roundTrip(state, 'a');
+    expect(decoded.lane!.attacks).toEqual([]);
+  });
+
   it('carries your own wallet, including what you have bought', () => {
     const { state, ctx } = match();
     const trackId = data.economy.tech.tracks[0]!.id;

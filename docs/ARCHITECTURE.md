@@ -192,6 +192,23 @@ trusted with rules.
 reports where each one leaked. It is a sanity check, not a verdict: the scripted
 player is a poor one.
 
+### Fog of war is a setting, not a law
+
+`viewFor` takes which of three rules is in force, and `data/lane.json` picks it:
+`granted` is §12 as written (a send buys sight), `combat` opens every lane while
+a wave is running and closes them for the build phase, `always` never closes
+them. The shipped default is `combat`.
+
+The reasoning is in [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md): fog during combat
+turned four players into four solitaires, while fog during the build phase is
+the half that was doing real work — what you are building stays private until it
+fights. What is never visible under any of the three is the balance sheet.
+
+The existing machinery is untouched, which is the point: sends still grant
+vision, the opponent tabs still gate on `watching`, and the camera still comes
+home by itself when sight lapses — which under `combat` is what happens when the
+wave ends. Turning the fog back on is one word in a data file.
+
 ### Getting into a match: code, seat, identity
 
 Three ways in, and the front screen offers all three because the answer to "can
@@ -424,6 +441,51 @@ detection, give-up timer, retarget interval, separation pass or tile
 occupancy. Each existed to correct a symptom of the previous model and none is
 needed under this one. Whole tick at the §15.3 load: 1.8ms of the 50ms budget.
 
+### Attack animations, which the simulation decides and the renderer draws
+
+A blow is a fact about the match, so the simulation records it: each tick every
+lane carries the list of who hit what (`Lane.attacks`, cleared at the top of the
+next tick). The renderer turns that into something to look at. The split is the
+same one §15.1 rests on everywhere else, and it buys three things — a lane you
+are watching animates exactly like your own, a replay animates, and a client
+with the effects layer deleted plays the identical game.
+
+Two ids per blow and nothing else. The renderer already knows where every body
+is and keeps a tick of history for interpolation, so positions would be four
+numbers where two will do: measured at the §15.3 load, the worst tick of a
+spectator's frame went from 5.98 KiB to 6.03 KiB with twelve blows in it.
+`FORTRESS_ID` stands in on either side, so a monster besieging the fortress and
+the fortress weapon firing back are the same record shape.
+
+**A shot looks like the thing that fired it**, and every channel is read off the
+attacker's own definition so there is nothing to author:
+
+| channel    | comes from  | so that                                        |
+| ---------- | ----------- | ---------------------------------------------- |
+| head shape | damage type | a dart, a slug, a shell or a mote              |
+| colour     | damage type | the same fill §14.2 draws the body in          |
+| size       | damage      | a mortar shell is not a thornling's dart       |
+| speed      | range       | time in the air stays about 0.16s at any reach |
+| trail      | armour      | two guns of one damage type still differ       |
+
+Tier scales the head exactly as §14.2 scales a body, so an upgraded unit's shot
+is recognisably the same shot.
+
+**Melee is a swing, not a lunge.** A body's drawn circle is also its collision
+circle and its hit circle, so moving it to animate an attack would either be a
+lie about where it is or a change to where it is — and the crowd behaviour that
+took eleven attempts to get right depends on it not moving (see
+[PATHING.md](PATHING.md)). So the attacker stays exactly put and the animation
+happens around it: an arc struck outside its own circle, sweeping through the
+direction of the blow, and a spark on the target's edge where the blow lands.
+Nothing in the effects layer reads or writes a body. A test asserts that
+literally, by comparing the attacker and target before and after a frame.
+
+Effects run on wall time rather than ticks — a 170ms swing is ten frames at
+60fps and three at 20Hz — and store their positions in tiles, so a resize
+mid-flight carries them with everything else. They are capped at 256 live, an
+order of magnitude above what a busy tick produces.
+
 ### Bodies, contact and range
 
 Every body is one circle, and that circle is its collision shape, its hit
@@ -472,7 +534,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (246 tests):
+Implemented and tested (268 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)

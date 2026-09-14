@@ -33,18 +33,35 @@ Decided against the doc's own v1 recommendation: units _do_ block.
   range, and "attack the nearest thing in range" covers the boxed-in case with
   no stuck detector at all.
 
-### 5. What exactly is publicly visible on opponent tabs? (§12) → **fortress HP and alive-or-out, and nothing else ever**
+### 5. What exactly is publicly visible on opponent tabs? (§12) → **fortress HP and alive-or-out; lane contents during a wave; the balance sheet never**
 
-Taking the doc's suggested minimum, and making it a hard ceiling rather than a
-starting point. An opponent tab carries their fortress HP, whether they are
-still alive, and their placement once they are out. That is the whole public
-record.
+Taking the doc's suggested minimum for the TAB, and making it a hard ceiling
+rather than a starting point. An opponent tab carries their fortress HP, whether
+they are still alive, and their placement once they are out. That is the whole
+public record on the tab itself.
+
+**Amended: every lane is watchable while a wave is running.** Fog of war during
+combat made four players into four solitaires — you could not see the game you
+were competing in, and the thing a send bought you was the ability to watch,
+which is backwards. So `lane.opponentLanes` is `combat`: during a wave anyone
+may look into any lane, and during the build phase nobody may look into anyone's.
+What you are BUILDING is still private until it fights, which is the half of the
+secrecy that was doing real work.
+
+The fog itself is not deleted, it is switched off: `granted` restores §12 as
+written and `always` removes it entirely, the filter is the same code in all
+three cases, and one test covers each. Turning it back on — behind an aura, a
+send, or a mode — is a one-word change in `data/lane.json`. While it is off, the
+vision a send grants is redundant rather than removed, and the Send tab stops
+showing a countdown for sight that has no clock.
 
 Extended where §12 required a decision it did not state:
 
-- **A lane you bought sight of** with a send (§11.5) shows its _contents_ — the
-  units, the monsters, the fortress, the aura that is lit. Those are things
-  happening in a lane, and a send is how you pay to look.
+- **A lane you can see** shows its _contents_ — the units, the monsters, the
+  fortress, the aura that is lit, and every blow landed this tick so the
+  animations are the same fight for everyone watching it. Those are things
+  happening in a lane. Under `granted` a send is how you pay to look; under
+  `combat` a wave is.
 - **The balance sheet is never public.** Not gold, gems, supply, tech levels, or
   fortress upgrade levels — not with bought vision, not while spectating, not
   ever. Seeing someone's army is a tactical read that §11.5 sells you. Seeing
