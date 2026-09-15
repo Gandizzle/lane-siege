@@ -116,8 +116,45 @@ export interface FieldShape {
 export const W_ORTH = 10;
 export const W_DIAG = 14;
 
-/** Buckets for Dial's algorithm: one more than the largest edge weight. */
-const BUCKETS = W_DIAG + 1;
+/**
+ * What it costs to enter a cell a WALKING ally is standing in - the third kind
+ * of ground, between free and blocked.
+ *
+ * A body that will not move is terrain: infinite cost, route around it. A body
+ * that is walking is not terrain - it will have moved by the time anyone gets
+ * there, and an earlier attempt that made a moving crowd terrain oscillated
+ * with period two forever (PATHING.md, attempt 4). But it is not free ground
+ * either, and treating it as free is what let a fast body tail a slow one down
+ * the whole lane: the field pointed straight through the ally, contact
+ * cancelled the part of the step that went into it, and a head-on contact has
+ * no tangent to slide along - so nothing ever told the follower to go round.
+ * It simply inherited the leader's speed.
+ *
+ * So: finite cost. Getting past a body takes time, and the field charges for
+ * it. Around a lone body the detour is a few diagonal steps and wins easily;
+ * inside a crowd every route pays about the same and the shortest still wins,
+ * so a wave queues rather than fanning across the lane looking for a way
+ * round. Per cell entered, against ten for a step: crossing the four or five
+ * cells of one body costs about what walking round it does, plus enough to
+ * settle the choice.
+ *
+ * Eight, by measurement. Anything from about two upward breaks the tailgate,
+ * and the crowd keeps improving up to about fifteen - but past eight bodies
+ * press hard enough into a full ring to leave a hair of overlap on an engaged
+ * body (0.028 tiles at fifteen), and that is a guarantee worth more than the
+ * last percent. At eight the overlap is back to zero and the crowd measures
+ * the same as it does at fifteen. `npm run routing`.
+ */
+export const CROWD_COST = 8;
+
+/** Cap on stacked crowd cost, so Dial's bucket window stays bounded. */
+const MAX_CROWD = CROWD_COST * 2;
+
+/**
+ * Buckets for Dial's algorithm: one more than the largest edge weight, which
+ * is a diagonal step into the most crowded cell the field allows.
+ */
+const BUCKETS = W_DIAG + MAX_CROWD + 1;
 
 export interface FlowField {
   /** Cells per tile. */
@@ -135,6 +172,8 @@ export interface FlowField {
   blockedFine: Uint8Array;
   /** SOURCE_ATTACK or SOURCE_WAIT where a goal is, 0 elsewhere. */
   sources: Uint8Array;
+  /** Extra cost to ENTER a cell, from walking allies standing in it. */
+  crowd: Int32Array;
   /** On an attack goal cell, the id of the enemy it is an attack position for. */
   owner: Int32Array;
 
@@ -176,6 +215,7 @@ export function createFlowField(
     blocked: new Uint8Array(cells),
     blockedFine: new Uint8Array(cells * FINE * FINE),
     sources: new Uint8Array(cells),
+    crowd: new Int32Array(cells),
     owner: new Int32Array(cells).fill(NO_OWNER),
     bucketHead: new Int32Array(BUCKETS),
     nextInBucket: new Int32Array(cells),
@@ -200,6 +240,7 @@ export function clearField(field: FlowField): void {
   field.blocked.fill(0);
   field.blockedFine.fill(0);
   field.sources.fill(0);
+  field.crowd.fill(0);
   field.owner.fill(NO_OWNER);
 }
 
@@ -288,6 +329,43 @@ export function markObstacle(field: FlowField, shape: FieldShape, inflate: numbe
  * tests measure both, and gap-filling is unchanged at this value.
  */
 export const PASSAGE_CLEARANCE = 0.02;
+
+/**
+ * Charge `CROWD_COST` to enter every cell a body of radius `inflate` would
+ * overlap this ally in - the same footprint `markObstacle` blocks, costed
+ * instead of closed.
+ *
+ * Only the routing grid. Whether a cell holds a standing position is a
+ * different question from how long it takes to get there, and a walking ally
+ * is not standing anywhere for long.
+ */
+export function markCrowd(field: FlowField, shape: FieldShape, inflate: number): void {
+  const sub = field.subdivision;
+  const cx = shape.x * sub;
+  const cy = (shape.y - field.originY) * sub;
+  const spine = shape.halfWidth * sub;
+  const spineMin = cx - spine;
+  const spineMax = cx + spine;
+  const reach = (shape.radius + inflate) * sub;
+  const reachSq = reach * reach;
+
+  const minX = Math.max(0, Math.floor(spineMin - reach));
+  const maxX = Math.min(field.width - 1, Math.ceil(spineMax + reach));
+  const minY = Math.max(0, Math.floor(cy - reach));
+  const maxY = Math.min(field.depth - 1, Math.ceil(cy + reach));
+
+  for (let gy = minY; gy <= maxY; gy++) {
+    for (let gx = minX; gx <= maxX; gx++) {
+      const px = gx + 0.5;
+      const dx = px < spineMin ? px - spineMin : px > spineMax ? px - spineMax : 0;
+      const dy = gy + 0.5 - cy;
+      if (dx * dx + dy * dy >= reachSq) continue;
+      const cell = gy * field.width + gx;
+      const stacked = field.crowd[cell]! + CROWD_COST;
+      field.crowd[cell] = stacked > MAX_CROWD ? MAX_CROWD : stacked;
+    }
+  }
+}
 
 /**
  * Block the strip along the lane's edge that a body of `inflate` cannot stand
@@ -450,7 +528,7 @@ export function markRing(
  * catches this.
  */
 export function computeFlowField(field: FlowField): number {
-  const { width, depth, cost, blocked, sources } = field;
+  const { width, depth, cost, blocked, sources, crowd } = field;
   const { bucketHead, nextInBucket, prevInBucket, bucketOf } = field;
 
   cost.fill(UNREACHABLE);
@@ -520,7 +598,8 @@ export function computeFlowField(field: FlowField): number {
           if (blocked[y * width + nx] === 1 && blocked[ny * width + x] === 1) continue;
         }
 
-        const candidate = distance + weight;
+        // Entering a cell costs the step plus whatever is standing in it.
+        const candidate = distance + weight + crowd[n]!;
         if (candidate < cost[n]!) {
           // Already queued at a worse cost: take it out before re-filing it,
           // or its old bucket loses everything behind it.
@@ -578,8 +657,8 @@ export function standingCost(field: FlowField, from: Vec2): number {
   const ox = scratchCell.x;
   const oy = scratchCell.y;
 
-  const own = cost[oy * width + ox]!;
-  if (own !== UNREACHABLE) return own;
+  const own = oy * width + ox;
+  if (cost[own] !== UNREACHABLE) return here(field, own);
 
   let best = UNREACHABLE;
   for (let dy = -1; dy <= 1; dy++) {
@@ -588,11 +667,32 @@ export function standingCost(field: FlowField, from: Vec2): number {
     for (let dx = -1; dx <= 1; dx++) {
       const nx = ox + dx;
       if (nx < 0 || nx >= width) continue;
-      const c = cost[ny * width + nx]!;
+      const c = here(field, ny * width + nx);
       if (c < best) best = c;
     }
   }
   return best;
+}
+
+/**
+ * What a cell costs to the body ALREADY STANDING IN IT: its cost, less one
+ * body's worth of crowd.
+ *
+ * A body pays the crowd cost of a cell to enter it, and it is standing in its
+ * own footprint, so charging it for that would be charging it for being where
+ * it is - and every neighbouring cell would then look cheaper by exactly that
+ * much, which is a body forever stepping off its own feet. One body's worth,
+ * not all of it: a second ally overlapping the same cell is a real cost, and
+ * one this body has not paid.
+ *
+ * Routes are unaffected: the field is swept from the goals, so the route to a
+ * cell ahead of a body never runs through the body's own footprint.
+ */
+function here(field: FlowField, cell: number): number {
+  const c = field.cost[cell]!;
+  if (c === UNREACHABLE) return c;
+  const mine = field.crowd[cell]!;
+  return c - (mine > CROWD_COST ? CROWD_COST : mine);
 }
 
 /**

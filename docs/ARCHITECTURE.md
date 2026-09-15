@@ -736,6 +736,21 @@ wall engaged, 5 on its outer thirds, and 1.40 tiles of shuffling every two
 seconds from the rank that could not get in; now 18 of 22, 8 on the outer
 thirds, and 0.00.
 
+**A fast body no longer tails a slow one.** Reported from play: a grub walked
+the whole lane locked behind a husk, at the husk's speed, and then shuffled
+behind it at the wall instead of stepping round to the free stonework a
+half-tile away. Two rules, each right on its own. The field marks as terrain
+only what will not move, so a _walking_ ally was free ground and the route ran
+straight through it. Contact cancels the part of a step that goes into a body,
+and head-on there is no other part - no tangent to slide along. So the follower
+inherited the leader's pace and nothing in the model ever noticed. The fix is a
+third kind of ground: a walking ally costs `CROWD_COST` extra to enter rather
+than nothing, because getting past a body takes time. Round one body the detour
+wins; inside a crowd every route pays alike and the shortest still wins, so a
+wave queues instead of fanning out. Measured: the follower went from 0.70 to
+1.07 tiles per second of its own 1.10, and at a saturated wall the share of
+body-ticks spent attacking went from 83% to 90%.
+
 ### How the renderer drives the simulation
 
 The browser paints at whatever rate it likes; the simulation runs at exactly 20
@@ -769,7 +784,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (375 tests):
+Implemented and tested (380 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -866,6 +881,12 @@ Implemented and tested (375 tests):
 - The damage panel's own arithmetic: the ranking, the bar each row is measured
   against, a total that counts rows the screen had no room for, and the row
   count fitted to the screen rather than squeezed into it
+- A walking ally as cost rather than terrain: a fast body walks round a slow
+  one at its own pace instead of inheriting the slow one's, the field steers it
+  round rather than into it, a crowd with no way round is still a route rather
+  than a locked door, and a body is not charged for standing in its own
+  footprint - plus, at the wall, that the time bodies spend there is spent
+  attacking and that none of them wobbles on the spot
 - A crowd at the fortress wall: it fills the wall end to end rather than piling
   into the middle, everybody gets in while there is still room for everybody,
   and the rank that genuinely does not fit stands still instead of grinding -

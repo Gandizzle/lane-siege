@@ -21,10 +21,12 @@ import {
   costAt,
   createFlowField,
   markBorder,
+  markCrowd,
   markObstacle,
   goalOwner,
   NO_OWNER,
   PASSAGE_CLEARANCE,
+  CROWD_COST,
   markRing,
   SOURCE_WAIT,
   standingCost,
@@ -263,6 +265,61 @@ describe('the lane has edges of its own', () => {
   });
 });
 
+describe('a walking ally is not terrain, but it is not free ground either', () => {
+  /** A goal below, and `inWay` bodies between the reader and it. */
+  function lane(mark: (field: ReturnType<typeof laneField>, x: number) => void, xs: number[]) {
+    const field = laneField();
+    for (const x of xs) mark(field, x);
+    markRing(field, disc(4, 9, 0.26), 0.22, MELEE, 1);
+    computeFlowField(field);
+    return field;
+  }
+
+  it('steers a body round one instead of into it', () => {
+    // The reported bug in miniature. With a walking ally costing nothing, the
+    // route straight through it ties with the clear one beside it and the tie
+    // goes to straight ahead - so a body walks into its back and stays there,
+    // because a head-on contact has no tangent to slide along. Costing the
+    // ally breaks the tie the only way that is true: going through takes
+    // longer.
+    const out = { x: 0, y: 0 };
+
+    const clear = lane(() => {}, []);
+    steerAlongField(clear, { x: 4, y: 4.4 }, out, 3);
+    expect(Math.abs(out.x)).toBeLessThan(0.2);
+    expect(out.y).toBeGreaterThan(0.9);
+
+    const crowded = lane((f, x) => markCrowd(f, disc(x, 5, 0.22), 0.22), [4]);
+    steerAlongField(crowded, { x: 4, y: 4.4 }, out, 3);
+    expect(Math.abs(out.x)).toBeGreaterThan(0.2);
+    // Round it, not away from it: still heading for the goal.
+    expect(out.y).toBeGreaterThan(0);
+  });
+
+  it('is still a route when there is no way round', () => {
+    // A crowd is a delay, not a locked door: a body with allies across the
+    // whole lane in front of it walks through them rather than giving up.
+    const packed = lane(
+      (f, x) => markCrowd(f, disc(x, 5, 0.26), 0.22),
+      [0.4, 1.2, 2, 2.8, 3.6, 4.4, 5.2, 6, 6.8, 7.6],
+    );
+    expect(costAt(packed, 4, 3)).toBeLessThan(UNREACHABLE);
+  });
+
+  it('does not charge a body for standing in its own footprint', () => {
+    // Otherwise every cell around a body looks cheaper than the one it is
+    // standing in, and it spends the match stepping off its own feet.
+    const field = laneField();
+    markCrowd(field, disc(4, 5, 0.22), 0.22);
+    markRing(field, disc(4, 9, 0.26), 0.22, MELEE, 1);
+    computeFlowField(field);
+
+    const standing = standingCost(field, { x: 4, y: 5 });
+    const raw = field.cost[cellAt(field, 4, 5)]!;
+    expect(raw - standing).toBe(CROWD_COST);
+  });
+});
+
 describe('a slot with no room to spare is not a route', () => {
   /**
    * A wall across the lane whose only opening is centred on a cell centre,
@@ -478,7 +535,7 @@ describe('a body with a spine is a wall, not a point', () => {
 describe('the sweep is exact', () => {
   /** Relax every edge until nothing improves. Obviously correct, obviously slow. */
   function shortestPaths(field: ReturnType<typeof laneField>): Int32Array {
-    const { width, depth, blocked, sources } = field;
+    const { width, depth, blocked, sources, crowd } = field;
     const cost = new Int32Array(width * depth).fill(UNREACHABLE);
     for (let i = 0; i < cost.length; i++) if (sources[i] !== 0) cost[i] = 0;
 
@@ -508,8 +565,9 @@ describe('the sweep is exact', () => {
             if (dx !== 0 && dy !== 0) {
               if (blocked[y * width + nx] === 1 && blocked[ny * width + x] === 1) continue;
             }
-            if (here + weight < cost[n]!) {
-              cost[n] = here + weight;
+            const step = here + weight + crowd[n]!;
+            if (step < cost[n]!) {
+              cost[n] = step;
               changed = true;
             }
           }
@@ -538,6 +596,12 @@ describe('the sweep is exact', () => {
         const x = random() * 8;
         const y = random() * 13 - 3;
         markObstacle(field, disc(x, y, 0.2 + random() * 0.3), 0.22);
+      }
+      const walkers = 2 + Math.floor(random() * 6);
+      for (let i = 0; i < walkers; i++) {
+        const x = random() * 8;
+        const y = random() * 13 - 3;
+        markCrowd(field, disc(x, y, 0.2 + random() * 0.3), 0.22);
       }
       const goals = 1 + Math.floor(random() * 3);
       for (let i = 0; i < goals; i++) {

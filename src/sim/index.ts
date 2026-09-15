@@ -32,7 +32,7 @@ export type { SpawnSpec, WavePreviewEntry, WaveSummary, UnitRating } from './wav
 export { inBounds, tileOccupiedByUnit } from './grid.ts';
 export { gap, slideStep } from './motion.ts';
 export type { Body, Bounds } from './motion.ts';
-export { placeWave, spawnCentre } from './spawn.ts';
+export { createMonster, placeWave, spawnCentre } from './spawn.ts';
 export { countLiving } from './spawn.ts';
 export { viewFor } from './view.ts';
 export type {

@@ -13,7 +13,15 @@
  */
 
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { applyCommand, createContext, createMatch, gap, step } from '../sim/index.ts';
+import {
+  applyCommand,
+  buildDefIndex,
+  createContext,
+  createMatch,
+  createMonster,
+  gap,
+  step,
+} from '../sim/index.ts';
 import type { GameData } from '../data/schema.ts';
 import type { Body, MatchState, SimContext } from '../sim/index.ts';
 
@@ -121,8 +129,10 @@ const results: string[] = [];
   let ringMoved = 0;
   let overlap = 0;
   for (let round = 0; round < 8; round++) {
+    // Engaged WITH THE TANK: a monster that cannot get onto it walks on to the
+    // fortress (§5.1) and is engaged there, which is not a ring member.
     const ring = lane.monsters
-      .filter((m) => m.alive && m.engaged)
+      .filter((m) => m.alive && m.engaged && m.targetId === tank.id)
       .sort((a, b) => angle(a) - angle(b));
     const n = ring.length;
     let loosest = 0;
@@ -143,7 +153,9 @@ const results: string[] = [];
     let filledAt = -1;
     for (let t = 1; t <= 100; t++) {
       step(ctx, state);
-      const engaged = lane.monsters.filter((m) => m.alive && m.engaged).length;
+      const engaged = lane.monsters.filter(
+        (m) => m.alive && m.engaged && m.targetId === tank.id,
+      ).length;
       if (engaged >= n && filledAt < 0) filledAt = t;
       overlap = Math.max(overlap, worstOverlap([lane.units, lane.monsters], true));
     }
@@ -302,6 +314,37 @@ const results: string[] = [];
   const engaged = alive.filter((m) => m.engaged).length;
   results.push(
     `real wave vs a 3-deep block        ${engaged}/${alive.length} monsters engaged, ${travelled.toFixed(2)} tiles of movement in the last 2s`,
+  );
+}
+
+// A fast body directly behind a slow one, alone in the lane. Reported from
+// play: the fast one tailed the slow one the whole way down and never passed
+// it, because a walking ally cost the field nothing.
+{
+  const d = passive();
+  const { state, ctx, lane } = setup(d);
+  startCombat(ctx, state);
+  lane.monsters.length = 0;
+  lane.reserve.length = 0;
+
+  const defs = buildDefIndex(d);
+  const slow = createMonster(state, d, defs, { defId: 'husk', waveNumber: 1 }, { x: 4, y: 2 })!;
+  const fast = createMonster(
+    state,
+    d,
+    defs,
+    { defId: 'grub', waveNumber: 1 },
+    { x: 4, y: 2 - slow.radius - 0.23 },
+  )!;
+  lane.monsters.push(slow, fast);
+
+  const from = fast.pos.y;
+  run(ctx, state, 100);
+  const walked = fast.pos.y - from;
+
+  results.push(
+    `fast body behind a slow one        ${(walked / 5).toFixed(2)} tiles/s over 5s ` +
+      `(its own pace is ${fast.moveSpeed.toFixed(2)}, the body in front walks ${slow.moveSpeed.toFixed(2)})`,
   );
 }
 

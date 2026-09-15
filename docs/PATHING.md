@@ -128,13 +128,18 @@ range walks downhill off the same answer. What makes it the right field:
   something can be hit from", and when a position is taken or freed the answer
   changes on the next sweep. That is the whole of the gap-filling behaviour.
   There is no slot assignment, no queue, no memory of who was heading where.
-- **Obstacles are what will not move.** Every enemy body, every engaged ally,
-  and every ally that cannot walk, each inflated by the seeker's own radius
-  (the Minkowski trick), so a cell is free exactly when a body of that radius
-  can stand there. Allies that are still walking are deliberately _not_
-  obstacles: they will have moved by the time anyone gets there, and treating
-  a moving crowd as terrain is what made every earlier attempt oscillate as the
-  terrain reshuffled under it.
+- **There are three kinds of ground, not two.** **Blocked**: every enemy body,
+  every engaged ally, every ally that cannot walk, each inflated by the
+  seeker's own radius (the Minkowski trick), so a cell is free exactly when a
+  body of that radius can stand there. **Crowded**: a cell a _walking_ ally is
+  standing in, which costs `CROWD_COST` extra to enter. **Free**: everything
+  else. A walking ally is not terrain — it will have moved by the time anyone
+  gets there, and making a moving crowd terrain is what oscillated with period
+  two in attempt 4 — but it is not free ground either, and calling it free is
+  what let a fast body tail a slow one down the entire lane (attempt 16). Round
+  a lone body the detour is a few diagonal steps and wins; inside a crowd every
+  route pays about the same and the shortest still wins, so a wave queues
+  rather than fanning out looking for a way round.
 - **Goals are found at a finer resolution than routing.** The hole two ring
   members leave when a third dies is often narrower than a field cell yet wide
   enough for a body. So whether a cell holds a goal is decided by sampling it
@@ -213,16 +218,22 @@ excluded), and none of it is a special case.
 
 From `npm run routing`. Both sides disarmed so that only movement is measured.
 
-| case                                           | result                                                                                                       |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| thirty melee monsters on one tank              | ring of 6; 8 kills, **8 of 8** holes refilled, slowest in 12 ticks; ring members moved 0.000; overlap 0.0000 |
-| face to face for 20 seconds                    | both engaged; movement 0.000000 tiles                                                                        |
-| two rows of units, target off to one side      | **6 of 8** engaged, which is the geometric maximum for these body sizes                                      |
-| wall of immobile allies with a gap at one end  | **8 of 8** through, 7 of 8 in contact                                                                        |
-| a monster crossing open ground to the fortress | path efficiency 99.1%                                                                                        |
-| **left wall against right wall**               | skew **0.8%** over 12 seeds, worst mirrored pair 4.6%                                                        |
-| a real wave against a 3-deep block             | 8 of 8 engaged; **0.00 tiles** of movement in the last 2 seconds                                             |
-| a whole wave at the fortress wall              | **18 of 22** engaged, 8 of them on the outer thirds; **0.00 tiles** walked by the ones with nowhere to go    |
+| case                                           | result                                                                                                                     |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| thirty melee monsters on one tank              | ring of 9 _on the tank_; 8 kills, **8 of 8** holes refilled, slowest in 12 ticks; ring members moved 0.000; overlap 0.0000 |
+| face to face for 20 seconds                    | both engaged; movement 0.000000 tiles                                                                                      |
+| two rows of units, target off to one side      | **6 of 8** engaged, which is the geometric maximum for these body sizes                                                    |
+| wall of immobile allies with a gap at one end  | **8 of 8** through, 6 of 8 in contact (six is the ring)                                                                    |
+| a monster crossing open ground to the fortress | path efficiency 100.0%                                                                                                     |
+| **left wall against right wall**               | skew **0.9%** over 12 seeds, worst mirrored pair 4.0%                                                                      |
+| a real wave against a 3-deep block             | 8 of 8 engaged; **0.00 tiles** of movement in the last 2 seconds                                                           |
+| **a fast body behind a slow one**              | **1.07 tiles/s** over 5s, its own pace being 1.10 and the body in front walking 0.70                                       |
+| a whole wave at the fortress wall              | **18 of 22** engaged, 7 of them on the outer thirds; **0.00 tiles** walked by the ones with nowhere to go                  |
+
+The ring row counts monsters engaged with the _tank_. It used to count every
+engaged monster, which quietly included the ones that gave up on the tank and
+walked on to the fortress - three of them, once a crowd could route round a jam
+instead of queueing in it.
 
 The handedness row is the one to watch. Nothing in this model is left- or
 right-handed, so a defender against one wall must cost a wave exactly what the
@@ -270,23 +281,26 @@ code.
 Each row was a real implementation, measured and either kept, replaced, or
 reverted. Rows 1–10 are the local-steering lineage; 11 replaced them all.
 
-| #   | Approach                                                                         | Result                                                                                                                                                               | Fate              |
-| --- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
-| 1   | Greedy steering per §5.3                                                         | 0 of 8 monsters through a wall with a gap at one end                                                                                                                 | Replaced          |
-| 2   | Veto directions blocked by a neighbour                                           | 203 tiles of wasted travel over 20s; 1 of 8 in contact                                                                                                               | Reverted          |
-| 3   | Deflect away from neighbours                                                     | 266 tiles of wasted travel; still a queue                                                                                                                            | Reverted          |
-| 4   | Tile-granular multi-source BFS field                                             | Solved monsters-versus-wall. Ally tiles as terrain oscillated with period two, forever                                                                               | Replaced by #9    |
-| 5   | Body-radius separation, asymmetric priority, steering hysteresis                 | Path efficiency 0.57 → 0.999                                                                                                                                         | Superseded by #11 |
-| 6   | Approach slots on a ring around the target                                       | Contact 1 → 4 of 8; but slots went by id, so attackers walked past free ones to reach theirs                                                                         | Superseded by #11 |
-| 7   | Edge-to-edge range, back a body out of what it is hitting                        | Melee gap 0.36 → 0.00 tiles                                                                                                                                          | Kept (range rule) |
-| 8   | Tangent steering with side commitment                                            | Two rows: 3 → 6 of 8                                                                                                                                                 | Superseded by #11 |
-| 9   | Sub-tile Dijkstra field, obstacles inflated by body radius                       | Wall with a gap: 1 → 7 of 8 through                                                                                                                                  | Kept, reworked    |
-| 10  | Release the park when nothing is blocking                                        | A unit frozen 0.76 tiles from contact after every ally around it died now resumes                                                                                    | Superseded by #11 |
-| 11  | Engaged-or-seeking; field to free attack positions; move-and-slide with yielding | Removed the jitter and the stalling                                                                                                                                  | Kept, reworked    |
-| 12  | Doubly-linked bucket queue, so the sweep is actually Dijkstra                    | ~half of every field was wrong; left-versus-right skew 7.9% → −2.1%, worst pair 22.9% → 4.1%                                                                         | **Current**       |
-| 13  | Fortress by default, defenders only inside an acquisition range                  | A wave stops converging on one distant tower; gap refills 6 of 8 → 8 of 8                                                                                            | **Current**       |
-| 14  | Average the tied steering directions instead of taking the first                 | 7–11× the path length, hundreds of reversals: the average of two opposed choices is standing still                                                                   | Reverted          |
-| 15  | Lane edges as terrain; clearance in a slot; close on a spine, not a centre       | A wave at the wall: 17 of 30 engaged → 18 of 22, 5 → 8 of them on the outer thirds, and the rank with nowhere to go went from 1.40 tiles of shuffling per 2s to 0.00 | **Current**       |
+| #   | Approach                                                                         | Result                                                                                                                                                                 | Fate              |
+| --- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| 1   | Greedy steering per §5.3                                                         | 0 of 8 monsters through a wall with a gap at one end                                                                                                                   | Replaced          |
+| 2   | Veto directions blocked by a neighbour                                           | 203 tiles of wasted travel over 20s; 1 of 8 in contact                                                                                                                 | Reverted          |
+| 3   | Deflect away from neighbours                                                     | 266 tiles of wasted travel; still a queue                                                                                                                              | Reverted          |
+| 4   | Tile-granular multi-source BFS field                                             | Solved monsters-versus-wall. Ally tiles as terrain oscillated with period two, forever                                                                                 | Replaced by #9    |
+| 5   | Body-radius separation, asymmetric priority, steering hysteresis                 | Path efficiency 0.57 → 0.999                                                                                                                                           | Superseded by #11 |
+| 6   | Approach slots on a ring around the target                                       | Contact 1 → 4 of 8; but slots went by id, so attackers walked past free ones to reach theirs                                                                           | Superseded by #11 |
+| 7   | Edge-to-edge range, back a body out of what it is hitting                        | Melee gap 0.36 → 0.00 tiles                                                                                                                                            | Kept (range rule) |
+| 8   | Tangent steering with side commitment                                            | Two rows: 3 → 6 of 8                                                                                                                                                   | Superseded by #11 |
+| 9   | Sub-tile Dijkstra field, obstacles inflated by body radius                       | Wall with a gap: 1 → 7 of 8 through                                                                                                                                    | Kept, reworked    |
+| 10  | Release the park when nothing is blocking                                        | A unit frozen 0.76 tiles from contact after every ally around it died now resumes                                                                                      | Superseded by #11 |
+| 11  | Engaged-or-seeking; field to free attack positions; move-and-slide with yielding | Removed the jitter and the stalling                                                                                                                                    | Kept, reworked    |
+| 12  | Doubly-linked bucket queue, so the sweep is actually Dijkstra                    | ~half of every field was wrong; left-versus-right skew 7.9% → −2.1%, worst pair 22.9% → 4.1%                                                                           | **Current**       |
+| 13  | Fortress by default, defenders only inside an acquisition range                  | A wave stops converging on one distant tower; gap refills 6 of 8 → 8 of 8                                                                                              | **Current**       |
+| 14  | Average the tied steering directions instead of taking the first                 | 7–11× the path length, hundreds of reversals: the average of two opposed choices is standing still                                                                     | Reverted          |
+| 15  | Lane edges as terrain; clearance in a slot; close on a spine, not a centre       | A wave at the wall: 17 of 30 engaged → 18 of 22, 5 → 8 of them on the outer thirds, and the rank with nowhere to go went from 1.40 tiles of shuffling per 2s to 0.00   | **Current**       |
+| 16  | A walking ally costs time to pass, instead of costing nothing (`CROWD_COST`)     | A fast body behind a slow one: 0.70 → 1.07 tiles/s of its own 1.10. At a full wall, body-ticks spent attacking 83% → 90%; two-second stalls across twelve runs 34 → 14 | **Current**       |
+| 17  | Refuse to steer at a cell the straight line cannot reach (line of sight)         | Fixed the wedge it was aimed at, and cost the crowd its way round a wall: through a gap 8 of 8 → 7 of 8, wall engagement 18 of 22 → 15 of 22, with grinding back       | Reverted          |
+| 18  | Fall back to the best neighbour when the long view is blocked                    | Same cause as 17, milder: two rows 6 of 8 → 5 of 8, gap refills 11 → 14 ticks                                                                                          | Reverted          |
 
 ## What the earlier attempts taught
 
@@ -323,6 +337,14 @@ ring band thicker than the attack range sent bodies to positions they could not
 attack from; they arrived, pressed, and milled. Goals are now the exact
 in-range annulus, at fine resolution.
 
+**"Blocked now" is not "blocked".** Twice (17, 18) it looked obviously wrong
+that a body steers at a cell whose straight line runs through an ally, and
+twice, forbidding it measured worse. Aiming through a body that is about to
+move is how a crowd finds the gap beside it: the step's forward part is
+cancelled and its sideways part survives, which is sliding, and over a few
+ticks that is the detour. Refusing to aim through it throws away the route
+that is about to open, and the body stands there instead.
+
 **Patching the symptom grows the patch list without bound.** Ten rows, each
 correct in isolation, and the crowd still looked wrong. The replacement took
 less code than the patches it removed.
@@ -350,6 +372,10 @@ less code than the patches it removed.
   tucked into a corner earns its keep only if something walks past it - or if
   its own attack range reaches the middle of the lane, which for most of the
   ranged roster it does.
+- **`CROWD_COST` has a ceiling.** The crowd keeps improving up to about 15,
+  but past 8 bodies press hard enough into a full ring to leave a hair of
+  overlap on an engaged body (0.028 tiles at 15), and "what you see is what
+  collides" is worth more than the last percent of engagement. It is 8.
 - **Cell resolution is five per tile.** A gap that a body fits through by less
   than a fifth of a tile can read as blocked. `lane.pathSubdivision` raises it
   at linear cost.

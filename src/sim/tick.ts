@@ -43,6 +43,7 @@ import {
   createFlowField,
   goalOwner,
   markBorder,
+  markCrowd,
   markObstacle,
   markRing,
   NO_OWNER,
@@ -384,13 +385,18 @@ function planMoves(
       }
     }
     for (const ally of allies) {
-      if (!ally.alive || !holdsStill(ally)) continue;
+      if (!ally.alive) continue;
       // §3.4: a boss and the monsters around it are not terrain to each other,
       // so neither routes around the other. Units are unaffected - they never
       // phase, so neither clause fires on a defender's field.
       if (phasing && ally.monster) continue;
       if (ally.phasesMonsters) continue;
-      markObstacle(field, shapeOf(ally), past);
+      // An ally that is going nowhere is terrain. One that is walking is not -
+      // it will have moved by the time anyone gets there - but it is not free
+      // ground either: getting past a body takes time, and a route that goes
+      // through one should say so. See CROWD_COST.
+      if (holdsStill(ally)) markObstacle(field, shapeOf(ally), past);
+      else markCrowd(field, shapeOf(ally), radius);
     }
     // The fortress is solid to everyone. Without this a monster with nothing
     // else to do walks into the wall and out the bottom of the lane.

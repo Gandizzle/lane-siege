@@ -10,7 +10,16 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { applyCommand, createContext, createMatch, FORTRESS_ID, gap, step } from './index.ts';
+import {
+  applyCommand,
+  buildDefIndex,
+  createContext,
+  createMatch,
+  createMonster,
+  FORTRESS_ID,
+  gap,
+  step,
+} from './index.ts';
 import type { GameData } from '../data/schema.ts';
 import type { Body, MatchState, SimContext } from './index.ts';
 import { cellAt } from './flowfield.ts';
@@ -216,17 +225,23 @@ describe('thirty melee monsters against one tank', () => {
   }
 
   it('fills the ring, and only the ring, with the rest waiting behind', () => {
-    const { state, ctx, lane } = tankAndThirty();
+    const { state, ctx, lane, tank } = tankAndThirty();
     run(ctx, state, 500);
 
-    const engaged = lane.monsters.filter((m) => m.alive && m.engaged).length;
+    // Engaged WITH THE TANK, not engaged with anything: a monster that cannot
+    // get onto the tank walks on to the fortress (§5.1, rule zero) and is
+    // engaged there, which is a different fact about a different body.
+    const onTank = lane.monsters.filter(
+      (m) => m.alive && m.engaged && m.targetId === tank.id,
+    ).length;
     const alive = lane.monsters.filter((m) => m.alive).length;
     expect(alive).toBe(30);
     // At these body sizes the ring around a 0.26 body holds about six 0.22
-    // bodies; the point is that it is full and that the other two dozen are
-    // not on it.
-    expect(engaged).toBeGreaterThanOrEqual(5);
-    expect(engaged).toBeLessThanOrEqual(8);
+    // bodies at touching distance, and a couple more across the rest of the
+    // in-range annulus; the point is that it is full and that the other two
+    // dozen are not on it.
+    expect(onTank).toBeGreaterThanOrEqual(5);
+    expect(onTank).toBeLessThanOrEqual(9);
     expect(worstOverlap([lane.units, lane.monsters])).toBeLessThan(OVERLAP_TOLERANCE);
   });
 
@@ -542,6 +557,60 @@ describe('units route around allies', () => {
     // A 0.22 body is ringed by up to seven 0.26 bodies; six is comfortable.
     const engaged = lane.units.filter((u) => u.alive && u.engaged).length;
     expect(engaged).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe('a fast body behind a slow one', () => {
+  /** The two of them alone in the lane, the fast one directly behind. */
+  function convoy() {
+    const d = passiveData();
+    const state = createMatch(d, { seed: 1, teams: [{ id: 'l1', playerIds: ['p'] }] });
+    const ctx = createContext(d);
+    const defs = buildDefIndex(d);
+    const lane = state.lanes.l1!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    lane.fortress.hp = lane.fortress.maxHp;
+    while (state.phase !== 'combat') step(ctx, state);
+    lane.monsters.length = 0;
+    lane.reserve.length = 0;
+
+    const slow = createMonster(state, d, defs, { defId: 'husk', waveNumber: 1 }, { x: 4, y: 2 })!;
+    const fast = createMonster(
+      state,
+      d,
+      defs,
+      { defId: 'grub', waveNumber: 1 },
+      { x: 4, y: 2 - slow.radius - 0.23 },
+    )!;
+    lane.monsters.push(slow, fast);
+    expect(fast.moveSpeed).toBeGreaterThan(slow.moveSpeed);
+    return { state, ctx, lane, slow, fast };
+  }
+
+  it('walks round it instead of inheriting its speed', () => {
+    // Reported from play: a grub tailed a husk down the whole lane and never
+    // got past it. The field marks as terrain only what will not move, so a
+    // walking ally was free ground: the route pointed straight through it,
+    // contact cancelled the part of the step that went into it, and a head-on
+    // contact has no tangent to slide along. Nothing ever said "go round".
+    const { state, ctx, slow, fast } = convoy();
+    const startY = fast.pos.y;
+
+    run(ctx, state, 100);
+
+    const walked = fast.pos.y - startY;
+    expect(walked).toBeGreaterThan(fast.moveSpeed * 5 * 0.9);
+    // And the number that is actually being claimed: its own pace, not the
+    // pace of whatever happened to be in front of it.
+    expect(walked).toBeGreaterThan(slow.moveSpeed * 5 * 1.3);
+  });
+
+  it('is past it by the time they reach the wall', () => {
+    const { state, ctx, slow, fast } = convoy();
+    run(ctx, state, 300);
+
+    expect(fast.engaged).toBe(true);
+    expect(fast.pos.y).toBeGreaterThan(slow.pos.y);
   });
 });
 

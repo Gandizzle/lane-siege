@@ -99,25 +99,37 @@ describe('a crowd at the wall (§4, §5.5)', () => {
     expect(engaged.some((x) => x > 6.5)).toBe(true);
   });
 
-  it('gets everybody in while there is still room for everybody', () => {
-    // The "stuck behind an ally" a player sees: a body wedged behind two
-    // others with a slot between them that is a hair too narrow to pass, which
-    // the field offers it anyway. It presses into the notch for the rest of
-    // the wave while free wall stands empty a few tiles away.
-    const { state, ctx } = undefended(16);
+  it('spends its time there attacking rather than queueing', () => {
+    // The "stuck behind an ally" a player sees, as a number: of all the time
+    // bodies spend down at the wall, how much of it is spent swinging.
+    //
+    // Body-ticks rather than a head count at the end, because a head count is
+    // a photograph - somebody is always still walking in, and which instant
+    // you look at decides the answer. This is the whole run.
+    const { state, ctx } = undefended(20);
     const lane = state.lanes.l1!;
-    run(ctx, state, 700);
 
-    const atWall = lane.monsters.filter((m) => m.alive && m.pos.y > 8);
-    expect(atWall.length).toBeGreaterThanOrEqual(10);
-    expect(atWall.filter((m) => m.engaged)).toHaveLength(atWall.length);
+    let atWall = 0;
+    let attacking = 0;
+    for (let t = 0; t < 700; t++) {
+      step(ctx, state);
+      for (const monster of lane.monsters) {
+        if (!monster.alive || monster.pos.y < 9) continue;
+        atWall++;
+        if (monster.engaged) attacking++;
+      }
+    }
+
+    expect(atWall).toBeGreaterThan(2000);
+    expect(attacking / atWall).toBeGreaterThan(0.87);
   });
 
-  it('leaves the ones that genuinely do not fit standing still, not grinding', () => {
-    // A wave big enough to fill the wall twice over. What is behind the front
-    // rank has nowhere to go, and a body with nowhere to go stands: a knot of
-    // monsters shuffling against each other for the rest of the wave is the
-    // same bug wearing a different face.
+  it('leaves nobody wobbling on the spot', () => {
+    // A wave big enough to fill the wall twice over, so there are bodies that
+    // cannot get in. Each of them should be doing one of two things: standing,
+    // or going somewhere. What a player reported - and what this measures - is
+    // the third: shuffling back and forth behind the body in front for the
+    // rest of the wave, walking the whole time and arriving nowhere.
     const { state, ctx } = undefended(20);
     const lane = state.lanes.l1!;
     run(ctx, state, 700);
@@ -125,11 +137,24 @@ describe('a crowd at the wall (§4, §5.5)', () => {
     const waiting = lane.monsters.filter((m) => m.alive && !m.engaged && m.pos.y > 8);
     expect(waiting.length).toBeGreaterThan(0);
 
-    const before = waiting.map((m) => ({ x: m.pos.x, y: m.pos.y }));
-    run(ctx, state, 40);
-    const moved = waiting.map((m, i) => Math.hypot(m.pos.x - before[i]!.x, m.pos.y - before[i]!.y));
+    const from = waiting.map((m) => ({ x: m.pos.x, y: m.pos.y }));
+    const last = waiting.map((m) => ({ x: m.pos.x, y: m.pos.y }));
+    const walked = waiting.map(() => 0);
+    for (let t = 0; t < 40; t++) {
+      step(ctx, state);
+      waiting.forEach((m, i) => {
+        walked[i] = walked[i]! + Math.hypot(m.pos.x - last[i]!.x, m.pos.y - last[i]!.y);
+        last[i]!.x = m.pos.x;
+        last[i]!.y = m.pos.y;
+      });
+    }
 
-    expect(Math.max(...moved)).toBeLessThan(0.05);
+    waiting.forEach((m, i) => {
+      // Two seconds of walking has to be two seconds of getting somewhere.
+      if (walked[i]! < 0.1) return;
+      const net = Math.hypot(m.pos.x - from[i]!.x, m.pos.y - from[i]!.y);
+      expect(net / walked[i]!, `${m.defId} walked ${walked[i]!.toFixed(2)}`).toBeGreaterThan(0.8);
+    });
   });
 });
 
