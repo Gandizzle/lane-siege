@@ -567,6 +567,33 @@ like the effects layer, and the simulation neither reads it nor knows it exists
 — `aura.test.ts` asserts that literally, and that each channel moves when the
 thing it stands for is bought.
 
+### Every body has its own silhouette
+
+§14.2 gave one shape per armour type - circle, hexagon, diamond, triangle
+cluster. That is four shapes for thirty-seven bodies, and a crowd of identical
+hexagons tells you nothing about which of your units is which. Every unit and
+monster now has its own silhouette, thirty-seven in all, assigned in the data
+(`shape` on each definition) from a catalogue in `render/shapes.ts`.
+
+What §14.2 was protecting is kept as a rule about **families**: round things
+are Flesh, angular things are Plate, pointed and stellar things are Ward, and
+clusters of small things are Swarm. The counter-read still works at a glance and
+without colour - a wall of angular shapes is a wall of Plate whether or not you
+can name each one - and within a family every member is distinct. `SHAPE_FAMILY`
+in `schema.ts` is the assignment; `validate.ts` refuses data on load if a shape
+is in the wrong family for its armour, if two bodies on the field share one, or
+if a tier does not carry its base's shape up the chain (§7.3: an upgrade is the
+same unit).
+
+The catalogue is geometry first and pixels second. `silhouette()` returns plain
+vertex lists and circles inside the unit circle; `drawEntity()` scales and
+paints them. That is what makes it testable without a canvas: every shape is
+checked to stay inside the body's collision radius - what you see is exactly
+what collides, §4.2 - to fill at least eight tenths of it, and to be unlike
+every other. Fused shapes such as a teardrop or a crescent are traced as one
+polygon rather than built from overlapping primitives, because a monster is
+stroked and stroking a union draws every seam.
+
 ### The build grid, and what a unit button shows
 
 Two small things that both come down to §14.2: show the player the thing
@@ -705,7 +732,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (322 tests):
+Implemented and tested (333 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -780,6 +807,11 @@ Implemented and tested (322 tests):
 - Rule zero: a monster ignores a defender it has not reached, takes one that
   comes inside its acquisition range, keeps it rather than swapping every tick,
   and goes back to the fortress when it dies (§5.1)
+- The silhouette catalogue: every shape inside its collision circle and filling
+  a fair share of it, no two alike, drawable filled and stroked; and the data
+  giving every body on the field its own, in its armour family, carried up each
+  upgrade chain - with the validator shown to refuse a duplicate and a
+  wrong-family shape (§14.2, amended)
 
 ### Deliberate departures from DESIGN.md
 

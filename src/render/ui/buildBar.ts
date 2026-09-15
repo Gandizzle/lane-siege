@@ -760,7 +760,7 @@ function laneName(teamId: string): string {
 /** A unit as §14.2 draws it: armour shape, damage colour, tier size and pips. */
 function glyphOf(def: UnitDef): EntityStyle {
   return {
-    armour: def.armour,
+    shape: def.shape,
     damageType: def.damageType,
     tier: def.tier,
     // Solid, because it is one of yours (§14.2). Monsters are the outlines.

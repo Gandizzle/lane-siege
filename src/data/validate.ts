@@ -6,7 +6,8 @@
  * set fails with a to-do list instead of a stack trace ten frames into a tick.
  */
 
-import type { GameData } from './schema.ts';
+import type { ArmourType, GameData } from './schema.ts';
+import { SHAPE_FAMILY } from './schema.ts';
 
 export interface DataReport {
   /** Dotted paths whose value is still `null`, e.g. `economy.startingGold`. */
@@ -132,6 +133,60 @@ function checkUpgradeChain(data: GameData, errors: string[]): void {
   }
 }
 
+/**
+ * Every body on the field has its own silhouette, and it is in its armour's
+ * family. §14.2, amended - see `ShapeId` in schema.ts.
+ *
+ * Checked on load for the same reason the matrix is: it is an invariant that
+ * is trivial to break while hand-editing JSON - copy a unit, forget to change
+ * its shape - and the failure is silent on screen. Two hexagons do not look
+ * wrong; they just stop telling you which is which.
+ */
+function checkShapes(data: GameData, errors: string[]): void {
+  const families = SHAPE_FAMILY as Record<string, ArmourType | undefined>;
+  const monsters = [...data.monsters.monsters, ...data.monsters.bosses];
+  const byId = new Map(data.units.units.map((u) => [u.id, u]));
+
+  // The right family, and a shape that exists at all - JSON cannot spell-check.
+  for (const body of [...data.units.units, ...monsters]) {
+    const family = families[body.shape];
+    if (family === undefined) {
+      errors.push(`'${body.id}' has unknown shape '${body.shape}'`);
+    } else if (family !== body.armour) {
+      errors.push(
+        `'${body.id}' is ${body.armour} but its shape '${body.shape}' is a ${family} silhouette (§14.2)`,
+      );
+    }
+  }
+
+  // An upgrade is the same unit (§7.3), so it keeps the same silhouette.
+  for (const unit of data.units.units) {
+    const next = unit.upgradesTo ? byId.get(unit.upgradesTo) : undefined;
+    if (next && next.shape !== unit.shape) {
+      errors.push(
+        `'${unit.id}' is '${unit.shape}' but upgrades to '${next.id}' which is '${next.shape}' - a tier keeps its shape (§7.3)`,
+      );
+    }
+  }
+
+  // One silhouette per body. Tiers of one unit share theirs on purpose, so only
+  // the base of each chain counts; monsters and units share a field, so they
+  // are checked against each other as well.
+  const owners = new Map<string, string>();
+  const claim = (shape: string, owner: string): void => {
+    const other = owners.get(shape);
+    if (other) {
+      errors.push(
+        `shape '${shape}' is used by both '${other}' and '${owner}' - every body on the field has its own silhouette (§14.2)`,
+      );
+    } else {
+      owners.set(shape, owner);
+    }
+  };
+  for (const unit of data.units.units) if (unit.tier === 1) claim(unit.shape, unit.id);
+  for (const monster of monsters) claim(monster.shape, monster.id);
+}
+
 /** Assembles the bundle and reports its gaps. Never throws. */
 export function validateData(raw: Record<string, unknown>): {
   data: GameData;
@@ -147,6 +202,7 @@ export function validateData(raw: Record<string, unknown>): {
   checkBuilderCoverage(data, errors, notes);
   checkWaveReferences(data, errors);
   checkUpgradeChain(data, errors);
+  checkShapes(data, errors);
 
   return { data, report: { missing, errors, notes } };
 }

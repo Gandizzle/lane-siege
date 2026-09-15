@@ -352,6 +352,13 @@ Decisions that override the document rather than filling a gap in it:
   regeneration on a full lane clear is `0`. Buying it is a fortress upgrade,
   landing with the rest of them in M3. Until then chip damage is permanent and
   the fortress weapon is the only thing holding the leak death-spiral off.
+- **§14.2 — every body has its own silhouette; the armour type is its
+  family.** The document gave one shape per armour type, which is four shapes
+  for thirty-seven bodies. Each unit and monster now has a distinct shape, and
+  the information §14.2 put in the silhouette moves up a level: round shapes
+  are Flesh, angular are Plate, pointed and stellar are Ward, clusters are
+  Swarm. Tiers keep their base's shape (§7.3). The validator refuses a roster
+  in which two bodies share a shape or a shape is in the wrong family.
 - **§3.2 — the combat phase ends early when every living lane is clear.** The
   global wave clock is now "fixed unless everyone is done", matching how the
   ready button already works for the build phase. It still cannot be used to

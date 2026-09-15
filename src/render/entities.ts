@@ -107,9 +107,12 @@ export class EntityLayer extends Container {
 
   private drawUnits(lane: LaneView, alpha: number): void {
     for (const unit of lane.units) {
-      // §14.2: tier drives size and pips, and it is a property of the
-      // definition - which is also why the wire format sends only the id.
-      const tier = this.defs.units.get(unit.defId)?.tier ?? 1;
+      // §14.2: tier drives size and pips, and the silhouette is the unit's
+      // own. Both are properties of the definition - which is also why the
+      // wire format sends only the id.
+      const def = this.defs.units.get(unit.defId);
+      const tier = def?.tier ?? 1;
+      const shape = def?.shape ?? 'orb';
 
       const at = this.interpolate(unit, alpha);
       const centre = this.tileToPixel(at.x, at.y);
@@ -120,7 +123,7 @@ export class EntityLayer extends Container {
       // Solid fill = a defensive unit (§14.2).
       drawEntity(
         this.unitGraphics,
-        { armour: unit.armour, damageType: unit.damageType, tier, outlined: false },
+        { shape, damageType: unit.damageType, tier, outlined: false },
         centre.x,
         centre.y,
         radius,
@@ -142,9 +145,10 @@ export class EntityLayer extends Container {
       const radius = monster.radius * this.layout.tileSize;
 
       // Outline = monster (§14.2).
+      const shape = this.defs.monsters.get(monster.defId)?.shape ?? 'orb';
       drawEntity(
         this.monsterGraphics,
-        { armour: monster.armour, damageType: monster.damageType, tier: 1, outlined: true },
+        { shape, damageType: monster.damageType, tier: 1, outlined: true },
         centre.x,
         centre.y,
         radius,

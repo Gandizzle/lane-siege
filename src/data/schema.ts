@@ -107,6 +107,106 @@ export interface BuilderDef {
   complete: boolean;
 }
 
+/**
+ * Every body on the field has its own silhouette. DESIGN CHANGE from §14.2,
+ * which gave one shape per armour type: with 24 units and 13 monsters that is
+ * four shapes doing the work of thirty-seven, and a crowd of identical
+ * hexagons tells you nothing about which of your units is which.
+ *
+ * What §14.2 was protecting is kept: the shape's FAMILY still says the armour
+ * type, so the counter-read survives at a glance and without colour. Round
+ * things are Flesh, angular things are Plate, pointed and stellar things are
+ * Ward, clusters of small things are Swarm. Within a family every member is
+ * distinct, and `validate.ts` refuses data in which two bodies share one, or in
+ * which a shape sits in the wrong family for its armour.
+ *
+ * The names describe the geometry, not the unit, so a shape can be reassigned
+ * without being renamed. The drawing is in render/shapes.ts.
+ */
+export type ShapeId =
+  // Flesh: round.
+  | 'orb'
+  | 'egg'
+  | 'bean'
+  | 'pill'
+  | 'teardrop'
+  | 'tadpole'
+  | 'bulb'
+  | 'blob'
+  | 'moon'
+  | 'pebble'
+  | 'cloud'
+  | 'spindle'
+  // Plate: angular.
+  | 'hexagon'
+  | 'pentagon'
+  | 'slab'
+  | 'square'
+  | 'shield'
+  | 'wedge'
+  | 'chevron'
+  | 'keep'
+  // Ward: pointed.
+  | 'diamond'
+  | 'kite'
+  | 'star4'
+  | 'star5'
+  | 'star6'
+  | 'cross'
+  | 'hourglass'
+  | 'spear'
+  // Swarm: many small things.
+  | 'cluster3'
+  | 'dots3'
+  | 'dots4'
+  | 'dots5'
+  | 'ring6'
+  | 'tri4'
+  | 'diamonds3'
+  | 'squares4'
+  | 'flock';
+
+/** Which armour type each silhouette belongs to. The counter-read lives here. */
+export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
+  orb: 'flesh',
+  egg: 'flesh',
+  bean: 'flesh',
+  pill: 'flesh',
+  teardrop: 'flesh',
+  tadpole: 'flesh',
+  bulb: 'flesh',
+  blob: 'flesh',
+  moon: 'flesh',
+  pebble: 'flesh',
+  cloud: 'flesh',
+  spindle: 'flesh',
+  hexagon: 'plate',
+  pentagon: 'plate',
+  slab: 'plate',
+  square: 'plate',
+  shield: 'plate',
+  wedge: 'plate',
+  chevron: 'plate',
+  keep: 'plate',
+  diamond: 'ward',
+  kite: 'ward',
+  star4: 'ward',
+  star5: 'ward',
+  star6: 'ward',
+  cross: 'ward',
+  hourglass: 'ward',
+  spear: 'ward',
+  cluster3: 'swarm',
+  dots3: 'swarm',
+  dots4: 'swarm',
+  dots5: 'swarm',
+  ring6: 'swarm',
+  tri4: 'swarm',
+  diamonds3: 'swarm',
+  squares4: 'swarm',
+  flock: 'swarm',
+};
+
 export interface UnitDef {
   id: string;
   builderId: string;
@@ -119,6 +219,8 @@ export interface UnitDef {
   supplyCost: Unfilled<number>;
   hp: Unfilled<number>;
   armour: ArmourType;
+  /** Its own silhouette, in `armour`'s family. Shared along the upgrade chain. */
+  shape: ShapeId;
   /** Damage per attack, before the matrix multiplier. */
   damage: Unfilled<number>;
   damageType: DamageType;
@@ -161,6 +263,8 @@ export interface MonsterDef {
   name: string;
   hp: Unfilled<number>;
   armour: ArmourType;
+  /** Its own silhouette, in `armour`'s family. */
+  shape: ShapeId;
   damage: Unfilled<number>;
   damageType: DamageType;
   attackSpeed: Unfilled<number>;
