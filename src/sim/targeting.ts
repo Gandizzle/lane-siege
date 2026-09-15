@@ -50,7 +50,7 @@ export function distanceSquared(a: Vec2, b: Vec2): number {
  * of a point five tiles away", which is the difference between a wave
  * besieging it and a wave standing at it.
  */
-function bodyDistanceSquared(a: Combatant, b: Combatant): number {
+export function bodyDistanceSquared(a: Combatant, b: Combatant): number {
   const dx = spineDx(a.pos.x, a.halfWidth, b.pos.x, b.halfWidth);
   const dy = a.pos.y - b.pos.y;
   return dx * dx + dy * dy;
@@ -80,6 +80,55 @@ export function nearestInRange<T extends Combatant>(
     }
   }
   return best;
+}
+
+/**
+ * Who `self` is going after, under the hold-and-switch rule.
+ *
+ * Three clauses, and the order of them is the whole behaviour:
+ *
+ *   1. Keep the held target while it is alive and still inside `acquireRange`.
+ *   2. A body already trading blows does not look around. It finishes what it
+ *      started.
+ *   3. Otherwise take the nearest inside `acquireRange`, but only if it is
+ *      strictly closer than what is already held.
+ *
+ * Nothing inside `acquireRange` returns null, and the caller decides what that
+ * means - for a monster it means the fortress (§5.5), which is where it was
+ * headed anyway.
+ *
+ * WHY A RANGE AT ALL
+ *
+ * Because "nearest enemy in the lane" is a global question, and a body that
+ * answers it every tick swerves whenever the answer changes somewhere else.
+ * Thirty monsters all recomputing "nearest" against a moving crowd is thirty
+ * bodies changing their minds together, which is what a shoal of jitter is made
+ * of. A short acquisition range makes the decision local and mostly stable: a
+ * monster commits to what is actually in front of it and ignores the rest of
+ * the board.
+ */
+export function holdOrAcquire<T extends Combatant>(
+  enemies: readonly T[],
+  self: Combatant & { targetId: EntityId | null; engaged: boolean },
+  acquireRange: number,
+): T | null {
+  let held: T | null = null;
+  if (self.targetId !== null) {
+    for (const enemy of enemies) {
+      if (enemy.id !== self.targetId) continue;
+      // The slack keeps a target hovering on the boundary from being dropped
+      // and retaken every tick.
+      if (enemy.alive && withinRange(self, enemy, acquireRange + ENGAGE_SLACK_TILES)) held = enemy;
+      break;
+    }
+  }
+
+  if (held !== null && self.engaged) return held;
+
+  const nearest = nearestInRange(enemies, self, acquireRange);
+  if (held === null) return nearest;
+  if (nearest === null || nearest === held) return held;
+  return bodyDistanceSquared(self, nearest) < bodyDistanceSquared(self, held) ? nearest : held;
 }
 
 /**

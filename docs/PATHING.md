@@ -53,6 +53,42 @@ them. Monsters spawn as one packed hexagonal clump at the centre of a spawn
 zone three tiles above the build grid, and cross it before the first contact.
 Units and monsters may fight anywhere in the lane, spawn zone included.
 
+### Rule zero: what a body is going after
+
+A monster's destination is the **fortress** (§5.5). That is the default and it
+is most of what a monster is doing; defenders are obstacles on the way, not
+destinations. It looks no further than `lane.monsterAcquireRange` (3 tiles,
+edge to edge) for something to fight. Inside that range it takes the nearest,
+and then:
+
+- it **keeps** that target while the target is alive and still inside the
+  range;
+- it **never looks around while it is trading blows** — a body that is
+  attacking has already decided;
+- it **switches** only when it is not attacking and something strictly closer
+  is inside the range;
+- with nothing inside the range it goes back to walking at the fortress.
+
+Defensive units follow the same rule with no acquisition cap: a unit has no
+fortress of its own to walk at, so its default is the nearest monster in the
+lane, and it advances on one it cannot yet reach (§5.2, amended).
+
+**Why a range at all.** "The nearest enemy anywhere" is a global question, and
+thirty bodies re-answering it every tick against a moving crowd all change
+their minds together. That is what a shoal of jitter is made of, and it is what
+made one tower the destination of a whole wave. A short acquisition range makes
+the decision local and mostly stable: a monster commits to what is in front of
+it and ignores the rest of the board, and a defender it cannot reach is simply
+walked past — which is what a lane defence is supposed to look like.
+
+Monsters therefore move in two groups, and which group a monster is in is the
+whole of how a wave behaves. **Seekers** have seen nothing and read a field
+whose goal is the fortress. **Chasers** have a defender in range and read a
+field whose goals are the attack positions around the defenders actually being
+chased — which is what makes a body walk round a full ring to the one gap in it
+instead of pressing into the back of it. Confining that to bodies already
+within acquisition range is what keeps it from becoming a lane-wide stampede.
+
 ### Rule one: engaged or seeking
 
 Every body is in exactly one of two states each tick:
@@ -147,44 +183,78 @@ excluded), and none of it is a special case.
 
 From `npm run routing`. Both sides disarmed so that only movement is measured.
 
-| case                                          | result                                                                                                     |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| thirty melee monsters on one tank             | ring of 7; 8 kills, 7 holes refilled, slowest in 16 ticks (0.8s); ring members moved 0.000; overlap 0.0012 |
-| face to face for 20 seconds                   | both engaged; movement 0.000000 tiles                                                                      |
-| two rows of units, target off to one side     | **6 of 8** engaged, which is the geometric maximum for these body sizes                                    |
-| wall of immobile allies with a gap at one end | **8 of 8** through (was 7 of 8; 1 of 8 before the field existed)                                           |
-| a monster crossing open ground                | path efficiency 99.6%                                                                                      |
-| a real wave against a 3-deep block            | 8 of 8 engaged; **0.00 tiles** of movement in the last 2 seconds (was ~17)                                 |
+| case                                           | result                                                                                                       |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| thirty melee monsters on one tank              | ring of 6; 8 kills, **8 of 8** holes refilled, slowest in 13 ticks; ring members moved 0.000; overlap 0.0000 |
+| face to face for 20 seconds                    | both engaged; movement 0.000000 tiles                                                                        |
+| two rows of units, target off to one side      | **6 of 8** engaged, which is the geometric maximum for these body sizes                                      |
+| wall of immobile allies with a gap at one end  | **8 of 8** through, 7 of 8 in contact                                                                        |
+| a monster crossing open ground to the fortress | path efficiency 99.1%                                                                                        |
+| **left wall against right wall**               | skew **−2.1%** over 12 seeds, worst mirrored pair 4.1%                                                       |
+| a real wave against a 3-deep block             | 8 of 8 engaged; **0.00 tiles** of movement in the last 2 seconds                                             |
 
-On the one hole that did not refill: ring members are immovable and a ring
-packs first come first served, so the hole one member leaves is sometimes
-narrower than a body. The harness kills the member whose neighbours are
-furthest apart each round, and after seven refills the remaining holes have
-closed up. That is the geometry, not the pathing, and it is the price of
-engaged bodies that never move — the price that buys zero jitter.
+The handedness row is the one to watch. Nothing in this model is left- or
+right-handed, so a defender against one wall must cost a wave exactly what the
+same defender against the other wall costs. For a long time it did not — see
+[the broken queue](#the-sweep-has-to-be-exact) — and the remaining couple of
+per cent is scan-order preference in which of several equally-good cells a body
+steps to, which is small, no longer systematic, and load-bearing: it is also
+what stops a body dithering between two equal options. Replacing it with the
+average of the tied directions was tried and is 7–11× worse, because the
+average of two opposed choices is standing still.
 
-Whole tick at the §15.3 load: **1.8ms of the 50ms budget (3.6%)**, four lanes,
-88 monsters and 156 units, one field per (kind, radius, range) in play.
-`npm run perf` re-checks it.
+Whole tick at the §15.3 load: **2.0ms of the 50ms budget (4.0%)**, four lanes,
+88 monsters and 156 units. `npm run perf` re-checks it.
+
+### The sweep has to be exact
+
+Dial's algorithm is an optimisation of Dijkstra, and an optimisation is only
+worth having if it gives the same answer. For most of this project's life it
+did not.
+
+The buckets were intrusive singly-linked lists, one `next` pointer per cell.
+Re-inserting a cell that was already queued — which happens whenever a shorter
+route to it turns up, which is constantly — overwrote that pointer, and the
+pointer was the spine of the bucket the cell still sat in. **Every cell behind
+it was orphaned**, never relaxed, and kept whatever inflated cost it happened
+to hold. Roughly half of every field was wrong; some of it read UNREACHABLE
+with a perfectly good route available; and which half was wrong depended on the
+order cells happened to be scanned in, which is to say it was handed.
+
+It produced exactly the symptoms you would report as a pathing problem and
+never as a queue problem: a wave attacking the left wall wandered where the
+same wave attacking the right wall did not, bodies paused and restarted, and
+crowds split for no visible reason. Nothing threw, and every behavioural test
+in the suite passed throughout.
+
+The fix is a doubly-linked bucket, so a cell can be unlinked before it is
+re-filed. The guarantee is `flowfield.test.ts`, which now checks the whole field
+against a plain relaxation pass over the same grid on forty random layouts, and
+separately checks that a mirrored layout produces a mirrored field. Those are
+the only kind of test that could have caught this, and both fail on the old
+code.
 
 ## What has been tried, in order
 
 Each row was a real implementation, measured and either kept, replaced, or
 reverted. Rows 1–10 are the local-steering lineage; 11 replaced them all.
 
-| #   | Approach                                                                         | Result                                                                                       | Fate              |
-| --- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ----------------- |
-| 1   | Greedy steering per §5.3                                                         | 0 of 8 monsters through a wall with a gap at one end                                         | Replaced          |
-| 2   | Veto directions blocked by a neighbour                                           | 203 tiles of wasted travel over 20s; 1 of 8 in contact                                       | Reverted          |
-| 3   | Deflect away from neighbours                                                     | 266 tiles of wasted travel; still a queue                                                    | Reverted          |
-| 4   | Tile-granular multi-source BFS field                                             | Solved monsters-versus-wall. Ally tiles as terrain oscillated with period two, forever       | Replaced by #9    |
-| 5   | Body-radius separation, asymmetric priority, steering hysteresis                 | Path efficiency 0.57 → 0.999                                                                 | Superseded by #11 |
-| 6   | Approach slots on a ring around the target                                       | Contact 1 → 4 of 8; but slots went by id, so attackers walked past free ones to reach theirs | Superseded by #11 |
-| 7   | Edge-to-edge range, back a body out of what it is hitting                        | Melee gap 0.36 → 0.00 tiles                                                                  | Kept (range rule) |
-| 8   | Tangent steering with side commitment                                            | Two rows: 3 → 6 of 8                                                                         | Superseded by #11 |
-| 9   | Sub-tile Dijkstra field, obstacles inflated by body radius                       | Wall with a gap: 1 → 7 of 8 through                                                          | Kept, reworked    |
-| 10  | Release the park when nothing is blocking                                        | A unit frozen 0.76 tiles from contact after every ally around it died now resumes            | Superseded by #11 |
-| 11  | Engaged-or-seeking; field to free attack positions; move-and-slide with yielding | The table above                                                                              | **Current**       |
+| #   | Approach                                                                         | Result                                                                                             | Fate              |
+| --- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ----------------- |
+| 1   | Greedy steering per §5.3                                                         | 0 of 8 monsters through a wall with a gap at one end                                               | Replaced          |
+| 2   | Veto directions blocked by a neighbour                                           | 203 tiles of wasted travel over 20s; 1 of 8 in contact                                             | Reverted          |
+| 3   | Deflect away from neighbours                                                     | 266 tiles of wasted travel; still a queue                                                          | Reverted          |
+| 4   | Tile-granular multi-source BFS field                                             | Solved monsters-versus-wall. Ally tiles as terrain oscillated with period two, forever             | Replaced by #9    |
+| 5   | Body-radius separation, asymmetric priority, steering hysteresis                 | Path efficiency 0.57 → 0.999                                                                       | Superseded by #11 |
+| 6   | Approach slots on a ring around the target                                       | Contact 1 → 4 of 8; but slots went by id, so attackers walked past free ones to reach theirs       | Superseded by #11 |
+| 7   | Edge-to-edge range, back a body out of what it is hitting                        | Melee gap 0.36 → 0.00 tiles                                                                        | Kept (range rule) |
+| 8   | Tangent steering with side commitment                                            | Two rows: 3 → 6 of 8                                                                               | Superseded by #11 |
+| 9   | Sub-tile Dijkstra field, obstacles inflated by body radius                       | Wall with a gap: 1 → 7 of 8 through                                                                | Kept, reworked    |
+| 10  | Release the park when nothing is blocking                                        | A unit frozen 0.76 tiles from contact after every ally around it died now resumes                  | Superseded by #11 |
+| 11  | Engaged-or-seeking; field to free attack positions; move-and-slide with yielding | Removed the jitter and the stalling                                                                | Kept, reworked    |
+| 12  | Doubly-linked bucket queue, so the sweep is actually Dijkstra                    | ~half of every field was wrong; left-versus-right skew 7.9% → −2.1%, worst pair 22.9% → 4.1%       | **Current**       |
+| 13  | Fortress by default, defenders only inside an acquisition range                  | A wave stops converging on one distant tower; gap refills 6 of 8 → 8 of 8                          | **Current**       |
+| 14  | Average the tied steering directions instead of taking the first                 | 7–11× the path length, hundreds of reversals: the average of two opposed choices is standing still | Reverted          |
 
 ## What the earlier attempts taught
 
@@ -199,6 +269,15 @@ jitter found here had that shape: the field said "step back to the free cell",
 the closing rule said "step toward the enemy", and a body on the boundary
 alternated between them. The fix was never damping; it was making one rule
 answer the question.
+
+**A behavioural test suite cannot see a broken data structure.** Eleven of the
+rows above were found by watching bodies move, and every one of them was a real
+fault. The twelfth was not visible that way at all: the field simply held wrong
+numbers, and bodies followed them faithfully. What found it was asking a
+different question — not "does this look right" but "is this function computing
+what it claims to compute" — and checking the answer against a slow, obviously
+correct one. Anything that is an optimisation of a known algorithm should be
+tested against that algorithm, not against its symptoms.
 
 **Every give-up rule became a freeze.** Gating movement on a stuck flag froze
 monsters permanently; the stall-park froze units mid-detour; the park's
@@ -223,9 +302,20 @@ less code than the patches it removed.
 - **Goal sampling is 4 × 4 per cell.** A sliver of free space thinner than a
   quarter of a cell (0.05 tiles) can still be missed. Finer sampling costs
   linearly more per enemy and has not been needed.
-- **One field per (kind, radius, range).** A roster with many distinct ranges
-  means more sweeps per tick. Ranges are data, and the sweep is cheap, but
-  this is the term that grows.
+- **One field per (kind, goal, radius, range).** A roster with many distinct
+  ranges means more sweeps per tick, and monsters now take two goals - the
+  fortress and whatever is being chased - rather than one. Ranges are data and
+  the sweep is cheap, but this is the term that grows.
+- **Ties in steering still go to whichever cell was scanned first**, which is a
+  couple of per cent of left-lean on open ground. It is not systematic enough to
+  see and it is load-bearing: it is also the continuity that stops a body
+  dithering between two equally good steps. Averaging the tied directions
+  removes the lean and is far worse (row 14).
+- **A defender more than `monsterAcquireRange` from a monster's route is
+  ignored by it.** That is the point of rule zero, but it does mean a tower
+  tucked into a corner earns its keep only if something walks past it - or if
+  its own attack range reaches the middle of the lane, which for most of the
+  ranged roster it does.
 - **Cell resolution is five per tile.** A gap that a body fits through by less
   than a fifth of a tile can read as blocked. `lane.pathSubdivision` raises it
   at linear cost.

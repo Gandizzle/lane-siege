@@ -403,7 +403,21 @@ derives the three bands from one tile size.
 ### Movement: engaged or seeking
 
 Movement is described in full in [PATHING.md](PATHING.md), with every number
-and the ten attempts that preceded it. The short version is two rules.
+and the attempts that preceded it. The short version is three rules.
+
+**A monster is going to the fortress unless something gets close enough to
+fight.** That is §5.5's losing condition made into the default heading rather
+than a fallback for an empty lane. A monster looks no further than
+`lane.monsterAcquireRange` (3 tiles) for a defender; inside that it takes the
+nearest, keeps it while it lives and stays in range, and never looks around
+once it is trading blows. Defensive units follow the same rule with no
+acquisition cap, since they have no fortress of their own to walk at.
+
+The alternative — every monster going after the nearest defender anywhere — is
+a global question that every body re-answers every tick, and the answer changes
+for all of them at once whenever anything moves. That is what made one tower the
+destination of a whole wave, and a lane defence in which a defender cannot be
+bypassed is not a lane defence.
 
 **Every body is either engaged or seeking.** Engaged means something is in
 range: it attacks, it does not move, and _nothing moves it_ — it is an
@@ -433,18 +447,32 @@ moved and walking through the ones that have not — which then yield when their
 turn comes. Two bodies wanting the same hole cannot jam: the one further away
 moves second and gives way.
 
-| case                                          | result                                                        |
-| --------------------------------------------- | ------------------------------------------------------------- |
-| thirty melee monsters on one tank             | ring of 7; holes refilled in under a second; ring never moves |
-| face to face for 20 seconds                   | movement 0.000000 tiles                                       |
-| two rows of units, target off to one side     | 6 of 8 engaged (the geometric maximum)                        |
-| wall of immobile allies with a gap at one end | 8 of 8 through                                                |
-| a real wave against a 3-deep block            | 8 of 8 engaged, 0.00 tiles of movement in the last 2 seconds  |
+| case                                          | result                                                       |
+| --------------------------------------------- | ------------------------------------------------------------ |
+| thirty melee monsters on one tank             | 8 of 8 holes refilled in under a second; ring never moves    |
+| face to face for 20 seconds                   | movement 0.000000 tiles                                      |
+| two rows of units, target off to one side     | 6 of 8 engaged (the geometric maximum)                       |
+| wall of immobile allies with a gap at one end | 8 of 8 through                                               |
+| left wall against right wall                  | skew −2.1% over 12 seeds (was 7.9%)                          |
+| a real wave against a 3-deep block            | 8 of 8 engaged, 0.00 tiles of movement in the last 2 seconds |
+
+**The sweep has to be exact, and for a long time it was not.** Dial's algorithm
+linked its buckets with one forward pointer per cell, and re-filing a cell that
+was already queued — which happens constantly — overwrote that pointer and
+orphaned every cell behind it in the bucket it still sat in. Those cells were
+never relaxed and kept whatever inflated cost they held, so about half of every
+field was wrong, some of it unreachable with a good route available, and which
+half depended on the order cells were scanned in. It read as a pathing problem
+and never as a queue problem: waves wandered on one side of the lane and not
+the other, bodies paused and restarted, crowds split. Nothing threw, and the
+whole behavioural suite passed throughout. The buckets are doubly linked now,
+and `flowfield.test.ts` checks the field against a plain relaxation pass over
+the same grid rather than against how the bodies look.
 
 There is no slot assignment, tangent steering, side commitment, stuck
 detection, give-up timer, retarget interval, separation pass or tile
 occupancy. Each existed to correct a symptom of the previous model and none is
-needed under this one. Whole tick at the §15.3 load: 1.8ms of the 50ms budget.
+needed under this one. Whole tick at the §15.3 load: 2.0ms of the 50ms budget.
 
 ### Attack animations, which the simulation decides and the renderer draws
 
@@ -655,7 +683,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (316 tests):
+Implemented and tested (322 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -724,6 +752,12 @@ Implemented and tested (316 tests):
 - The aura: nothing drawn without one, something for every aura the data
   defines, each of the four visibly different, and all three channels moving
   when the thing they stand for is bought (§10.1)
+- The distance field against a plain shortest path, cell for cell, on forty
+  random layouts, and that a mirrored layout produces a mirrored field - the
+  two tests that catch a wrong field rather than a wrong-looking crowd
+- Rule zero: a monster ignores a defender it has not reached, takes one that
+  comes inside its acquisition range, keeps it rather than swapping every tick,
+  and goes back to the fortress when it dies (§5.1)
 
 ### Deliberate departures from DESIGN.md
 

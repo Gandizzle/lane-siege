@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { applyCommand, createContext, createMatch, gap, step } from './index.ts';
+import { applyCommand, createContext, createMatch, FORTRESS_ID, gap, step } from './index.ts';
 import type { GameData } from '../data/schema.ts';
 import type { Body, MatchState, SimContext } from './index.ts';
 
@@ -382,12 +382,10 @@ describe('monsters route rather than press', () => {
     expect(touchingWall.length).toBeGreaterThan(0);
   });
 
-  it('walks a straight line when nothing is in the way', () => {
+  it('walks a straight line to the fortress when nothing is in the way', () => {
     const d = passiveData();
-    for (const u of d.units.units) u.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'hammer', 3, 8);
     startCombat(ctx, state);
 
     const monster = lane.monsters.find((m) => m.alive)!;
@@ -405,7 +403,94 @@ describe('monsters route rather than press', () => {
     }
     const straight = Math.hypot(monster.pos.x - start.x, monster.pos.y - start.y);
     // Path efficiency: distance covered against distance closed.
-    expect(straight / travelled).toBeGreaterThan(0.97);
+    expect(straight / travelled).toBeGreaterThan(0.99);
+  });
+});
+
+describe('a monster walks at the fortress until something is worth fighting (§5.1)', () => {
+  /** How far a monster looks for a defender, from data. */
+  const ACQUIRE = data.lane.monsterAcquireRange;
+
+  /** One monster at the top of the lane, one immobile unit wherever asked. */
+  function lone(unitTileX: number, unitTileY: number) {
+    const d = passiveData();
+    for (const u of d.units.units) u.moveSpeed = 0;
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    place(ctx, state, 'hammer', unitTileX, unitTileY);
+    startCombat(ctx, state);
+
+    const monster = lane.monsters.find((m) => m.alive)!;
+    for (const m of lane.monsters) if (m !== monster) m.alive = false;
+    monster.pos.x = 4;
+    monster.pos.y = -2.5;
+    return { state, ctx, lane, monster, unit: lane.units[0]! };
+  }
+
+  it('ignores a defender it has not reached yet', () => {
+    // A tower against the far wall, well outside acquisition range of the
+    // route. The monster should walk past it, not across the lane at it.
+    const { state, ctx, monster, unit } = lone(0, 2);
+    // Edge to edge, like every other range in the simulation.
+    const sideways = Math.abs(unit.pos.x - monster.pos.x) - unit.radius - monster.radius;
+    expect(sideways).toBeGreaterThan(ACQUIRE);
+
+    for (let t = 0; t < 40; t++) step(ctx, state);
+    expect(monster.targetId).toBe(FORTRESS_ID);
+    // And it is heading down the lane rather than sideways at the tower.
+    expect(monster.pos.y).toBeGreaterThan(-2.5);
+    expect(Math.abs(monster.pos.x - 4)).toBeLessThan(1);
+  });
+
+  it('takes a defender that comes inside its acquisition range', () => {
+    const { state, ctx, monster, unit } = lone(4, 4);
+    for (let t = 0; t < 400 && monster.targetId === FORTRESS_ID; t++) step(ctx, state);
+
+    expect(monster.targetId).toBe(unit.id);
+    // It did not notice from further away than it is allowed to see.
+    const d = Math.hypot(monster.pos.x - unit.pos.x, monster.pos.y - unit.pos.y);
+    expect(d).toBeLessThanOrEqual(ACQUIRE + monster.radius + unit.radius + 0.3);
+  });
+
+  it('keeps the one it took rather than swapping every tick', () => {
+    // Two towers side by side, both inside range. Whichever it picks, it keeps.
+    const d = passiveData();
+    for (const u of d.units.units) u.moveSpeed = 0;
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    place(ctx, state, 'hammer', 3, 5);
+    place(ctx, state, 'hammer', 4, 5);
+    startCombat(ctx, state);
+
+    const monster = lane.monsters.find((m) => m.alive)!;
+    for (const m of lane.monsters) if (m !== monster) m.alive = false;
+    monster.pos.x = 4;
+    monster.pos.y = 3.2;
+
+    for (let t = 0; t < 400 && monster.targetId === FORTRESS_ID; t++) step(ctx, state);
+    const first = monster.targetId;
+    expect(first).not.toBe(FORTRESS_ID);
+
+    let changes = 0;
+    let previous = first;
+    for (let t = 0; t < 200; t++) {
+      step(ctx, state);
+      if (monster.targetId !== previous) changes++;
+      previous = monster.targetId;
+    }
+    expect(changes).toBe(0);
+  });
+
+  it('goes back to the fortress when its target dies', () => {
+    const { state, ctx, lane, monster, unit } = lone(4, 4);
+    for (let t = 0; t < 400 && monster.targetId === FORTRESS_ID; t++) step(ctx, state);
+    expect(monster.targetId).toBe(unit.id);
+
+    unit.alive = false;
+    unit.hp = 0;
+    lane.units.length = 0;
+    step(ctx, state);
+    expect(monster.targetId).toBe(FORTRESS_ID);
   });
 });
 

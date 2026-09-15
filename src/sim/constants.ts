@@ -38,3 +38,12 @@ export function ticksToSeconds(ticks: number): number {
  * smaller than any range in data/.
  */
 export const ENGAGE_SLACK_TILES = 0.12;
+
+/**
+ * The acquisition range of a body that has no cap: a defensive unit, whose
+ * default is simply "the nearest monster in the lane" (§5.2).
+ *
+ * A number rather than a special case, so `holdOrAcquire` has one code path.
+ * Larger than any lane, and finite so the arithmetic inside it stays ordinary.
+ */
+export const NO_ACQUIRE_LIMIT = 1e6;

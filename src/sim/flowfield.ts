@@ -138,9 +138,23 @@ export interface FlowField {
   /** On an attack goal cell, the id of the enemy it is an attack position for. */
   owner: Int32Array;
 
-  /** Dial's buckets: heads plus an intrusive next-pointer per cell. */
+  /**
+   * Dial's buckets, as intrusive DOUBLY-linked lists: one head per bucket, and
+   * per cell a forward link, a back link, and which bucket it is currently in
+   * (-1 for none).
+   *
+   * Doubly linked so a cell can be UNLINKED when a shorter route to it is
+   * found. With a single forward link there is nowhere to put the cell's new
+   * link without destroying its old one - and the old one is the spine of the
+   * bucket it is still sitting in, so overwriting it orphans every cell behind
+   * it. Those cells are then never relaxed and keep whatever inflated cost they
+   * had. It is silent: the field still looks like a field, and roughly half of
+   * it is wrong. See `computeFlowField`.
+   */
   bucketHead: Int32Array;
   nextInBucket: Int32Array;
+  prevInBucket: Int32Array;
+  bucketOf: Int32Array;
 }
 
 export function createFlowField(
@@ -165,6 +179,8 @@ export function createFlowField(
     owner: new Int32Array(cells).fill(NO_OWNER),
     bucketHead: new Int32Array(BUCKETS),
     nextInBucket: new Int32Array(cells),
+    prevInBucket: new Int32Array(cells),
+    bucketOf: new Int32Array(cells),
   };
 }
 
@@ -355,65 +371,112 @@ export function markRing(
  *
  * Returns how many sources there were: zero means nothing is reachable and the
  * caller should seed the fallback goals instead.
+ *
+ * WHY THE BUCKETS ARE DOUBLY LINKED
+ *
+ * Every queued cell's cost lies in [d, d + W_DIAG] while distance d is being
+ * processed - nothing is ever inserted below d, and the largest step is
+ * W_DIAG - so a window of BUCKETS = W_DIAG + 1 slots holds them all with no two
+ * distinct costs sharing a slot. That is what makes Dial's exact.
+ *
+ * It is only exact if the queue is. An earlier version linked the buckets with
+ * a single forward pointer per cell, and re-inserting a cell that was already
+ * queued overwrote that pointer - which was the spine of the bucket it still
+ * sat in. Every cell behind it was orphaned, never relaxed, and kept whatever
+ * inflated cost it happened to have. Roughly half of a typical field was wrong,
+ * some of it UNREACHABLE with a perfectly good route available, and which half
+ * depended on the order cells happened to be scanned in. That is a directional
+ * bias, a stall, and a jitter all at once, and none of it looked like a bug in
+ * a queue. `flowfield.test.ts` now checks the whole field against a plain
+ * relaxation pass on randomised layouts, which is the only kind of test that
+ * catches this.
  */
 export function computeFlowField(field: FlowField): number {
-  const { width, depth, cost, blocked, sources, bucketHead, nextInBucket } = field;
+  const { width, depth, cost, blocked, sources } = field;
+  const { bucketHead, nextInBucket, prevInBucket, bucketOf } = field;
 
   cost.fill(UNREACHABLE);
   bucketHead.fill(-1);
+  bucketOf.fill(-1);
+
+  /** Put `cell` at the head of its bucket. It must not already be in one. */
+  const link = (cell: number, slot: number): void => {
+    const head = bucketHead[slot]!;
+    nextInBucket[cell] = head;
+    prevInBucket[cell] = -1;
+    if (head !== -1) prevInBucket[head] = cell;
+    bucketHead[slot] = cell;
+    bucketOf[cell] = slot;
+  };
+
+  /** Take `cell` out of whichever bucket holds it. */
+  const unlink = (cell: number): void => {
+    const slot = bucketOf[cell]!;
+    if (slot === -1) return;
+    const prev = prevInBucket[cell]!;
+    const next = nextInBucket[cell]!;
+    if (prev === -1) bucketHead[slot] = next;
+    else nextInBucket[prev] = next;
+    if (next !== -1) prevInBucket[next] = prev;
+    bucketOf[cell] = -1;
+  };
 
   let pending = 0;
   for (let i = 0; i < cost.length; i++) {
     if (sources[i] === 0) continue;
     cost[i] = 0;
-    nextInBucket[i] = bucketHead[0]!;
-    bucketHead[0] = i;
+    link(i, 0);
     pending++;
   }
   const sourceCount = pending;
   if (pending === 0) return 0;
 
-  // Distances only ever increase, and never by more than W_DIAG, so BUCKETS
-  // slots cycled modulo the distance are enough for exact Dijkstra.
-  const maxDistance = (width + depth) * W_DIAG + 1;
+  // A bound on the longest shortest path: every cell, every step diagonal.
+  const maxDistance = width * depth * W_DIAG + 1;
 
   for (let distance = 0; distance <= maxDistance && pending > 0; distance++) {
     const slot = distance % BUCKETS;
+
+    // Cells are unlinked as they are taken, and relaxing one can insert into
+    // this same slot only at a strictly greater distance - which cannot happen,
+    // since every insertion is distance + weight and weight >= W_ORTH. So the
+    // list only ever shrinks here.
     let cell = bucketHead[slot]!;
-    bucketHead[slot] = -1;
-
     while (cell !== -1) {
-      const next = nextInBucket[cell]!;
-      // A cell re-inserted at a shorter distance leaves a stale entry behind.
-      if (cost[cell] === distance) {
-        pending--;
-        const x = cell % width;
-        const y = (cell / width) | 0;
+      unlink(cell);
+      pending--;
 
-        for (const [dx, dy, weight] of NEIGHBOURS) {
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || ny < 0 || nx >= width || ny >= depth) continue;
+      const x = cell % width;
+      const y = (cell / width) | 0;
 
-          const n = ny * width + nx;
-          if (blocked[n] === 1) continue;
+      for (const [dx, dy, weight] of NEIGHBOURS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= depth) continue;
 
-          // No slipping diagonally between two blocked cells.
-          if (dx !== 0 && dy !== 0) {
-            if (blocked[y * width + nx] === 1 && blocked[ny * width + x] === 1) continue;
+        const n = ny * width + nx;
+        if (blocked[n] === 1) continue;
+
+        // No slipping diagonally between two blocked cells.
+        if (dx !== 0 && dy !== 0) {
+          if (blocked[y * width + nx] === 1 && blocked[ny * width + x] === 1) continue;
+        }
+
+        const candidate = distance + weight;
+        if (candidate < cost[n]!) {
+          // Already queued at a worse cost: take it out before re-filing it,
+          // or its old bucket loses everything behind it.
+          if (bucketOf[n] !== -1) {
+            unlink(n);
+            pending--;
           }
-
-          const candidate = distance + weight;
-          if (candidate < cost[n]!) {
-            cost[n] = candidate;
-            const target = candidate % BUCKETS;
-            nextInBucket[n] = bucketHead[target]!;
-            bucketHead[target] = n;
-            pending++;
-          }
+          cost[n] = candidate;
+          link(n, candidate % BUCKETS);
+          pending++;
         }
       }
-      cell = next;
+
+      cell = bucketHead[slot]!;
     }
   }
 

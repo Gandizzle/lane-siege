@@ -63,6 +63,14 @@ export interface LaneFile {
   fortressRadius: number;
   fortressHalfWidth: number;
   /**
+   * §5.1, decided: how far a monster looks for something to fight, edge to
+   * edge in tiles. Outside it a monster ignores defenders and walks at the
+   * fortress; inside it takes the nearest and holds it. Defensive units have no
+   * equivalent cap - they have no fortress of their own to walk at, so their
+   * default is "the nearest monster in the lane".
+   */
+  monsterAcquireRange: number;
+  /**
    * §4.2, decided: units DO block movement. A monster treats every unit as a
    * solid circle it must route around.
    */

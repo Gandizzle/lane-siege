@@ -8,6 +8,7 @@ const lane: LaneFile = {
   fortressZoneDepth: 1,
   fortressRadius: 0.45,
   fortressHalfWidth: 3.55,
+  monsterAcquireRange: 3,
   unitsBlockMovement: null,
   pathSubdivision: 5,
 };

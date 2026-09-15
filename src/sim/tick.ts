@@ -25,7 +25,12 @@
  */
 
 import type { GameData } from '../data/schema.ts';
-import { SECONDS_PER_TICK, TICKS_PER_SECOND, secondsToTicks } from './constants.ts';
+import {
+  NO_ACQUIRE_LIMIT,
+  SECONDS_PER_TICK,
+  TICKS_PER_SECOND,
+  secondsToTicks,
+} from './constants.ts';
 import type { Command } from './commands.ts';
 import { applyCommands } from './apply.ts';
 import { resolveDamage } from './damage.ts';
@@ -49,7 +54,7 @@ import {
 import type { FieldShape, FlowField } from './flowfield.ts';
 import { orderByPriority, slideStep, type Body, type Bounds } from './motion.ts';
 import { admitFromReserve, countLiving, createMonster, placeWave } from './spawn.ts';
-import { acquire, nearestInRange, withinRange } from './targeting.ts';
+import { holdOrAcquire, nearestInRange, withinRange } from './targeting.ts';
 import {
   FORTRESS_ID,
   type DefensiveUnit,
@@ -127,7 +132,8 @@ export function createContext(data: GameData): SimContext {
 function fieldFor(
   ctx: SimContext,
   teamId: string,
-  kind: 'unit' | 'monster',
+  /** Part of the field's cache key: one field per kind of seeker and goal. */
+  kind: string,
   radius: number,
   range: number,
 ) {
@@ -202,48 +208,56 @@ function advanceVision(state: MatchState): void {
 // ------------------------------------------------------------ engage or seek
 
 /**
- * Decide, for every unit, whether it is fighting or walking this tick.
+ * Decide, for every unit, who it is fighting and whether it can reach them.
  *
- * §5.2: a unit holds its target until that dies or leaves range, then takes the
- * nearest in range. With nothing in range it is seeking (§5.2, amended: units
- * advance rather than stand idle). Cooldowns tick here so that a body that is
- * walking still recovers.
+ * §5.2: a unit holds its target until that dies, then takes the nearest. There
+ * is no acquisition cap - a unit has no fortress of its own to walk at, so
+ * "the nearest monster in the lane" is its default and it advances on one it
+ * cannot yet reach (§5.2, amended: units advance rather than stand idle).
+ *
+ * `engaged` is narrower than `targetId`: a unit with a target three tiles away
+ * has one to walk toward, not one to shoot. Cooldowns tick here so a body that
+ * is walking still recovers.
  */
 function classifyUnits(lane: Lane): void {
   for (const unit of lane.units) {
     if (!unit.alive) continue;
     if (unit.cooldown > 0) unit.cooldown -= 1;
 
-    const target = acquire(lane.monsters, unit, unit.range);
+    const target = holdOrAcquire(lane.monsters, unit, NO_ACQUIRE_LIMIT);
     unit.targetId = target ? target.id : null;
-    unit.engaged = target !== null;
+    unit.engaged = target !== null && withinRange(unit, target, unit.range);
   }
 }
 
 /**
- * The same for monsters. §5.1: walk to the nearest unit and attack it; §5.5:
- * with no units left, besiege the fortress and stay there.
+ * The same for monsters, with one difference that changes how a whole wave
+ * moves: a monster always has somewhere to be.
  *
- * A monster that can get no further - pressed against a wall of units with a
- * target it cannot reach - is in range of whatever it is pressed against, so
- * "attack the nearest thing in range" covers the boxed-in case that §5.3's
- * stuck detection used to exist for, with no detector.
+ * §5.5 says the fortress is what a wave is for, and that is now the DEFAULT
+ * rather than what is left when the lane is empty. A monster walks at the
+ * fortress and looks no further than `monsterAcquireRange` for something to
+ * fight; inside that it takes the nearest and keeps it until it dies or drifts
+ * out; once it is trading blows it stops looking entirely.
+ *
+ * What this replaces is "every monster in the lane goes after the nearest unit
+ * anywhere". That made one tower the destination of thirty bodies at once - a
+ * global answer that every one of them recomputed every tick, and which changed
+ * for all of them together whenever anything moved. A monster that cannot reach
+ * a defender now simply carries on past it, which is what a lane defence looks
+ * like, and the queue that used to form behind an unreachable target does not
+ * form.
  */
 function classifyMonsters(ctx: SimContext, lane: Lane): void {
-  const anyUnit = lane.units.some((u) => u.alive);
+  const acquireRange = ctx.data.lane.monsterAcquireRange;
 
   for (const monster of lane.monsters) {
     if (!monster.alive) continue;
     if (monster.cooldown > 0) monster.cooldown -= 1;
 
-    if (anyUnit) {
-      const target = acquire(lane.units, monster, monster.range);
-      monster.targetId = target ? target.id : null;
-      monster.engaged = target !== null;
-    } else {
-      monster.targetId = null;
-      monster.engaged = withinRange(monster, ctx.fortress, monster.range);
-    }
+    const unit = holdOrAcquire(lane.units, monster, acquireRange);
+    monster.targetId = unit ? unit.id : FORTRESS_ID;
+    monster.engaged = withinRange(monster, unit ?? ctx.fortress, monster.range);
   }
 }
 
@@ -292,11 +306,14 @@ function shapeOf(body: Body): FieldShape {
 function planMoves(
   ctx: SimContext,
   lane: Lane,
-  kind: 'unit' | 'monster',
+  kind: string,
   seekers: readonly Walker[],
   enemies: readonly Body[],
   allies: readonly Walker[],
   enemiesBlock: boolean,
+  /** True: the goal is the fortress. False: the goal is `targets`' attack rings. */
+  fortressGoal: boolean,
+  targets: readonly Body[] = enemies,
 ): void {
   shapesRadius.length = 0;
   shapesRange.length = 0;
@@ -316,8 +333,7 @@ function planMoves(
   }
 
   const anyEnemy = enemies.some((e) => e.alive);
-  // §5.5: the lane is clear, so the fortress is the enemy.
-  const goal: Body | null = anyEnemy ? null : kind === 'monster' ? ctx.fortress : null;
+  const goal = fortressGoal ? ctx.fortress : null;
 
   for (let shape = 0; shape < shapesRadius.length; shape++) {
     const radius = shapesRadius[shape]!;
@@ -343,7 +359,7 @@ function planMoves(
     if (goal) {
       markRing(field, shapeOf(goal), radius, range, goal.id);
     } else {
-      for (const enemy of enemies) {
+      for (const enemy of targets) {
         if (!enemy.alive) continue;
         markRing(field, shapeOf(enemy), radius, range, enemy.id);
       }
@@ -389,8 +405,15 @@ function planMoves(
       seeker.moveX = 0;
       seeker.moveY = 0;
       const ownerId = goalOwner(field, seeker.pos);
-      if (ownerId === NO_OWNER) continue;
-      const target = bodyById(enemies, ctx, ownerId);
+      const target =
+        ownerId === NO_OWNER
+          ? // Nowhere to stand and no goal beside it: the route is sealed, and
+            // what seals it is a defender. Head for the nearest one - it is
+            // both the obstacle and the only thing worth doing about it.
+            here === UNREACHABLE
+            ? nearestOf(enemies, seeker)
+            : null
+          : bodyById(enemies, ctx, ownerId);
       if (!target) continue;
       const dx = target.pos.x - seeker.pos.x;
       const dy = target.pos.y - seeker.pos.y;
@@ -408,6 +431,92 @@ function planMoves(
     seeker.moveY = 0;
     seeker.pathCost = 0;
   }
+}
+
+/**
+ * Monsters move in two groups, and which group a monster is in is the whole of
+ * how a wave behaves.
+ *
+ * SEEKERS have caught sight of nothing and are walking at the fortress (§5.5).
+ * Defenders are obstacles to route around, not destinations - so a tower off to
+ * one side is simply passed, and thirty bodies do not all turn toward it.
+ *
+ * CHASERS have a defender inside their acquisition range and are going to fight
+ * it. They get the older behaviour, and they need it: their goals are the free
+ * attack positions around the defenders that are actually being chased, which
+ * is what makes a body walk round a full ring to the one gap in it instead of
+ * pressing into the back of it. Confining that to bodies already within
+ * acquisition range is what keeps it from becoming a lane-wide stampede - it is
+ * a local crowd solving a local problem.
+ *
+ * Both groups are built into scratch arrays rather than fresh ones: this runs
+ * per lane per tick (§15.3).
+ */
+const seekingScratch: Walker[] = [];
+const chasingScratch: Walker[] = [];
+const chasedScratch: Body[] = [];
+
+function planMonsterMoves(ctx: SimContext, lane: Lane, unitsBlock: boolean): void {
+  seekingScratch.length = 0;
+  chasingScratch.length = 0;
+  chasedScratch.length = 0;
+
+  for (const monster of lane.monsters) {
+    if (!monster.alive || monster.engaged) continue;
+    const target =
+      monster.targetId === FORTRESS_ID || monster.targetId === null
+        ? null
+        : (lane.units.find((u) => u.id === monster.targetId && u.alive) ?? null);
+
+    if (!target) {
+      seekingScratch.push(monster);
+      continue;
+    }
+    chasingScratch.push(monster);
+    if (!chasedScratch.includes(target)) chasedScratch.push(target);
+  }
+
+  if (seekingScratch.length > 0) {
+    planMoves(ctx, lane, 'toFortress', seekingScratch, lane.units, lane.monsters, unitsBlock, true);
+  }
+  if (chasingScratch.length > 0) {
+    planMoves(
+      ctx,
+      lane,
+      'toTarget',
+      chasingScratch,
+      lane.units,
+      lane.monsters,
+      unitsBlock,
+      false,
+      chasedScratch,
+    );
+  }
+
+  // Engaged monsters are not in either group and are going nowhere.
+  for (const monster of lane.monsters) {
+    if (!monster.alive || !monster.engaged) continue;
+    monster.moveX = 0;
+    monster.moveY = 0;
+    monster.pathCost = 0;
+  }
+}
+
+/** The closest living enemy by centre distance, or null. */
+function nearestOf(enemies: readonly Body[], self: Walker): Body | null {
+  let best: Body | null = null;
+  let bestDistance = Infinity;
+  for (const enemy of enemies) {
+    if (!enemy.alive) continue;
+    const dx = enemy.pos.x - self.pos.x;
+    const dy = enemy.pos.y - self.pos.y;
+    const d = dx * dx + dy * dy;
+    if (d < bestDistance) {
+      bestDistance = d;
+      best = enemy;
+    }
+  }
+  return best;
 }
 
 /** The enemy a goal cell was marked for: one of `enemies`, or the fortress. */
@@ -495,7 +604,7 @@ function monstersAttack(ctx: SimContext, lane: Lane, state: MatchState): void {
     const multiplier = monsterEnrage(state, monster, enrageConfig);
     const damage = monster.damage * multiplier;
 
-    if (monster.targetId !== null) {
+    if (monster.targetId !== FORTRESS_ID) {
       const target = lane.units.find((u) => u.id === monster.targetId && u.alive);
       if (!target) continue;
       target.hp -=
@@ -531,8 +640,8 @@ function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
   classifyMonsters(ctx, lane);
 
   // 2. Every walker picks a direction, off fields built from step 1.
-  planMoves(ctx, lane, 'unit', lane.units, lane.monsters, lane.units, true);
-  planMoves(ctx, lane, 'monster', lane.monsters, lane.units, lane.monsters, unitsBlock);
+  planMoves(ctx, lane, 'unit', lane.units, lane.monsters, lane.units, true, false);
+  planMonsterMoves(ctx, lane, unitsBlock);
 
   // 3. Everyone walks: units first, then monsters. Whichever kind is not
   // moving is settled - where it is now is where it will be - and monsters

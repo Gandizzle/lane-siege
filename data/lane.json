@@ -10,6 +10,8 @@
   "fortressRadius": 0.45,
   "fortressHalfWidth": 3.55,
   "_fortressNote": "The fortress as a body: a disc of fortressRadius swept along a horizontal spine reaching fortressHalfWidth either side of the lane's centre. A wall across the end of the lane rather than a pebble at the middle of it, so a wave brings its whole front to bear instead of queueing for one of two contact points (§4, §5.5). 3.55 + 0.45 spans the full 8-tile width, so the wall seals the lane end to end and nothing walks around behind it; 0.45 keeps it inside its own 1-tile zone so it swallows no buildable ground. Set the half-width to 0 for the circle it used to be.",
+  "monsterAcquireRange": 3.0,
+  "_acquireNote": "\u00a75.1, decided. How far a monster looks for something to fight, edge to edge in tiles. Outside it a monster ignores defenders entirely and walks at the fortress; inside it takes the nearest, and keeps it until it dies or leaves this range. A monster already trading blows never looks around at all. Small on purpose: 'nearest enemy in the lane' is a global question, and thirty monsters re-answering it every tick against a moving crowd all change their minds together, which is what a shoal of jitter is made of.",
   "unitsBlockMovement": true,
   "_decided": "§4.2 was OPEN. Answered: units DO block movement. A monster treats every unit as a solid circle it must route around, and attacks whatever it is touching when it can get no further.",
   "opponentLanes": "combat",

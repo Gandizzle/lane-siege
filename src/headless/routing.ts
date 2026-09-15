@@ -33,12 +33,15 @@ function passive(options: { immobileUnit?: string; monsterSpeed?: number } = {})
   return d;
 }
 
-function setup(d: GameData): {
+function setup(
+  d: GameData,
+  seed = 1,
+): {
   state: MatchState;
   ctx: SimContext;
   lane: NonNullable<MatchState['lanes'][string]>;
 } {
-  const state = createMatch(d, { seed: 1, teams: [{ id: 'l1', playerIds: ['p'] }] });
+  const state = createMatch(d, { seed, teams: [{ id: 'l1', playerIds: ['p'] }] });
   const ctx = createContext(d);
   const lane = state.lanes.l1!;
   lane.economy.gold = 9_999_999;
@@ -206,12 +209,10 @@ const results: string[] = [];
   results.push(`wall of allies, gap at one end     ${through}/8 through, ${contact}/8 in contact`);
 }
 
-// A monster crossing open ground: how straight it walks.
+// A monster crossing open ground with nothing to distract it: how straight it
+// walks to the fortress, which is where §5.1 says it is going by default.
 {
-  const d = passive();
-  for (const u of d.units.units) u.moveSpeed = 0;
-  const { state, ctx, lane } = setup(d);
-  place(ctx, state, 'hammer', 3, 8);
+  const { state, ctx, lane } = setup(passive());
   startCombat(ctx, state);
   const monster = loneTarget(state, 3.5, -1.5);
   const start = { x: monster.pos.x, y: monster.pos.y };
@@ -224,9 +225,55 @@ const results: string[] = [];
   }
   const straight = Math.hypot(monster.pos.x - start.x, monster.pos.y - start.y);
   results.push(
-    `open ground, spawn to a unit       path efficiency ${((straight / travelled) * 100).toFixed(1)}%`,
+    `open ground, spawn to fortress     path efficiency ${((straight / travelled) * 100).toFixed(1)}%`,
   );
   void lane;
+}
+
+// HANDEDNESS. Nothing in this model is left- or right-handed, so a defender
+// against one wall must cost a wave exactly what the same defender against the
+// other wall costs. It did not: a broken bucket queue in the distance field
+// left roughly half of every field holding costs no route justified, and which
+// half depended on the order cells were scanned in. The left half of the lane
+// was 7.9% more expensive to attack than the right, and one mirrored pair
+// differed by 22.9%.
+{
+  const lane = data.lane.buildZone.width;
+  const walkedTo = (tileX: number, seed: number): number => {
+    const { state, ctx, lane: l } = setup(passive(), seed);
+    place(ctx, state, 'hammer', tileX, 5);
+    startCombat(ctx, state);
+    let total = 0;
+    const previous = l.monsters.map((m) => ({ x: m.pos.x, y: m.pos.y }));
+    for (let t = 0; t < 400; t++) {
+      step(ctx, state);
+      l.monsters.forEach((m, i) => {
+        total += Math.hypot(m.pos.x - previous[i]!.x, m.pos.y - previous[i]!.y);
+        previous[i] = { x: m.pos.x, y: m.pos.y };
+      });
+      if (l.monsters.filter((m) => m.alive && m.engaged).length >= 6) break;
+    }
+    return total;
+  };
+
+  let left = 0;
+  let right = 0;
+  let worst = 0;
+  const seeds = 12;
+  for (let seed = 1; seed <= seeds; seed++) {
+    for (let tileX = 0; tileX < lane / 2; tileX++) {
+      const a = walkedTo(tileX, seed);
+      const b = walkedTo(lane - 1 - tileX, seed);
+      left += a;
+      right += b;
+      worst = Math.max(worst, Math.abs(a - b) / Math.min(a, b));
+    }
+  }
+  const skew = ((left - right) / ((left + right) / 2)) * 100;
+  results.push(
+    `left wall against right wall       skew ${skew.toFixed(1)}% over ${seeds} seeds, ` +
+      `worst mirrored pair ${(worst * 100).toFixed(1)}%`,
+  );
 }
 
 // A real wave against a real formation, for regression rather than for a claim:

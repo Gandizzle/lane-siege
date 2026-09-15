@@ -13,6 +13,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   UNREACHABLE,
+  W_DIAG,
+  W_ORTH,
   cellAt,
   clearField,
   computeFlowField,
@@ -364,5 +366,125 @@ describe('a body with a spine is a wall, not a point', () => {
     markRing(round, disc(4, 6, 0.22), 0.26, MELEE, 1);
     expect(Array.from(spined.sources)).toEqual(Array.from(round.sources));
     expect(Array.from(spined.owner)).toEqual(Array.from(round.owner));
+  });
+});
+
+/**
+ * The sweep against a plain relaxation pass.
+ *
+ * This is the test that matters most in the file and the only kind that could
+ * have caught what it was written for. Dial's algorithm is an optimisation of
+ * Dijkstra, and an optimisation is only worth having if it gives the same
+ * answer; a bug in its queue does not throw, does not produce anything that
+ * looks wrong in isolation, and quietly leaves half the field holding costs
+ * that no route justifies. Every behaviour above can pass while that is true.
+ *
+ * So: build layouts at random, sweep them, and check every single cell against
+ * a slow, obviously-correct shortest path over the same grid.
+ */
+describe('the sweep is exact', () => {
+  /** Relax every edge until nothing improves. Obviously correct, obviously slow. */
+  function shortestPaths(field: ReturnType<typeof laneField>): Int32Array {
+    const { width, depth, blocked, sources } = field;
+    const cost = new Int32Array(width * depth).fill(UNREACHABLE);
+    for (let i = 0; i < cost.length; i++) if (sources[i] !== 0) cost[i] = 0;
+
+    const steps: [number, number, number][] = [
+      [0, 1, W_ORTH],
+      [0, -1, W_ORTH],
+      [1, 0, W_ORTH],
+      [-1, 0, W_ORTH],
+      [1, 1, W_DIAG],
+      [-1, 1, W_DIAG],
+      [1, -1, W_DIAG],
+      [-1, -1, W_DIAG],
+    ];
+
+    for (let pass = 0, changed = true; changed && pass < 5000; pass++) {
+      changed = false;
+      for (let y = 0; y < depth; y++) {
+        for (let x = 0; x < width; x++) {
+          const here = cost[y * width + x]!;
+          if (here === UNREACHABLE) continue;
+          for (const [dx, dy, weight] of steps) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= width || ny >= depth) continue;
+            const n = ny * width + nx;
+            if (blocked[n] === 1) continue;
+            if (dx !== 0 && dy !== 0) {
+              if (blocked[y * width + nx] === 1 && blocked[ny * width + x] === 1) continue;
+            }
+            if (here + weight < cost[n]!) {
+              cost[n] = here + weight;
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+    return cost;
+  }
+
+  /** A deterministic pseudo-random sequence: the failures have to be repeatable. */
+  function scatter(seed: number): () => number {
+    let state = seed >>> 0;
+    return () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+  }
+
+  it('agrees with a plain shortest path, cell for cell, on random layouts', () => {
+    for (let seed = 1; seed <= 40; seed++) {
+      const random = scatter(seed);
+      const field = laneField();
+
+      const obstacles = 3 + Math.floor(random() * 12);
+      for (let i = 0; i < obstacles; i++) {
+        const x = random() * 8;
+        const y = random() * 13 - 3;
+        markObstacle(field, disc(x, y, 0.2 + random() * 0.3), 0.22);
+      }
+      const goals = 1 + Math.floor(random() * 3);
+      for (let i = 0; i < goals; i++) {
+        const x = random() * 8;
+        const y = random() * 13 - 3;
+        markRing(field, disc(x, y, 0.22), 0.22, random() < 0.5 ? MELEE : 2.5, i + 1);
+      }
+
+      computeFlowField(field);
+      const want = shortestPaths(field);
+      const wrong = [...field.cost].findIndex((got, i) => got !== want[i]);
+      expect(
+        wrong === -1 ? -1 : `seed ${seed} cell ${wrong}: ${field.cost[wrong]} vs ${want[wrong]}`,
+      ).toBe(-1);
+    }
+  });
+
+  it('has no handedness: a mirrored layout gives a mirrored field', () => {
+    // The symptom that sent us looking: a unit against the left wall produced
+    // wandering and jitter where the same unit against the right wall did not.
+    // Nothing in the model is left- or right-handed, so nothing in the numbers
+    // may be either.
+    for (const x of [0.5, 1.5, 2.5, 3.5]) {
+      const left = laneField();
+      markObstacle(left, disc(x, 5.5, 0.26), 0.22);
+      markRing(left, disc(x, 5.5, 0.26), 0.22, MELEE, 1);
+      computeFlowField(left);
+
+      const right = laneField();
+      markObstacle(right, disc(8 - x, 5.5, 0.26), 0.22);
+      markRing(right, disc(8 - x, 5.5, 0.26), 0.22, MELEE, 1);
+      computeFlowField(right);
+
+      for (let y = 0; y < left.depth; y++) {
+        for (let cx = 0; cx < left.width; cx++) {
+          expect(left.cost[y * left.width + cx]).toBe(
+            right.cost[y * right.width + (right.width - 1 - cx)],
+          );
+        }
+      }
+    }
   });
 });
