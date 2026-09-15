@@ -784,7 +784,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (380 tests):
+Implemented and tested (381 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -802,7 +802,9 @@ Implemented and tested (380 tests):
 - Gold flow: kill bounties to the defender, gems per wave, passive income payout
   (§11.1, §11.6, §10.2)
 - Unit respawn between waves, and its halt at wave 25 (§5.4, §3.3)
-- Fortress weapon and regeneration on lane clear (§10.1, §5.5)
+- Fortress weapon and regeneration on lane clear (§10.1, §5.5), including that
+  the weapon fires with the damage, reach and rate the LADDER raised rather
+  than the ones the data file starts them at
 - Elimination and placement, including simultaneous deaths (§13)
 - End-to-end determinism: same seed, same final state (§15.1)
 - Portrait layout, the tile↔screen transform, and the shape vocabulary (§4.1,

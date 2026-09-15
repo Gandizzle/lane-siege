@@ -179,6 +179,48 @@ describe('fortress upgrades (§10.1, §10.2)', () => {
     expect(lane.fortress.gemPayoutTicks).toBeLessThan(before.payoutTicks);
   });
 
+  it('makes the weapon actually hit harder, not just the number on the sheet', () => {
+    // The ladder writes `lane.fortress.weaponDamage`, and for a while the
+    // weapon fired from `data.fortress.weapon.damage` instead - so every level
+    // of it was gold spent on nothing, and nothing said so. What the weapon
+    // fires with has to be what the upgrade raised.
+    function shotDamage(buy: number): number {
+      const { state, ctx } = rich();
+      const lane = state.lanes.l1!;
+      for (let i = 0; i < buy; i++) {
+        expect(
+          applyCommand(ctx, state, {
+            kind: 'buyFortressUpgrade',
+            teamId: 'l1',
+            upgradeId: 'weapon',
+          }).ok,
+        ).toBe(true);
+      }
+
+      // Into combat, then hold a single monster in front of the wall and see
+      // what one shot takes off it.
+      let guard = 0;
+      while (state.phase !== 'combat' && guard++ < 5000) step(ctx, state);
+      for (const monster of lane.monsters.slice(1)) monster.hp = 0;
+      lane.reserve.length = 0;
+      step(ctx, state);
+
+      const monster = lane.monsters.find((m) => m.alive)!;
+      monster.hp = 1e9;
+      monster.maxHp = 1e9;
+      monster.pos.x = 4;
+      monster.pos.y = 9.5;
+      lane.fortress.weaponCooldown = 0;
+      const before = monster.hp;
+      step(ctx, state);
+      return before - monster.hp;
+    }
+
+    const base = shotDamage(0);
+    expect(base).toBeGreaterThan(0);
+    expect(shotDamage(2)).toBeGreaterThan(base);
+  });
+
   it('heals by the HP gained rather than to full', () => {
     // An upgrade should not double as a panic button mid-siege.
     const { state, ctx } = rich();

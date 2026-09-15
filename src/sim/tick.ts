@@ -737,19 +737,23 @@ function fortressActs(ctx: SimContext, lane: Lane): void {
     return;
   }
 
-  const weapon = ctx.data.fortress.weapon;
+  // The LANE's numbers, not the data's. Each of these starts at its data base
+  // and is what the weapon ladder raises (§10.1, apply.ts); read from the data
+  // instead, the weapon fires at its base forever and every level of the
+  // upgrade is gold spent on nothing.
+  const weapon = lane.fortress;
   // From the wall, not from a point at the middle of it: a monster chewing the
   // far end of a five-tile fortress is in range of the fortress.
-  const target = nearestInRange(lane.monsters, ctx.fortress, stat(weapon.range));
+  const target = nearestInRange(lane.monsters, ctx.fortress, weapon.weaponRange);
   if (!target) return;
 
   target.hp -= resolveDamage(
     ctx.data.matrix.multipliers,
-    stat(weapon.damage),
+    weapon.weaponDamage,
     lane.fortress.weaponDamageType,
     target.armour,
   );
-  lane.fortress.weaponCooldown = cooldownTicks(stat(weapon.attackSpeed));
+  lane.fortress.weaponCooldown = cooldownTicks(weapon.weaponAttackSpeed);
   lane.attacks.push({ attackerId: FORTRESS_ID, targetId: target.id });
 }
 
