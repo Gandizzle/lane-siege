@@ -13,6 +13,7 @@ import { loadDataFromDisk } from '../data/loadNode.ts';
 import { applyCommand, createContext, createMatch, FORTRESS_ID, gap, step } from './index.ts';
 import type { GameData } from '../data/schema.ts';
 import type { Body, MatchState, SimContext } from './index.ts';
+import { cellAt } from './flowfield.ts';
 
 const { data } = loadDataFromDisk();
 
@@ -541,6 +542,26 @@ describe('units route around allies', () => {
     // A 0.22 body is ringed by up to seven 0.26 bodies; six is comfortable.
     const engaged = lane.units.filter((u) => u.alive && u.engaged).length;
     expect(engaged).toBeGreaterThanOrEqual(6);
+  });
+});
+
+describe("the lane's own walls are terrain", () => {
+  it('is what the planner builds every field on', () => {
+    // motion.ts keeps a body's whole width inside the lane, so the strip along
+    // each edge is ground nothing can stand on. The field has to know that, or
+    // it marks attack positions there - goals a crowd walks at forever without
+    // ever taking, which is what a lane-wide fortress produces a queue of.
+    const { state, ctx } = setup(data);
+    place(ctx, state, 'hammer', 3, 4);
+    startCombat(ctx, state);
+    run(ctx, state, 200);
+
+    expect(ctx.fields.size).toBeGreaterThan(0);
+    for (const [key, field] of ctx.fields) {
+      // Inside any body's radius of the edge: no body of any size fits here.
+      expect(field.blocked[cellAt(field, 0.05, 5)], key).toBe(1);
+      expect(field.blocked[cellAt(field, 7.95, 5)], key).toBe(1);
+    }
   });
 });
 

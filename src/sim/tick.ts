@@ -42,9 +42,11 @@ import {
   computeFlowField,
   createFlowField,
   goalOwner,
+  markBorder,
   markObstacle,
   markRing,
   NO_OWNER,
+  PASSAGE_CLEARANCE,
   SOURCE_WAIT,
   standingCost,
   steerAlongField,
@@ -52,7 +54,7 @@ import {
   W_DIAG,
 } from './flowfield.ts';
 import type { FieldShape, FlowField } from './flowfield.ts';
-import { orderByPriority, slideStep, type Body, type Bounds } from './motion.ts';
+import { orderByPriority, slideStep, spineDx, type Body, type Bounds } from './motion.ts';
 import { admitFromReserve, countLiving, createMonster, placeWave } from './spawn.ts';
 import { holdOrAcquire, nearestInRange, withinRange } from './targeting.ts';
 import {
@@ -360,10 +362,25 @@ function planMoves(
       range,
     );
     clearField(field);
+    // The lane's own edges are terrain too: a body cannot stand with half of
+    // itself outside the lane, and a goal marked where one cannot stand is a
+    // goal a crowd walks at forever (flowfield.ts, `markBorder`).
+    markBorder(field, radius);
+
+    // Everything the seeker must get PAST is inflated by a hair more than its
+    // own radius; the body it is walking up to HIT is inflated by exactly its
+    // radius, since touching that one is the point. See PASSAGE_CLEARANCE.
+    const past = radius + PASSAGE_CLEARANCE;
 
     if (enemiesBlock) {
+      // A unit's field rings every monster, so every monster is something it
+      // might walk up and hit; a monster's chase field rings only what is
+      // actually being chased, and the rest of the line is terrain to get past.
+      const allTargets = targets === enemies;
       for (const enemy of enemies) {
-        if (enemy.alive) markObstacle(field, shapeOf(enemy), radius);
+        if (!enemy.alive) continue;
+        const touching = allTargets || targets.includes(enemy);
+        markObstacle(field, shapeOf(enemy), touching ? radius : past);
       }
     }
     for (const ally of allies) {
@@ -373,11 +390,11 @@ function planMoves(
       // phase, so neither clause fires on a defender's field.
       if (phasing && ally.monster) continue;
       if (ally.phasesMonsters) continue;
-      markObstacle(field, shapeOf(ally), radius);
+      markObstacle(field, shapeOf(ally), past);
     }
     // The fortress is solid to everyone. Without this a monster with nothing
     // else to do walks into the wall and out the bottom of the lane.
-    markObstacle(field, shapeOf(ctx.fortress), radius);
+    markObstacle(field, shapeOf(ctx.fortress), goal ? radius : past);
 
     // Rings go on after every obstacle, so a covered ring cell is not a goal.
     if (goal) {
@@ -439,7 +456,13 @@ function planMoves(
             : null
           : bodyById(enemies, ctx, ownerId);
       if (!target) continue;
-      const dx = target.pos.x - seeker.pos.x;
+      // Close along the axis the range check measures on: the nearest point
+      // of the target's SPINE, not its centre. For a circle the two are the
+      // same. For the fortress - a wall the width of the lane (§4) - they are
+      // not: a monster standing at one end of it would walk the length of the
+      // wall toward the middle, through everything already fighting there,
+      // rather than the few inches straight ahead into the stonework.
+      const dx = spineDx(target.pos.x, target.halfWidth, seeker.pos.x, 0);
       const dy = target.pos.y - seeker.pos.y;
       const length = Math.sqrt(dx * dx + dy * dy);
       if (length > 1e-9) {

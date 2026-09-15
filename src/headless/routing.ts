@@ -305,4 +305,42 @@ const results: string[] = [];
   );
 }
 
+// An undefended lane, so a whole wave arrives at the fortress at once. The
+// wall is as wide as the lane (§4), and the question is whether the crowd
+// spreads along it or queues behind whoever got there first.
+{
+  const { state, ctx, lane } = setup(passive());
+  state.wave = 19;
+  startCombat(ctx, state);
+  run(ctx, state, 700);
+
+  const wall = data.lane.buildZone.depth + data.lane.fortressZoneDepth * 0.5;
+  const halfWidth = data.lane.fortressHalfWidth;
+  const centre = data.lane.buildZone.width / 2;
+
+  const atWall = lane.monsters.filter((m) => m.alive && m.pos.y > wall - 2.5);
+  const engaged = atWall.filter((m) => m.engaged);
+  const ends = engaged.filter((m) => Math.abs(m.pos.x - centre) > halfWidth * 0.6).length;
+
+  // What the waiting rank does with itself once there is no room left.
+  const last = new Map(atWall.map((m) => [m.id, { x: m.pos.x, y: m.pos.y }]));
+  let idleTravel = 0;
+  for (let t = 0; t < 40; t++) {
+    step(ctx, state);
+    for (const m of atWall) {
+      const previous = last.get(m.id);
+      if (!previous || !m.alive || m.engaged) continue;
+      idleTravel += Math.hypot(m.pos.x - previous.x, m.pos.y - previous.y);
+      previous.x = m.pos.x;
+      previous.y = m.pos.y;
+    }
+  }
+
+  results.push(
+    `a wave at the fortress wall        ${engaged.length}/${atWall.length} engaged, ` +
+      `${ends} of them on the outer thirds, ` +
+      `${idleTravel.toFixed(2)} tiles walked by the ones with nowhere to go`,
+  );
+}
+
 console.log(results.join('\n'));

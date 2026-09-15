@@ -20,9 +20,11 @@ import {
   computeFlowField,
   costAt,
   createFlowField,
+  markBorder,
   markObstacle,
   goalOwner,
   NO_OWNER,
+  PASSAGE_CLEARANCE,
   markRing,
   SOURCE_WAIT,
   standingCost,
@@ -212,6 +214,97 @@ describe('goals are the free positions around an enemy', () => {
 
     expect(field.owner[cellAt(field, 2.53, 4)]).toBe(11);
     expect(field.owner[cellAt(field, 6.53, 4)]).toBe(22);
+  });
+});
+
+describe('the lane has edges of its own', () => {
+  it('will not stand a body where half of it would be outside the lane', () => {
+    const field = laneField();
+    markBorder(field, 0.22);
+
+    // motion.ts keeps a body's whole width inside the lane, so these are
+    // positions nothing of that size can ever occupy.
+    expect(field.blocked[cellAt(field, 0.1, 5)]).toBe(1);
+    expect(field.blocked[cellAt(field, 7.9, 5)]).toBe(1);
+    expect(field.blocked[cellAt(field, 4, -2.9)]).toBe(1);
+    // And a hair further in is ordinary ground.
+    expect(field.blocked[cellAt(field, 0.3, 5)]).toBe(0);
+    expect(field.blocked[cellAt(field, 7.7, 5)]).toBe(0);
+  });
+
+  it('offers no attack position in the strip a body cannot stand in', () => {
+    // The fortress is as wide as the lane (§4), so its ring runs off both
+    // ends. A goal in the corner is one a crowd can walk at forever without
+    // ever taking it, and a goal that is never taken never stops drawing.
+    const field = fullLaneField();
+    const fortress = wall(4, 10.5, 0.45, 3.55);
+    markBorder(field, 0.22);
+    markObstacle(field, fortress, 0.22);
+    markRing(field, fortress, 0.22, MELEE, -1);
+
+    for (let gy = 0; gy < field.depth; gy++) {
+      for (let gx = 0; gx < field.width; gx++) {
+        if (field.sources[gy * field.width + gx] === 0) continue;
+        const x = (gx + 0.5) / SUB;
+        expect(x, `goal at x ${x}`).toBeGreaterThan(0.22);
+        expect(x, `goal at x ${x}`).toBeLessThan(8 - 0.22);
+      }
+    }
+  });
+
+  it('still lets a body walk the full width it does fit in', () => {
+    const field = laneField();
+    markBorder(field, 0.22);
+    markRing(field, disc(0.3, 9, 0.26), 0.22, MELEE, 1);
+    computeFlowField(field);
+    // From the far corner to a goal in the near one: the border narrows the
+    // lane, it does not cut it in half.
+    expect(costAt(field, 7.7, 0)).toBeLessThan(UNREACHABLE);
+  });
+});
+
+describe('a slot with no room to spare is not a route', () => {
+  /**
+   * A wall across the lane whose only opening is centred on a cell centre,
+   * `gap` wide from one body's centre to the other's. The goal is beyond it,
+   * so the opening is the only way through. Centred on a cell centre because
+   * the field routes at cell resolution: an opening between two cell centres
+   * is not a route at any inflation, which is a different rule from this one.
+   */
+  function slot(gap: number, inflate: number) {
+    const field = laneField();
+    const radius = 0.26;
+    for (const x of [0.3, 0.9, 1.5, 2.1, 2.7, 5.3, 5.9, 6.5, 7.1, 7.7]) {
+      markObstacle(field, disc(x, 4.5, radius), inflate);
+    }
+    markObstacle(field, disc(OPENING - gap / 2, 4.5, radius), inflate);
+    markObstacle(field, disc(OPENING + gap / 2, 4.5, radius), inflate);
+    markRing(field, disc(OPENING, 1, radius), inflate, MELEE, 1);
+    computeFlowField(field);
+    return field;
+  }
+
+  /** A cell centre, so the opening is one the field can see at all. */
+  const OPENING = 3.9;
+  // Exactly the two radii apart: a body fits with nothing to spare.
+  const exact = 2 * (0.26 + 0.22);
+
+  it('is passable when the field inflates by the radius alone', () => {
+    expect(costAt(slot(exact + 0.001, 0.22), OPENING, 7)).toBeLessThan(UNREACHABLE);
+  });
+
+  it('is refused once the clearance is added', () => {
+    // Contact resolution cannot place a body in it: pushed clear of one
+    // neighbour it lands inside the other, so the step is refused and the
+    // body presses into the notch for as long as the field points at it.
+    expect(costAt(slot(exact + 0.001, 0.22 + PASSAGE_CLEARANCE), OPENING, 7)).toBe(UNREACHABLE);
+  });
+
+  it('leaves a real gap open', () => {
+    // Room to spare is still room: the clearance closes slots, not gaps.
+    expect(
+      costAt(slot(exact + 8 * PASSAGE_CLEARANCE, 0.22 + PASSAGE_CLEARANCE), OPENING, 7),
+    ).toBeLessThan(UNREACHABLE);
   });
 });
 

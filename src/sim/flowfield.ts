@@ -271,6 +271,64 @@ export function markObstacle(field: FlowField, shape: FieldShape, inflate: numbe
   }
 }
 
+/**
+ * How much room, in tiles, a body needs BEYOND the exact sum of two radii
+ * before the field will route it between them.
+ *
+ * The field's inflation used to be exact, so a slot with a thousandth of a
+ * tile to spare read as free ground. Contact resolution cannot place a body
+ * there: pushed clear of one neighbour it lands inside the other, and the step
+ * is refused (motion.ts). The body then presses into the notch for the rest of
+ * the wave while the field keeps telling it to - the "stuck behind an ally" a
+ * crowd at the fortress wall shows most clearly, since the wall is lined with
+ * engaged bodies a hair too close together to pass.
+ *
+ * A tenth of a cell. Big enough that a slot the field offers is one a body can
+ * actually be placed in, small enough to leave the real gaps open: the routing
+ * tests measure both, and gap-filling is unchanged at this value.
+ */
+export const PASSAGE_CLEARANCE = 0.02;
+
+/**
+ * Block the strip along the lane's edge that a body of `inflate` cannot stand
+ * in, at both resolutions.
+ *
+ * motion.ts keeps every body's whole width inside the lane, so a position
+ * within its own radius of the boundary is one no body of that size can
+ * occupy. The field did not know that: it inflated bodies and left the lane's
+ * own walls uninflated, so the cells along each edge read as free ground - and
+ * the attack positions marked there were goals a crowd could walk at forever
+ * without ever arriving. A wave besieging a lane-wide fortress would pile into
+ * the corner chasing one, while free wall stood empty a few tiles away,
+ * because a goal that is never occupied is never taken off the field.
+ *
+ * Call before the obstacles, like any other terrain.
+ */
+export function markBorder(field: FlowField, inflate: number): void {
+  const margin = inflate * field.subdivision;
+  blockBorder(field.blocked, field.width, field.depth, margin);
+  blockBorder(field.blockedFine, field.width * FINE, field.depth * FINE, margin * FINE);
+}
+
+/**
+ * Block the outer `margin` cells of a grid, writing only the strips rather
+ * than scanning every cell: this runs once per field per tick (§15.3), and a
+ * field is tens of thousands of cells at the fine resolution.
+ */
+function blockBorder(grid: Uint8Array, width: number, depth: number, margin: number): void {
+  // Cells whose CENTRE is inside the margin, which is what `blocked` means.
+  const band = Math.min(Math.ceil(margin - 0.5), Math.min(width, depth) >> 1);
+  if (band <= 0) return;
+
+  grid.fill(1, 0, band * width);
+  grid.fill(1, (depth - band) * width, depth * width);
+  for (let gy = band; gy < depth - band; gy++) {
+    const row = gy * width;
+    grid.fill(1, row, row + band);
+    grid.fill(1, row + width - band, row + width);
+  }
+}
+
 /** How far one x sits outside the spine's interval. 0 anywhere along it. */
 function offSpine(px: number, spineMin: number, spineMax: number): number {
   return px < spineMin ? spineMin - px : px > spineMax ? px - spineMax : 0;

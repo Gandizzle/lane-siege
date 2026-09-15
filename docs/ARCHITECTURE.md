@@ -718,6 +718,24 @@ pathing quirk and was an id collision; the sentinel is now a value no entity can
 hold, and `src/sim/siege.test.ts` fails if a monster at the wall stops hitting
 it.
 
+**A crowd at that wall now spreads along it.** Three rules that were each
+right for a circle and wrong for a wall the width of the lane. A body closing
+the last fraction into contact walked at its target's CENTRE, so a monster
+arriving at one end of the fortress set off along the wall toward the middle,
+through everything already fighting there. The field marked attack positions in
+the strip along the lane's edge, where contact will not let a body stand, so a
+crowd could queue for a goal that could never be taken. And obstacles were
+inflated by exactly the seeker's radius, which offered slots with a thousandth
+of a tile to spare that contact resolution cannot place a body in - the body
+pressed into the notch for the rest of the wave while free wall stood empty a
+few tiles away. Closing now aims at the nearest point of the target's spine,
+`markBorder` makes the lane's own edges terrain, and `PASSAGE_CLEARANCE` asks
+for room to spare in a gap the seeker must pass through rather than touch.
+Measured on a wave arriving at an undefended wall: 17 of the 30 bodies at the
+wall engaged, 5 on its outer thirds, and 1.40 tiles of shuffling every two
+seconds from the rank that could not get in; now 18 of 22, 8 on the outer
+thirds, and 0.00.
+
 ### How the renderer drives the simulation
 
 The browser paints at whatever rate it likes; the simulation runs at exactly 20
@@ -751,7 +769,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (365 tests):
+Implemented and tested (375 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -848,6 +866,12 @@ Implemented and tested (365 tests):
 - The damage panel's own arithmetic: the ranking, the bar each row is measured
   against, a total that counts rows the screen had no room for, and the row
   count fitted to the screen rather than squeezed into it
+- A crowd at the fortress wall: it fills the wall end to end rather than piling
+  into the middle, everybody gets in while there is still room for everybody,
+  and the rank that genuinely does not fit stands still instead of grinding -
+  plus the three geometry rules behind that (the lane's edges as terrain, a
+  slot needing room to spare before the field routes through it, and closing on
+  the nearest point of a body's spine rather than its centre)
 
 ### Deliberate departures from DESIGN.md
 
