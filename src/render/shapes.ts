@@ -345,7 +345,18 @@ export function drawEntity(
   return g;
 }
 
-/** One pip per tier, in a row beneath the silhouette. Tier 1 draws none. */
+/**
+ * How many pips a tier wears: one per UPGRADE BOUGHT, not one per tier owned.
+ *
+ * A unit as built is tier 1 and wears none, so the pips read as a count of
+ * what the player has spent on it rather than as an off-by-one of the tier
+ * number - upgrade once, one dot.
+ */
+export function tierPipCount(tier: number): number {
+  return tier > 1 ? tier - 1 : 0;
+}
+
+/** The pip row beneath the silhouette. An unupgraded unit draws none. */
 export function drawTierPips(
   g: Graphics,
   tier: number,
@@ -354,10 +365,11 @@ export function drawTierPips(
   pipRadius: number,
   colour: number,
 ): void {
-  if (tier <= 1) return;
+  const pips = tierPipCount(tier);
+  if (pips <= 0) return;
   const spacing = pipRadius * 3;
-  const start = cx - (spacing * (tier - 1)) / 2;
-  for (let i = 0; i < tier; i++) {
+  const start = cx - (spacing * (pips - 1)) / 2;
+  for (let i = 0; i < pips; i++) {
     g.circle(start + i * spacing, cy, pipRadius).fill({ color: colour });
   }
 }

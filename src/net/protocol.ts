@@ -18,8 +18,10 @@
  *   - **Derivation over transmission.** Armour, damage type and body radius are
  *     properties of the definition, so sending the definition sends them too.
  *
- * Result at the same load: about 9 KiB/s for a player. The measurement is
- * `npm run wire`.
+ * Result at the same load: 42.8 KiB/s for a player, a sixth of what the same
+ * frame costs as objects. The measurement is `npm run wire`, and every figure
+ * quoted in this file comes from it at §15.3's load - 40 units and 30 monsters
+ * in each of four lanes, which is heavier than a supply cap actually allows.
  *
  * WHAT IS NOT HERE, AND WHY
  *
@@ -41,6 +43,7 @@ import type {
   MatchView,
   EntityView,
   TeamId,
+  UnitDamageView,
   UnitSpend,
 } from '../sim/index.ts';
 
@@ -101,6 +104,22 @@ export interface WireLane {
    * simulation pays would part company, and nothing would say so.
    */
   sp?: number[];
+  /**
+   * Own lane only: the round's damage rows, flat: unit id, unit def index,
+   * damage, next unit's, ... (§14.1, added).
+   *
+   * Sent rather than derived, and sent for dead units too, because neither end
+   * can reconstruct it: damage is the running total of what a unit landed, and
+   * a client that joined mid-wave - or looked away at the wrong moment - never
+   * saw the blows that made it. Rounded to whole points, since the panel shows
+   * whole points.
+   *
+   * It costs a measured 37.3 -> 42.8 KiB/s for a player at the §15.3 load, and
+   * the id is a third of that. The id is what lets a tapped row point at the
+   * body on the board, which is the answer to the question a row of identical
+   * silhouettes otherwise raises - worth its share.
+   */
+  dm?: number[];
   /** Own lane only: `[trackIndex, level]`. */
   tc?: [number, number][];
   /** Own lane only: `[upgradeIndex, level]`. */
@@ -268,6 +287,23 @@ function unflattenSpend(flat: readonly number[] | undefined): UnitSpend[] {
   return out;
 }
 
+function flattenDamage(rows: readonly UnitDamageView[], index: Map<string, number>): number[] {
+  const out: number[] = [];
+  for (const row of rows) {
+    out.push(row.unitId, index.get(row.defId) ?? -1, Math.round(row.damage));
+  }
+  return out;
+}
+
+function unflattenDamage(flat: readonly number[] | undefined, ids: string[]): UnitDamageView[] {
+  const out: UnitDamageView[] = [];
+  if (!flat) return out;
+  for (let i = 0; i + 2 < flat.length; i += 3) {
+    out.push({ unitId: flat[i]!, defId: ids[flat[i + 1]!] ?? '', damage: flat[i + 2]! });
+  }
+  return out;
+}
+
 function encodeLane(lane: LaneView, tables: WireTables): WireLane {
   const out: WireLane = {
     t: tables.teamIds.indexOf(lane.teamId),
@@ -310,6 +346,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
       ([id, level]) => [tables.fortressUpgradeIds.indexOf(id), level] as [number, number],
     );
     out.sp = flattenSpend(lane.unitSpend);
+    out.dm = flattenDamage(lane.unitDamage, tables.unitIndex);
   }
 
   return out;
@@ -362,6 +399,7 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
       })),
     attacks: unflattenAttacks(wire.a),
     unitSpend: unflattenSpend(wire.sp),
+    unitDamage: unflattenDamage(wire.dm, tables.unitIds),
   };
 }
 

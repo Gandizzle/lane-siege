@@ -44,4 +44,5 @@ export type {
   LaneView,
   MatchView,
   OpponentView,
+  UnitDamageView,
 } from './view.ts';

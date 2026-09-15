@@ -751,7 +751,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (344 tests):
+Implemented and tested (365 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -838,6 +838,16 @@ Implemented and tested (344 tests):
   giving every body on the field its own, in its armour family, carried up each
   upgrade chain - with the validator shown to refuse a duplicate and a
   wrong-family shape (§14.2, amended)
+- The tier pips as a count of upgrades BOUGHT rather than of tiers owned: one
+  upgrade, one dot (§14.2)
+- The round's damage scoreboard: a unit credited with exactly what the monster
+  lost rather than with the swing on paper, overkill on a killing blow not
+  counted, the numbers surviving the whole build phase after the fight and
+  clearing when the next wave spawns, a unit that died still holding its row,
+  and the rows never leaving the lane that earned them (§12, §14.1, added)
+- The damage panel's own arithmetic: the ranking, the bar each row is measured
+  against, a total that counts rows the screen had no room for, and the row
+  count fitted to the screen rather than squeezed into it
 
 ### Deliberate departures from DESIGN.md
 

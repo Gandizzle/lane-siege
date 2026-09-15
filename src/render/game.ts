@@ -174,6 +174,7 @@ export class Game extends Container {
         this.issue({ kind: 'send', teamId: this.teamId, targetTeamId, sendId });
       },
       onClearSelection: () => this.clearSelection(),
+      onSelectPlacedUnit: (unitId) => this.selectPlacedUnit(unitId),
     });
     this.gameOver = new GameOver(this.layout, {
       onRestart: () => this.chooseAgain(),
@@ -476,6 +477,22 @@ export class Game extends Container {
       this.selection?.kind === 'unitDef' && this.selection.unitDefId === unitDefId
         ? null
         : { kind: 'unitDef', unitDefId };
+  }
+
+  /**
+   * Point the selection at a unit without going through the board.
+   *
+   * The damage panel ranks units by what they landed and answers "which one is
+   * that" by pointing at it: a tapped row selects the unit, and the lane draws
+   * the selection ring §14.2 already draws for a unit tapped on the board. The
+   * build bar stays where it is, because the panel that asked the question is
+   * the one the player is reading.
+   */
+  private selectPlacedUnit(unitId: number): void {
+    this.selection =
+      this.selection?.kind === 'placedUnit' && this.selection.unitId === unitId
+        ? null
+        : { kind: 'placedUnit', unitId };
   }
 
   /** Back out of an upgrade panel, restoring whatever was in hand before it. */

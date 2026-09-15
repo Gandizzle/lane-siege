@@ -240,6 +240,7 @@ export function createUnit(
     techAttackSpeed: 1,
     cooldown: 0,
     targetId: null,
+    damageDealt: 0,
     alive: true,
   };
 }

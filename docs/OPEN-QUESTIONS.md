@@ -374,6 +374,22 @@ Decisions that override the document rather than filling a gap in it:
   gems, paid for in gems, is a loop that only opens once you are already
   winning it. Gold is what you have in the first build phase, which is when the
   decision to invest should be live.
+- **§14.1, §14.2 — a sixth build-bar tab shows what each unit landed, and the
+  tier pips count upgrades rather than tiers.** §14.1 gives the lane the whole
+  width and lists five tabs, all of them things to spend on; the damage
+  scoreboard is a sixth and spends nothing. It is there rather than beside the
+  lane because there is no side to put it on, and because the bar is already
+  idle during combat, which is when the numbers move. The simulation clears
+  each unit's total when a wave SPAWNS rather than when the build phase opens,
+  so the fight just finished stays readable for the whole build phase after it
+  - the only moment a player has both the time to read it and a decision to
+    spend it on. A unit is credited with what the monster actually lost, overkill
+    on the killing blow excluded, so the rows add up to the HP the line
+    destroyed. Rows are own-lane only: §12 lets a send buy sight of a fight, not
+    a reckoning of what somebody's line is worth. Separately, the pips under a
+    silhouette now count UPGRADES BOUGHT rather than tiers owned - a unit as
+    built wears none, one upgrade is one dot - which is what §14.2's "tier pips"
+    reads as when the thing being counted is what you paid for.
 - **§14.2 — every body has its own silhouette; the armour type is its
   family.** The document gave one shape per armour type, which is four shapes
   for thirty-seven bodies. Each unit and monster now has a distinct shape, and

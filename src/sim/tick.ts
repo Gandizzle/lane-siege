@@ -606,12 +606,16 @@ function unitsAttack(ctx: SimContext, lane: Lane): void {
     // standing right now, so it is evaluated here (see buffs.ts on why).
     const aura = auraFor(lane, unit, ctx.fortressPosition);
 
-    target.hp -= resolveDamage(
+    const dealt = resolveDamage(
       ctx.data.matrix.multipliers,
       stat(def.damage) * unit.techDamage * aura.damage,
       def.damageType,
       target.armour,
     );
+    // Credited with what the monster actually lost. A killing blow worth three
+    // times the HP left is worth the HP left: see `damageDealt` in types.ts.
+    unit.damageDealt += target.hp > 0 ? Math.min(dealt, target.hp) : 0;
+    target.hp -= dealt;
     unit.cooldown = cooldownTicks(stat(def.attackSpeed) * unit.techAttackSpeed * aura.attackSpeed);
     lane.attacks.push({ attackerId: unit.id, targetId: target.id });
   }
@@ -918,7 +922,12 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
     for (const team of state.teams) {
       if (team.eliminated) continue;
       const lane = state.lanes[team.id];
-      if (lane) recomputeUnitBuffs(ctx.data, ctx.defs, lane);
+      if (!lane) continue;
+      recomputeUnitBuffs(ctx.data, ctx.defs, lane);
+      // The round's scoreboard starts here rather than when the build phase
+      // opened, which is what leaves the last wave's numbers up to be read
+      // for the whole of that build phase (§14.1, added).
+      for (const unit of lane.units) unit.damageDealt = 0;
     }
     return;
   }

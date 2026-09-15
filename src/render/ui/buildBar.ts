@@ -2,13 +2,19 @@
  * The build bar. DESIGN.md §4.1, §7.3, §7.4, §9.3, §10.1, §11.4.
  *
  * Sits at the bottom because that is the thumb zone for one-handed portrait
- * play. Five tabs, one per distinct thing to spend on:
+ * play. Five tabs, one per distinct thing to spend on, and a sixth to read:
  *
  *   Build  six units (§7.1), plus the upgrade panel for a selected one (§7.3)
  *   Tech   global tech, tied to damage types rather than unit types (§7.4)
  *   Fort   fortress and resource-building upgrades, bought with gems (§10)
  *   Aura   the fortress weapon's damage type and the active aura (§10.1)
  *   Send   monsters at an opponent, bought with gems (§11.5)
+ *   Damage what each of your units landed this round (damagePanel.ts)
+ *
+ * Damage is the odd one out and sits last for that reason: it spends nothing.
+ * It is here rather than beside the lane because §14.1 gives the lane the whole
+ * width, and it is a tab rather than an overlay because the bar is already
+ * where the screen puts things to read rather than things to watch.
  *
  * Send arrived with M4 and shares gems with Fort on purpose: §11.2 says offence
  * and defence compete for the same currency and calls that the intended
@@ -38,6 +44,7 @@ import type { EconomyView, LaneView, MatchView, WaveSummary } from '../../sim/in
 import type { LaneLayout } from '../layout.ts';
 import { auraColour } from '../aura.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
+import { DamagePanel } from './damagePanel.ts';
 import { GridButton } from './gridButton.ts';
 import type { EntityStyle } from '../shapes.ts';
 import { centreOn, label, wrapped } from './text.ts';
@@ -65,15 +72,21 @@ export interface BuildBarHandlers {
   onSelectWeapon(damageType: DamageType): void;
   onSelectAura(aura: AuraType): void;
   onClearSelection(): void;
+  /**
+   * A damage row was tapped: point the lane's selection at that unit, so the
+   * body doing the damage is picked out of the crowd on the board.
+   */
+  onSelectPlacedUnit(unitId: number): void;
 }
 
-type Tab = 'build' | 'tech' | 'fort' | 'aura' | 'send';
+type Tab = 'build' | 'tech' | 'fort' | 'aura' | 'send' | 'damage';
 const TABS: { id: Tab; name: string }[] = [
   { id: 'build', name: 'Build' },
   { id: 'tech', name: 'Tech' },
   { id: 'fort', name: 'Fort' },
   { id: 'aura', name: 'Aura' },
   { id: 'send', name: 'Send' },
+  { id: 'damage', name: 'Damage' },
 ];
 
 /** Fortress ladders the Fort tab exposes, in display order. */
@@ -143,13 +156,8 @@ export class BuildBar extends Container {
   private readonly tabButtons: TabButton[] = [];
   private active: Tab = 'build';
 
-  private readonly panels: Record<Tab, Container> = {
-    build: new Container(),
-    tech: new Container(),
-    fort: new Container(),
-    aura: new Container(),
-    send: new Container(),
-  };
+  private readonly damagePanel: DamagePanel;
+  private readonly panels: Record<Tab, Container>;
 
   /**
    * Six slots, not six fixed units.
@@ -198,6 +206,16 @@ export class BuildBar extends Container {
     private readonly handlers: BuildBarHandlers,
   ) {
     super();
+
+    this.damagePanel = new DamagePanel(data, (unitId) => handlers.onSelectPlacedUnit(unitId));
+    this.panels = {
+      build: new Container(),
+      tech: new Container(),
+      fort: new Container(),
+      aura: new Container(),
+      send: new Container(),
+      damage: this.damagePanel,
+    };
 
     for (const tab of TABS) {
       const button = new TabButton(tab.id, tab.name, () => this.setTab(tab.id));
@@ -291,6 +309,7 @@ export class BuildBar extends Container {
       this.panels.fort,
       this.panels.aura,
       this.panels.send,
+      this.panels.damage,
       this.upgradePanel,
     );
     this.setLayout(layout);
@@ -310,9 +329,10 @@ export class BuildBar extends Container {
 
     // Tab strip along the top of the bar.
     const tabH = 26;
-    const tabW = (bar.width - 12 - 3 * 4) / TABS.length;
+    const tabGap = 4;
+    const tabW = (bar.width - 12 - tabGap * (TABS.length - 1)) / TABS.length;
     this.tabButtons.forEach((button, i) => {
-      button.layout(6 + i * (tabW + 4), bar.y + 3, tabW, tabH);
+      button.layout(6 + i * (tabW + tabGap), bar.y + 3, tabW, tabH);
     });
 
     const top = bar.y + tabH + 7;
@@ -361,6 +381,8 @@ export class BuildBar extends Container {
       bar.width - 12,
       height - chipH - 6,
     );
+
+    this.damagePanel.layout(bar, top, height);
 
     // Upgrade panel replaces the Build grid when a placed unit is selected.
     // Top to bottom: what it is, what it does, what is special about it, and
@@ -411,6 +433,19 @@ export class BuildBar extends Container {
     this.panels.fort.visible = this.active === 'fort';
     this.panels.aura.visible = this.active === 'aura';
     this.panels.send.visible = this.active === 'send';
+    this.panels.damage.visible = this.active === 'damage';
+
+    // Before the wallet check below: the damage panel is the one thing here
+    // that still reads once the fortress has fallen, and §13 lets a beaten
+    // player stay and look at what happened.
+    if (this.panels.damage.visible) {
+      this.damagePanel.render(
+        lane,
+        view.wave,
+        view.phase,
+        selection?.kind === 'placedUnit' ? selection.unitId : null,
+      );
+    }
 
     const economy = lane.economy;
     // The bar only ever shows your own lane, which always has a wallet. A lane

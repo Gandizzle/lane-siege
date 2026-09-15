@@ -41,6 +41,7 @@ function lane(aura: string | null, radius: number, strength: number): LaneView {
     sendLog: [],
     attacks: [],
     unitSpend: [],
+    unitDamage: [],
   };
 }
 

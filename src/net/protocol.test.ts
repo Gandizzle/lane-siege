@@ -162,6 +162,41 @@ describe('a frame survives the round trip', () => {
     expect(decoded.lane!.unitSpend[0]!.thisPhase).toBeGreaterThan(0);
   });
 
+  it("carries the round's damage rows, dead units included", () => {
+    const { state, ctx } = match();
+    state.lanes.a!.economy.gold = 99_999;
+    state.lanes.a!.economy.supplyCap = 99;
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'a',
+      unitDefId: 'hammer',
+      tileX: 1,
+      tileY: 1,
+    });
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'a',
+      unitDefId: 'bulwark',
+      tileX: 2,
+      tileY: 1,
+    });
+
+    const [first, second] = state.lanes.a!.units;
+    first!.damageDealt = 1234.6;
+    second!.damageDealt = 7;
+    // The second one was overrun. Its row is exactly the one worth keeping.
+    second!.alive = false;
+
+    const { decoded } = roundTrip(state, 'a');
+    const rows = decoded.lane!.unitDamage;
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.unitId)).toEqual([first!.id, second!.id]);
+    expect(rows.map((r) => r.defId)).toEqual([first!.defId, second!.defId]);
+    // Whole points: the panel shows whole points (see `dm` in protocol.ts).
+    expect(rows[0]!.damage).toBe(1235);
+    expect(decoded.lane!.units).toHaveLength(1);
+  });
+
   it('carries the fortress, the reserve and the send log', () => {
     const { state, ctx } = match();
     // The send comes from b, so b is the one who needs the gems.
@@ -251,6 +286,8 @@ describe('a frame cannot leak what the view withheld', () => {
     const decoded = decodeFrame(encodeFrame(viewFor(state, 'a'), tables), tables);
     expect(decoded.watching.b!.units).toHaveLength(1);
     expect(decoded.watching.b!.unitSpend).toEqual([]);
+    // Nor what somebody else's line is worth (§12).
+    expect(decoded.watching.b!.unitDamage).toEqual([]);
   });
 
   it('omits lanes nobody can see', () => {

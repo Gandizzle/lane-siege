@@ -96,6 +96,22 @@ export interface FortressView {
   auraStrength: number;
 }
 
+/**
+ * What one unit has landed this round (§14.1, added), for the damage panel.
+ *
+ * A list of its own rather than a field on `EntityView`, for two reasons. A
+ * unit that died partway through the wave still did the damage it did, and
+ * `units` holds only the living, so a parallel array would drop exactly the
+ * rows a player most wants to see. And it is own-lane information: what your
+ * line is worth is a read on your own board, not a thing a send should buy.
+ */
+export interface UnitDamageView {
+  unitId: EntityId;
+  /** Carries the tier, and so the pips the panel draws (§7.3, §14.2). */
+  defId: string;
+  damage: number;
+}
+
 /** Your own balance sheet. Never anyone else's. */
 export interface EconomyView {
   gold: number;
@@ -141,6 +157,12 @@ export interface LaneView {
    * ticks, and a price that needed a round trip would lag the tap.
    */
   unitSpend: UnitSpend[];
+  /**
+   * Own lane only: damage landed by each unit in the round now in progress,
+   * dead ones included. Cleared when the next wave spawns, not when the build
+   * phase opens, so it is still there to read between fights.
+   */
+  unitDamage: UnitDamageView[];
 }
 
 /**
@@ -265,6 +287,15 @@ function laneView(lane: Lane, own: boolean): LaneView {
       targetId: a.targetId,
     })),
     unitSpend: own ? livingUnits(lane).map((unit) => ({ ...unit.spend })) : [],
+    // Every unit, not just the living: a unit that was overrun on the way to
+    // the fortress earned its numbers before it went down.
+    unitDamage: own
+      ? lane.units.map((unit) => ({
+          unitId: unit.id,
+          defId: unit.defId,
+          damage: unit.damageDealt,
+        }))
+      : [],
   };
 }
 

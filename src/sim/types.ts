@@ -145,6 +145,19 @@ export interface DefensiveUnit {
    * then (§5.2). This is what stops target-switch jitter.
    */
   targetId: EntityId | null;
+  /**
+   * Damage this unit has landed in the round now in progress (§14.1, added).
+   *
+   * Counted after the matrix, the tech and the aura - what the monster
+   * actually lost, not what the definition says the swing is worth - and
+   * never more than the target had left, so overkill on the last hit does not
+   * flatter a slow, heavy unit. The lane's rows therefore add up to the HP the
+   * line actually destroyed.
+   *
+   * Zeroed when a wave spawns, not when the build phase opens, so the numbers
+   * from the fight just finished survive the whole build phase to be read.
+   */
+  damageDealt: number;
   alive: boolean;
 }
 
