@@ -585,6 +585,14 @@ is in the wrong family for its armour, if two bodies on the field share one, or
 if a tier does not carry its base's shape up the chain (§7.3: an upgrade is the
 same unit).
 
+The wave preview (§9.3) draws them too: each incoming monster's shape sits
+under its count and name, at the size it will be in the lane and in the same
+outline-means-monster convention. "4× Husk plate" tells you what is coming only
+if you already know what a Husk looks like; the shape below it is the thing you
+will actually be picking out of a crowd thirty seconds later. One size for all
+of them - the preview is a key, not a scale model, and the HUD already says BOSS
+in red.
+
 The catalogue is geometry first and pixels second. `silhouette()` returns plain
 vertex lists and circles inside the unit circle; `drawEntity()` scales and
 paints them. That is what makes it testable without a canvas: every shape is

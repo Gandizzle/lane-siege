@@ -10,7 +10,7 @@
  * All lanes face identical waves (§9.2). Lane divergence comes only from sends.
  */
 
-import type { ArmourType, DamageType, GameData, MonsterDef } from '../data/schema.ts';
+import type { ArmourType, DamageType, GameData, MonsterDef, ShapeId } from '../data/schema.ts';
 import { waveRng } from './rng.ts';
 
 /** One monster to spawn: its definition, and the wave it belongs to (§8). */
@@ -139,6 +139,14 @@ export interface WavePreviewEntry {
   count: number;
   armour: ArmourType;
   damageType: DamageType;
+  /**
+   * The monster's silhouette (§14.2, amended), so the preview can show the
+   * thing rather than only name it. Carried here beside `armour` and
+   * `damageType` for the same reason those are: it is a property of the
+   * definition that the preview needs, and looking it up again in the renderer
+   * would be a second place for the answer to come from.
+   */
+  shape: ShapeId;
 }
 
 export function previewWave(data: GameData, seed: number, waveNumber: number): WavePreviewEntry[] {
@@ -161,6 +169,7 @@ export function previewWave(data: GameData, seed: number, waveNumber: number): W
       count,
       armour: def.armour,
       damageType: def.damageType,
+      shape: def.shape,
     });
   }
   return preview;

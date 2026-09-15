@@ -17,7 +17,19 @@ import { previewWave } from '../sim/index.ts';
 import type { LaneLayout } from './layout.ts';
 import { fortressShape, screenToTile } from './layout.ts';
 import { DAMAGE_COLOURS, UI } from './palette.ts';
+import { drawEntity } from './shapes.ts';
 import { label } from './ui/text.ts';
+
+/**
+ * Radius of a monster's silhouette in the wave preview, in pixels.
+ *
+ * Close to the ten-ish pixels a real monster occupies on a phone, so the shape
+ * in the preview is the shape you will be reading in the lane rather than a
+ * larger, easier version of it. Fixed rather than scaled from the body radius:
+ * the preview sits in the spawn band, which a big wave's clump reaches into,
+ * and a row whose height changed with the wave would move under it.
+ */
+const PREVIEW_GLYPH_RADIUS = 9;
 
 /**
  * How strongly the build grid reads. Bright enough to aim at against the dark
@@ -205,6 +217,7 @@ export class LaneView extends Container {
 
     const rowOne = l.spawn.y + 5;
     const rowTwo = l.spawn.y + 21;
+    const rowThree = l.spawn.y + 21 + PREVIEW_GLYPH_RADIUS + 16;
 
     const heading = label(
       view.phase === 'build' ? `next wave ${nextWave}` : `wave ${nextWave}`,
@@ -239,14 +252,24 @@ export class LaneView extends Container {
       }
     }
 
-    // One chip per monster type, on a single row: count, name, armour.
+    // One chip per monster type: count and name, the armour word as its legend,
+    // and the monster's own silhouette centred underneath (§14.2, amended).
+    //
+    // The silhouette is the part worth having. "4× Husk plate" tells you what
+    // is coming only if you already know what a Husk looks like; the shape
+    // below it is the thing you will actually be picking out of a crowd in
+    // thirty seconds, drawn by the same `drawEntity` that will draw it then, in
+    // the same outline-means-monster convention. One size for all of them: this
+    // is a key, not a scale model, and at nine pixels a size difference reads
+    // as noise rather than as information. The HUD already says BOSS in red.
     let x = pad;
     for (const entry of entries) {
       const colour = DAMAGE_COLOURS[entry.damageType];
       const text = label(`${entry.count}× ${entry.name}`, 11, colour, '700');
       const armour = label(` ${entry.armour}`, 10, UI.textMuted);
+      const width = text.width + armour.width;
 
-      if (x + text.width + armour.width + 12 > l.screen.width - pad) {
+      if (x + width + 12 > l.screen.width - pad) {
         const more = label('…', 11, UI.textMuted, '700');
         more.x = x;
         more.y = rowTwo;
@@ -260,7 +283,17 @@ export class LaneView extends Container {
       armour.y = rowTwo + 1;
       this.overlay.addChild(text, armour);
 
-      x += text.width + armour.width + 12;
+      const glyph = new Graphics();
+      drawEntity(
+        glyph,
+        { shape: entry.shape, damageType: entry.damageType, tier: 1, outlined: true },
+        x + width / 2,
+        rowThree,
+        PREVIEW_GLYPH_RADIUS,
+      );
+      this.overlay.addChild(glyph);
+
+      x += width + 12;
     }
   }
 }
