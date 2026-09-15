@@ -8,7 +8,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { applyCommand } from './apply.ts';
-import { createContext, createMatch, step } from './index.ts';
+import { createContext, createMatch, secondsToTicks, step } from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
@@ -250,16 +250,24 @@ describe('gold flow (§11.1)', () => {
     expect(lane.economy.gold).toBe(goldBefore + expected);
   });
 
-  it('pays gems each wave from the resource building (§10.2)', () => {
+  it('pays gems on its own clock, not once a wave (§10.2, amended)', () => {
     const { state, ctx } = freshMatch();
     const lane = state.lanes.lane1!;
     expect(lane.economy.gems).toBe(0);
 
-    // Through combat and back to the next build phase.
-    runToPhase(ctx, state, 'combat');
-    runToPhase(ctx, state, 'build');
+    const interval = lane.fortress.gemPayoutTicks;
+    const perPayout = lane.fortress.gemsPerPayout;
+    expect(interval).toBe(secondsToTicks(data.fortress.resourceBuilding.payoutSeconds ?? 0));
 
-    expect(lane.economy.gems).toBe(data.fortress.resourceBuilding.gemsPerWave);
+    // One tick short of the first payout, then the tick that pays it.
+    for (let t = 0; t < interval - 1; t++) step(ctx, state);
+    expect(lane.economy.gems).toBe(0);
+    step(ctx, state);
+    expect(lane.economy.gems).toBe(perPayout);
+
+    // And it keeps going, at the same spacing, without waiting for a wave.
+    for (let t = 0; t < interval * 3; t++) step(ctx, state);
+    expect(lane.economy.gems).toBe(perPayout * 4);
   });
 });
 

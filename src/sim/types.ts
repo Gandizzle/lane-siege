@@ -92,6 +92,10 @@ export interface DefensiveUnit {
    * 0: a unit is a circle. The fortress is the only body that is not.
    */
   halfWidth: number;
+  /** Always false for a unit; see `Body` in motion.ts. */
+  monster: boolean;
+  /** Always false for a unit: only a boss phases, and only through monsters. */
+  phasesMonsters: boolean;
   /** Reach, edge to edge, in tiles. Copied from the definition on build and upgrade. */
   range: number;
   /** What has been paid for this unit, and when (§11, sell). */
@@ -163,6 +167,10 @@ export interface Monster {
    * 0: a monster is a circle. The fortress is the only body that is not.
    */
   halfWidth: number;
+  /** Always true. See `Body` in motion.ts. */
+  monster: boolean;
+  /** §3.4: a boss passes through the swarm it arrives with, and it through it. */
+  phasesMonsters: boolean;
   /**
    * Which wave this monster belongs to. Enrage is tracked per wave, not per
    * lane or per monster (§8): a fresh wave joining a still-alive enraged wave
@@ -226,7 +234,17 @@ export interface Fortress {
   weaponRange: number;
   auraStrength: number;
   auraRadius: number;
-  gemsPerWave: number;
+  /**
+   * §10.2, amended: the resource building pays out on its own clock.
+   *
+   * `gemPayoutTicks` is the interval in SIMULATION ticks, resolved from the
+   * base seconds and whatever the rate ladder has been bought up to; an
+   * integer countdown rather than an accumulating fraction, so a payout lands
+   * on an exact tick and every client agrees on which one.
+   */
+  gemsPerPayout: number;
+  gemPayoutTicks: number;
+  gemCooldown: number;
   /** Upgrade id -> level purchased, e.g. `{ hp: 2, weapon: 1 }`. */
   upgrades: Record<string, number>;
   destroyed: boolean;

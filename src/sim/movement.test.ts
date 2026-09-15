@@ -66,8 +66,13 @@ function worstOverlap(sets: readonly (readonly Fighter[])[], engagedOnly = false
   let worst = 0;
   for (let i = 0; i < all.length; i++) {
     for (let j = i + 1; j < all.length; j++) {
-      if (engagedOnly && !all[i]!.engaged && !all[j]!.engaged) continue;
-      const g = gap(all[i]!, all[j]!);
+      const a = all[i]!;
+      const b = all[j]!;
+      if (engagedOnly && !a.engaged && !b.engaged) continue;
+      // §3.4: a boss and a monster are not in contact at all, so the distance
+      // between them is not an overlap. Every other pair is.
+      if ((a.phasesMonsters && b.monster) || (b.phasesMonsters && a.monster)) continue;
+      const g = gap(a, b);
       if (-g > worst) worst = -g;
     }
   }
@@ -563,5 +568,96 @@ describe('the crowd comes to rest', () => {
       }
     }
     expect(late).toBeLessThan(3);
+  });
+});
+
+describe('a boss passes through its own escort (§3.4)', () => {
+  /**
+   * The case the rule exists for: one boss, the swarm it arrives with, and a
+   * line of defenders for the swarm to pile up against. A boss is four times
+   * the width of a swarmling, so made solid to them it spends the fight wedged
+   * in its own escort.
+   */
+  function bossAndSwarm() {
+    const d = passiveData();
+    d.waves.composition = [
+      {
+        wave: 1,
+        entries: [
+          { monsterId: 'brood_sire', count: 1 },
+          { monsterId: 'swarmling', count: 24 },
+        ],
+      },
+    ];
+    d.waves.maxConcurrentMonsters = 40;
+
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    for (let x = 0; x < 8; x++) place(ctx, state, 'bulwark', x, 6);
+    startCombat(ctx, state);
+
+    const boss = lane.monsters.find((m) => m.defId === 'brood_sire')!;
+    return { state, ctx, lane, boss };
+  }
+
+  it('is a monster that other monsters are not solid to', () => {
+    const { boss, lane } = bossAndSwarm();
+    expect(boss.monster).toBe(true);
+    expect(boss.phasesMonsters).toBe(true);
+    for (const m of lane.monsters) {
+      if (m === boss) continue;
+      expect(m.phasesMonsters, m.defId).toBe(false);
+    }
+    for (const u of lane.units) expect(u.monster).toBe(false);
+  });
+
+  it('actually ends up sharing space with them', () => {
+    // The positive statement of the rule. Solid bodies are pushed apart every
+    // tick, so if these ever occupy the same ground they are not colliding.
+    const { state, ctx, lane, boss } = bossAndSwarm();
+    let shared = 0;
+    for (let t = 0; t < 400; t++) {
+      step(ctx, state);
+      for (const m of lane.monsters) {
+        if (m === boss || !m.alive) continue;
+        if (gap(boss, m) < -0.05) shared++;
+      }
+    }
+    expect(shared).toBeGreaterThan(0);
+  });
+
+  it('is still perfectly solid to the defenders it is walking at', () => {
+    // The half of the rule that must NOT change: a boss you cannot block is a
+    // boss the lane cannot defend against.
+    const { state, ctx, lane, boss } = bossAndSwarm();
+    let worst = 0;
+    for (let t = 0; t < 400; t++) {
+      step(ctx, state);
+      for (const unit of lane.units) {
+        if (!unit.alive) continue;
+        worst = Math.max(worst, -gap(boss, unit));
+      }
+    }
+    expect(worst).toBeLessThan(OVERLAP_TOLERANCE);
+  });
+
+  it('reaches the line instead of milling about in the crowd', () => {
+    // Measured before the rule: the boss never engaged in 600 ticks and walked
+    // 3.2 tiles for every tile of progress it made. This is the whole point.
+    const { state, ctx, boss } = bossAndSwarm();
+    const start = { x: boss.pos.x, y: boss.pos.y };
+    let walked = 0;
+    let engagedAt = -1;
+
+    for (let t = 1; t <= 600; t++) {
+      const from = { x: boss.pos.x, y: boss.pos.y };
+      step(ctx, state);
+      walked += Math.hypot(boss.pos.x - from.x, boss.pos.y - from.y);
+      if (engagedAt < 0 && boss.engaged) engagedAt = t;
+    }
+
+    expect(engagedAt).toBeGreaterThan(0);
+    const progress = Math.hypot(boss.pos.x - start.x, boss.pos.y - start.y);
+    expect(walked / progress).toBeLessThan(1.5);
   });
 });

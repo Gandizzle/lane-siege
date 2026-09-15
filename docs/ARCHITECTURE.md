@@ -439,6 +439,17 @@ per cell, so a hole narrower than a cell that a body still fits is seen; and
 when every attack position is taken, the goals become the positions beside the
 allies that are attacking, so the rest wait where the next hole will open.
 
+**A boss passes through monsters** (§3.4, decided) and is solid to everything
+else. It is four times the width of the swarm it arrives with, and made solid to
+them it spends the fight wedged in its own escort: measured against a defended
+line, a solid boss never reached the line in 600 ticks and walked 3.2 tiles for
+every tile of progress, where a phasing one engages at tick 270 at 1.05x. The
+rule is symmetric, it is only about monsters, and it holds in the distance field
+as well as in contact - a boss routes as though the swarm were not there, and
+the swarm routes as though the boss were not. Defenders and the fortress wall
+are unaffected, which is the half that must not change: a boss you cannot block
+is a boss the lane cannot defend against.
+
 Contact is move-and-slide: a proposed step is pushed out of everything settled
 it would overlap, along the line between centres, so the component into an
 obstacle is cancelled and the component along it survives. Seekers move in
@@ -740,7 +751,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (333 tests):
+Implemented and tested (344 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -809,6 +820,13 @@ Implemented and tested (333 tests):
 - The aura: nothing drawn without one, something for every aura the data
   defines, each of the four visibly different, and all three channels moving
   when the thing they stand for is bought (§10.1)
+- A boss phasing: it shares ground with monsters, never overlaps a defender by
+  more than contact tolerance, and reaches a defended line through its own
+  escort instead of milling in it (§3.4)
+- The resource building: one gem every two seconds from the start, paid during
+  the build phase as well as combat, +1 per payout per output level, a rate
+  ladder that is additive rather than compounding, and both ladders refused
+  when the GOLD is missing rather than the gems (§10.2, §11.3, amended)
 - The distance field against a plain shortest path, cell for cell, on forty
   random layouts, and that a mirrored layout produces a mirrored field - the
   two tests that catch a wrong field rather than a wrong-looking crowd

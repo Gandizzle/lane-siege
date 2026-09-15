@@ -347,9 +347,27 @@ export interface FortressFile {
     strength: UpgradableStat;
     radius: UpgradableStat;
   };
+  /**
+   * §10.2, amended: the resource building pays out on its own repeating clock
+   * rather than once per wave, and both of its ladders are bought with GOLD.
+   *
+   * A "payout" is what the player calls a gem tick. It is not called a tick
+   * here because `tick` already means the simulation's 20Hz step (§15.1), and
+   * a word that means two different intervals in one codebase is a bug waiting
+   * to be written.
+   */
   resourceBuilding: {
-    gemsPerWave: Unfilled<number>;
-    upgrades: UpgradeLevel[];
+    /** Gems handed over per payout, before the `output` ladder. */
+    gemsPerPayout: Unfilled<number>;
+    /** Seconds between payouts, before the `rate` ladder. */
+    payoutSeconds: Unfilled<number>;
+    /** `value` is the resolved gems per payout at that level. */
+    output: { upgrades: UpgradeLevel[] };
+    /**
+     * `value` is the payout rate as a multiple of the base. Additive, not
+     * compounding: each level adds half the base rate.
+     */
+    rate: { upgrades: UpgradeLevel[] };
   };
 }
 
@@ -384,7 +402,6 @@ export interface TechTrack {
 export interface EconomyFile {
   startingGold: Unfilled<number>;
   startingGems: Unfilled<number>;
-  gemProduction: UpgradableStat;
   supply: {
     capBase: Unfilled<number>;
     capUpgrades: UpgradeLevel[];

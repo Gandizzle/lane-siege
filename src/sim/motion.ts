@@ -78,6 +78,31 @@ export interface Body {
    * walks through unsettled ones - they will be pushed out of it in turn.
    */
   settled: boolean;
+  /** True for monsters, false for defensive units and for the fortress. */
+  monster: boolean;
+  /**
+   * Passes straight through monsters, and they through it. §3.4, decided:
+   * bosses do.
+   *
+   * A boss is four times the width of the swarm it arrives with, and the swarm
+   * is what its wave is made of. Made solid to them it spends the fight wedged
+   * in its own escort - the thing that is supposed to be frightening becomes
+   * the thing that is stuck - and the escort spends it queueing round a body it
+   * cannot get past. Letting the two pass through each other costs nothing that
+   * matters: a boss is one body, so nothing about the crowd's shape depends on
+   * it, and it is still perfectly solid to the defenders it is walking at, and
+   * to the fortress wall.
+   *
+   * The rule is symmetric and it is only about monsters, which is why it takes
+   * two fields to state: a boss is solid to units, and a unit is solid to
+   * everything.
+   */
+  phasesMonsters: boolean;
+}
+
+/** Do these two bodies touch at all? §3.4: a boss and a monster do not. */
+function collides(a: Body, b: Body): boolean {
+  return !((a.phasesMonsters && b.monster) || (b.phasesMonsters && a.monster));
 }
 
 /** The edges of the lane, in tiles. A body's centre stays a radius inside them. */
@@ -156,6 +181,7 @@ function deepestOverlap(
   for (const set of obstacles) {
     for (const other of set) {
       if (!other.alive || !other.settled || other === self) continue;
+      if (!collides(self, other)) continue;
       const minDistance = self.radius + other.radius;
       const dx = spineDx(at.x, self.halfWidth, other.pos.x, other.halfWidth);
       const dy = at.y - other.pos.y;
@@ -205,6 +231,7 @@ function resolveContacts(
     for (const set of obstacles) {
       for (const other of set) {
         if (!other.alive || !other.settled || other === self) continue;
+        if (!collides(self, other)) continue;
 
         const minDistance = self.radius + other.radius;
         let dx = spineDx(proposed.x, self.halfWidth, other.pos.x, other.halfWidth);

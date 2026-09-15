@@ -81,7 +81,8 @@ const FORT_UPGRADES: { id: string; name: string }[] = [
   { id: 'weapon', name: 'Weapon' },
   { id: 'hp', name: 'Fortress HP' },
   { id: 'regen', name: 'Regeneration' },
-  { id: 'gemProduction', name: 'Gem Output' },
+  { id: 'gemOutput', name: 'Gem Output' },
+  { id: 'gemRate', name: 'Gem Rate' },
   { id: 'auraStrength', name: 'Aura Power' },
   { id: 'auraRadius', name: 'Aura Radius' },
 ];
@@ -561,18 +562,24 @@ export class BuildBar extends Container {
       const ladder = ladders[id] ?? [];
       const level = economy.upgrades[id] ?? 0;
       const next = ladder.find((l) => l.level === level + 1);
-      const cost = next?.gemCost ?? 0;
+      // §11.3 gives fortress upgrades to gems, but the two resource-building
+      // ladders are bought with gold (§10.2, amended), so the button reads the
+      // price off the level rather than assuming a currency.
+      const gems = next?.gemCost ?? 0;
+      const gold = next?.goldCost ?? 0;
       const supply = next?.supplyCost ?? 0;
+      const price = gems > 0 ? `${gems} gem` : `${gold}g`;
 
       button.setSwatch(null);
       button.update({
         title: name,
-        detail: next ? `${cost} gem${supply ? ` · ${supply}s` : ''}` : 'maxed',
+        detail: next ? `${price}${supply ? ` · ${supply}s` : ''}` : 'maxed',
         note: `level ${level}/${ladder.length}`,
         enabled:
           canAct &&
           next !== undefined &&
-          economy.gems >= cost &&
+          economy.gems >= gems &&
+          economy.gold >= gold &&
           economy.supplyUsed + supply <= economy.supplyCap,
       });
     }
@@ -745,7 +752,8 @@ function fortressLadders(data: GameData) {
     weapon: f.weapon.upgrades,
     hp: f.hp.upgrades,
     regen: f.regenOnLaneClear.upgrades,
-    gemProduction: f.resourceBuilding.upgrades,
+    gemOutput: f.resourceBuilding.output.upgrades,
+    gemRate: f.resourceBuilding.rate.upgrades,
     auraStrength: f.auras.strength.upgrades,
     auraRadius: f.auras.radius.upgrades,
   } as Record<string, ReturnType<() => GameData['fortress']['hp']['upgrades']>>;

@@ -19,6 +19,7 @@ import { secondsToTicks } from './constants.ts';
 import { inBounds, tileOccupiedByUnit } from './grid.ts';
 import { createUnit } from './spawn.ts';
 import { recomputeUnitBuffs } from './buffs.ts';
+import { gemPayoutTicks } from './state.ts';
 import type { UpgradeLevel } from '../data/schema.ts';
 import type { GameData } from '../data/schema.ts';
 import type { Lane, MatchState, UnitSpend } from './types.ts';
@@ -208,7 +209,8 @@ function buyFortressUpgrade(
     weapon: f.weapon.upgrades,
     auraStrength: f.auras.strength.upgrades,
     auraRadius: f.auras.radius.upgrades,
-    gemProduction: f.resourceBuilding.upgrades,
+    gemOutput: f.resourceBuilding.output.upgrades,
+    gemRate: f.resourceBuilding.rate.upgrades,
   };
 
   const ladder = ladders[upgradeId];
@@ -244,9 +246,18 @@ function buyFortressUpgrade(
     case 'auraRadius':
       lane.fortress.auraRadius = value;
       break;
-    case 'gemProduction':
-      lane.fortress.gemsPerWave = value;
+    case 'gemOutput':
+      lane.fortress.gemsPerPayout = value;
       break;
+    case 'gemRate': {
+      // `value` is a multiple of the base rate, so it divides the interval.
+      // The countdown already running is left where it is: an upgrade speeds
+      // up every payout after this one, it does not hand you the current one.
+      const was = lane.fortress.gemPayoutTicks;
+      lane.fortress.gemPayoutTicks = gemPayoutTicks(ctx.data, value);
+      lane.fortress.gemCooldown = Math.min(lane.fortress.gemCooldown, was);
+      break;
+    }
   }
 
   // §11.6: passive income from fortress upgrades, paid out each wave.
@@ -266,7 +277,8 @@ export const FORTRESS_UPGRADE_IDS = [
   'weapon',
   'auraStrength',
   'auraRadius',
-  'gemProduction',
+  'gemOutput',
+  'gemRate',
 ] as const;
 
 /**

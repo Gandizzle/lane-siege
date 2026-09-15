@@ -1,14 +1,10 @@
 {
-  "_comment": "DESIGN.md \u00a711. Gold buys units, tiers and tech; gems buy fortress upgrades and sends. Supply is one shared budget across offence, defence and economy. All placeholders.",
+  "_comment": "DESIGN.md §11. Gold buys units, tiers and tech; gems buy fortress upgrades and sends. Supply is one shared budget across offence, defence and economy. All placeholders.",
   "startingGold": 400,
   "startingGems": 0,
-  "gemProduction": {
-    "base": 10,
-    "upgrades": []
-  },
   "supply": {
-    "_comment": "\u00a711.4: the cap does not grow on its own - it is an upgrade you choose to buy, which makes a large army a deliberate investment.",
-    "_open": "OPEN (\u00a711.1): gold or gems? The doc recommends gold and that is what these cost. Say the word and it is a one-line change.",
+    "_comment": "§11.4: the cap does not grow on its own - it is an upgrade you choose to buy, which makes a large army a deliberate investment.",
+    "_open": "OPEN (§11.1): gold or gems? The doc recommends gold and that is what these cost. Say the word and it is a one-line change.",
     "capBase": 22,
     "capUpgrades": [
       {
@@ -61,7 +57,7 @@
     "later": 0.5
   },
   "tech": {
-    "_comment": "\u00a77.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
+    "_comment": "§7.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
     "tracks": [
       {
         "id": "dmg_impact",

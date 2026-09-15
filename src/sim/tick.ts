@@ -106,6 +106,10 @@ export function createContext(data: GameData): SimContext {
     halfWidth: lane.fortressHalfWidth,
     alive: true,
     settled: true,
+    // Not a monster, and solid to every one of them - including bosses, which
+    // pass through their own side and nothing else.
+    monster: false,
+    phasesMonsters: false,
   };
 
   return {
@@ -171,6 +175,7 @@ const order: number[] = [];
 /** (radius, range) pairs seen this tick, deduplicated without allocating a Set. */
 const shapesRadius: number[] = [];
 const shapesRange: number[] = [];
+const shapesPhasing: boolean[] = [];
 
 /**
  * §8: every wave carries its own enrage clock, which keeps running while any of
@@ -317,11 +322,16 @@ function planMoves(
 ): void {
   shapesRadius.length = 0;
   shapesRange.length = 0;
+  shapesPhasing.length = 0;
   for (const seeker of seekers) {
     if (!seeker.alive || seeker.engaged) continue;
     let seen = false;
     for (let i = 0; i < shapesRadius.length; i++) {
-      if (shapesRadius[i] === seeker.radius && shapesRange[i] === seeker.range) {
+      if (
+        shapesRadius[i] === seeker.radius &&
+        shapesRange[i] === seeker.range &&
+        shapesPhasing[i] === seeker.phasesMonsters
+      ) {
         seen = true;
         break;
       }
@@ -329,6 +339,9 @@ function planMoves(
     if (!seen) {
       shapesRadius.push(seeker.radius);
       shapesRange.push(seeker.range);
+      // Part of the shape, because it changes which bodies are terrain: a boss
+      // routes as though the swarm around it were not there (§3.4).
+      shapesPhasing.push(seeker.phasesMonsters);
     }
   }
 
@@ -338,7 +351,14 @@ function planMoves(
   for (let shape = 0; shape < shapesRadius.length; shape++) {
     const radius = shapesRadius[shape]!;
     const range = shapesRange[shape]!;
-    const field = fieldFor(ctx, lane.teamId, kind, radius, range);
+    const phasing = shapesPhasing[shape]!;
+    const field = fieldFor(
+      ctx,
+      lane.teamId,
+      `${kind}:${phasing ? 'phase' : 'solid'}`,
+      radius,
+      range,
+    );
     clearField(field);
 
     if (enemiesBlock) {
@@ -347,9 +367,13 @@ function planMoves(
       }
     }
     for (const ally of allies) {
-      if (ally.alive && holdsStill(ally)) {
-        markObstacle(field, shapeOf(ally), radius);
-      }
+      if (!ally.alive || !holdsStill(ally)) continue;
+      // §3.4: a boss and the monsters around it are not terrain to each other,
+      // so neither routes around the other. Units are unaffected - they never
+      // phase, so neither clause fires on a defender's field.
+      if (phasing && ally.monster) continue;
+      if (ally.phasesMonsters) continue;
+      markObstacle(field, shapeOf(ally), radius);
     }
     // The fortress is solid to everyone. Without this a monster with nothing
     // else to do walks into the wall and out the bottom of the lane.
@@ -912,8 +936,9 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
 
     respawnUnits(ctx, lane, state);
     // §11.6: passive income is paid each wave and compounds over the match.
+    // Gems are not: the resource building pays them out on its own clock
+    // (§10.2, amended) - see `produceGems`.
     lane.economy.gold += lane.economy.passiveIncome;
-    lane.economy.gems += lane.fortress.gemsPerWave;
   }
 }
 
@@ -991,11 +1016,37 @@ export function step(
 
     laneTick(ctx, lane, state);
     fortressActs(ctx, lane);
+    produceGems(lane);
     reapDead(ctx, lane, state);
   }
 
   checkEliminations(state);
   return state;
+}
+
+/**
+ * §10.2, amended: the resource building hands over gems on its own clock.
+ *
+ * Every tick, in both phases, for as long as the lane is alive. Gems that
+ * arrive while you play are a different thing from gems that arrive in a lump
+ * at the end of a wave: the second is a wave's reward, and the first is a
+ * reason to have built the building early, which is what an economy upgrade is
+ * supposed to be.
+ *
+ * An integer countdown rather than a fraction accumulated per tick. The two
+ * agree on the long run and disagree about exactly which tick a payout lands
+ * on; the countdown cannot drift, and there is nothing to argue about between
+ * two clients running the same match.
+ */
+function produceGems(lane: Lane): void {
+  const fortress = lane.fortress;
+  if (fortress.gemPayoutTicks <= 0) return;
+
+  fortress.gemCooldown -= 1;
+  if (fortress.gemCooldown > 0) return;
+
+  lane.economy.gems += fortress.gemsPerPayout;
+  fortress.gemCooldown = fortress.gemPayoutTicks;
 }
 
 /** Deep copy, for replays, desync comparison and tests. */

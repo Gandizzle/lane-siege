@@ -47,6 +47,15 @@ formula below takes the segment instead of the centre, which costs one clamp on
 the x axis; with a segment of zero length each one is the circle arithmetic it
 was, and that is what every unit and monster has.
 
+One pair of bodies does not collide at all: a **boss and a monster** pass
+straight through each other (§3.4). A boss is four times the width of the swarm
+it arrives with, and made solid to them it spends the fight wedged in its own
+escort — measured against a defended line, 3.2 tiles walked per tile of
+progress, and it never arrived. It stays solid to defenders and to the fortress
+wall, and the rule holds in the field as well as in contact: neither routes
+around the other. Everything else in this document is unchanged by it, because
+nothing about a crowd's shape depends on one body.
+
 Bodies are deliberately smaller than a tile (0.26 for units, 0.22 for monsters,
 0.44 for bosses, against a tile of 1.0) so that there is room to move between
 them. Monsters spawn as one packed hexagonal clump at the centre of a spawn

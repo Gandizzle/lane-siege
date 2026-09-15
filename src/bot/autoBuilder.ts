@@ -225,17 +225,28 @@ export class AutoBuilder {
     }
 
     // Spend the rest on the fortress.
-    for (const id of ['weapon', 'regen', 'hp', 'gemProduction', 'auraStrength', 'auraRadius']) {
+    const fortressOrder = [
+      'weapon',
+      'regen',
+      'hp',
+      'gemOutput',
+      'gemRate',
+      'auraStrength',
+      'auraRadius',
+    ];
+    for (const id of fortressOrder) {
       const ladder = fortressLadder(this.data, id);
       const level = lane.fortress.upgrades[id] ?? 0;
       const next = ladder.find((l) => l.level === level + 1);
       if (!next) continue;
 
       const cost = next.gemCost ?? 0;
+      const goldCost = next.goldCost ?? 0;
       const supplyCost = next.supplyCost ?? 0;
-      if (cost > gems || supplyCost > supply) continue;
+      if (cost > gems || goldCost > gold || supplyCost > supply) continue;
 
       gems -= cost;
+      gold -= goldCost;
       supply -= supplyCost;
       commands.push({ kind: 'buyFortressUpgrade', teamId: this.teamId, upgradeId: id });
     }
@@ -341,8 +352,10 @@ function fortressLadder(data: GameData, id: string) {
       return f.hp.upgrades;
     case 'regen':
       return f.regenOnLaneClear.upgrades;
-    case 'gemProduction':
-      return f.resourceBuilding.upgrades;
+    case 'gemOutput':
+      return f.resourceBuilding.output.upgrades;
+    case 'gemRate':
+      return f.resourceBuilding.rate.upgrades;
     case 'auraStrength':
       return f.auras.strength.upgrades;
     case 'auraRadius':

@@ -72,12 +72,7 @@ export interface MatchOptions {
   teams: TeamSetup[];
 }
 
-function createLane(
-  data: GameData,
-  teamId: TeamId,
-  builderId: string,
-  missing: string[],
-): Lane {
+function createLane(data: GameData, teamId: TeamId, builderId: string, missing: string[]): Lane {
   const maxHp = requireNumber(data.fortress.hp.base, 'fortress.hp.base', missing);
   const weaponType = data.matrix.damageTypes[0];
   if (!weaponType) missing.push('matrix.damageTypes[0]');
@@ -110,7 +105,9 @@ function createLane(
       weaponRange: requireNumber(data.fortress.weapon.range, 'fortress.weapon.range', missing),
       auraStrength: data.fortress.auras.strength.base ?? 0,
       auraRadius: data.fortress.auras.radius.base ?? 0,
-      gemsPerWave: data.fortress.resourceBuilding.gemsPerWave ?? 0,
+      gemsPerPayout: data.fortress.resourceBuilding.gemsPerPayout ?? 0,
+      gemPayoutTicks: gemPayoutTicks(data, 1),
+      gemCooldown: gemPayoutTicks(data, 1),
       upgrades: {},
       destroyed: false,
     },
@@ -123,6 +120,22 @@ function createLane(
       tech: {},
     },
   };
+}
+
+/**
+ * How many simulation ticks apart the resource building's payouts are, at a
+ * given multiple of its base rate (§10.2).
+ *
+ * Rounded to a whole tick rather than accumulated as a fraction: a payout then
+ * lands on an exact tick that every client computes identically, with no drift
+ * to argue about. At 20Hz and a two-second base the rounding is worth about a
+ * per cent, which is far below anything a player can perceive in a currency
+ * that arrives every couple of seconds.
+ */
+export function gemPayoutTicks(data: GameData, rateMultiplier: number): number {
+  const base = secondsToTicks(data.fortress.resourceBuilding.payoutSeconds ?? 0);
+  if (base <= 0 || rateMultiplier <= 0) return 0;
+  return Math.max(1, Math.round(base / rateMultiplier));
 }
 
 export function createMatch(data: GameData, options: MatchOptions): MatchState {
@@ -148,9 +161,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     // An unknown builder is a caller bug, not a balance gap, and silently
     // seating them with someone else's roster would be worse than saying so.
     if (setup.builderId !== undefined && !known.has(setup.builderId)) {
-      throw new Error(
-        `No such builder '${setup.builderId}'. Known: ${[...known].join(', ')}`,
-      );
+      throw new Error(`No such builder '${setup.builderId}'. Known: ${[...known].join(', ')}`);
     }
     lanes[setup.id] = createLane(data, setup.id, wanted, missing);
   }

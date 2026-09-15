@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { applyCommand, createContext, createMatch, step } from './index.ts';
+import { applyCommand, createContext, createMatch, secondsToTicks, step } from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
@@ -147,10 +147,19 @@ describe('fortress upgrades (§10.1, §10.2)', () => {
       regen: lane.fortress.regenPerClear,
       strength: lane.fortress.auraStrength,
       radius: lane.fortress.auraRadius,
-      gems: lane.fortress.gemsPerWave,
+      gemsPerPayout: lane.fortress.gemsPerPayout,
+      payoutTicks: lane.fortress.gemPayoutTicks,
     };
 
-    for (const id of ['weapon', 'hp', 'regen', 'auraStrength', 'auraRadius', 'gemProduction']) {
+    for (const id of [
+      'weapon',
+      'hp',
+      'regen',
+      'auraStrength',
+      'auraRadius',
+      'gemOutput',
+      'gemRate',
+    ]) {
       expect(
         applyCommand(ctx, state, {
           kind: 'buyFortressUpgrade',
@@ -165,7 +174,9 @@ describe('fortress upgrades (§10.1, §10.2)', () => {
     expect(lane.fortress.regenPerClear).toBeGreaterThan(before.regen);
     expect(lane.fortress.auraStrength).toBeGreaterThan(before.strength);
     expect(lane.fortress.auraRadius).toBeGreaterThan(before.radius);
-    expect(lane.fortress.gemsPerWave).toBeGreaterThan(before.gems);
+    expect(lane.fortress.gemsPerPayout).toBeGreaterThan(before.gemsPerPayout);
+    // A faster rate is a SHORTER interval between payouts.
+    expect(lane.fortress.gemPayoutTicks).toBeLessThan(before.payoutTicks);
   });
 
   it('heals by the HP gained rather than to full', () => {
@@ -191,6 +202,122 @@ describe('fortress upgrades (§10.1, §10.2)', () => {
         upgradeId: 'nope',
       }),
     ).toEqual({ ok: false, rejection: 'unknown-definition' });
+  });
+});
+
+describe('the resource building (§10.2, amended)', () => {
+  const building = data.fortress.resourceBuilding;
+
+  it('starts at one gem every two seconds', () => {
+    const { state } = rich();
+    const fortress = state.lanes.l1!.fortress;
+    expect(fortress.gemsPerPayout).toBe(1);
+    expect(building.payoutSeconds).toBe(2);
+    expect(fortress.gemPayoutTicks).toBe(secondsToTicks(2));
+  });
+
+  it('pays while you are building, not only while you are fighting', () => {
+    // The whole point of moving off a per-wave lump: the building earns during
+    // the thirty seconds you spend deciding what to do with what it earned.
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    lane.economy.gems = 0;
+    expect(state.phase).toBe('build');
+
+    for (let t = 0; t < lane.fortress.gemPayoutTicks * 2; t++) step(ctx, state);
+    expect(state.phase).toBe('build');
+    expect(lane.economy.gems).toBe(2);
+  });
+
+  it('adds a gem per payout for each level of output', () => {
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    const levels = building.output.upgrades.length;
+
+    for (let i = 1; i <= levels; i++) {
+      expect(
+        applyCommand(ctx, state, {
+          kind: 'buyFortressUpgrade',
+          teamId: 'l1',
+          upgradeId: 'gemOutput',
+        }).ok,
+      ).toBe(true);
+      expect(lane.fortress.gemsPerPayout).toBe(1 + i);
+    }
+  });
+
+  it('adds half the base rate per level, additively rather than compounding', () => {
+    // 1.5x, 2x, 2.5x ... not 1.5x, 2.25x, 3.375x. The interval is the base
+    // divided by that, so it shrinks toward a floor rather than toward zero.
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    const base = secondsToTicks(building.payoutSeconds ?? 0);
+
+    building.rate.upgrades.forEach((level, i) => {
+      expect(level.value, `level ${i + 1}`).toBeCloseTo(1 + 0.5 * (i + 1), 6);
+      applyCommand(ctx, state, {
+        kind: 'buyFortressUpgrade',
+        teamId: 'l1',
+        upgradeId: 'gemRate',
+      });
+      expect(lane.fortress.gemPayoutTicks).toBe(Math.max(1, Math.round(base / (level.value ?? 1))));
+    });
+  });
+
+  it('actually pays out faster once the rate is bought', () => {
+    const paidIn = (ticks: number, rateLevels: number): number => {
+      const { state, ctx } = rich();
+      const lane = state.lanes.l1!;
+      for (let i = 0; i < rateLevels; i++) {
+        applyCommand(ctx, state, {
+          kind: 'buyFortressUpgrade',
+          teamId: 'l1',
+          upgradeId: 'gemRate',
+        });
+      }
+      lane.economy.gems = 0;
+      for (let t = 0; t < ticks; t++) step(ctx, state);
+      return lane.economy.gems;
+    };
+
+    const window = secondsToTicks(20);
+    expect(paidIn(window, 1)).toBeGreaterThan(paidIn(window, 0));
+    expect(paidIn(window, 2)).toBeGreaterThan(paidIn(window, 1));
+  });
+
+  it('is bought with gold, not gems (§11.3, amended)', () => {
+    // A building that makes gems, paid for in gems, is a loop that only opens
+    // once you are already winning it.
+    for (const level of [...building.output.upgrades, ...building.rate.upgrades]) {
+      expect(level.gemCost ?? 0).toBe(0);
+      expect(level.goldCost ?? 0).toBeGreaterThan(0);
+    }
+
+    const { state, ctx } = rich();
+    const lane = state.lanes.l1!;
+    lane.economy.gems = 0;
+    const goldBefore = lane.economy.gold;
+
+    for (const id of ['gemOutput', 'gemRate']) {
+      expect(
+        applyCommand(ctx, state, { kind: 'buyFortressUpgrade', teamId: 'l1', upgradeId: id }).ok,
+        id,
+      ).toBe(true);
+    }
+    expect(lane.economy.gems).toBe(0);
+    expect(lane.economy.gold).toBeLessThan(goldBefore);
+  });
+
+  it('refuses when the gold is not there', () => {
+    const { state, ctx } = rich();
+    state.lanes.l1!.economy.gold = 0;
+    expect(
+      applyCommand(ctx, state, {
+        kind: 'buyFortressUpgrade',
+        teamId: 'l1',
+        upgradeId: 'gemOutput',
+      }),
+    ).toEqual({ ok: false, rejection: 'insufficient-gold' });
   });
 });
 

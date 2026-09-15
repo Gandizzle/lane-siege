@@ -181,6 +181,9 @@ export function createMonster(
     bounty: stats.bounty,
     radius: stats.radius,
     halfWidth: 0,
+    monster: true,
+    // §3.4, decided: a boss and its escort pass through each other (motion.ts).
+    phasesMonsters: def.isBoss === true,
     waveNumber: spec.waveNumber,
     pos: { x: pos.x, y: pos.y },
     hp: stats.hp,
@@ -216,6 +219,8 @@ export function createUnit(
     moveSpeed: stat(def.moveSpeed),
     radius: stat(def.bodyRadius),
     halfWidth: 0,
+    monster: false,
+    phasesMonsters: false,
     range: stat(def.range),
     // What it cost is stamped on by the command that bought it (apply.ts):
     // creation does not know whether this is a purchase or a test fixture.

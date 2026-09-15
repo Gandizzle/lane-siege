@@ -352,6 +352,28 @@ Decisions that override the document rather than filling a gap in it:
   regeneration on a full lane clear is `0`. Buying it is a fortress upgrade,
   landing with the rest of them in M3. Until then chip damage is permanent and
   the fortress weapon is the only thing holding the leak death-spiral off.
+- **§3.4 — a boss passes through monsters, and they through it.** It stays
+  perfectly solid to defensive units and to the fortress wall. A boss is four
+  times the width of the swarm it arrives with, and that swarm is what its wave
+  is made of; made solid to them it spends the fight wedged in its own escort,
+  and the escort spends the fight queueing round a body it cannot get past.
+  Measured against a defended line: solid, the boss never reached the line in
+  600 ticks and walked 3.2 tiles for every tile of progress; phasing, it engages
+  at tick 270 at 1.05x. Nothing about the crowd's shape depends on one body, so
+  the cost is a boss and some monsters sharing ground, which is what a thing
+  that size wading through a swarm should look like anyway.
+- **§10.2, §11.3 — the resource building pays gems on its own clock, and both
+  of its ladders are bought with gold.** Gems used to arrive as a lump at the
+  end of each wave. They now arrive one every two seconds, all the time, in
+  both phases: an economy upgrade should pay you while you play rather than
+  settle up afterwards, and it makes buying the building early a real decision
+  rather than a delayed one. Two ladders replace the single one - `gemOutput`
+  adds a gem per payout, `gemRate` adds half the base rate per level,
+  ADDITIVELY (1.5x, 2x, 2.5x, not 1.5x, 2.25x, 3.375x). Both cost gold rather
+  than gems: §11.3 gives fortress upgrades to gems, but a building that makes
+  gems, paid for in gems, is a loop that only opens once you are already
+  winning it. Gold is what you have in the first build phase, which is when the
+  decision to invest should be live.
 - **§14.2 — every body has its own silhouette; the armour type is its
   family.** The document gave one shape per armour type, which is four shapes
   for thirty-seven bodies. Each unit and monster now has a distinct shape, and
