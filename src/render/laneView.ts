@@ -19,6 +19,13 @@ import { fortressShape, screenToTile } from './layout.ts';
 import { DAMAGE_COLOURS, UI } from './palette.ts';
 import { label } from './ui/text.ts';
 
+/**
+ * How strongly the build grid reads. Bright enough to aim at against the dark
+ * build zone, short of the full white the selected-tile ring is drawn in - that
+ * ring has to stand out against these lines, not compete with them.
+ */
+const GRID_ALPHA = 0.32;
+
 export interface LaneViewHandlers {
   onTapTile(tileX: number, tileY: number): void;
   onTapElsewhere(): void;
@@ -68,6 +75,13 @@ export class LaneView extends Container {
    * §4.2: the grid exists purely for positioning - front line to absorb, back
    * line to deal damage - not for scarcity. Supply is the limiting factor, not
    * space, so players should rarely run out of tiles.
+   *
+   * It is drawn bright, and only while building. Tiles are a thing you aim at
+   * for thirty seconds and then stop caring about entirely: once a wave is in
+   * the lane nothing you can do is tile-aligned, and a lattice over a fight is
+   * just something else for the eye to pick through. So the lines come up at
+   * full strength when they are the thing you are working with, and go away
+   * when they are not. `render()` does the toggling.
    */
   private drawGrid(): void {
     const g = this.grid;
@@ -82,7 +96,7 @@ export class LaneView extends Container {
       const py = gridOrigin.y + y * tileSize;
       g.moveTo(gridOrigin.x, py).lineTo(gridOrigin.x + grid.width * tileSize, py);
     }
-    g.stroke({ width: 1, color: UI.gridLine });
+    g.stroke({ width: 1, color: UI.outline, alpha: GRID_ALPHA });
   }
 
   /**
@@ -153,6 +167,10 @@ export class LaneView extends Container {
   ): void {
     this.highlight.clear();
     this.overlay.removeChildren();
+
+    // §3.1: the build phase is the only one in which a tile is a thing you can
+    // act on, so it is the only one the lattice is drawn for.
+    this.grid.visible = view.phase === 'build';
 
     if (selectedUnitId !== null) {
       const unit = lane.units.find((u) => u.id === selectedUnitId);

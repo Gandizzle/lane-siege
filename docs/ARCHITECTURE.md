@@ -567,6 +567,28 @@ like the effects layer, and the simulation neither reads it nor knows it exists
 — `aura.test.ts` asserts that literally, and that each channel moves when the
 thing it stands for is bought.
 
+### The build grid, and what a unit button shows
+
+Two small things that both come down to §14.2: show the player the thing
+itself, and only while it is the thing they are working with.
+
+**The grid is drawn bright, and only during the build phase.** A tile is
+something you aim at for thirty seconds and then stop caring about entirely -
+once a wave is in the lane nothing you can do is tile-aligned, and a lattice
+over a fight is one more thing for the eye to pick through. So the lines come
+up at full strength when they are what you are working with, and vanish when
+they are not.
+
+**A unit button carries the unit's own silhouette, not a coloured square.**
+The same armour shape, the same damage-type fill, the same tier pips that
+§14.2 draws on the board, from the same `drawEntity` the entity layer uses - so
+the thing you tap and the thing that appears on the tile are drawn by one
+function and cannot disagree. Choosing what to build is choosing a shape you
+will have to pick out of a crowd three seconds later, and a row of identical
+squares teaches you nothing about which shape that is. The chips that really
+are just a colour - a damage type on the Aura tab, a tech track - stay squares,
+because that is what they are.
+
 ### The selected unit: what it says, and selling it back
 
 Tapping a unit on the board replaces the Build grid with a panel about that

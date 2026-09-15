@@ -39,6 +39,7 @@ import type { LaneLayout } from '../layout.ts';
 import { auraColour } from '../aura.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { GridButton } from './gridButton.ts';
+import type { EntityStyle } from '../shapes.ts';
 import { centreOn, label, wrapped } from './text.ts';
 import {
   STAT_CELLS,
@@ -519,7 +520,7 @@ export class BuildBar extends Container {
         canBuild && economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap;
 
       const verdict = summary?.units.find((u) => u.unitId === def.id)?.verdict;
-      button.setSwatch(DAMAGE_COLOURS[def.damageType]);
+      button.setSwatch(glyphOf(def));
       button.update({
         title: def.name,
         detail: `${gold}g · ${supply} supply`,
@@ -701,7 +702,9 @@ export class BuildBar extends Container {
 
     const gold = next.goldCost ?? 0;
     const supply = next.supplyCost ?? 0;
-    this.upgradeButton.setSwatch(DAMAGE_COLOURS[next.damageType]);
+    // The body it becomes, not just its colour: the tier pips are the clearest
+    // statement of what the button buys.
+    this.upgradeButton.setSwatch(glyphOf(next));
     this.upgradeButton.update({
       title: 'Upgrade',
       detail: `${gold}g${supply ? ` · +${supply} supply` : ''}`,
@@ -752,6 +755,17 @@ function fortressLadders(data: GameData) {
 function laneName(teamId: string): string {
   const match = /(\d+)$/.exec(teamId);
   return match ? `Lane ${match[1]}` : teamId;
+}
+
+/** A unit as §14.2 draws it: armour shape, damage colour, tier size and pips. */
+function glyphOf(def: UnitDef): EntityStyle {
+  return {
+    armour: def.armour,
+    damageType: def.damageType,
+    tier: def.tier,
+    // Solid, because it is one of yours (§14.2). Monsters are the outlines.
+    outlined: false,
+  };
 }
 
 /** Lay buttons out in a fixed grid, left to right then top to bottom. */

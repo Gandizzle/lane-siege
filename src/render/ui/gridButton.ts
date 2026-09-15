@@ -8,6 +8,8 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import { UI } from '../palette.ts';
+import { drawEntity } from '../shapes.ts';
+import type { EntityStyle } from '../shapes.ts';
 import { label } from './text.ts';
 
 export class GridButton extends Container {
@@ -59,12 +61,30 @@ export class GridButton extends Container {
     this.note.y = Math.max(this.detail.y + 11, height - 16);
   }
 
-  /** A coloured square in the top-right, for damage types and unit glyphs. */
-  setSwatch(colour: number | null): void {
+  /**
+   * The mark in the top-right corner: a plain chip for a colour, or the body
+   * itself for a unit.
+   *
+   * A unit button gets the real silhouette - the same armour shape, the same
+   * damage-type fill, the same tier pips that §14.2 draws on the board. A
+   * player choosing what to build is choosing a shape they will have to read in
+   * a crowd three seconds later, and a row of identical squares teaches them
+   * nothing about which shape that is. Everything else here is genuinely a
+   * colour and nothing more - a damage type, an aura - and stays a chip.
+   */
+  setSwatch(mark: number | EntityStyle | null): void {
     this.swatch.clear();
-    if (colour === null) return;
+    if (mark === null) return;
+
     const size = Math.min(14, this.h * 0.22);
-    this.swatch.roundRect(this.w - size - 8, 7, size, size, 3).fill({ color: colour });
+    if (typeof mark === 'number') {
+      this.swatch.roundRect(this.w - size - 8, 7, size, size, 3).fill({ color: mark });
+      return;
+    }
+    // Centred in the same box the chip occupies, and sized so a tier 3 body -
+    // which §14.2 draws larger - still lands inside it along with its pips.
+    const radius = (size / 2) * 0.82;
+    drawEntity(this.swatch, mark, this.w - size / 2 - 8, 7 + size / 2 - radius * 0.3, radius);
   }
 
   update(opts: {
