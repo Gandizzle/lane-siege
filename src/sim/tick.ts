@@ -747,19 +747,50 @@ function fortressActs(ctx: SimContext, lane: Lane): void {
   const target = nearestInRange(lane.monsters, ctx.fortress, weapon.weaponRange);
   if (!target) return;
 
+  const alive = target.hp > 0;
   target.hp -= resolveDamage(
     ctx.data.matrix.multipliers,
     weapon.weaponDamage,
     lane.fortress.weaponDamageType,
     target.armour,
   );
+  // Whoever lands the killing blow owns the kill, and the wall's kills pay
+  // differently (§11.1, amended). `alive` guards the case where something else
+  // already finished it this tick and it has not been reaped yet.
+  if (alive && target.hp <= 0) target.killedByFortress = true;
   lane.fortress.weaponCooldown = cooldownTicks(weapon.weaponAttackSpeed);
   lane.attacks.push({ attackerId: FORTRESS_ID, targetId: target.id });
 }
 
 /**
- * §11.1: the defender always gets the bounty, including for monsters an
- * opponent sent at them.
+ * §11.1, amended: a kill the FORTRESS made pays the lane it happened in
+ * nothing, and pays every other living lane a flat gold instead.
+ *
+ * The weapon exists so that a small leak repairs itself and a large one is
+ * correctly fatal (§10.1) - not as a defence you build around. Paid the bounty
+ * for its kills, it was: a player could let the wall farm a wave and bank the
+ * gold for it. Now leaning on the wall funds the rest of the table, which is
+ * the same pressure §11.5 puts on sending - your economy is everyone else's
+ * problem and theirs is yours.
+ *
+ * Flat, and per other lane, rather than the monster's own bounty: what the
+ * wall kills is not a choice anyone made, so the payout should not scale with
+ * what happened to wander into it.
+ */
+function payTheTable(ctx: SimContext, state: MatchState, killedIn: Lane): void {
+  const bounty = ctx.data.economy.fortressKillBounty ?? 0;
+  if (bounty <= 0) return;
+
+  for (const team of state.teams) {
+    if (team.eliminated || team.id === killedIn.teamId) continue;
+    const lane = state.lanes[team.id];
+    if (lane) lane.economy.gold += bounty;
+  }
+}
+
+/**
+ * §11.1: the defender gets the bounty for a monster its own line killed,
+ * including for monsters an opponent sent at them.
  *
  * §5.5: when the lane goes fully clear the fortress regenerates, so chip damage
  * is not permanent. That lever plus the fortress weapon is the primary control
@@ -773,7 +804,8 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
     monster.alive = false;
     anyMonsterDied = true;
 
-    lane.economy.gold += monster.bounty;
+    if (monster.killedByFortress) payTheTable(ctx, state, lane);
+    else lane.economy.gold += monster.bounty;
 
     const clock = state.waveClocks.find((c) => c.waveNumber === monster.waveNumber);
     if (clock) clock.remaining -= 1;
@@ -795,20 +827,6 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
     // Drop the corpses, then let the reserve queue refill the free slots (§8.1).
     lane.monsters = lane.monsters.filter((m) => m.alive);
     admitFromReserve(state, ctx.data, ctx.defs, lane);
-
-    // §5.5, amended: regeneration on a full clear is an upgrade, so this is a
-    // no-op until one is bought. Chip damage is otherwise permanent.
-    if (
-      lane.fortress.regenPerClear > 0 &&
-      countLiving(lane) === 0 &&
-      lane.reserve.length === 0 &&
-      !lane.fortress.destroyed
-    ) {
-      lane.fortress.hp = Math.min(
-        lane.fortress.maxHp,
-        lane.fortress.hp + lane.fortress.regenPerClear,
-      );
-    }
   }
 
   if (lane.fortress.hp <= 0) lane.fortress.destroyed = true;
@@ -1059,6 +1077,7 @@ export function step(
     laneTick(ctx, lane, state);
     fortressActs(ctx, lane);
     produceGems(lane);
+    regenerateFortress(lane);
     reapDead(ctx, lane, state);
   }
 
@@ -1080,6 +1099,27 @@ export function step(
  * on; the countdown cannot drift, and there is nothing to argue about between
  * two clients running the same match.
  */
+/**
+ * §5.5, amended: the fortress heals on a clock, not in a lump when the lane
+ * goes clear.
+ *
+ * Every tick, in both phases, for as long as it stands. Healing only on a
+ * clear made chip damage permanent for anyone who never quite cleared, and
+ * made the reward for clearing a wave arrive as a number that jumped. A
+ * trickle is legible while you watch it: a wall losing HP faster than this is
+ * one that is actually in trouble.
+ */
+function regenerateFortress(lane: Lane): void {
+  const fortress = lane.fortress;
+  if (fortress.destroyed || fortress.regenPerSecond <= 0) return;
+  // A wall that has reached zero is down, whatever the tick order says. The
+  // flag is set at the end of the tick (`reapDead`), so without this a lane
+  // could be healed back out of its own elimination.
+  if (fortress.hp <= 0 || fortress.hp >= fortress.maxHp) return;
+
+  fortress.hp = Math.min(fortress.maxHp, fortress.hp + fortress.regenPerSecond * SECONDS_PER_TICK);
+}
+
 function produceGems(lane: Lane): void {
   const fortress = lane.fortress;
   if (fortress.gemPayoutTicks <= 0) return;

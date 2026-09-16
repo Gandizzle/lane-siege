@@ -173,6 +173,15 @@ export interface Monster {
   moveSpeed: number;
   range: number;
   bounty: number;
+  /**
+   * The fortress weapon landed the killing blow (§11.1, amended).
+   *
+   * Set at the moment its HP crosses zero and read once, by `reapDead`, to
+   * decide who is paid: a kill the wall made pays every OTHER lane a flat
+   * gold, and pays this one nothing. A body is reaped on the tick it dies, so
+   * the flag never has to be cleared.
+   */
+  killedByFortress: boolean;
   /** Body radius in tiles: collision, hit and drawn size at once. */
   radius: number;
   /**
@@ -224,14 +233,15 @@ export interface Fortress {
   hp: number;
   maxHp: number;
   /**
-   * HP restored when the lane goes fully clear (§5.5).
+   * HP restored per second, applied every tick in both phases (§5.5, amended).
    *
    * Lives on the lane rather than being read from data each time, because it is
-   * bought rather than given: it starts at whatever `fortress.regenOnLaneClear`
-   * says (currently 0 - self-healing is an upgrade, not a default) and a
-   * purchased upgrade raises it.
+   * bought rather than given: it starts at whatever `fortress.regen` says and a
+   * purchased upgrade raises it. A steady trickle rather than a lump sum when
+   * the lane goes clear - chip damage heals while you play, and a wall that is
+   * losing HP faster than this is a wall that is actually under threat.
    */
-  regenPerClear: number;
+  regenPerSecond: number;
   /** Player-selectable each build phase, free and instant (§10.1). */
   weaponDamageType: DamageType;
   weaponCooldown: number;

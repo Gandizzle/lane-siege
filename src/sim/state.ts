@@ -91,7 +91,7 @@ function createLane(data: GameData, teamId: TeamId, builderId: string, missing: 
       maxHp,
       // 0 by default: the fortress does not self-heal until the upgrade is
       // bought (§5.5, amended).
-      regenPerClear: data.fortress.regenOnLaneClear.base ?? 0,
+      regenPerSecond: data.fortress.regen.base ?? 0,
       // Player-selectable each build phase (§10.1); this is only the opening value.
       weaponDamageType: weaponType ?? 'impact',
       weaponCooldown: 0,

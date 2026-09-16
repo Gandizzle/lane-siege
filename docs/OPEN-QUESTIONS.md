@@ -348,10 +348,33 @@ Decisions that override the document rather than filling a gap in it:
   no further waves spawn there. Without this a dead lane's leftovers would stall
   combat forever, since combat now ends only when every lane is empty.
 
-- **§5.5 — fortress self-healing is an upgrade, not a default.** Base
-  regeneration on a full lane clear is `0`. Buying it is a fortress upgrade,
-  landing with the rest of them in M3. Until then chip damage is permanent and
-  the fortress weapon is the only thing holding the leak death-spiral off.
+- **§5.5 — the fortress heals continuously, not on a lane clear.** §5.5 gave
+  the wall its HP back when the lane went fully clear. It now heals every tick,
+  in both phases, at `fortress.regen.base` HP per second (5 to start, and a
+  ladder that raises it). Healing only on a clear meant a player who never
+  quite cleared a wave never healed at all - the lever was hardest to pull
+  exactly when it was needed - and it made the reward for clearing arrive as a
+  number that jumped rather than a wall you can watch recover. A trickle is
+  also legible: a fortress losing HP faster than it heals is one that is
+  genuinely in trouble. Healing cannot save a wall that has already reached
+  zero; the elimination check owns that moment.
+- **§11.1 — a kill the FORTRESS makes pays every other lane, not the
+  defender.** The wall exists so a small leak repairs itself and a large one is
+  correctly fatal (§10.1), not as a defence to build around - but paid the
+  bounty for its own kills, it was exactly that: let the weapon farm the wave
+  and bank the gold. A monster the wall kills now pays the lane it died in
+  nothing, and every other living lane `economy.fortressKillBounty` gold (1).
+  Flat, and per other lane, rather than the monster's own bounty: what the wall
+  catches is nobody's decision, so the payout should not scale with what
+  happened to wander into it. A monster your own line killed is worth exactly
+  what it always was.
+- **§14.1 — a selected unit is a view of its own, belonging to no tab.**
+  Selecting a placed unit takes the lit state off every tab and puts up what
+  that unit is, what it does, and the two things you can do about it (§7.3,
+  §11); tapping any tab puts the unit down and goes there. It used to live
+  inside the Build tab, which meant a unit tapped from any other tab opened
+  nothing at all - and the tap that went looking for it in Build threw the
+  selection away on the way past.
 - **§3.4 — a boss passes through monsters, and they through it.** It stays
   perfectly solid to defensive units and to the fortress wall. A boss is four
   times the width of the swarm it arrives with, and that swarm is what its wave

@@ -1,63 +1,197 @@
 {
-  "_comment": "DESIGN.md §11. Gold buys units, tiers and tech; gems buy fortress upgrades and sends. Supply is one shared budget across offence, defence and economy. All placeholders.",
+  "_comment": "DESIGN.md \u00a711. Gold buys units, tiers and tech; gems buy fortress upgrades and sends. Supply is one shared budget across offence, defence and economy. All placeholders.",
   "startingGold": 400,
   "startingGems": 0,
+  "_fortressKillNote": "\u00a711.1, amended: a monster the FORTRESS kills pays its bounty to nobody. Every other living lane gets this much gold instead, so leaning on the wall funds the table rather than you.",
+  "fortressKillBounty": 1,
   "supply": {
-    "_comment": "§11.4: the cap does not grow on its own - it is an upgrade you choose to buy, which makes a large army a deliberate investment.",
-    "_open": "OPEN (§11.1): gold or gems? The doc recommends gold and that is what these cost. Say the word and it is a one-line change.",
-    "capBase": 22,
+    "_comment": "\u00a711.4: the cap does not grow on its own - it is an upgrade you choose to buy, which makes a large army a deliberate investment. A flat price and a flat +5, so the decision is always the same one: five more supply, or a unit now.",
+    "capBase": 25,
     "capUpgrades": [
       {
         "level": 1,
-        "goldCost": 110,
-        "gemCost": null,
-        "supplyCost": 0,
-        "value": 26
-      },
-      {
-        "level": 2,
-        "goldCost": 187,
+        "goldCost": 25,
         "gemCost": null,
         "supplyCost": 0,
         "value": 30
       },
       {
-        "level": 3,
-        "goldCost": 318,
+        "level": 2,
+        "goldCost": 25,
         "gemCost": null,
         "supplyCost": 0,
-        "value": 34
+        "value": 35
+      },
+      {
+        "level": 3,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 40
       },
       {
         "level": 4,
-        "goldCost": 540,
+        "goldCost": 25,
         "gemCost": null,
         "supplyCost": 0,
-        "value": 38
+        "value": 45
       },
       {
         "level": 5,
-        "goldCost": 919,
+        "goldCost": 25,
         "gemCost": null,
         "supplyCost": 0,
-        "value": 42
+        "value": 50
       },
       {
         "level": 6,
-        "goldCost": 1562,
+        "goldCost": 25,
         "gemCost": null,
         "supplyCost": 0,
-        "value": 46
+        "value": 55
+      },
+      {
+        "level": 7,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 60
+      },
+      {
+        "level": 8,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 65
+      },
+      {
+        "level": 9,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 70
+      },
+      {
+        "level": 10,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 75
+      },
+      {
+        "level": 11,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 80
+      },
+      {
+        "level": 12,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 85
+      },
+      {
+        "level": 13,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 90
+      },
+      {
+        "level": 14,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 95
+      },
+      {
+        "level": 15,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 100
+      },
+      {
+        "level": 16,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 105
+      },
+      {
+        "level": 17,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 110
+      },
+      {
+        "level": 18,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 115
+      },
+      {
+        "level": 19,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 120
+      },
+      {
+        "level": 20,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 125
+      },
+      {
+        "level": 21,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 130
+      },
+      {
+        "level": 22,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 135
+      },
+      {
+        "level": 23,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 140
+      },
+      {
+        "level": 24,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 145
+      },
+      {
+        "level": 25,
+        "goldCost": 25,
+        "gemCost": null,
+        "supplyCost": 0,
+        "value": 150
       }
     ]
   },
   "sell": {
-    "_comment": "DESIGN.md §11, decided (not in the document). Selling returns this fraction of what was paid for a unit, including its upgrades. Full price within the build phase that bought it, so building by mistake is undoable; half afterwards, so rebuilding the board between waves costs something. Rates are per PURCHASE, not per unit: an upgrade bought this phase refunds in full even on an old body.",
+    "_comment": "DESIGN.md \u00a711, decided (not in the document). Selling returns this fraction of what was paid for a unit, including its upgrades. Full price within the build phase that bought it, so building by mistake is undoable; half afterwards, so rebuilding the board between waves costs something. Rates are per PURCHASE, not per unit: an upgrade bought this phase refunds in full even on an old body.",
     "sameBuildPhase": 1,
     "later": 0.5
   },
   "tech": {
-    "_comment": "§7.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
+    "_comment": "\u00a77.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
     "tracks": [
       {
         "id": "dmg_impact",

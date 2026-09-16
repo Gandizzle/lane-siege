@@ -784,7 +784,7 @@ same frame; remotely it is a round trip and the refusal comes back as a message.
 Either way it is the same `applyCommand` the simulation uses, so a tap costs the
 same in both modes.
 
-Implemented and tested (381 tests):
+Implemented and tested (388 tests):
 
 - Seeded RNG and per-wave derivation (§9.2)
 - The damage matrix and its row/column invariant (§6)
@@ -799,12 +799,14 @@ Implemented and tested (381 tests):
 - Commands: place, upgrade in place, weapon type, aura, tech, fortress, supply
   and send — with cost, supply, tile and phase validation inside the simulation
   (§7.3, §11.4, §3.2)
-- Gold flow: kill bounties to the defender, gems per wave, passive income payout
-  (§11.1, §11.6, §10.2)
+- Gold flow: kill bounties to the defender for its own line's kills, a kill the
+  FORTRESS made paying every other living lane instead and the defender nothing,
+  and passive income payout (§11.1 amended, §11.6)
 - Unit respawn between waves, and its halt at wave 25 (§5.4, §3.3)
-- Fortress weapon and regeneration on lane clear (§10.1, §5.5), including that
-  the weapon fires with the damage, reach and rate the LADDER raised rather
-  than the ones the data file starts them at
+- Fortress weapon and continuous regeneration (§10.1, §5.5, amended): the
+  weapon fires with the damage, reach and rate the LADDER raised rather than
+  the ones the data file starts them at; the wall heals every tick in both
+  phases, never past its maximum, and never back out of its own destruction
 - Elimination and placement, including simultaneous deaths (§13)
 - End-to-end determinism: same seed, same final state (§15.1)
 - Portrait layout, the tile↔screen transform, and the shape vocabulary (§4.1,
@@ -812,6 +814,8 @@ Implemented and tested (381 tests):
 - Global tech, tied to damage types and cached per unit (§7.4, §15.3)
 - Fortress, weapon, regen, aura and resource upgrades, bought with gems (§10)
 - The supply cap as a purchase (§11.4)
+- The selected-unit view belonging to no tab: selecting a unit unlights every
+  tab and opens it, and tapping a tab puts the unit down (§14.1, amended)
 - Auras: one active, radius and strength upgrading separately (§10.1)
 - The attrition endgame: construction closes at wave 25, respawn stops, and
   gold keeps its sinks (§3.3)
@@ -903,12 +907,15 @@ matters. The full list is in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md#design-changes-to-designmd); the two with
 the widest blast radius are:
 
-- **The fortress does not self-heal by default** (§5.5). Regeneration on a full
-  lane clear is a fortress upgrade you buy, not a freebie —
-  `fortress.regenOnLaneClear.base` is `0` and `Fortress.regenPerClear` on the
-  lane is what an upgrade raises. §5.5 named regen as one of two levers against
-  the leak death-spiral, so until the upgrade ladder exists in M3 the fortress
-  weapon is carrying that alone and chip damage is permanent.
+- **The fortress heals on a clock, and its own kills pay everyone else**
+  (§5.5, §11.1). Regeneration is continuous — `fortress.regen.base` HP per
+  second, every tick, in both phases — rather than a lump when the lane goes
+  clear, because healing only on a clear withheld the lever from exactly the
+  player who needed it. And a monster the wall kills pays the lane it died in
+  nothing, while every other living lane collects `fortressKillBounty` gold:
+  the weapon is there so a small leak repairs itself and a large one is fatal
+  (§10.1), not as a defence to build around, and paid for its own kills it was
+  the latter.
 - **The combat phase ends as soon as every living lane is clear** (§3.2). §3.2's
   concern is that a _slow_ player must not hold everyone else hostage, and this
   cannot do that: the clock only jumps forward when every living lane is already
@@ -922,7 +929,7 @@ the widest blast radius are:
 They are placeholders and **not playtested**. As it stands the lane falls around
 wave 4, where §5.5 targets wave 13–15 for the first elimination. That gap is a
 data problem, not a code one: §5.5 names the two levers as the fortress weapon
-and lane-clear regeneration, and both are fields in `fortress.json`. Supply cap,
+and its regeneration, and both are fields in `fortress.json`. Supply cap,
 starting gold and the whole unit table are equally provisional.
 
 The point of M1 is that the systems run and are provable, and that fixing the

@@ -4,14 +4,22 @@
  * Sits at the bottom because that is the thumb zone for one-handed portrait
  * play. Five tabs, one per distinct thing to spend on, and a sixth to read:
  *
- *   Build  six units (§7.1), plus the upgrade panel for a selected one (§7.3)
+ *   Build  the six units of this lane's roster (§7.1)
  *   Tech   global tech, tied to damage types rather than unit types (§7.4)
  *   Fort   fortress and resource-building upgrades, bought with gems (§10)
  *   Aura   the fortress weapon's damage type and the active aura (§10.1)
  *   Send   monsters at an opponent, bought with gems (§11.5)
  *   Damage what each of your units landed this round (damagePanel.ts)
  *
- * Damage is the odd one out and sits last for that reason: it spends nothing.
+ * A SELECTED UNIT is a seventh view and belongs to no tab: what it is, what it
+ * does, and the two things you can do about it (§7.3, §11). Tapping a unit
+ * takes the lit state off every tab and puts that panel up; tapping any tab
+ * puts the unit down and goes there. It used to live inside Build, which meant
+ * a unit tapped while another tab was open opened nothing at all, and the tap
+ * that went looking for it cleared the selection on the way.
+ *
+ * Damage is the odd one out among the tabs and sits last for that reason: it
+ * spends nothing.
  * It is here rather than beside the lane because §14.1 gives the lane the whole
  * width, and it is a tab rather than an overlay because the bar is already
  * where the screen puts things to read rather than things to watch.
@@ -59,6 +67,20 @@ import {
 export type Selection =
   { kind: 'unitDef'; unitDefId: string } | { kind: 'placedUnit'; unitId: number } | null;
 
+/** What the bar is showing: one of the tabs, or the selected-unit view. */
+export type View = Tab | 'unit';
+
+/**
+ * Which view is up.
+ *
+ * A selected unit outranks the tabs and belongs to none of them, so while one
+ * is selected no tab is lit and no tab's panel is drawn. Tapping a tab clears
+ * the selection (`setTab`), which is what brings that tab back.
+ */
+export function activeView(tab: Tab, unitSelected: boolean): View {
+  return unitSelected ? 'unit' : tab;
+}
+
 export interface BuildBarHandlers {
   onSelectUnitDef(unitDefId: string): void;
   /** §11.5: the sender picks the target, which is the point of the mechanic. */
@@ -79,7 +101,7 @@ export interface BuildBarHandlers {
   onSelectPlacedUnit(unitId: number): void;
 }
 
-type Tab = 'build' | 'tech' | 'fort' | 'aura' | 'send' | 'damage';
+export type Tab = 'build' | 'tech' | 'fort' | 'aura' | 'send' | 'damage';
 const TABS: { id: Tab; name: string }[] = [
   { id: 'build', name: 'Build' },
   { id: 'tech', name: 'Tech' },
@@ -89,15 +111,20 @@ const TABS: { id: Tab; name: string }[] = [
   { id: 'damage', name: 'Damage' },
 ];
 
-/** Fortress ladders the Fort tab exposes, in display order. */
-const FORT_UPGRADES: { id: string; name: string }[] = [
-  { id: 'weapon', name: 'Weapon' },
-  { id: 'hp', name: 'Fortress HP' },
-  { id: 'regen', name: 'Regeneration' },
-  { id: 'gemOutput', name: 'Gem Output' },
-  { id: 'gemRate', name: 'Gem Rate' },
-  { id: 'auraStrength', name: 'Aura Power' },
-  { id: 'auraRadius', name: 'Aura Radius' },
+/**
+ * Fortress ladders the Fort tab exposes, in display order.
+ *
+ * `unit` is what the next level's number MEANS - a price with no unit on the
+ * other side of the arrow is a number you cannot compare to anything.
+ */
+const FORT_UPGRADES: { id: string; name: string; unit: string }[] = [
+  { id: 'weapon', name: 'Weapon', unit: ' dmg' },
+  { id: 'hp', name: 'Fortress HP', unit: ' hp' },
+  { id: 'regen', name: 'Regeneration', unit: ' hp/s' },
+  { id: 'gemOutput', name: 'Gem Output', unit: ' gems' },
+  { id: 'gemRate', name: 'Gem Rate', unit: '× rate' },
+  { id: 'auraStrength', name: 'Aura Power', unit: '' },
+  { id: 'auraRadius', name: 'Aura Radius', unit: ' tiles' },
 ];
 
 const AURAS: { id: AuraType; name: string }[] = [
@@ -171,7 +198,8 @@ export class BuildBar extends Container {
   private readonly unitButtons: GridButton[] = [];
   private unitSlots: (UnitDef | undefined)[] = [];
   private readonly techButtons: { trackId: string; name: string; button: GridButton }[] = [];
-  private readonly fortButtons: { id: string; name: string; button: GridButton }[] = [];
+  private readonly fortButtons: { id: string; name: string; unit: string; button: GridButton }[] =
+    [];
   private readonly supplyButton: GridButton;
   private readonly weaponButtons: { type: DamageType; button: GridButton }[] = [];
   private readonly auraButtons: { id: AuraType; button: GridButton }[] = [];
@@ -242,7 +270,7 @@ export class BuildBar extends Container {
 
     for (const up of FORT_UPGRADES) {
       const button = new GridButton(() => this.handlers.onBuyFortress(up.id));
-      this.fortButtons.push({ id: up.id, name: up.name, button });
+      this.fortButtons.push({ id: up.id, name: up.name, unit: up.unit, button });
       this.panels.fort.addChild(button);
     }
     this.supplyButton = new GridButton(() => this.handlers.onBuySupply());
@@ -424,16 +452,22 @@ export class BuildBar extends Container {
     // §13: out of the match means out of the shop, whatever the phase says.
     const alive = !view.eliminated;
 
-    for (const button of this.tabButtons) button.redraw(button.id === this.active);
-
+    // A selected unit is a view of its own, belonging to no tab: none of them
+    // is lit while it is up, and tapping any of them puts the unit down and
+    // goes there. It used to live inside Build, so a unit tapped from any other
+    // tab opened nothing and the tap that went looking for it threw the
+    // selection away.
     const upgrading = selection?.kind === 'placedUnit';
-    this.upgradePanel.visible = upgrading && this.active === 'build';
-    this.panels.build.visible = this.active === 'build' && !upgrading;
-    this.panels.tech.visible = this.active === 'tech';
-    this.panels.fort.visible = this.active === 'fort';
-    this.panels.aura.visible = this.active === 'aura';
-    this.panels.send.visible = this.active === 'send';
-    this.panels.damage.visible = this.active === 'damage';
+    const showing = activeView(this.active, upgrading);
+    for (const button of this.tabButtons) button.redraw(showing === button.id);
+
+    this.upgradePanel.visible = showing === 'unit';
+    this.panels.build.visible = showing === 'build';
+    this.panels.tech.visible = showing === 'tech';
+    this.panels.fort.visible = showing === 'fort';
+    this.panels.aura.visible = showing === 'aura';
+    this.panels.send.visible = showing === 'send';
+    this.panels.damage.visible = showing === 'damage';
 
     // Before the wallet check below: the damage panel is the one thing here
     // that still reads once the fortress has fallen, and §13 lets a beaten
@@ -452,7 +486,7 @@ export class BuildBar extends Container {
     // without one is somebody else's, and nothing here should be pointed at it.
     if (!economy) return;
 
-    if (upgrading && this.active === 'build') {
+    if (showing === 'unit' && selection?.kind === 'placedUnit') {
       this.selectedUnitId = selection.unitId;
       this.renderUpgrade(lane, economy, selection.unitId, canAct && alive);
     } else {
@@ -593,7 +627,7 @@ export class BuildBar extends Container {
   private renderFort(economy: EconomyView, canAct: boolean): void {
     const ladders = fortressLadders(this.data);
 
-    for (const { id, name, button } of this.fortButtons) {
+    for (const { id, name, unit, button } of this.fortButtons) {
       const ladder = ladders[id] ?? [];
       const level = economy.upgrades[id] ?? 0;
       const next = ladder.find((l) => l.level === level + 1);
@@ -605,10 +639,11 @@ export class BuildBar extends Container {
       const supply = next?.supplyCost ?? 0;
       const price = gems > 0 ? `${gems} gem` : `${gold}g`;
 
+      const gain = next?.value ?? null;
       button.setSwatch(null);
       button.update({
         title: name,
-        detail: next ? `${price}${supply ? ` · ${supply}s` : ''}` : 'maxed',
+        detail: next ? `${price} → ${trim(gain)}${unit}${supply ? ` · ${supply}s` : ''}` : 'maxed',
         note: `level ${level}/${ladder.length}`,
         enabled:
           canAct &&
@@ -786,7 +821,7 @@ function fortressLadders(data: GameData) {
   return {
     weapon: f.weapon.upgrades,
     hp: f.hp.upgrades,
-    regen: f.regenOnLaneClear.upgrades,
+    regen: f.regen.upgrades,
     gemOutput: f.resourceBuilding.output.upgrades,
     gemRate: f.resourceBuilding.rate.upgrades,
     auraStrength: f.auras.strength.upgrades,
@@ -798,6 +833,12 @@ function fortressLadders(data: GameData) {
 function laneName(teamId: string): string {
   const match = /(\d+)$/.exec(teamId);
   return match ? `Lane ${match[1]}` : teamId;
+}
+
+/** A ladder's next value, without a trailing `.0` on the whole ones. */
+function trim(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '?';
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
 /** A unit as §14.2 draws it: armour shape, damage colour, tier size and pips. */

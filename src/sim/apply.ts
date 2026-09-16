@@ -205,7 +205,7 @@ function buyFortressUpgrade(
   const f = ctx.data.fortress;
   const ladders: Record<string, readonly UpgradeLevel[]> = {
     hp: f.hp.upgrades,
-    regen: f.regenOnLaneClear.upgrades,
+    regen: f.regen.upgrades,
     weapon: f.weapon.upgrades,
     auraStrength: f.auras.strength.upgrades,
     auraRadius: f.auras.radius.upgrades,
@@ -235,7 +235,7 @@ function buyFortressUpgrade(
       break;
     }
     case 'regen':
-      lane.fortress.regenPerClear = value;
+      lane.fortress.regenPerSecond = value;
       break;
     case 'weapon':
       lane.fortress.weaponDamage = value;

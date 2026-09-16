@@ -1,7 +1,7 @@
 {
-  "_comment": "DESIGN.md §10. Fortress upgrades are bought with GEMS, which is what makes offence and defence compete for the same currency (§11.3). All placeholders.",
+  "_comment": "DESIGN.md \u00a710. Fortress upgrades are bought with GEMS, which is what makes offence and defence compete for the same currency (\u00a711.3). All placeholders.",
   "armour": "plate",
-  "_armourNote": "Not stated in DESIGN.md. The matrix applies in both directions (§6), so a monster besieging the fortress needs something to resolve against.",
+  "_armourNote": "Not stated in DESIGN.md. The matrix applies in both directions (\u00a76), so a monster besieging the fortress needs something to resolve against.",
   "hp": {
     "base": 1000,
     "upgrades": [
@@ -49,49 +49,49 @@
       }
     ]
   },
-  "regenOnLaneClear": {
-    "_comment": "DESIGN CHANGE from §5.5: base is 0 - the fortress does NOT self-heal by default. Regeneration on a full lane clear is an upgrade you buy.",
-    "base": 0,
+  "regen": {
+    "_comment": "\u00a75.5, amended: the fortress heals CONTINUOUSLY, not in a lump when the lane goes clear. `base` and every `value` are HP per second, applied every tick in both phases.",
+    "base": 5,
     "upgrades": [
       {
         "level": 1,
         "goldCost": null,
         "gemCost": 35,
         "supplyCost": 0,
-        "value": 45
+        "value": 10
       },
       {
         "level": 2,
         "goldCost": null,
         "gemCost": 60,
         "supplyCost": 0,
-        "value": 90
+        "value": 15
       },
       {
         "level": 3,
         "goldCost": null,
         "gemCost": 101,
         "supplyCost": 0,
-        "value": 135
+        "value": 20
       },
       {
         "level": 4,
         "goldCost": null,
         "gemCost": 172,
         "supplyCost": 0,
-        "value": 180
+        "value": 25
       },
       {
         "level": 5,
         "goldCost": null,
         "gemCost": 292,
         "supplyCost": 0,
-        "value": 225
+        "value": 30
       }
     ]
   },
   "weapon": {
-    "_comment": "§10.1: the last line of defence. Should reliably kill one or two current-wave monsters unaided so small leaks self-repair and large ones are correctly fatal. Damage type is chosen by the player each build phase, free and instant.",
+    "_comment": "\u00a710.1: the last line of defence. Should reliably kill one or two current-wave monsters unaided so small leaks self-repair and large ones are correctly fatal. Damage type is chosen by the player each build phase, free and instant.",
     "damage": 45,
     "attackSpeed": 0.8,
     "range": 5.0,
@@ -141,7 +141,7 @@
     ]
   },
   "auras": {
-    "_comment": "§10.1: one aura active at a time, chosen by the player. Strength and radius upgrade SEPARATELY - early on the radius cannot cover the whole build zone, forcing a real choice between a tight buffed core near the fortress and a spread-out line that intercepts sooner but fights unbuffed.",
+    "_comment": "\u00a710.1: one aura active at a time, chosen by the player. Strength and radius upgrade SEPARATELY - early on the radius cannot cover the whole build zone, forcing a real choice between a tight buffed core near the fortress and a spread-out line that intercepts sooner but fights unbuffed.",
     "types": ["damage", "attackSpeed", "armour", "regeneration"],
     "strength": {
       "base": 0.15,
@@ -225,101 +225,227 @@
     }
   },
   "resourceBuilding": {
-    "_comment": "§10.2. Adjacent to the fortress, cannot be attacked. Produces gems on its own repeating clock rather than once per wave, so gems accrue while you play rather than arriving in a lump. A PAYOUT is what the player thinks of as a gem tick - it is called a payout here because 'tick' already means the simulation's 20Hz step (§15.1) and one word cannot mean both.",
+    "_comment": "\u00a710.2. Adjacent to the fortress, cannot be attacked. Produces gems on its own repeating clock rather than once per wave, so gems accrue while you play rather than arriving in a lump. A PAYOUT is what the player thinks of as a gem tick - it is called a payout here because 'tick' already means the simulation's 20Hz step (\u00a715.1) and one word cannot mean both.",
     "gemsPerPayout": 1,
     "payoutSeconds": 2,
-    "_costNote": "DESIGN CHANGE from §11.3: both ladders are bought with GOLD, not gems. A building that makes gems paid for in gems is a loop that only opens once you are already winning it; gold is what you have from the first build phase, which is when the decision to invest should be live. Costs are placeholders like every other number here.",
+    "_costNote": "DESIGN CHANGE from \u00a711.3: both ladders are bought with GOLD, not gems. A building that makes gems paid for in gems is a loop that only opens once you are already winning it; gold is what you have from the first build phase, which is when the decision to invest should be live. Costs are placeholders like every other number here.",
     "output": {
-      "_comment": "+1 gem per payout per level. `value` is the resolved total, not the increment. Costs supply: this is more building.",
+      "_comment": "Each level adds one gem to every payout, at a flat price: a straight trade of gold for gems that never stops being worth making.",
       "upgrades": [
         {
           "level": 1,
-          "goldCost": 120,
+          "goldCost": 50,
           "gemCost": null,
-          "supplyCost": 1,
+          "supplyCost": 0,
           "value": 2
         },
         {
           "level": 2,
-          "goldCost": 190,
+          "goldCost": 50,
           "gemCost": null,
-          "supplyCost": 1,
+          "supplyCost": 0,
           "value": 3
         },
         {
           "level": 3,
-          "goldCost": 300,
+          "goldCost": 50,
           "gemCost": null,
-          "supplyCost": 1,
+          "supplyCost": 0,
           "value": 4
         },
         {
           "level": 4,
-          "goldCost": 480,
+          "goldCost": 50,
           "gemCost": null,
-          "supplyCost": 1,
+          "supplyCost": 0,
           "value": 5
         },
         {
           "level": 5,
-          "goldCost": 770,
+          "goldCost": 50,
           "gemCost": null,
-          "supplyCost": 1,
+          "supplyCost": 0,
           "value": 6
         },
         {
           "level": 6,
-          "goldCost": 1230,
+          "goldCost": 50,
           "gemCost": null,
-          "supplyCost": 1,
+          "supplyCost": 0,
           "value": 7
+        },
+        {
+          "level": 7,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 8
+        },
+        {
+          "level": 8,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 9
+        },
+        {
+          "level": 9,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 10
+        },
+        {
+          "level": 10,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 11
+        },
+        {
+          "level": 11,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 12
+        },
+        {
+          "level": 12,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 13
+        },
+        {
+          "level": 13,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 14
+        },
+        {
+          "level": 14,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 15
+        },
+        {
+          "level": 15,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 16
+        },
+        {
+          "level": 16,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 17
+        },
+        {
+          "level": 17,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 18
+        },
+        {
+          "level": 18,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 19
+        },
+        {
+          "level": 19,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 20
+        },
+        {
+          "level": 20,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 21
+        },
+        {
+          "level": 21,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 22
+        },
+        {
+          "level": 22,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 23
+        },
+        {
+          "level": 23,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 24
+        },
+        {
+          "level": 24,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 25
+        },
+        {
+          "level": 25,
+          "goldCost": 50,
+          "gemCost": null,
+          "supplyCost": 0,
+          "value": 26
         }
       ]
     },
     "rate": {
-      "_comment": "How fast payouts come, as a multiple of the base rate. ADDITIVE, not compounding: each level adds half the base rate, which is why these run 1.5, 2, 2.5 ... rather than 1.5, 2.25, 3.375. No supply: it is the same building working faster, not more of it.",
+      "_comment": "Multiplier on the base rate, ADDITIVE: 1.5x, 2x, 2.5x, not 1.5x, 2.25x. The price climbs by its opening price each level, so the fifth costs five times the first.",
       "upgrades": [
         {
           "level": 1,
-          "goldCost": 150,
+          "goldCost": 100,
           "gemCost": null,
           "supplyCost": 0,
           "value": 1.5
         },
         {
           "level": 2,
-          "goldCost": 240,
+          "goldCost": 200,
           "gemCost": null,
           "supplyCost": 0,
-          "value": 2
+          "value": 2.0
         },
         {
           "level": 3,
-          "goldCost": 380,
+          "goldCost": 300,
           "gemCost": null,
           "supplyCost": 0,
           "value": 2.5
         },
         {
           "level": 4,
-          "goldCost": 610,
+          "goldCost": 400,
           "gemCost": null,
           "supplyCost": 0,
-          "value": 3
+          "value": 3.0
         },
         {
           "level": 5,
-          "goldCost": 980,
+          "goldCost": 500,
           "gemCost": null,
           "supplyCost": 0,
           "value": 3.5
-        },
-        {
-          "level": 6,
-          "goldCost": 1560,
-          "gemCost": null,
-          "supplyCost": 0,
-          "value": 4
         }
       ]
     }

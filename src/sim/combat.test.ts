@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { applyCommand } from './apply.ts';
-import { countLiving, createContext, createMatch, step } from './index.ts';
+import { countLiving, createContext, createMatch, step, TICKS_PER_SECOND } from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
@@ -89,57 +89,53 @@ describe('unit respawn (§5.4)', () => {
 });
 
 describe('fortress regeneration (§5.5, amended)', () => {
-  it('does not heal by default — self-healing is an upgrade, not a freebie', () => {
+  it('heals on a clock rather than on a lane clear', () => {
     const { state, ctx } = freshMatch();
     const lane = state.lanes.lane1!;
-
-    expect(lane.fortress.regenPerClear).toBe(0);
+    const perSecond = lane.fortress.regenPerSecond;
+    expect(perSecond).toBeGreaterThan(0);
 
     runToPhase(ctx, state, 'combat');
-    step(ctx, state);
-
     lane.fortress.hp = lane.fortress.maxHp - 500;
     const before = lane.fortress.hp;
 
-    for (const monster of lane.monsters) monster.hp = 0;
-    step(ctx, state);
-
-    // Chip damage is permanent until the upgrade is bought.
-    expect(lane.fortress.hp).toBe(before);
+    // One second of ticks, with the lane still full of monsters: the wall
+    // heals while it is being hit, not only once the lane is empty.
+    for (let t = 0; t < TICKS_PER_SECOND; t++) step(ctx, state);
+    expect(lane.monsters.some((m) => m.alive)).toBe(true);
+    expect(lane.fortress.hp - before).toBeCloseTo(perSecond, 6);
   });
 
-  it('heals on a full lane clear once the upgrade is bought', () => {
+  it('heals during the build phase too', () => {
     const { state, ctx } = freshMatch();
     const lane = state.lanes.lane1!;
-
-    runToPhase(ctx, state, 'combat');
-    step(ctx, state);
-
-    // Stand in for the fortress upgrade that M3 will sell.
-    lane.fortress.regenPerClear = 40;
     lane.fortress.hp = lane.fortress.maxHp - 500;
     const before = lane.fortress.hp;
 
-    for (const monster of lane.monsters) monster.hp = 0;
-    step(ctx, state);
-
-    expect(lane.fortress.hp).toBe(before + 40);
+    expect(state.phase).toBe('build');
+    for (let t = 0; t < TICKS_PER_SECOND; t++) step(ctx, state);
+    expect(state.phase).toBe('build');
+    expect(lane.fortress.hp - before).toBeCloseTo(lane.fortress.regenPerSecond, 6);
   });
 
   it('never heals past maximum', () => {
     const { state, ctx } = freshMatch();
     const lane = state.lanes.lane1!;
-
-    runToPhase(ctx, state, 'combat');
-    step(ctx, state);
-
-    lane.fortress.regenPerClear = 40;
     lane.fortress.hp = lane.fortress.maxHp - 1;
 
-    for (const monster of lane.monsters) monster.hp = 0;
-    step(ctx, state);
-
+    for (let t = 0; t < TICKS_PER_SECOND * 2; t++) step(ctx, state);
     expect(lane.fortress.hp).toBe(lane.fortress.maxHp);
+  });
+
+  it('does not resurrect a fortress that has already fallen', () => {
+    const { state, ctx } = freshMatch();
+    const lane = state.lanes.lane1!;
+    lane.fortress.hp = 0;
+    step(ctx, state);
+    expect(lane.fortress.destroyed).toBe(true);
+
+    for (let t = 0; t < TICKS_PER_SECOND; t++) step(ctx, state);
+    expect(lane.fortress.hp).toBeLessThanOrEqual(0);
   });
 });
 

@@ -144,7 +144,7 @@ describe('fortress upgrades (§10.1, §10.2)', () => {
     const before = {
       weapon: lane.fortress.weaponDamage,
       maxHp: lane.fortress.maxHp,
-      regen: lane.fortress.regenPerClear,
+      regen: lane.fortress.regenPerSecond,
       strength: lane.fortress.auraStrength,
       radius: lane.fortress.auraRadius,
       gemsPerPayout: lane.fortress.gemsPerPayout,
@@ -171,7 +171,7 @@ describe('fortress upgrades (§10.1, §10.2)', () => {
 
     expect(lane.fortress.weaponDamage).toBeGreaterThan(before.weapon);
     expect(lane.fortress.maxHp).toBeGreaterThan(before.maxHp);
-    expect(lane.fortress.regenPerClear).toBeGreaterThan(before.regen);
+    expect(lane.fortress.regenPerSecond).toBeGreaterThan(before.regen);
     expect(lane.fortress.auraStrength).toBeGreaterThan(before.strength);
     expect(lane.fortress.auraRadius).toBeGreaterThan(before.radius);
     expect(lane.fortress.gemsPerPayout).toBeGreaterThan(before.gemsPerPayout);

@@ -351,7 +351,7 @@ function fortressLadder(data: GameData, id: string) {
     case 'hp':
       return f.hp.upgrades;
     case 'regen':
-      return f.regenOnLaneClear.upgrades;
+      return f.regen.upgrades;
     case 'gemOutput':
       return f.resourceBuilding.output.upgrades;
     case 'gemRate':

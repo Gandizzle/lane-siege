@@ -179,6 +179,7 @@ export function createMonster(
     moveSpeed: stats.moveSpeed,
     range: stats.range,
     bounty: stats.bounty,
+    killedByFortress: false,
     radius: stats.radius,
     halfWidth: 0,
     monster: true,

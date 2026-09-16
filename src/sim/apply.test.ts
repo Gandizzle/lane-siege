@@ -271,6 +271,96 @@ describe('gold flow (§11.1)', () => {
   });
 });
 
+describe('who is paid for a kill the FORTRESS made (§11.1, amended)', () => {
+  /** Three lanes, every one of them quiet except for one monster at my wall. */
+  function oneMonsterAtMyWall() {
+    const state = createMatch(data, {
+      seed: 1,
+      teams: [
+        { id: 'lane1', playerIds: ['p1'] },
+        { id: 'lane2', playerIds: ['p2'] },
+        { id: 'lane3', playerIds: ['p3'] },
+      ],
+    });
+    const ctx = createContext(data);
+    runToPhase(ctx, state, 'combat');
+    step(ctx, state);
+
+    // Nobody else is fighting, so nobody else is earning; the only gold that
+    // moves in this test is the gold this one kill pays.
+    for (const lane of Object.values(state.lanes)) {
+      lane.reserve.length = 0;
+      lane.monsters.length = lane.teamId === 'lane1' ? 1 : 0;
+    }
+
+    const monster = state.lanes.lane1!.monsters[0]!;
+    monster.pos.x = 4;
+    monster.pos.y = 9.6;
+    return { state, ctx, monster };
+  }
+
+  /** Step until that monster is gone, and say whether the wall did it. */
+  function killIt(ctx: SimContext, state: MatchState, byFortress: boolean): void {
+    const lane = state.lanes.lane1!;
+    const monster = lane.monsters[0]!;
+    if (byFortress) {
+      monster.hp = 1;
+      lane.fortress.weaponCooldown = 0;
+    } else {
+      monster.hp = 0;
+    }
+    step(ctx, state);
+    expect(lane.monsters).toHaveLength(0);
+  }
+
+  it('pays every other living lane, and the lane it died in nothing', () => {
+    const { state, ctx } = oneMonsterAtMyWall();
+    const bounty = data.economy.fortressKillBounty!;
+    const before = {
+      mine: state.lanes.lane1!.economy.gold,
+      two: state.lanes.lane2!.economy.gold,
+      three: state.lanes.lane3!.economy.gold,
+    };
+
+    killIt(ctx, state, true);
+
+    expect(state.lanes.lane1!.economy.gold).toBe(before.mine);
+    expect(state.lanes.lane2!.economy.gold).toBe(before.two + bounty);
+    expect(state.lanes.lane3!.economy.gold).toBe(before.three + bounty);
+  });
+
+  it('still pays the defender for a kill their own line made', () => {
+    // The rule is about the WALL, not about the lane: a monster your units
+    // killed is worth what it has always been worth.
+    const { state, ctx } = oneMonsterAtMyWall();
+    const worth = state.lanes.lane1!.monsters[0]!.bounty;
+    const before = {
+      mine: state.lanes.lane1!.economy.gold,
+      two: state.lanes.lane2!.economy.gold,
+    };
+
+    killIt(ctx, state, false);
+
+    expect(state.lanes.lane1!.economy.gold).toBe(before.mine + worth);
+    expect(state.lanes.lane2!.economy.gold).toBe(before.two);
+  });
+
+  it('pays nothing to a team that is already out (§13)', () => {
+    const { state, ctx } = oneMonsterAtMyWall();
+    const bounty = data.economy.fortressKillBounty!;
+    state.teams.find((t) => t.id === 'lane2')!.eliminated = true;
+    const before = {
+      two: state.lanes.lane2!.economy.gold,
+      three: state.lanes.lane3!.economy.gold,
+    };
+
+    killIt(ctx, state, true);
+
+    expect(state.lanes.lane2!.economy.gold).toBe(before.two);
+    expect(state.lanes.lane3!.economy.gold).toBe(before.three + bounty);
+  });
+});
+
 describe('the fortress weapon type (§10.1)', () => {
   it('is free and instant during the build phase', () => {
     const { state, ctx } = freshMatch();

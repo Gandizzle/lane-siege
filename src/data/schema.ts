@@ -335,7 +335,8 @@ export interface FortressFile {
    */
   armour: ArmourType;
   hp: UpgradableStat;
-  regenOnLaneClear: UpgradableStat;
+  /** HP per second, applied every tick (§5.5, amended). */
+  regen: UpgradableStat;
   weapon: {
     damage: Unfilled<number>;
     attackSpeed: Unfilled<number>;
@@ -402,6 +403,11 @@ export interface TechTrack {
 export interface EconomyFile {
   startingGold: Unfilled<number>;
   startingGems: Unfilled<number>;
+  /**
+   * §11.1, amended: gold paid to every OTHER living lane when the fortress
+   * kills a monster. The lane it died in is paid nothing.
+   */
+  fortressKillBounty: Unfilled<number>;
   supply: {
     capBase: Unfilled<number>;
     capUpgrades: UpgradeLevel[];
