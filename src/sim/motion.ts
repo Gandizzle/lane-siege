@@ -111,6 +111,57 @@ export interface Bounds {
   maxX: number;
   minY: number;
   maxY: number;
+  /**
+   * A CROSS-shaped arena rather than a rectangle (§3.3 replaced, the Final Showdown).
+   *
+   * Present: a body must sit inside this band on at least one axis - inside it
+   * on x puts the body in the vertical spoke, on y in the horizontal one, on
+   * both in the square where they meet. Outside it on both is one of the four
+   * corners the cross does not cover, and nothing may stand there.
+   *
+   * The same band on both axes, because the arena is symmetric: four spokes of
+   * the same width around a square centre.
+   */
+  band?: { min: number; max: number };
+}
+
+/**
+ * How far outside the arena a body of `radius` at (x, y) is: 0 when it is
+ * legally inside, otherwise the shortest distance to somewhere it could stand.
+ *
+ * The rectangle is the easy half. The cross's corners are the other one: a
+ * body out there is inside neither band, and the way back in is whichever band
+ * edge is nearest - a push along x into the vertical spoke, or along y into
+ * the horizontal one.
+ */
+function outsideBy(bounds: Bounds, x: number, y: number, halfSpan: number, radius: number): number {
+  let worst = Math.max(
+    0,
+    bounds.minX + halfSpan - x,
+    x - (bounds.maxX - halfSpan),
+    bounds.minY + radius - y,
+    y - (bounds.maxY - radius),
+  );
+
+  const band = bounds.band;
+  if (band) {
+    const offX = bandOffset(band, x, halfSpan);
+    const offY = bandOffset(band, y, radius);
+    // Inside either band is inside the cross; outside both, the nearer way in
+    // is the one that counts.
+    const corner = Math.min(offX, offY);
+    if (corner > worst) worst = corner;
+  }
+  return worst;
+}
+
+/** How far `v` sits outside the band, allowing for the body's own half-width. */
+function bandOffset(band: { min: number; max: number }, v: number, half: number): number {
+  const low = band.min + half;
+  const high = band.max - half;
+  if (v < low) return low - v;
+  if (v > high) return v - high;
+  return 0;
 }
 
 /**
@@ -171,13 +222,7 @@ function deepestOverlap(
 ): number {
   const r = self.radius;
   const halfSpan = r + self.halfWidth;
-  let worst = Math.max(
-    0,
-    bounds.minX + halfSpan - at.x,
-    at.x - (bounds.maxX - halfSpan),
-    bounds.minY + r - at.y,
-    at.y - (bounds.maxY - r),
-  );
+  let worst = outsideBy(bounds, at.x, at.y, halfSpan, r);
   for (const set of obstacles) {
     for (const other of set) {
       if (!other.alive || !other.settled || other === self) continue;
@@ -226,6 +271,22 @@ function resolveContacts(
     } else if (proposed.y > bounds.maxY - r) {
       proposed.y = bounds.maxY - r;
       touched = true;
+    }
+
+    // A cross has inside corners, and they are walls like any other: a body in
+    // one is put back into whichever spoke is nearer.
+    const band = bounds.band;
+    if (band) {
+      const offX = bandOffset(band, proposed.x, halfSpan);
+      const offY = bandOffset(band, proposed.y, r);
+      if (offX > 0 && offY > 0) {
+        if (offX <= offY) {
+          proposed.x = proposed.x < band.min + halfSpan ? band.min + halfSpan : band.max - halfSpan;
+        } else {
+          proposed.y = proposed.y < band.min + r ? band.min + r : band.max - r;
+        }
+        touched = true;
+      }
     }
 
     for (const set of obstacles) {

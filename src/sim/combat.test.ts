@@ -1,5 +1,5 @@
 /**
- * Wave lifecycle behaviour. DESIGN.md §5.4, §5.5, §3.2, §3.3, §8.1.
+ * Wave lifecycle behaviour. DESIGN.md §5.4, §5.5, §3.2, §3.3 (replaced), §8.1.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -66,7 +66,10 @@ describe('unit respawn (§5.4)', () => {
     expect(unit.hp).toBe(unit.maxHp);
   });
 
-  it('stops from wave 25, where losses become permanent (§3.3)', () => {
+  it('never stops: the last build phase respawns like the first (§3.3, replaced)', () => {
+    // §3.3 froze respawn from wave 25 so its attrition endgame ground the
+    // table down. The Final Showdown replaces it, and it opens with every
+    // army whole - so there is no wave at which a loss becomes permanent.
     const { state, ctx } = freshMatch();
     applyCommand(ctx, state, {
       kind: 'placeUnit',
@@ -77,14 +80,20 @@ describe('unit respawn (§5.4)', () => {
     });
     const unit = state.lanes.lane1!.units[0]!;
 
-    state.wave = data.waves.attritionStartWave;
+    // Deep into the match, and with a wall that can take the wave it is about
+    // to face: the point is the respawn rule, not whether one hammer holds
+    // wave 23.
+    state.wave = data.waves.showdown.afterWave - 2;
+    state.lanes.lane1!.fortress.maxHp = 1e9;
+    state.lanes.lane1!.fortress.hp = 1e9;
     unit.alive = false;
     unit.hp = 0;
 
     runToPhase(ctx, state, 'combat');
     runToPhase(ctx, state, 'build');
 
-    expect(unit.alive).toBe(false);
+    expect(state.teams[0]!.eliminated).toBe(false);
+    expect(unit.alive).toBe(true);
   });
 });
 

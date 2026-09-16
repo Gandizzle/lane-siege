@@ -20,7 +20,7 @@ import {
   computeFlowField,
   costAt,
   createFlowField,
-  markBorder,
+  markOutside,
   markCrowd,
   markObstacle,
   goalOwner,
@@ -35,6 +35,10 @@ import {
 import type { FieldShape } from './flowfield.ts';
 
 const SUB = 5;
+/** The 8-wide, 13-deep lane the fixtures below live in, as contact sees it. */
+const LANE = { minX: 0, maxX: 8, minY: -3, maxY: 10 };
+/** The same lane with its fortress zone, for the full-depth fixtures. */
+const FULL_LANE = { minX: 0, maxX: 8, minY: -3, maxY: 11 };
 /** A melee reach: thinner than a cell, which is the case the ring has to get right. */
 const MELEE = 0.08;
 
@@ -222,7 +226,7 @@ describe('goals are the free positions around an enemy', () => {
 describe('the lane has edges of its own', () => {
   it('will not stand a body where half of it would be outside the lane', () => {
     const field = laneField();
-    markBorder(field, 0.22);
+    markOutside(field, LANE, 0.22);
 
     // motion.ts keeps a body's whole width inside the lane, so these are
     // positions nothing of that size can ever occupy.
@@ -240,7 +244,7 @@ describe('the lane has edges of its own', () => {
     // ever taking it, and a goal that is never taken never stops drawing.
     const field = fullLaneField();
     const fortress = wall(4, 10.5, 0.45, 3.55);
-    markBorder(field, 0.22);
+    markOutside(field, FULL_LANE, 0.22);
     markObstacle(field, fortress, 0.22);
     markRing(field, fortress, 0.22, MELEE, -1);
 
@@ -256,7 +260,7 @@ describe('the lane has edges of its own', () => {
 
   it('still lets a body walk the full width it does fit in', () => {
     const field = laneField();
-    markBorder(field, 0.22);
+    markOutside(field, LANE, 0.22);
     markRing(field, disc(0.3, 9, 0.26), 0.22, MELEE, 1);
     computeFlowField(field);
     // From the far corner to a goal in the near one: the border narrows the
@@ -643,5 +647,83 @@ describe('the sweep is exact', () => {
         }
       }
     }
+  });
+});
+
+describe('a cross-shaped world, for the Final Showdown (§3.3, replaced)', () => {
+  // A small cross with the same proportions as the arena: spokes 4 wide,
+  // 6 long, meeting in a 4x4 centre. Small enough to reason about by hand.
+  const SPOKE = 6;
+  const WIDTH = 4;
+  const SIZE = SPOKE * 2 + WIDTH;
+  const CROSS = {
+    minX: 0,
+    maxX: SIZE,
+    minY: 0,
+    maxY: SIZE,
+    band: { min: SPOKE, max: SPOKE + WIDTH },
+  };
+
+  function crossField() {
+    const field = createFlowField(SIZE, SIZE, 0, SUB);
+    clearField(field);
+    markOutside(field, CROSS, 0.2);
+    return field;
+  }
+
+  it('leaves the spokes and the centre open', () => {
+    const field = crossField();
+    const open = (x: number, y: number) => field.blocked[cellAt(field, x, y)] === 0;
+
+    expect(open(SIZE / 2, 1)).toBe(true); // north spoke
+    expect(open(SIZE / 2, SIZE - 1)).toBe(true); // south spoke
+    expect(open(1, SIZE / 2)).toBe(true); // west spoke
+    expect(open(SIZE - 1, SIZE / 2)).toBe(true); // east spoke
+    expect(open(SIZE / 2, SIZE / 2)).toBe(true); // the centre
+  });
+
+  it('blocks all four corners, which are not arena at all', () => {
+    const field = crossField();
+    const blocked = (x: number, y: number) => field.blocked[cellAt(field, x, y)] === 1;
+
+    for (const x of [1, SIZE - 1]) {
+      for (const y of [1, SIZE - 1]) expect(blocked(x, y)).toBe(true);
+    }
+    // And right up against the inside corner, where the two spokes meet.
+    expect(blocked(SPOKE - 0.3, SPOKE - 0.3)).toBe(true);
+  });
+
+  it('routes around a corner rather than through it', () => {
+    // A goal in the west spoke, a seeker up the north one. The straight line
+    // between them crosses the north-west corner, which is not ground at all,
+    // so the only way there is down the spoke and through the centre.
+    const field = crossField();
+    markRing(field, disc(1.5, SIZE / 2, 0.2), 0.2, MELEE, 7);
+    computeFlowField(field);
+
+    const from = { x: SIZE / 2, y: 1.5 };
+    const cost = costAt(field, from.x, from.y);
+
+    // Reachable, but not by the diagonal: the octile cost of walking straight
+    // at the goal is 455, and going round the inside corner measures 518. On
+    // the same field without the band - an ordinary square world - the same
+    // route measures 434, which is the corner being cut.
+    const dx = Math.abs(from.x - 1.5) * SUB;
+    const dy = Math.abs(from.y - SIZE / 2) * SUB;
+    const straight = Math.min(dx, dy) * W_DIAG + Math.abs(dx - dy) * W_ORTH;
+
+    expect(cost).toBeLessThan(UNREACHABLE);
+    expect(cost).toBeGreaterThan(straight);
+  });
+
+  it('marks nothing extra when the world is an ordinary rectangle', () => {
+    // The band is optional, and a lane has none: the corner pass must not
+    // touch a field that has no corners to cut.
+    const plain = createFlowField(SIZE, SIZE, 0, SUB);
+    clearField(plain);
+    markOutside(plain, { minX: 0, maxX: SIZE, minY: 0, maxY: SIZE }, 0.2);
+
+    expect(plain.blocked[cellAt(plain, 1, 1)]).toBe(0);
+    expect(plain.blocked[cellAt(plain, SIZE - 1, SIZE - 1)]).toBe(0);
   });
 });

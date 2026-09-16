@@ -71,6 +71,7 @@
  * computes the same field bit for bit.
  */
 
+import type { Bounds } from './motion.ts';
 import type { Vec2 } from './types.ts';
 
 export const UNREACHABLE = 0x7fffffff;
@@ -368,42 +369,72 @@ export function markCrowd(field: FlowField, shape: FieldShape, inflate: number):
 }
 
 /**
- * Block the strip along the lane's edge that a body of `inflate` cannot stand
- * in, at both resolutions.
+ * Block every cell a body of radius `inflate` could not stand in: the strip
+ * along the arena's edge, and - in a cross-shaped arena - the four corners it
+ * does not cover.
  *
- * motion.ts keeps every body's whole width inside the lane, so a position
+ * motion.ts keeps every body's whole width inside the arena, so a position
  * within its own radius of the boundary is one no body of that size can
- * occupy. The field did not know that: it inflated bodies and left the lane's
- * own walls uninflated, so the cells along each edge read as free ground - and
- * the attack positions marked there were goals a crowd could walk at forever
- * without ever arriving. A wave besieging a lane-wide fortress would pile into
- * the corner chasing one, while free wall stood empty a few tiles away,
- * because a goal that is never occupied is never taken off the field.
+ * occupy. The field has to know that, or it marks attack positions there:
+ * goals a crowd can walk at forever without ever taking, and a goal that is
+ * never occupied never stops drawing.
  *
- * Call before the obstacles, like any other terrain.
+ * The same `Bounds` the contact code uses, so the two cannot disagree about
+ * where the arena is. Call before the obstacles, like any other terrain.
  */
-export function markBorder(field: FlowField, inflate: number): void {
-  const margin = inflate * field.subdivision;
-  blockBorder(field.blocked, field.width, field.depth, margin);
-  blockBorder(field.blockedFine, field.width * FINE, field.depth * FINE, margin * FINE);
+export function markOutside(field: FlowField, bounds: Bounds, inflate: number): void {
+  blockOutside(field.blocked, field, bounds, inflate, 1);
+  blockOutside(field.blockedFine, field, bounds, inflate, FINE);
 }
 
 /**
- * Block the outer `margin` cells of a grid, writing only the strips rather
- * than scanning every cell: this runs once per field per tick (§15.3), and a
- * field is tens of thousands of cells at the fine resolution.
+ * The same test at one of the two resolutions, written as runs rather than as
+ * a per-cell loop: this runs once per field per tick (§15.3), and a field is
+ * tens of thousands of cells at the resolution goals are sampled on.
+ *
+ * `scale` is cells per routing cell: 1 for the routing grid, FINE for the
+ * other. Everything below is in that grid's cells.
  */
-function blockBorder(grid: Uint8Array, width: number, depth: number, margin: number): void {
-  // Cells whose CENTRE is inside the margin, which is what `blocked` means.
-  const band = Math.min(Math.ceil(margin - 0.5), Math.min(width, depth) >> 1);
-  if (band <= 0) return;
+function blockOutside(
+  grid: Uint8Array,
+  field: FlowField,
+  bounds: Bounds,
+  inflate: number,
+  scale: number,
+): void {
+  const width = field.width * scale;
+  const depth = field.depth * scale;
+  const sub = field.subdivision * scale;
 
-  grid.fill(1, 0, band * width);
-  grid.fill(1, (depth - band) * width, depth * width);
-  for (let gy = band; gy < depth - band; gy++) {
+  /** First and last cell whose CENTRE lies inside [lo, hi], as indices. */
+  const span = (lo: number, hi: number, origin: number, count: number) => ({
+    first: Math.max(0, Math.ceil((lo - origin) * sub - 0.5)),
+    last: Math.min(count - 1, Math.floor((hi - origin) * sub - 0.5)),
+  });
+
+  const x = span(bounds.minX + inflate, bounds.maxX - inflate, 0, width);
+  const y = span(bounds.minY + inflate, bounds.maxY - inflate, field.originY, depth);
+
+  // The border: whole rows off the top and bottom, then the ends of the rest.
+  if (y.first > 0) grid.fill(1, 0, Math.min(depth, y.first) * width);
+  if (y.last < depth - 1) grid.fill(1, Math.max(0, y.last + 1) * width, depth * width);
+  for (let gy = Math.max(0, y.first); gy <= Math.min(depth - 1, y.last); gy++) {
     const row = gy * width;
-    grid.fill(1, row, row + band);
-    grid.fill(1, row + width - band, row + width);
+    if (x.first > 0) grid.fill(1, row, row + Math.min(width, x.first));
+    if (x.last < width - 1) grid.fill(1, row + Math.max(0, x.last + 1), row + width);
+  }
+
+  // A cross leaves four corners uncovered: the rows outside the band, minus
+  // the columns inside it.
+  const band = bounds.band;
+  if (!band) return;
+  const bx = span(band.min + inflate, band.max - inflate, 0, width);
+  const by = span(band.min + inflate, band.max - inflate, field.originY, depth);
+  for (let gy = Math.max(0, y.first); gy <= Math.min(depth - 1, y.last); gy++) {
+    if (gy >= by.first && gy <= by.last) continue;
+    const row = gy * width;
+    grid.fill(1, row, row + Math.max(0, Math.min(width, bx.first)));
+    grid.fill(1, row + Math.max(0, Math.min(width, bx.last + 1)), row + width);
   }
 }
 

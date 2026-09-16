@@ -112,3 +112,53 @@ const drift = Math.max(
 console.log(
   `round trip: ${round.lane!.units.length} units, ${round.lane!.monsters.length} monsters, worst position drift ${drift.toFixed(4)} tiles`,
 );
+
+// ------------------------------------- the Final Showdown (§3.3, replaced)
+//
+// The arena frame is the whole board, for everybody, because there is nothing
+// in it to hide (§12) - so what a player pays is what a spectator pays. Four
+// armies of forty is the same body count as one lane's units times four, and
+// no monsters, so it should come in under the spectator figure above. Worth
+// measuring rather than assuming: it is the one frame with no fog in it.
+{
+  const arena = createMatch(data, {
+    seed: 3,
+    teams: teamIds.map((id) => ({ id, playerIds: [id] })),
+  });
+  const arenaCtx = createContext(data);
+
+  for (const id of teamIds) {
+    const laneToArm = arena.lanes[id]!;
+    laneToArm.economy.gold = 9_999_999;
+    laneToArm.economy.supplyCap = 999;
+    for (let y = 0; y < 5; y++) {
+      for (let x = 0; x < 8; x++) {
+        applyCommand(arenaCtx, arena, {
+          kind: 'placeUnit',
+          teamId: id,
+          unitDefId: 'hammer',
+          tileX: x,
+          tileY: y,
+        });
+      }
+    }
+  }
+
+  arena.wave = data.waves.showdown.afterWave;
+  arena.phase = 'combat';
+  arena.phaseTicksLeft = 0;
+  step(arenaCtx, arena);
+  while (arena.phaseTicksLeft > 0) step(arenaCtx, arena);
+  for (let i = 0; i < 60; i++) step(arenaCtx, arena);
+
+  const view = viewFor(arena, 'a');
+  const bodies = view.showdown?.armies.reduce((n, army) => n + army.units.length, 0) ?? 0;
+  const asObjects = JSON.stringify(view).length;
+  const asFrame = JSON.stringify(encodeFrame(view, tables)).length;
+  console.log(
+    `showdown: ${bodies} bodies in the arena   ` +
+      `${(asFrame / 1024).toFixed(2)} KiB/frame  ` +
+      `${((asFrame * TICKS_PER_SECOND) / 1024).toFixed(1)} KiB/s at ${TICKS_PER_SECOND}Hz` +
+      `   (${(asObjects / 1024).toFixed(1)} KiB as objects)`,
+  );
+}

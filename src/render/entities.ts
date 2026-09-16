@@ -14,7 +14,7 @@
 
 import { Container, Graphics } from 'pixi.js';
 import type { DefIndex, EntityView, LaneView } from '../sim/index.ts';
-import type { LaneLayout } from './layout.ts';
+import type { Camera } from './layout.ts';
 import { UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
 
@@ -23,7 +23,19 @@ interface PreviousPosition {
   y: number;
 }
 
+/**
+ * Who a body belongs to, drawn as a ring behind it, or null for no ring.
+ *
+ * Only the Final Showdown uses it (§3.3, replaced): a lane has exactly one side on each
+ * team, so solid-fill-means-defender already says whose a body is. Four armies
+ * in one arena do not have that, and §14.2's channels are all spoken for -
+ * silhouette is armour, fill is damage type, size and pips are tier - so
+ * ownership gets a channel of its own rather than taking one of those over.
+ */
+export type RingOf = (unit: EntityView) => number | null;
+
 export class EntityLayer extends Container {
+  private readonly ringGraphics = new Graphics();
   private readonly monsterGraphics = new Graphics();
   private readonly unitGraphics = new Graphics();
   private readonly healthGraphics = new Graphics();
@@ -38,14 +50,21 @@ export class EntityLayer extends Container {
   private staging = new Map<number, PreviousPosition>();
 
   constructor(
-    private layout: LaneLayout,
+    private layout: Camera,
     private readonly defs: DefIndex,
   ) {
     super();
-    this.addChild(this.unitGraphics, this.monsterGraphics, this.healthGraphics);
+    this.addChild(
+      // Under the bodies: a ring is a badge, not a highlight, and it must
+      // never eat into the silhouette it belongs to.
+      this.ringGraphics,
+      this.unitGraphics,
+      this.monsterGraphics,
+      this.healthGraphics,
+    );
   }
 
-  setLayout(layout: LaneLayout): void {
+  setLayout(layout: Camera): void {
     this.layout = layout;
   }
 
@@ -76,12 +95,13 @@ export class EntityLayer extends Container {
   }
 
   /** Redraw from current state. `alpha` is the fraction of a tick elapsed. */
-  render(lane: LaneView, alpha: number): void {
+  render(lane: LaneView, alpha: number, ringOf: RingOf | null = null): void {
+    this.ringGraphics.clear();
     this.unitGraphics.clear();
     this.monsterGraphics.clear();
     this.healthGraphics.clear();
 
-    this.drawUnits(lane, alpha);
+    this.drawUnits(lane, alpha, ringOf);
     this.drawMonsters(lane, alpha);
   }
 
@@ -105,7 +125,7 @@ export class EntityLayer extends Container {
     return { x: gridOrigin.x + tileX * tileSize, y: gridOrigin.y + tileY * tileSize };
   }
 
-  private drawUnits(lane: LaneView, alpha: number): void {
+  private drawUnits(lane: LaneView, alpha: number, ringOf: RingOf | null): void {
     for (const unit of lane.units) {
       // §14.2: tier drives size and pips, and the silhouette is the unit's
       // own. Both are properties of the definition - which is also why the
@@ -119,6 +139,13 @@ export class EntityLayer extends Container {
       // Draw at the body radius the simulation collides with, so what you see
       // is exactly what takes up space.
       const radius = unit.radius * this.layout.tileSize;
+
+      const ring = ringOf ? ringOf(unit) : null;
+      if (ring !== null) {
+        this.ringGraphics
+          .circle(centre.x, centre.y, radius * 1.34)
+          .stroke({ width: Math.max(1.5, radius * 0.2), color: ring, alpha: 0.95 });
+      }
 
       // Solid fill = a defensive unit (§14.2).
       drawEntity(

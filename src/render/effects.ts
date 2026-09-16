@@ -51,7 +51,7 @@ import type { DefIndex, LaneView } from '../sim/index.ts';
 import { FORTRESS_ID } from '../sim/index.ts';
 import type { GameData } from '../data/schema.ts';
 import { stat } from '../sim/defs.ts';
-import type { LaneLayout } from './layout.ts';
+import type { Camera } from './layout.ts';
 import { attackStyle, type AttackStyle } from './attackStyle.ts';
 
 /**
@@ -137,7 +137,7 @@ export class EffectsLayer extends Container {
   private readonly fortressAt: Vec;
 
   constructor(
-    private layout: LaneLayout,
+    private layout: Camera,
     private readonly data: GameData,
     private readonly defs: DefIndex,
   ) {
@@ -150,7 +150,7 @@ export class EffectsLayer extends Container {
     this.addChild(this.graphics);
   }
 
-  setLayout(layout: LaneLayout): void {
+  setLayout(layout: Camera): void {
     this.layout = layout;
   }
 

@@ -23,6 +23,10 @@
  * quoted in this file comes from it at §15.3's load - 40 units and 30 monsters
  * in each of four lanes, which is heavier than a supply cap actually allows.
  *
+ * The Final Showdown's frame (§3.3, replaced) is the whole board for everybody,
+ * since there is nothing in an arena to hide: 160 bodies at 71.7 KiB/s, which
+ * is well under the 129.5 KiB/s a four-lane spectator already costs.
+ *
  * WHAT IS NOT HERE, AND WHY
  *
  * The tempting alternative is to send the command stream and have every client
@@ -42,6 +46,7 @@ import type {
   LaneView,
   MatchView,
   EntityView,
+  ShowdownView,
   TeamId,
   UnitDamageView,
   UnitSpend,
@@ -126,10 +131,22 @@ export interface WireLane {
   up?: [number, number][];
 }
 
+/**
+ * One army in the Final Showdown (§3.3, replaced): `[teamIndex, seat, units]`.
+ *
+ * The seat rides along rather than being derived from the team index, because
+ * an eliminated player leaves their spoke empty and the armies that are left
+ * keep the seats they had - so the position in this array is not the seat.
+ */
+export type WireArmy = [number, number, WireEntity[]];
+
+/** `[countdownTicks, armies, flat attacks]`. See `WireLane.a` on the flattening. */
+export type WireShowdown = [number, WireArmy[], number[]];
+
 export interface WireFrame {
   tk: number;
   w: number;
-  /** 0 build, 1 combat. */
+  /** 0 build, 1 combat, 2 showdown. */
   p: number;
   pl: number;
   /** Bit 0 finished, bit 1 eliminated. */
@@ -145,6 +162,8 @@ export interface WireFrame {
    */
   o: [number, number, number, number, number, number, number][];
   wl: WireLane[];
+  /** The Final Showdown, once it has started (§3.3, replaced). Absent before then. */
+  sd?: WireShowdown;
 }
 
 /**
@@ -403,11 +422,41 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
   };
 }
 
-export function encodeFrame(view: MatchView, tables: WireTables): WireFrame {
+const PHASE_CODES = ['build', 'combat', 'showdown'] as const;
+
+function encodeShowdown(showdown: ShowdownView, tables: WireTables): WireShowdown {
+  return [
+    showdown.countdown,
+    showdown.armies.map(
+      (army) =>
+        [
+          tables.teamIds.indexOf(army.teamId),
+          army.seat,
+          army.units.map((u) => encodeEntity(u, tables.unitIndex)),
+        ] as WireArmy,
+    ),
+    flattenAttacks(showdown.attacks),
+  ];
+}
+
+function decodeShowdown(wire: WireShowdown, tables: WireTables): ShowdownView {
+  const [countdown, armies, attacks] = wire;
   return {
+    countdown,
+    armies: armies.map(([teamIndex, seat, units]) => ({
+      teamId: tables.teamIds[teamIndex] ?? '',
+      seat,
+      units: units.map((row) => decodeEntity(row, tables.unitIds, tables.unitTraits)),
+    })),
+    attacks: unflattenAttacks(attacks),
+  };
+}
+
+export function encodeFrame(view: MatchView, tables: WireTables): WireFrame {
+  const frame: WireFrame = {
     tk: view.tick,
     w: view.wave,
-    p: view.phase === 'build' ? 0 : 1,
+    p: Math.max(0, PHASE_CODES.indexOf(view.phase)),
     pl: view.phaseTicksLeft,
     fl: (view.finished ? 1 : 0) | (view.eliminated ? 2 : 0),
     pc: view.placement ?? 0,
@@ -427,6 +476,8 @@ export function encodeFrame(view: MatchView, tables: WireTables): WireFrame {
     ),
     wl: Object.values(view.watching).map((lane) => encodeLane(lane, tables)),
   };
+  if (view.showdown) frame.sd = encodeShowdown(view.showdown, tables);
+  return frame;
 }
 
 export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
@@ -441,7 +492,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
     seed: tables.seed,
     tick: frame.tk,
     wave: frame.w,
-    phase: frame.p === 0 ? 'build' : 'combat',
+    phase: PHASE_CODES[frame.p] ?? 'build',
     phaseTicksLeft: frame.pl,
     finished: (frame.fl & 1) === 1,
     eliminated: (frame.fl & 2) === 2,
@@ -459,5 +510,6 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
       }),
     ),
     watching,
+    showdown: frame.sd ? decodeShowdown(frame.sd, tables) : null,
   };
 }

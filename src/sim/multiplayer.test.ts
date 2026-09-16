@@ -151,10 +151,10 @@ describe('sends (§11.5)', () => {
     ).toBe('not-build-phase');
   });
 
-  it('closes with every other purchase at wave 25 (§3.3)', () => {
+  it('closes with every other purchase once the showdown begins (§3.3, replaced)', () => {
     const { state, ctx } = fourPlayerMatch();
     fund(state, 'a', 500);
-    state.wave = data.waves.attritionStartWave;
+    state.phase = 'showdown';
 
     expect(
       applyCommand(ctx, state, {

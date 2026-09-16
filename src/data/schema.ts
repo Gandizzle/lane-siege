@@ -304,12 +304,43 @@ export interface WaveDef {
   entries: WaveEntry[];
 }
 
+/**
+ * The stalemate brake (§3.3, replaced). Everything that restores or prolongs - healing,
+ * health regeneration, a summon's starting HP, a crowd-control duration - is
+ * scaled down the longer the Final Showdown runs, so two armies that cannot
+ * quite finish each other are eventually decided rather than left standing.
+ *
+ * Additive, not compounding, and expressed per SECOND: at `perSecond` 0.01 and
+ * a 30-second grace, a fight 90 seconds old has lost 60% of its healing, and
+ * at 130 seconds it has lost all of it.
+ */
+export interface DampeningConfig {
+  /** Seconds of full strength before any of it is taken away. */
+  graceSeconds: number;
+  /** Fraction removed per second past the grace period. */
+  perSecond: number;
+}
+
+/**
+ * The Final Showdown (§3.3, replaced).
+ *
+ * After `afterWave`, the four armies are moved into one cross-shaped arena and
+ * fight a free-for-all. The last player with anything standing wins.
+ */
+export interface ShowdownFile {
+  /** The last wave of monsters. The showdown opens when it is cleared. */
+  afterWave: number;
+  /** How long the "Final Showdown in 3..." card holds the armies still. */
+  countdownSeconds: number;
+  /** Rows of open ground between a player's build grid and the centre. */
+  approachDepth: number;
+  dampening: DampeningConfig;
+}
+
 export interface WavesFile {
   buildPhaseSeconds: number;
   bossEveryNWaves: number;
-  /** Last wave on which defensive units may be built (§3.3). */
-  lastBuildWave: number;
-  attritionStartWave: number;
+  showdown: ShowdownFile;
   /** Lane cap; the excess waits in the reserve queue (§8.1). */
   maxConcurrentMonsters: number;
   enrage: EnrageConfig;

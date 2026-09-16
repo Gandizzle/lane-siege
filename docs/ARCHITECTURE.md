@@ -80,7 +80,9 @@ whole lane is one stretch of ground from `-spawnZoneDepth` to
 `depth + fortressZoneDepth`. The simulation has no idea how big the screen is,
 and the renderer owns the single tile→pixel transform in `src/render/layout.ts`,
 recomputed on boot and on resize only. The fixed camera (§4.1, §14.1) is what
-makes one transform enough.
+makes one transform enough. The Final Showdown's arena is the one exception and
+has a camera that moves — its tile space is its own, a 32 × 32 square with the
+corners cut out, and nothing in a lane knows about it.
 
 ## Determinism
 
@@ -107,8 +109,8 @@ shapes, touch build UI, one builder, as §17 specifies.
 
 M3 (full single lane): all six units of builder A with tiers, global tech,
 fortress and resource upgrades, gems, supply, 25 authored waves, a four-boss
-bank, and the attrition endgame. §17 calls this "the point at which the game is
-balanceable", and it is: every lever is a field in `data/`.
+bank, and an ending that terminates. §17 calls this "the point at which the
+game is balanceable", and it is: every lever is a field in `data/`.
 
 M4 (multiplayer): `npm run server` runs an authoritative Colyseus room and
 `?server=ws://host:2567` joins it. Four lanes, sends, fog of war, elimination
@@ -135,10 +137,12 @@ show it.
 
 Three OPEN questions are answered, all recorded in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md): the supply cap is bought with gold
-(§11.1, the doc's recommendation), **no purchase of any kind is available from
-wave 25** (§3.3, against the doc's recommendation — the endgame is a grind
-fought with what you brought), and §12's public record is fortress HP plus
-alive-or-out, with the balance sheet never public under any circumstance.
+(§11.1, the doc's recommendation), **no purchase of any kind is available once
+the Final Showdown opens** (§3.3's OPEN question, overtaken: the arena is
+fought with the army you brought, and every build phase before it — including
+the one before the last wave — is fully open), and §12's public record is
+fortress HP plus alive-or-out, with the balance sheet never public under any
+circumstance.
 
 Selling a unit back is answered in the same register, though §11 never asked:
 full price inside the build phase that bought it, so a misclick on a 30-second
@@ -399,6 +403,85 @@ fortress as a body of radius 0.4 at its centre. Tiles matter for exactly one
 thing — where a unit may be _built_ — and both sides may fight anywhere in the
 lane, spawn zone included. The renderer square-fits the whole 8 × 14 lane and
 derives the three bands from one tile size.
+
+### The Final Showdown: one arena, four armies
+
+§3.3 ended a match with an attrition endgame — from wave 25 nothing could be
+built and nothing respawned, and increasingly nasty waves ground the table down
+until one player was left. That is a race against a clock, settled by who
+banked the most gold. **It has been replaced.** Clearing the last wave
+(`waves.showdown.afterWave`) now opens the **Final Showdown**: a card counts
+down from three, and the four armies are set down in one cross-shaped arena
+facing each other. Last player with anything standing wins.
+
+**The shape** (`src/sim/arena.ts`). Four spokes of lane width meeting at a
+square centre. A spoke is the player's whole 8 × 10 build grid plus
+`approachDepth` rows of open ground ahead of it, so the centre is 8 × 8 by
+construction and the bounding square is 32 × 32. The four corners of that
+square are _not_ arena: `Bounds.band` in motion.ts is what keeps bodies out of
+them, and `markOutside` in flowfield.ts is what stops the distance field
+routing through them. Seating is by seat at the table, clockwise from south,
+and an eliminated player simply leaves their spoke empty rather than the table
+reshuffling.
+
+**The transplant** (`src/sim/showdown.ts`). Every unit is _moved_ out of its
+lane — the same objects, not copies — restored to full HP as at the start of a
+build phase, and stood on the tile it was built on in its owner's spoke. The
+line a player spent twenty-five waves arranging is the line they take in, and
+the row they kept safest behind the fight is the row furthest from the centre.
+`lane.units` is left empty; from there the lanes, the fortresses and the
+economy are done.
+
+**The fight is the fight they already know.** Units hold a target until it
+dies, take the nearest otherwise, walk downhill on the same distance field and
+stop when something is in range. The only differences are that there is no
+fortress, no monsters, and three other armies instead of one wave. The movement
+code was generalised onto a `World` (`src/sim/context.ts`) — a size, a set of
+edges, and whatever is solid in it — so the same `planMoves` and `moveSeekers`
+run in both places. In the arena every seeker on the board moves in **one**
+priority order rather than army by army: a lane's units-then-monsters ordering
+is a deliberate asymmetry between two sides that are not symmetric, and four
+armies fighting each other are.
+
+**Dampening** (`src/sim/dampening.ts`) is the stalemate brake, and is
+scaffolding: healing, a summon's starting HP and crowd-control durations each
+lose `perSecond` of themselves per second past a `graceSeconds` grace, so a
+fight between two armies that cannot quite finish each other resolves instead
+of running forever. Only the first has anything to multiply today — there are
+no summons and no crowd control yet, and the one healing effect in the game
+(§10.1's regeneration aura) radiates from a fortress, and no fortress comes to
+the showdown. They are three named functions rather than one number used three
+times so the day those effects land, the call site is a lookup. `applyHealing`
+is the other half: **every point of HP any body regains anywhere in the
+simulation is added by that one function**, so there is exactly one place for a
+multiplier to bite, and a healing effect added without going through it is
+visibly wrong.
+
+**The camera moves, and it is the only one that does.** §14.1's whole-board-on-
+one-screen rule cannot hold for a 32 × 32 arena on a portrait phone — fitting
+it would leave a body four pixels across. So `arenaCamera` fits the arena to
+the _longer_ screen axis (on a phone: full height, scroll sideways), never
+zooms in past the tile size the lane was drawn at, and clamps the offset so the
+board always covers the screen. Drag anywhere to scroll. The lane stack — lane,
+aura, HUD, opponent tabs, build bar — is hidden outright, because none of it
+means anything any more: nothing to build, nothing to send, no fortress to
+upgrade and no other lane to watch.
+
+**Ownership needed a channel.** §14.2 spends silhouette on armour, fill on
+damage type, and size and pips on tier; a lane never needs a fifth because
+everything solid in it is yours. Four armies in one arena do, so each spoke's
+floor is tinted with its seat's colour and each body wears a ring in the same
+colour — two readings of one fact, and the spoke tint survives a crowded
+centre.
+
+Measured: **5.1 ms per tick** with four armies of forty (10% of the 50 ms
+budget, against 1.5 ms for four lanes at the §15.3 load — the arena's field is
+nine times a lane's area), and **71.7 KiB/s** on the wire, below the 129.5
+KiB/s a four-lane spectator already costs. `npm run perf` and `npm run wire`.
+
+To look at it without playing twenty-five waves: `?wave=25` starts a practice
+match at the last build phase, and `?showdown=1` starts inside the arena with
+four scripted armies already in it.
 
 ### Movement: engaged or seeking
 
@@ -802,7 +885,7 @@ Implemented and tested (388 tests):
 - Gold flow: kill bounties to the defender for its own line's kills, a kill the
   FORTRESS made paying every other living lane instead and the defender nothing,
   and passive income payout (§11.1 amended, §11.6)
-- Unit respawn between waves, and its halt at wave 25 (§5.4, §3.3)
+- Unit respawn at every build phase, including the last (§5.4)
 - Fortress weapon and continuous regeneration (§10.1, §5.5, amended): the
   weapon fires with the damage, reach and rate the LADDER raised rather than
   the ones the data file starts them at; the wall heals every tick in both
@@ -817,16 +900,20 @@ Implemented and tested (388 tests):
 - The selected-unit view belonging to no tab: selecting a unit unlights every
   tab and opens it, and tapping a tab puts the unit down (§14.1, amended)
 - Auras: one active, radius and strength upgrading separately (§10.1)
-- The attrition endgame: construction closes at wave 25, respawn stops, and
-  gold keeps its sinks (§3.3)
+- The Final Showdown: the cross arena's geometry and seating, the transplant
+  out of the lanes, the countdown holding every army still, four armies
+  converging on one centre, the last one standing placed first, and the shop
+  closing when the armies march (§3.3, replaced)
+- Dampening's curve and the one function every point of healing goes through
+  (§3.3, replaced)
 - Fixed-timestep rendering at any frame rate, with interpolation (§15.1)
 - Touch build UI: select, place, upgrade in place, ready, with rejection
   feedback (§4.1, §7.3, §3.2)
 - The build-phase wave preview, its offence summary and per-unit counter hints
   (§9.3)
 - Sends: cost, the target being the sender's choice, the bounty going to the
-  defender, no sending from the grave, and the build-phase and wave-25 windows
-  (§11.5, §13, §3.1, §3.3)
+  defender, no sending from the grave, and the build-phase window closing when
+  the showdown opens (§11.5, §13, §3.1, §3.3 replaced)
 - Fog of war as a pure function of state and viewer, with the opponent record's
   keys asserted exactly so nothing can quietly become public (§12)
 - The wire format: round trip, quantisation bounds, and that a frame cannot
@@ -847,7 +934,7 @@ Implemented and tested (388 tests):
   including an upgrade bought in it; half in a later one; a fresh upgrade on an
   old body still refunded in full; supply returned whole; the tile freed; the
   unit removed rather than killed, so it does not respawn; and refused in
-  combat and from wave 25 (§11, decided)
+  combat and once the showdown opens (§11, decided)
 - What the selected-unit panel says: the arrow only where a tier moves the
   number, never between two identical readings, across every unit in the game
 - Besieging the fortress: a monster that reaches the wall engages it and keeps
@@ -904,8 +991,15 @@ Implemented and tested (388 tests):
 
 Several rules were changed after playtesting, and the code says so where it
 matters. The full list is in
-[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md#design-changes-to-designmd); the two with
-the widest blast radius are:
+[OPEN-QUESTIONS.md](OPEN-QUESTIONS.md#design-changes-to-designmd); the three
+with the widest blast radius are:
+
+- **The match ends in the Final Showdown, not in attrition** (§3.3). The last
+  wave is followed by a free-for-all in one cross-shaped arena rather than by
+  ever-nastier waves against a table that can no longer build or respawn. The
+  old ending was decided by who banked the most gold; this one is decided by
+  the armies. See
+  [the Final Showdown](#the-final-showdown-one-arena-four-armies).
 
 - **The fortress heals on a clock, and its own kills pay everyone else**
   (§5.5, §11.1). Regeneration is continuous — `fortress.regen.base` HP per

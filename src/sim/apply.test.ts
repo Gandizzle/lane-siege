@@ -122,9 +122,9 @@ describe('placing units (§11.4)', () => {
     ).toEqual({ ok: false, rejection: 'not-build-phase' });
   });
 
-  it('refuses from wave 25 onward (§3.3)', () => {
-    // The attrition endgame closes construction; gold keeps accumulating.
-    state.wave = data.waves.attritionStartWave;
+  it('refuses once the Final Showdown has begun (§3.3, replaced)', () => {
+    // There is no build phase after the last wave - the armies march.
+    state.phase = 'showdown';
     expect(
       applyCommand(ctx, state, {
         kind: 'placeUnit',

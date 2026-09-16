@@ -22,7 +22,7 @@ const MESSAGES: Record<CommandRejection, string> = {
   'unknown-definition': 'Not available yet',
   'no-such-unit': 'That unit is gone',
   'max-tier': 'Already at max tier',
-  'building-closed': 'Nothing can be bought from wave 25',
+  'building-closed': 'The Final Showdown has begun',
   eliminated: 'You are out',
   'target-eliminated': 'That player is out',
   'invalid-target': 'Pick an opponent',

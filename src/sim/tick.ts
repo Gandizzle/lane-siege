@@ -24,161 +24,25 @@
  * for why it is this and not something else.
  */
 
-import type { GameData } from '../data/schema.ts';
-import {
-  NO_ACQUIRE_LIMIT,
-  SECONDS_PER_TICK,
-  TICKS_PER_SECOND,
-  secondsToTicks,
-} from './constants.ts';
+import { NO_ACQUIRE_LIMIT, cooldownTicks, secondsToTicks } from './constants.ts';
 import type { Command } from './commands.ts';
 import { applyCommands } from './apply.ts';
 import { resolveDamage } from './damage.ts';
-import { buildDefIndex, stat, type DefIndex } from './defs.ts';
+import { stat } from './defs.ts';
 import { auraFor, recomputeUnitBuffs } from './buffs.ts';
+import { applyHealing } from './dampening.ts';
 import { monsterEnrage } from './enrage.ts';
-import {
-  clearField,
-  computeFlowField,
-  createFlowField,
-  goalOwner,
-  markBorder,
-  markCrowd,
-  markObstacle,
-  markRing,
-  NO_OWNER,
-  PASSAGE_CLEARANCE,
-  SOURCE_WAIT,
-  standingCost,
-  steerAlongField,
-  UNREACHABLE,
-  W_DIAG,
-} from './flowfield.ts';
-import type { FieldShape, FlowField } from './flowfield.ts';
-import { orderByPriority, slideStep, spineDx, type Body, type Bounds } from './motion.ts';
+import type { Body } from './motion.ts';
+import type { SimContext } from './context.ts';
+import { moveSeekers, planMoves, type Walker } from './steering.ts';
+import { beginShowdown, showdownEliminations, showdownTick } from './showdown.ts';
 import { admitFromReserve, countLiving, createMonster, placeWave } from './spawn.ts';
 import { holdOrAcquire, nearestInRange, withinRange } from './targeting.ts';
-import {
-  FORTRESS_ID,
-  type DefensiveUnit,
-  type Lane,
-  type MatchState,
-  type Monster,
-  type Vec2,
-} from './types.ts';
+import { FORTRESS_ID, type Lane, type MatchState, type Monster } from './types.ts';
 import { generateWave, resolveMonsterStats, type SpawnSpec } from './waves.ts';
 
-/** Everything a tick needs that is not match state: the data and its index. */
-export interface SimContext {
-  data: GameData;
-  defs: DefIndex;
-  /** Where monsters go once the lane is clear. Constant for a match (§5.5). */
-  fortressPosition: Vec2;
-  /** The fortress as a body, for what counts as being in range of it. */
-  fortress: Body;
-  /**
-   * The same body as a one-element contact set, so the movement code can
-   * include it without allocating an array every tick (§15.3).
-   */
-  fortressBodies: readonly Body[];
-  /** The lane's edges. Bodies stay inside them. */
-  bounds: Bounds;
-  /**
-   * Distance fields, one per lane per (kind, radius, range) that has needed one.
-   * Scratch, derived entirely from the lane's contents and rebuilt each tick,
-   * so it lives here rather than in MatchState - it is a way of looking at the
-   * match, not part of it.
-   */
-  fields: Map<string, FlowField>;
-}
-
-export function createContext(data: GameData): SimContext {
-  const lane = data.lane;
-  const fortressPosition = {
-    x: lane.buildZone.width / 2,
-    y: lane.buildZone.depth + lane.fortressZoneDepth * 0.5,
-  };
-  // §4: a wall across the end of the lane, not a pebble at the middle of it -
-  // a horizontal spine with a radius swept along it (motion.ts). Settled and
-  // alive forever: it never moves and it is never removed, and a destroyed
-  // fortress ends the lane rather than clearing the obstacle.
-  const fortress: Body = {
-    id: FORTRESS_ID,
-    pos: fortressPosition,
-    radius: lane.fortressRadius,
-    halfWidth: lane.fortressHalfWidth,
-    alive: true,
-    settled: true,
-    // Not a monster, and solid to every one of them - including bosses, which
-    // pass through their own side and nothing else.
-    monster: false,
-    phasesMonsters: false,
-  };
-
-  return {
-    data,
-    defs: buildDefIndex(data),
-    fortressPosition,
-    fortress,
-    fortressBodies: [fortress],
-    bounds: {
-      minX: 0,
-      maxX: lane.buildZone.width,
-      minY: -lane.spawnZoneDepth,
-      maxY: lane.buildZone.depth + lane.fortressZoneDepth,
-    },
-    fields: new Map(),
-  };
-}
-
-/**
- * The field for one kind of seeker of one radius and range in one lane, made
- * on first use. Both come from data/ and there are only a few combinations, so
- * this settles to a handful of fields per lane once every unit type has walked.
- */
-function fieldFor(
-  ctx: SimContext,
-  teamId: string,
-  /** Part of the field's cache key: one field per kind of seeker and goal. */
-  kind: string,
-  radius: number,
-  range: number,
-) {
-  const key = `${teamId}:${kind}:${radius}:${range}`;
-  let field = ctx.fields.get(key);
-  if (!field) {
-    const lane = ctx.data.lane;
-    field = createFlowField(
-      lane.buildZone.width,
-      lane.spawnZoneDepth + lane.buildZone.depth + lane.fortressZoneDepth,
-      -lane.spawnZoneDepth,
-      lane.pathSubdivision,
-    );
-    ctx.fields.set(key, field);
-  }
-  return field;
-}
-
-/** Attack cooldown in ticks for a given attacks-per-second rate. */
-function cooldownTicks(attacksPerSecond: number): number {
-  if (attacksPerSecond <= 0) return Number.MAX_SAFE_INTEGER;
-  return Math.max(1, Math.round(TICKS_PER_SECOND / attacksPerSecond));
-}
-
-/**
- * How far a seeker looks along the field, in cells. Far enough that the walk
- * toward the chosen cell averages out the grid; near enough that it cannot aim
- * at something on the far side of an obstacle it has not yet rounded.
- */
-const LOOKAHEAD_CELLS = 3;
-
-// Scratch values, reused so that a tick allocates nothing (§15.3).
-const scratchDirection: Vec2 = { x: 0, y: 0 };
-const order: number[] = [];
-/** (radius, range) pairs seen this tick, deduplicated without allocating a Set. */
-const shapesRadius: number[] = [];
-const shapesRange: number[] = [];
-const shapesPhasing: boolean[] = [];
+export { createContext } from './context.ts';
+export type { SimContext, World } from './context.ts';
 
 /**
  * §8: every wave carries its own enrage clock, which keeps running while any of
@@ -271,221 +135,6 @@ function classifyMonsters(ctx: SimContext, lane: Lane): void {
 
 // ------------------------------------------------------------------ planning
 
-/** Every body that walks: a unit or a monster, seen through what planning needs. */
-type Walker = DefensiveUnit | Monster;
-
-/** A body that is not going anywhere on its own: terrain, as far as the field is concerned. */
-function holdsStill(body: Walker): boolean {
-  return body.engaged || body.moveSpeed === 0;
-}
-
-/**
- * A body in the form the field wants it. One shared record, refilled per call:
- * `markObstacle` and `markRing` read it and are done with it before the next
- * call, and a tick marks hundreds of bodies (§15.3: no per-frame allocation).
- * Nothing may hold on to what this returns.
- */
-const scratchShape: FieldShape = { x: 0, y: 0, radius: 0, halfWidth: 0 };
-function shapeOf(body: Body): FieldShape {
-  scratchShape.x = body.pos.x;
-  scratchShape.y = body.pos.y;
-  scratchShape.radius = body.radius;
-  scratchShape.halfWidth = body.halfWidth;
-  return scratchShape;
-}
-
-/**
- * Give every seeking body of one kind its direction for the tick.
- *
- * One field per (radius, range) present among the seekers: obstacles are every
- * enemy body and every ally that is not going to move - engaged, or unable to
- * walk - inflated by that radius; goals are the free positions from which an
- * enemy is in range. When there are none, the positions beside the allies that
- * are attacking are the goals instead, so a body with nothing to attack waits
- * where it is nearest to the next position to free up.
- *
- * A seeker reads the field for a direction. Where the field has nothing better
- * to offer, it is on or beside a goal, or enclosed. On or beside an attack
- * position it walks straight at the enemy the position belongs to and lets
- * contact stop it; anywhere else it stands still. Nothing presses into a crowd:
- * a body with nowhere to go does not push, which is what keeps a waiting crowd
- * from wedging itself into a shape nothing can move through.
- */
-function planMoves(
-  ctx: SimContext,
-  lane: Lane,
-  kind: string,
-  seekers: readonly Walker[],
-  enemies: readonly Body[],
-  allies: readonly Walker[],
-  enemiesBlock: boolean,
-  /** True: the goal is the fortress. False: the goal is `targets`' attack rings. */
-  fortressGoal: boolean,
-  targets: readonly Body[] = enemies,
-): void {
-  shapesRadius.length = 0;
-  shapesRange.length = 0;
-  shapesPhasing.length = 0;
-  for (const seeker of seekers) {
-    if (!seeker.alive || seeker.engaged) continue;
-    let seen = false;
-    for (let i = 0; i < shapesRadius.length; i++) {
-      if (
-        shapesRadius[i] === seeker.radius &&
-        shapesRange[i] === seeker.range &&
-        shapesPhasing[i] === seeker.phasesMonsters
-      ) {
-        seen = true;
-        break;
-      }
-    }
-    if (!seen) {
-      shapesRadius.push(seeker.radius);
-      shapesRange.push(seeker.range);
-      // Part of the shape, because it changes which bodies are terrain: a boss
-      // routes as though the swarm around it were not there (§3.4).
-      shapesPhasing.push(seeker.phasesMonsters);
-    }
-  }
-
-  const anyEnemy = enemies.some((e) => e.alive);
-  const goal = fortressGoal ? ctx.fortress : null;
-
-  for (let shape = 0; shape < shapesRadius.length; shape++) {
-    const radius = shapesRadius[shape]!;
-    const range = shapesRange[shape]!;
-    const phasing = shapesPhasing[shape]!;
-    const field = fieldFor(
-      ctx,
-      lane.teamId,
-      `${kind}:${phasing ? 'phase' : 'solid'}`,
-      radius,
-      range,
-    );
-    clearField(field);
-    // The lane's own edges are terrain too: a body cannot stand with half of
-    // itself outside the lane, and a goal marked where one cannot stand is a
-    // goal a crowd walks at forever (flowfield.ts, `markBorder`).
-    markBorder(field, radius);
-
-    // Everything the seeker must get PAST is inflated by a hair more than its
-    // own radius; the body it is walking up to HIT is inflated by exactly its
-    // radius, since touching that one is the point. See PASSAGE_CLEARANCE.
-    const past = radius + PASSAGE_CLEARANCE;
-
-    if (enemiesBlock) {
-      // A unit's field rings every monster, so every monster is something it
-      // might walk up and hit; a monster's chase field rings only what is
-      // actually being chased, and the rest of the line is terrain to get past.
-      const allTargets = targets === enemies;
-      for (const enemy of enemies) {
-        if (!enemy.alive) continue;
-        const touching = allTargets || targets.includes(enemy);
-        markObstacle(field, shapeOf(enemy), touching ? radius : past);
-      }
-    }
-    for (const ally of allies) {
-      if (!ally.alive) continue;
-      // §3.4: a boss and the monsters around it are not terrain to each other,
-      // so neither routes around the other. Units are unaffected - they never
-      // phase, so neither clause fires on a defender's field.
-      if (phasing && ally.monster) continue;
-      if (ally.phasesMonsters) continue;
-      // An ally that is going nowhere is terrain. One that is walking is not -
-      // it will have moved by the time anyone gets there - but it is not free
-      // ground either: getting past a body takes time, and a route that goes
-      // through one should say so. See CROWD_COST.
-      if (holdsStill(ally)) markObstacle(field, shapeOf(ally), past);
-      else markCrowd(field, shapeOf(ally), radius);
-    }
-    // The fortress is solid to everyone. Without this a monster with nothing
-    // else to do walks into the wall and out the bottom of the lane.
-    markObstacle(field, shapeOf(ctx.fortress), goal ? radius : past);
-
-    // Rings go on after every obstacle, so a covered ring cell is not a goal.
-    if (goal) {
-      markRing(field, shapeOf(goal), radius, range, goal.id);
-    } else {
-      for (const enemy of targets) {
-        if (!enemy.alive) continue;
-        markRing(field, shapeOf(enemy), radius, range, enemy.id);
-      }
-    }
-    const sources = computeFlowField(field);
-
-    // Nothing free to attack from: wait beside whoever is attacking.
-    if (sources === 0 && (goal || anyEnemy)) {
-      const beside = 1 / field.subdivision;
-      for (const ally of allies) {
-        if (!ally.alive || !holdsStill(ally)) continue;
-        markRing(field, shapeOf(ally), radius, beside, NO_OWNER, SOURCE_WAIT);
-      }
-      computeFlowField(field);
-    }
-
-    for (const seeker of seekers) {
-      if (!seeker.alive || seeker.engaged) continue;
-      if (seeker.radius !== radius || seeker.range !== range) continue;
-
-      const cell = steerAlongField(
-        field,
-        seeker.pos,
-        scratchDirection,
-        LOOKAHEAD_CELLS,
-        seeker.fieldCell,
-      );
-      seeker.fieldCell = cell;
-
-      const here = standingCost(field, seeker.pos);
-      if (cell !== -1) {
-        seeker.moveX = scratchDirection.x;
-        seeker.moveY = scratchDirection.y;
-        // Priority: how far this body is from a goal. A body enclosed on every
-        // side reads the cell it is escaping to, plus the escape.
-        seeker.pathCost = here === UNREACHABLE ? field.cost[cell]! + W_DIAG : here;
-        continue;
-      }
-
-      // Nothing better within reach. On or beside an attack position, close on
-      // the enemy it belongs to and let contact decide; otherwise stand.
-      seeker.pathCost = here;
-      seeker.moveX = 0;
-      seeker.moveY = 0;
-      const ownerId = goalOwner(field, seeker.pos);
-      const target =
-        ownerId === NO_OWNER
-          ? // Nowhere to stand and no goal beside it: the route is sealed, and
-            // what seals it is a defender. Head for the nearest one - it is
-            // both the obstacle and the only thing worth doing about it.
-            here === UNREACHABLE
-            ? nearestOf(enemies, seeker)
-            : null
-          : bodyById(enemies, ctx, ownerId);
-      if (!target) continue;
-      // Close along the axis the range check measures on: the nearest point
-      // of the target's SPINE, not its centre. For a circle the two are the
-      // same. For the fortress - a wall the width of the lane (§4) - they are
-      // not: a monster standing at one end of it would walk the length of the
-      // wall toward the middle, through everything already fighting there,
-      // rather than the few inches straight ahead into the stonework.
-      const dx = spineDx(target.pos.x, target.halfWidth, seeker.pos.x, 0);
-      const dy = target.pos.y - seeker.pos.y;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      if (length > 1e-9) {
-        seeker.moveX = dx / length;
-        seeker.moveY = dy / length;
-      }
-    }
-  }
-
-  for (const seeker of seekers) {
-    if (!seeker.alive || !seeker.engaged) continue;
-    seeker.moveX = 0;
-    seeker.moveY = 0;
-    seeker.pathCost = 0;
-  }
-}
-
 /**
  * Monsters move in two groups, and which group a monster is in is the whole of
  * how a wave behaves.
@@ -530,18 +179,29 @@ function planMonsterMoves(ctx: SimContext, lane: Lane, unitsBlock: boolean): voi
   }
 
   if (seekingScratch.length > 0) {
-    planMoves(ctx, lane, 'toFortress', seekingScratch, lane.units, lane.monsters, unitsBlock, true);
+    planMoves(
+      ctx,
+      ctx.lane,
+      lane.teamId,
+      'toFortress',
+      seekingScratch,
+      lane.units,
+      lane.monsters,
+      unitsBlock,
+      ctx.fortress,
+    );
   }
   if (chasingScratch.length > 0) {
     planMoves(
       ctx,
-      lane,
+      ctx.lane,
+      lane.teamId,
       'toTarget',
       chasingScratch,
       lane.units,
       lane.monsters,
       unitsBlock,
-      false,
+      null,
       chasedScratch,
     );
   }
@@ -555,70 +215,7 @@ function planMonsterMoves(ctx: SimContext, lane: Lane, unitsBlock: boolean): voi
   }
 }
 
-/** The closest living enemy by centre distance, or null. */
-function nearestOf(enemies: readonly Body[], self: Walker): Body | null {
-  let best: Body | null = null;
-  let bestDistance = Infinity;
-  for (const enemy of enemies) {
-    if (!enemy.alive) continue;
-    const dx = enemy.pos.x - self.pos.x;
-    const dy = enemy.pos.y - self.pos.y;
-    const d = dx * dx + dy * dy;
-    if (d < bestDistance) {
-      bestDistance = d;
-      best = enemy;
-    }
-  }
-  return best;
-}
-
-/** The enemy a goal cell was marked for: one of `enemies`, or the fortress. */
-function bodyById(enemies: readonly Body[], ctx: SimContext, id: number): Body | null {
-  if (id === ctx.fortress.id) return ctx.fortress;
-  for (const enemy of enemies) if (enemy.id === id && enemy.alive) return enemy;
-  return null;
-}
-
 // ------------------------------------------------------------------- moving
-
-/**
- * Move every seeker of one kind, nearest-to-a-goal first, each sliding off
- * everything settled and walking through the seekers still to move. See
- * motion.ts on why that order and that rule are the whole of the crowd
- * behaviour.
- */
-function moveSeekers(
-  ctx: SimContext,
-  seekers: readonly Walker[],
-  speedOf: (seeker: Walker) => number,
-  obstacles: readonly (readonly Body[])[],
-): void {
-  let count = 0;
-  for (let i = 0; i < seekers.length; i++) {
-    const seeker = seekers[i]!;
-    if (!seeker.alive) continue;
-    seeker.settled = holdsStill(seeker);
-    if (seeker.settled) continue;
-    order[count++] = i;
-  }
-  if (count === 0) return;
-
-  orderByPriority(
-    order,
-    count,
-    (i) => seekers[i]!.pathCost,
-    (i) => seekers[i]!.id,
-  );
-
-  for (let k = 0; k < count; k++) {
-    const seeker = seekers[order[k]!]!;
-    const step = speedOf(seeker) * SECONDS_PER_TICK;
-    // A body with nowhere to go still resolves any overlap it is in - one that
-    // has just spawned into a crowd, say - by sliding a zero-length step.
-    slideStep(seeker, seeker.moveX, seeker.moveY, step, obstacles, ctx.bounds);
-    seeker.settled = true;
-  }
-}
 
 // ----------------------------------------------------------------- fighting
 
@@ -697,7 +294,7 @@ function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
   classifyMonsters(ctx, lane);
 
   // 2. Every walker picks a direction, off fields built from step 1.
-  planMoves(ctx, lane, 'unit', lane.units, lane.monsters, lane.units, true, false);
+  planMoves(ctx, ctx.lane, lane.teamId, 'unit', lane.units, lane.monsters, lane.units, true, null);
   planMonsterMoves(ctx, lane, unitsBlock);
 
   // 3. Everyone walks: units first, then monsters. Whichever kind is not
@@ -709,10 +306,14 @@ function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
     ? [lane.units, lane.monsters, ctx.fortressBodies]
     : [lane.monsters, ctx.fortressBodies];
   for (const monster of lane.monsters) monster.settled = true;
-  moveSeekers(ctx, lane.units, (u) => u.moveSpeed, [lane.units, lane.monsters, ctx.fortressBodies]);
+  moveSeekers(ctx.lane, lane.units, (u) => u.moveSpeed, [
+    lane.units,
+    lane.monsters,
+    ctx.fortressBodies,
+  ]);
   for (const unit of lane.units) unit.settled = true;
   moveSeekers(
-    ctx,
+    ctx.lane,
     lane.monsters,
     (m) => (m as Monster).moveSpeed * monsterEnrage(state, m as Monster, enrageConfig),
     obstacles,
@@ -814,11 +415,10 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
   for (const unit of lane.units) {
     if (!unit.alive) continue;
 
-    // §10.1 regeneration aura.
+    // §10.1 regeneration aura, as a fraction of the unit's own maximum per
+    // second. Nothing is dampened in a lane: dampening's clock is the arena's.
     const regen = auraFor(lane, unit, ctx.fortressPosition).regenPerSecond;
-    if (regen > 0 && unit.hp > 0 && unit.hp < unit.maxHp) {
-      unit.hp = Math.min(unit.maxHp, unit.hp + unit.maxHp * regen * SECONDS_PER_TICK);
-    }
+    unit.hp = applyHealing(unit.hp, unit.maxHp, unit.maxHp * regen);
 
     if (unit.hp <= 0) unit.alive = false;
   }
@@ -837,11 +437,11 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
  * losing your line on wave 4 is a temporary setback - the punishment is the leak
  * damage, not the loss of the investment.
  *
- * §3.3: from wave 25 respawn stops and losses are permanent.
+ * Every build phase, without exception. §3.3 used to stop respawning at wave 25
+ * so its attrition endgame was fought with what survived; the Final Showdown (§3.3, replaced)
+ * replaces that, and it opens with every army whole (showdown.ts).
  */
-function respawnUnits(ctx: SimContext, lane: Lane, state: MatchState): void {
-  if (state.wave >= ctx.data.waves.attritionStartWave) return;
-
+function respawnUnits(lane: Lane): void {
   for (const unit of lane.units) {
     unit.alive = true;
     unit.hp = unit.maxHp;
@@ -957,6 +557,9 @@ function allLanesClear(state: MatchState): boolean {
 }
 
 function advancePhase(ctx: SimContext, state: MatchState): void {
+  // The showdown runs on its own clock (showdown.ts) and never goes back.
+  if (state.phase === 'showdown') return;
+
   if (state.phase === 'build') {
     if (state.phaseTicksLeft > 0) {
       state.phaseTicksLeft -= 1;
@@ -985,6 +588,13 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
 
   if (!allLanesClear(state)) return;
 
+  // §3.3, replaced: the last wave was the last wave. What follows is not another build
+  // phase but the Final Showdown.
+  if (state.wave >= ctx.data.waves.showdown.afterWave) {
+    beginShowdown(ctx, state);
+    return;
+  }
+
   state.phase = 'build';
   state.phaseTicksLeft = secondsToTicks(ctx.data.waves.buildPhaseSeconds);
   rollOverUnitSpend(state);
@@ -994,7 +604,7 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
     const lane = state.lanes[team.id];
     if (!lane) continue;
 
-    respawnUnits(ctx, lane, state);
+    respawnUnits(lane);
     // §11.6: passive income is paid each wave and compounds over the match.
     // Gems are not: the resource building pays them out on its own clock
     // (§10.2, amended) - see `produceGems`.
@@ -1032,6 +642,13 @@ function wipeLane(state: MatchState, lane: Lane): void {
 
 /** §13: fortress HP at zero eliminates that team; placement locks in there. */
 function checkEliminations(state: MatchState): void {
+  // There are no fortresses in the arena and no lanes left to wipe: an army
+  // with nothing standing is what being out means there (showdown.ts).
+  if (state.phase === 'showdown') {
+    showdownEliminations(state);
+    return;
+  }
+
   for (const team of state.teams) {
     if (team.eliminated) continue;
     const lane = state.lanes[team.id];
@@ -1069,16 +686,21 @@ export function step(
   advanceVision(state);
   advancePhase(ctx, state);
 
-  for (const team of state.teams) {
-    if (team.eliminated) continue;
-    const lane = state.lanes[team.id];
-    if (!lane) continue;
+  if (state.phase === 'showdown') {
+    // No lanes, no fortresses, no economy: one arena and whoever is left in it.
+    showdownTick(ctx, state);
+  } else {
+    for (const team of state.teams) {
+      if (team.eliminated) continue;
+      const lane = state.lanes[team.id];
+      if (!lane) continue;
 
-    laneTick(ctx, lane, state);
-    fortressActs(ctx, lane);
-    produceGems(lane);
-    regenerateFortress(lane);
-    reapDead(ctx, lane, state);
+      laneTick(ctx, lane, state);
+      fortressActs(ctx, lane);
+      produceGems(lane);
+      regenerateFortress(lane);
+      reapDead(ctx, lane, state);
+    }
   }
 
   checkEliminations(state);
@@ -1111,13 +733,11 @@ export function step(
  */
 function regenerateFortress(lane: Lane): void {
   const fortress = lane.fortress;
-  if (fortress.destroyed || fortress.regenPerSecond <= 0) return;
-  // A wall that has reached zero is down, whatever the tick order says. The
-  // flag is set at the end of the tick (`reapDead`), so without this a lane
-  // could be healed back out of its own elimination.
-  if (fortress.hp <= 0 || fortress.hp >= fortress.maxHp) return;
-
-  fortress.hp = Math.min(fortress.maxHp, fortress.hp + fortress.regenPerSecond * SECONDS_PER_TICK);
+  if (fortress.destroyed) return;
+  // `applyHealing` is where the rules live, including the one that matters
+  // here: a wall that has reached zero is down, whatever the tick order says,
+  // and must not be healed back out of its own elimination (dampening.ts).
+  fortress.hp = applyHealing(fortress.hp, fortress.maxHp, fortress.regenPerSecond);
 }
 
 function produceGems(lane: Lane): void {

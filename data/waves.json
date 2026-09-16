@@ -1,9 +1,17 @@
 {
-  "_comment": "DESIGN.md \u00a73, \u00a78, \u00a79. Waves 1-25 authored; the scaling factors apply only past wave 25, which the attrition endgame makes academic. Boss waves carry only their escort here - the boss is drawn from bossBank at run time (\u00a73.4). All placeholders.",
+  "_comment": "DESIGN.md §3, §8, §9. Waves 1-25 authored; the scaling factors apply only past wave 25, which the Final Showdown makes academic. Boss waves carry only their escort here - the boss is drawn from bossBank at run time (§3.4). All placeholders.",
   "buildPhaseSeconds": 30,
   "bossEveryNWaves": 5,
-  "lastBuildWave": 24,
-  "attritionStartWave": 25,
+  "showdown": {
+    "_comment": "§3.3, replaced. The attrition endgame is gone. The last monster wave is afterWave; clearing it moves every surviving army into the cross arena for a free-for-all. approachDepth is the open ground between a player's build grid and the centre square, so a spoke is buildZone.depth + approachDepth long and the centre is buildZone.width on a side. dampening scales healing, summon HP and crowd-control durations down by perSecond per second once graceSeconds have passed, so a fight cannot run forever. All placeholders.",
+    "afterWave": 25,
+    "countdownSeconds": 3,
+    "approachDepth": 2,
+    "dampening": {
+      "graceSeconds": 30,
+      "perSecond": 0.01
+    }
+  },
   "maxConcurrentMonsters": 30,
   "enrage": {
     "_comment": "Additive, not compounding: multiplier = 1 + ratePerSecond * secondsEnraged. rate 0.03 is derived from the doc's worked example (60s in = 2.8x). Applies to monster damage, move speed and attack speed - never to HP.",
@@ -433,6 +441,11 @@
       ]
     }
   ],
-  "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"],
-  "_clockNote": "DESIGN CHANGE to \u00a73.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (\u00a78). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one."
+  "bossBank": [
+    "brood_sire",
+    "hollow_king",
+    "gravemother",
+    "chitin_lord"
+  ],
+  "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one."
 }

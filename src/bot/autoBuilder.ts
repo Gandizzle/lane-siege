@@ -308,7 +308,7 @@ export class AutoBuilder {
    * to rather than a constant trickle.
    */
   private planSend(state: MatchState, gems: number): { command: Command; cost: number } | null {
-    if (state.wave >= this.data.waves.attritionStartWave) return null;
+    if (state.phase === 'showdown') return null;
 
     const self = state.teams.find((t) => t.id === this.teamId);
     if (!self || self.eliminated) return null;

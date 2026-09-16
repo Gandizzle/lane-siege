@@ -32,6 +32,15 @@ export type { SpawnSpec, WavePreviewEntry, WaveSummary, UnitRating } from './wav
 export { inBounds, tileOccupiedByUnit } from './grid.ts';
 export { gap, slideStep } from './motion.ts';
 export type { Body, Bounds } from './motion.ts';
+export { LEGS, arenaCentre, arenaShape, legForSeat, legPosition } from './arena.ts';
+export type { ArenaShape, Leg } from './arena.ts';
+export {
+  applyHealing,
+  crowdControlMultiplier,
+  dampeningRemaining,
+  healingMultiplier,
+  summonHealthMultiplier,
+} from './dampening.ts';
 export { createMonster, placeWave, spawnCentre } from './spawn.ts';
 export { countLiving } from './spawn.ts';
 export { viewFor } from './view.ts';
@@ -44,5 +53,7 @@ export type {
   LaneView,
   MatchView,
   OpponentView,
+  ShowdownArmyView,
+  ShowdownView,
   UnitDamageView,
 } from './view.ts';

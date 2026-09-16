@@ -179,6 +179,8 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     teams,
     lanes,
     waveClocks: [],
+    // §3.3, replaced: born when the last wave is cleared, not before (showdown.ts).
+    showdown: null,
     nextEntityId: 1,
     finished: false,
     eliminatedCount: 0,

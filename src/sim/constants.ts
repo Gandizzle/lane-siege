@@ -47,3 +47,15 @@ export const ENGAGE_SLACK_TILES = 0.12;
  * Larger than any lane, and finite so the arithmetic inside it stays ordinary.
  */
 export const NO_ACQUIRE_LIMIT = 1e6;
+
+/**
+ * Attack cooldown in ticks for a given attacks-per-second rate.
+ *
+ * Whole ticks, so two clients running the same match agree on exactly which
+ * tick a blow lands (§15.1). A rate of zero never fires rather than firing
+ * every tick, which is what a divide by zero would otherwise give.
+ */
+export function cooldownTicks(attacksPerSecond: number): number {
+  if (attacksPerSecond <= 0) return Number.MAX_SAFE_INTEGER;
+  return Math.max(1, Math.round(TICKS_PER_SECOND / attacksPerSecond));
+}

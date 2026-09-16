@@ -42,6 +42,7 @@
 import { Container } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
 import {
+  arenaShape,
   buildDefIndex,
   summariseWave,
   type Command,
@@ -50,6 +51,7 @@ import {
   type WaveSummary,
 } from '../sim/index.ts';
 import type { Transport } from '../net/transport.ts';
+import { ArenaStage, arenaAsLane } from './arena.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
@@ -57,6 +59,7 @@ import { computeLayout, type LaneLayout } from './layout.ts';
 import { LaneView as LaneViewLayer } from './laneView.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { BuilderSelect } from './ui/builderSelect.ts';
+import { ShowdownCountdown } from './ui/countdown.ts';
 import { GameOver } from './ui/gameOver.ts';
 import { HomeScreen, type MatchMode } from './ui/homeScreen.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
@@ -121,6 +124,11 @@ export class Game extends Container {
   private readonly builderSelect: BuilderSelect;
   private readonly home: HomeScreen;
   private readonly lobbyScreen: LobbyScreen;
+  /** §3.3, replaced: the cross the last fight happens on, and the card that opens it. */
+  private readonly arena: ArenaStage;
+  private readonly countdown: ShowdownCountdown;
+  /** True once the arena has taken the screen, so the swap happens once. */
+  private inShowdown = false;
 
   constructor(
     private readonly data: GameData,
@@ -193,8 +201,20 @@ export class Game extends Container {
       onChangeBuilder: () => this.showScreen('builder'),
       onLeave: () => this.goHome(),
     });
+    this.arena = new ArenaStage(
+      arenaShape(data),
+      this.layout.screen,
+      this.layout.tileSize,
+      data,
+      defs,
+    );
+    this.arena.visible = false;
+    this.countdown = new ShowdownCountdown(this.layout);
 
     this.addChild(
+      // The arena replaces the lane stack rather than sitting over it: in the
+      // showdown there is no lane, no fortress and nothing to build (§3.3, replaced).
+      this.arena,
       this.laneLayer,
       // Between the ground and the bodies: the aura is held ground, and it
       // must never obscure the fight standing on it (§10.1).
@@ -207,6 +227,9 @@ export class Game extends Container {
       this.buildBar,
       this.toast,
       this.gameOver,
+      // Over the board and under the front screens: it is a cut to a card, but
+      // it must not cover the home screen if a match is abandoned under it.
+      this.countdown,
       this.builderSelect,
       this.lobbyScreen,
       this.home,
@@ -272,6 +295,7 @@ export class Game extends Container {
     this.gameOver.reset();
     this.entities.reset();
     this.effectsLayer.reset();
+    this.leaveShowdown();
     this.showScreen('home');
   }
 
@@ -288,6 +312,7 @@ export class Game extends Container {
     this.entities.reset();
     this.effectsLayer.reset();
     this.gameOver.reset();
+    this.leaveShowdown();
     // A remote match opens in its lobby, even before the room has answered; a
     // practice match has no lobby and is already running.
     this.showScreen(this.transport.hasLobby && !this.transport.matchStarted ? 'lobby' : 'match');
@@ -313,6 +338,8 @@ export class Game extends Container {
     this.banner.setLayout(this.layout);
     this.buildBar.setLayout(this.layout);
     this.gameOver.setLayout(this.layout);
+    this.arena.setLayout(this.layout.screen, this.layout.tileSize);
+    this.countdown.setLayout(this.layout);
     this.builderSelect.setLayout(this.layout);
     this.home.setLayout(this.layout);
     this.lobbyScreen.setLayout(this.layout);
@@ -353,17 +380,22 @@ export class Game extends Container {
     if (transport.consumeTick()) {
       // Seed interpolation from the view being replaced, then take the new one.
       const outgoing = this.shownLane();
+      const outgoingArena = this.arenaLane();
       this.entities.captureTick(outgoing);
+      this.arena.captureTick(outgoingArena);
       this.view = transport.view();
-      // Blows landed on this tick become effects, for the lane on screen only:
-      // a fight you cannot see does not need animating.
+      // Blows landed on this tick become effects, for the board on screen
+      // only: a fight you cannot see does not need animating.
       const incoming = this.shownLane();
       if (incoming) this.effectsLayer.spawn(incoming, outgoing);
+      const incomingArena = this.arenaLane();
+      if (incomingArena) this.arena.spawnEffects(incomingArena, outgoingArena);
     }
 
     // Effects run on wall time, not on ticks: a 170ms swing at 60fps is ten
     // frames, and at 20Hz it would be three.
     this.effectsLayer.update(deltaMs);
+    this.arena.update(deltaMs);
     this.auraLayer.update(deltaMs);
 
     for (const rejection of transport.takeRejections()) this.toast.show(rejection);
@@ -380,6 +412,15 @@ export class Game extends Container {
     // stopped moving, which looks exactly like the game having crashed. The
     // notice takes the banner over from the watch indicator while that is true.
     const connected = transport.status === 'ready';
+
+    // §3.3, replaced: the showdown takes the whole screen. Everything the lane stack
+    // draws - the lane itself, the tabs, the build bar, the HUD - is about a
+    // lane, and there is no longer a lane.
+    this.setShowdown(view.showdown !== null);
+    if (this.inShowdown) {
+      this.renderShowdown(view, transport.alpha, deltaMs);
+      return;
+    }
 
     this.refreshSummary(view);
     this.dropStaleWatch(view);
@@ -401,6 +442,67 @@ export class Game extends Container {
     if (connected) this.banner.render(view, this.watchingTeamId);
     else this.banner.renderStatus(transport.status, transport.detail);
     if (view.lane) this.buildBar.render(view, view.lane, this.selection, this.summary);
+    this.toast.update(deltaMs, this.layout);
+    this.gameOver.render(view);
+  }
+
+  // ---------------------------------------------------- the Final Showdown
+
+  /**
+   * Swap the lane stack for the arena, once, in each direction.
+   *
+   * The UI is not hidden to make room so much as because none of it means
+   * anything any more: there is nothing to build, nothing to send, no fortress
+   * to upgrade and no other lane to watch. What the screen gets back is the
+   * room the arena needs (§3.3, replaced).
+   */
+  private setShowdown(on: boolean): void {
+    if (this.inShowdown === on) return;
+    this.inShowdown = on;
+
+    this.arena.visible = on;
+    for (const layer of [
+      this.laneLayer,
+      this.auraLayer,
+      this.entities,
+      this.effectsLayer,
+      this.hud,
+      this.tabs,
+      this.banner,
+      this.buildBar,
+    ]) {
+      layer.visible = !on;
+    }
+
+    if (on) {
+      // Bodies from a lane and bodies in the arena have unrelated positions,
+      // so interpolating across the cut would slide every unit across the
+      // screen for one tick.
+      this.arena.reset();
+      this.entities.reset();
+      this.effectsLayer.reset();
+      this.selection = null;
+      this.pendingUnitDefId = null;
+      this.watchingTeamId = null;
+    }
+  }
+
+  /** Put the lane stack back, for a new match after a showdown. */
+  private leaveShowdown(): void {
+    this.setShowdown(false);
+    this.arena.reset();
+  }
+
+  private arenaLane(): LaneView | null {
+    return this.view ? arenaAsLane(this.view) : null;
+  }
+
+  private renderShowdown(view: MatchView, alpha: number, deltaMs: number): void {
+    const lane = this.arenaLane();
+    if (lane) this.arena.render(view, lane, alpha);
+    // The card is a cut, so it goes over the arena rather than beside it, and
+    // the arena is already standing behind it when it lifts (showdown.ts).
+    this.countdown.render(view.showdown?.countdown ?? 0);
     this.toast.update(deltaMs, this.layout);
     this.gameOver.render(view);
   }
@@ -438,6 +540,9 @@ export class Game extends Container {
   private spectateFirstAvailable(): void {
     const view = this.view;
     if (!view) return;
+    // §3.3, replaced: in the arena there are no lanes to switch between, and an
+    // eliminated player is already watching the whole of it.
+    if (view.showdown) return;
     const alive = view.opponents.find((o) => !o.eliminated && o.watching);
     const any = alive ?? view.opponents.find((o) => o.watching);
     if (any) this.watch(any.teamId);

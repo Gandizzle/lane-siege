@@ -2,7 +2,9 @@
 
 Competitive lane-defense game for mobile. Up to 4 players, each defending their
 own lane against identical waves, spending a second currency to send extra
-monsters at each other. Last fortress standing wins.
+monsters at each other. Twenty-five waves, then a Final Showdown: the surviving
+armies meet in one cross-shaped arena and fight it out. Last player standing
+wins.
 
 **[DESIGN.md](DESIGN.md) is the source of truth.** This repository implements
 it.
@@ -18,7 +20,11 @@ is money rather than code.
   pick a weapon type and an aura, and send monsters at whichever opponent is
   doing best. While a wave is running you can watch any lane, and every attack
   animates — a projectile whose shape, size and speed come from the unit that
-  fired it, or a swing for anything fighting at contact.
+  fired it, or a swing for anything fighting at contact. Clear the last wave
+  and the screen cuts to "Final Showdown in 3…", then to the arena: four
+  spokes around a shared centre, every army standing in the formation it was
+  built in, scrolled and zoomed to fit a phone. `?wave=25` starts a practice
+  match at the last build phase; `?showdown=1` starts inside the arena.
 - `npm run server` then `?server=ws://localhost:2567` — the same match against
   three other people, with the server deciding everything. Players gather in a
   lobby, pick rosters, and ready up; a dropped connection keeps your lane for
@@ -29,7 +35,7 @@ is money rather than code.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-388 tests, plus five measurement harnesses that are part of how this is
+429 tests, plus five measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
 sockets), `npm run lobby` (matchmaking, the lobby and reconnection, also over
 real sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`

@@ -55,6 +55,10 @@ export interface AppOptions {
   seed?: number;
   /** A Colyseus endpoint. Absent means a local practice match. */
   server?: string;
+  /** Practice only: start at the build phase before this wave (`?wave=`). */
+  startWave?: number;
+  /** Practice only: start in the Final Showdown's arena (`?showdown=1`). */
+  startInShowdown?: boolean;
 }
 
 /**
@@ -93,6 +97,10 @@ function newTransport(
     teams,
     OWN_LANE,
     LANE_IDS.filter((id) => id !== OWN_LANE),
+    {
+      ...(options.startWave !== undefined && { wave: options.startWave }),
+      ...(options.startInShowdown && { showdown: true }),
+    },
   );
 }
 

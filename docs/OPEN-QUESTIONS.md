@@ -89,8 +89,8 @@ Drop. Placeholders like every other number, but coherent ones:
 - The cheap probe and the expensive raid grant vision; the bread-and-butter
   sends do not. So sight is a thing you pay for rather than a side effect of
   attacking.
-- Sends close at wave 25 with every other purchase (§3.3, decided above), since
-  a send costs gems and is therefore a purchase.
+- Sends close when the Final Showdown opens, with every other purchase (§3.3
+  replaced, decided above), since a send costs gems and is therefore a purchase.
 
 ### 7. When is a builder chosen? → **before the match, and fixed for it**
 
@@ -225,10 +225,10 @@ Two smaller decisions fell out of it:
   build phase; a sale is not a casualty, and a unit that walked back onto its
   tile with the refund already paid would be free money.
 
-Selling is closed outside the build phase, and closed from wave 25 like every
-other transaction (question 3): the attrition endgame is fought with what you
-brought, and turning a line into gold nobody can spend would be a strange
-exception to that.
+Selling is closed outside the build phase, and closed once the Final Showdown
+opens like every other transaction (question 3): the arena is fought with the
+army you brought, and turning a line into gold nobody can spend would be a
+strange exception to that.
 
 - Data: `economy.sell.sameBuildPhase: 1`, `economy.sell.later: 0.5`.
 - Built: `sellUnit` and `sellValue` in `src/sim/apply.ts`, the phase rollover in
@@ -239,17 +239,23 @@ exception to that.
 
 ## Still open — needed before the milestone in brackets
 
-### 3. Post-wave-25 purchases (§3.3) → **nothing can be bought**
+### 3. Post-wave-25 purchases (§3.3) → **overtaken: the shop closes when the armies march**
 
-Answered against the doc's recommendation. DESIGN.md suggested keeping tiers,
-tech and fortress upgrades available so gold had a sink; decided instead that
-the attrition endgame is a hard, terminating grind fought with whatever you
-brought, not a last shopping trip. From wave 25 every purchase is refused:
-units, tiers, tech, fortress and supply alike.
+The question was what may still be bought during §3.3's attrition endgame.
+There is no attrition endgame any more — §3.3 has been replaced by the Final
+Showdown (see the design-changes list below) — so the question it asked no
+longer has a subject, and the rule that replaces it is simpler than either
+answer on offer:
+
+**Every build phase is fully open, including the one before the last wave.
+Nothing at all can be bought once the showdown opens.** The arena is fought
+with the army you brought, and the last build phase is the last chance to
+change it — which is what makes it worth playing rather than a formality
+before a grind.
 
 The free per-build-phase choices — the fortress weapon's damage type and the
-active aura (§10.1) — still work, because they cost nothing and keep a losing
-player engaging with the matrix to the end.
+active aura (§10.1) — are unaffected: they cost nothing, so they are not
+purchases, and the showdown has no fortress to apply them to anyway.
 
 ### 4. Is the supply cap upgrade bought with gold or gems? (§11.1)
 
@@ -271,7 +277,8 @@ Already decided in DESIGN.md and simply written into `data/`:
 
 - The full damage matrix (§6) — `matrix.json`
 - Build zone 8×10 (§4.2), build phase 30s (§3.1), boss every 5 waves (§3.4),
-  attrition from wave 25 (§3.3), lane cap 30 monsters (§8.1)
+  25 authored waves (§3.3, though what follows them is no longer §3.3's),
+  lane cap 30 monsters (§8.1)
 - Enrage: 60s delay, cap ~6× (§8). The **rate** of 0.03/second is derived from
   the doc's own worked example ("60 seconds in = 2.8×", and 1 + 0.03 × 60 = 2.8),
   because that formula's code block is empty in the document as supplied.
@@ -293,6 +300,27 @@ death.
 ## Design changes to DESIGN.md
 
 Decisions that override the document rather than filling a gap in it:
+
+- **§3.3 — the match ends in the Final Showdown, not in attrition.** §3.3 had
+  the table stop building and stop respawning at wave 25 and grind through
+  ever-nastier waves until one player was left. That is a race against a clock,
+  and it is settled by who banked the most gold rather than by who built the
+  better army. Clearing the last wave now cuts to a card — "Final Showdown in
+  3…" — and then to a cross-shaped arena, four spokes of lane width around an
+  8 × 8 centre, with every surviving army standing in its own spoke on the
+  tiles it was built on, restored to full HP. They converge on the middle and
+  fight a free-for-all under exactly the targeting and movement rules they have
+  used all match. Last player with anything standing wins, and is placed first.
+  Three things follow: every build phase is open, including the one before the
+  last wave, and nothing at all is buyable once the armies march; units respawn
+  at every build phase without exception; and the camera moves for the first
+  time, since a 32 × 32 arena does not fit a portrait phone at a readable
+  scale. **Dampening** is the brake that guarantees termination — healing, a
+  summon's starting HP and crowd-control durations all fade 1% per second
+  additively after the first 30 seconds — and is scaffolding: none of those
+  three effects exists yet, but every point of healing in the simulation
+  already goes through the one function the multiplier will be applied in.
+  `waves.showdown` in `data/waves.json` holds all four numbers.
 
 - **§3.2 — there is no global wave-spawn clock.** The only global timers are the
   30s build phase and the enrage clock (§8). Combat runs until every living lane

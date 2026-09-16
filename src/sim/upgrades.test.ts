@@ -1,6 +1,6 @@
 /**
  * M3 systems: global tech, fortress and resource upgrades, supply, auras and
- * the attrition endgame. DESIGN.md §3.3, §7.4, §10.1, §10.2, §11.4.
+ * the Final Showdown's closed shop. DESIGN.md §3.3 (replaced), §7.4, §10.1, §10.2, §11.4.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -420,10 +420,10 @@ describe('auras (§10.1)', () => {
   });
 });
 
-describe('the attrition endgame (§3.3)', () => {
-  it('closes new construction from wave 25', () => {
+describe('the Final Showdown closes the shop (§3.3, replaced)', () => {
+  it('closes new construction once the showdown has begun', () => {
     const { state, ctx } = rich();
-    state.wave = data.waves.attritionStartWave;
+    state.phase = 'showdown';
 
     expect(
       applyCommand(ctx, state, {
@@ -436,10 +436,10 @@ describe('the attrition endgame (§3.3)', () => {
     ).toEqual({ ok: false, rejection: 'building-closed' });
   });
 
-  it('closes EVERY purchase from wave 25, not just construction', () => {
-    // §3.3 was OPEN and the doc recommended keeping upgrades available. Decided
-    // against: the endgame is a grind fought with what you brought, not a last
-    // shopping trip.
+  it('closes EVERY purchase, not just construction', () => {
+    // The arena is fought with the army you brought. A last shopping trip
+    // between the final wave and the showdown would make the last build phase
+    // the only one that mattered.
     const { state, ctx } = rich();
     applyCommand(ctx, state, {
       kind: 'placeUnit',
@@ -450,7 +450,7 @@ describe('the attrition endgame (§3.3)', () => {
     });
     const id = state.lanes.l1!.units[0]!.id;
 
-    state.wave = data.waves.attritionStartWave;
+    state.phase = 'showdown';
     const closed = { ok: false, rejection: 'building-closed' };
 
     expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'l1', unitId: id })).toEqual(
@@ -465,21 +465,26 @@ describe('the attrition endgame (§3.3)', () => {
     ).toEqual(closed);
   });
 
-  it('still allows the free weapon and aura choices after wave 25 (§10.1)', () => {
-    // They cost nothing, so they are not purchases - and they keep a losing
-    // player engaging with the matrix to the end.
+  it('keeps the shop open for the build phase before the last wave', () => {
+    // §3.3 used to close it AT wave 25 so its attrition endgame was fought
+    // with whatever survived. The showdown is fought with what you built, so
+    // the last build phase is a real one.
     const { state, ctx } = rich();
-    state.wave = data.waves.attritionStartWave;
+    state.wave = data.waves.showdown.afterWave - 1;
+    state.phase = 'build';
 
     expect(
-      applyCommand(ctx, state, { kind: 'setWeaponType', teamId: 'l1', damageType: 'arcane' }).ok,
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'l1',
+        unitDefId: 'hammer',
+        tileX: 1,
+        tileY: 1,
+      }).ok,
     ).toBe(true);
-    expect(applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armour' }).ok).toBe(
-      true,
-    );
   });
 
-  it('stops respawning losses', () => {
+  it('respawns losses at every build phase, including the last', () => {
     const { state, ctx } = rich();
     applyCommand(ctx, state, {
       kind: 'placeUnit',
@@ -490,7 +495,6 @@ describe('the attrition endgame (§3.3)', () => {
     });
     const unit = state.lanes.l1!.units[0]!;
 
-    state.wave = data.waves.attritionStartWave;
     unit.alive = false;
     unit.hp = 0;
 
@@ -499,7 +503,7 @@ describe('the attrition endgame (§3.3)', () => {
     guard = 0;
     while (state.phase !== 'build' && guard++ < 20000) step(ctx, state);
 
-    expect(unit.alive).toBe(false);
+    expect(unit.alive).toBe(true);
   });
 });
 

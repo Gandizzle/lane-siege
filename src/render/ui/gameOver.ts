@@ -33,6 +33,8 @@ type Shown = 'none' | 'eliminated' | 'won' | 'finished';
 
 export class GameOver extends Container {
   private shown: Shown = 'none';
+  /** Whether what is drawn was drawn for the arena. Part of the redraw key. */
+  private shownInArena = false;
   private dismissed = false;
 
   constructor(
@@ -52,6 +54,7 @@ export class GameOver extends Container {
   /** New match: clear the "I already dismissed this" memory. */
   reset(): void {
     this.shown = 'none';
+    this.shownInArena = false;
     this.dismissed = false;
     this.visible = false;
     this.removeChildren();
@@ -59,6 +62,9 @@ export class GameOver extends Container {
 
   render(view: MatchView): void {
     const outcome = classify(view);
+    // §3.3, replaced: the same three outcomes, reached a different way. Nobody loses a
+    // fortress in the arena - there are none - so the words have to change.
+    const arena = view.showdown !== null;
 
     if (outcome === 'none' || this.dismissed) {
       this.visible = false;
@@ -66,8 +72,9 @@ export class GameOver extends Container {
     }
 
     this.visible = true;
-    if (outcome === this.shown) return;
+    if (outcome === this.shown && arena === this.shownInArena) return;
     this.shown = outcome;
+    this.shownInArena = arena;
     this.removeChildren();
 
     const l = this.layout;
@@ -83,7 +90,13 @@ export class GameOver extends Container {
     this.addChild(scrim);
 
     const heading =
-      outcome === 'won' ? 'Last one standing' : outcome === 'finished' ? 'Match over' : 'Fortress lost';
+      outcome === 'won'
+        ? 'Last one standing'
+        : outcome === 'finished'
+          ? 'Match over'
+          : arena
+            ? 'Army destroyed'
+            : 'Fortress lost';
     this.addChild(
       centreOn(
         label(heading, 24, outcome === 'won' ? UI.accent : UI.text, '700'),
@@ -95,12 +108,15 @@ export class GameOver extends Container {
     // §13: placement is locked in at the moment of elimination, so it is a
     // fact about the match and not a guess made at the end.
     const place = view.placement;
+    const held = arena ? 'the Final Showdown' : `wave ${view.wave}`;
     const detail =
       outcome === 'won'
-        ? `You won at wave ${view.wave}`
+        ? arena
+          ? 'You won the Final Showdown'
+          : `You won at wave ${view.wave}`
         : place !== null
-          ? `${ordinal(place)} place · held to wave ${view.wave}`
-          : `You held to wave ${view.wave}`;
+          ? `${ordinal(place)} place · ${arena ? 'fell in the arena' : `held to wave ${view.wave}`}`
+          : `You held to ${held}`;
     this.addChild(centreOn(label(detail, 13, UI.textMuted), cx, l.screen.height * 0.41));
 
     let y = l.screen.height * 0.5;

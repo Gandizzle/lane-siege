@@ -447,7 +447,7 @@ export class BuildBar extends Container {
     // §3.3, decided: from wave 25 nothing can be bought at all. The free
     // weapon/aura choices stay live, so they use `canChoose` instead.
     const canChoose = view.phase === 'build';
-    const canAct = canChoose && view.wave < this.data.waves.attritionStartWave;
+    const canAct = canChoose && view.phase !== 'showdown';
     const canBuild = canAct;
     // §13: out of the match means out of the shop, whatever the phase says.
     const alive = !view.eliminated;

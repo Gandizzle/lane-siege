@@ -304,3 +304,93 @@ describe('a frame cannot leak what the view withheld', () => {
     expect(Object.keys(decoded.watching)).toHaveLength(0);
   });
 });
+
+describe('the Final Showdown on the wire (§3.3, replaced)', () => {
+  /** Arm every lane and jump to the tick the last wave is cleared. */
+  function showdownMatch() {
+    const { state, ctx } = match();
+    for (const id of TEAMS) {
+      const lane = state.lanes[id]!;
+      lane.economy.gold = 99_999;
+      lane.economy.supplyCap = 999;
+      for (let x = 0; x < 4; x++) {
+        applyCommand(ctx, state, {
+          kind: 'placeUnit',
+          teamId: id,
+          unitDefId: 'hammer',
+          tileX: x,
+          tileY: 2,
+        });
+      }
+    }
+
+    state.wave = data.waves.showdown.afterWave;
+    state.phase = 'combat';
+    state.phaseTicksLeft = 0;
+    for (const lane of Object.values(state.lanes)) {
+      lane.monsters.length = 0;
+      lane.reserve.length = 0;
+    }
+    state.waveClocks.length = 0;
+    step(ctx, state);
+    return { state, ctx };
+  }
+
+  it('carries the phase, which is now one of three', () => {
+    const { state } = showdownMatch();
+    const { original, decoded } = roundTrip(state, 'a');
+    expect(original.phase).toBe('showdown');
+    expect(decoded.phase).toBe('showdown');
+  });
+
+  it('carries every army, its seat and every body in it', () => {
+    const { state } = showdownMatch();
+    const { original, decoded } = roundTrip(state, 'a');
+
+    expect(decoded.showdown).not.toBeNull();
+    expect(decoded.showdown!.countdown).toBe(original.showdown!.countdown);
+    expect(decoded.showdown!.armies).toHaveLength(original.showdown!.armies.length);
+
+    original.showdown!.armies.forEach((army, i) => {
+      const got = decoded.showdown!.armies[i]!;
+      expect(got.teamId).toBe(army.teamId);
+      expect(got.seat).toBe(army.seat);
+      expect(got.units).toHaveLength(army.units.length);
+      army.units.forEach((unit, j) => {
+        const row = got.units[j]!;
+        expect(row.id).toBe(unit.id);
+        expect(row.defId).toBe(unit.defId);
+        expect(row.x).toBeCloseTo(unit.x, 2);
+        expect(row.y).toBeCloseTo(unit.y, 2);
+      });
+    });
+  });
+
+  it('carries the blows, so the arena animates like a lane', () => {
+    const { state, ctx } = showdownMatch();
+    let guard = 0;
+    while (state.showdown!.attacks.length === 0 && guard++ < 20000) step(ctx, state);
+
+    const { original, decoded } = roundTrip(state, 'a');
+    expect(original.showdown!.attacks.length).toBeGreaterThan(0);
+    expect(decoded.showdown!.attacks).toEqual(original.showdown!.attacks);
+  });
+
+  it('shows the same arena to everybody, eliminated or not', () => {
+    // Nothing about four armies in one square is hideable, and a player who
+    // cannot see what is walking at them cannot play the fight.
+    const { state } = showdownMatch();
+    state.teams[3]!.eliminated = true;
+
+    const alive = roundTrip(state, 'a').decoded.showdown!;
+    const out = roundTrip(state, 'd').decoded.showdown!;
+    expect(out.armies.map((a) => a.teamId)).toEqual(alive.armies.map((a) => a.teamId));
+    expect(out.armies[0]!.units).toHaveLength(alive.armies[0]!.units.length);
+  });
+
+  it('says nothing about a showdown that has not started', () => {
+    const { state } = match();
+    const { decoded } = roundTrip(state, 'a');
+    expect(decoded.showdown).toBeNull();
+  });
+});

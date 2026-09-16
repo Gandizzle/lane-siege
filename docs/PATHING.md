@@ -147,11 +147,17 @@ range walks downhill off the same answer. What makes it the right field:
   every obstacle. Routing stays at cell resolution, which is where the
   clearance guarantee lives; only "is there an attack position in this cell"
   is asked more carefully.
-- **The lane's own edges are terrain.** Contact keeps a body's whole width
-  inside the lane, so the strip along each side is ground nothing of that size
+- **The world's own edges are terrain.** Contact keeps a body's whole width
+  inside the world, so the strip along each side is ground nothing of that size
   can stand in, and the field blocks it before anything else is marked. Left
   open, the strip collected attack positions nobody could ever take — and a
-  goal that is never taken never stops drawing a crowd toward it.
+  goal that is never taken never stops drawing a crowd toward it. The Final
+  Showdown's arena is the same rule on a harder shape: a cross has four inside
+  corners that are not ground at all, and `Bounds.band` is what both contact
+  and `markOutside` read to keep bodies out of them and routes from cutting
+  through them. Nothing else in the movement code knows which world it is in —
+  it is handed a size, a set of edges and whatever is solid, and the rules are
+  the same in a lane and in the arena.
 - **A slot has to have room to spare.** Obstacles a seeker must get _past_ are
   inflated by its radius plus two hundredths of a tile (`PASSAGE_CLEARANCE`);
   the body it is walking up to _hit_ is inflated by exactly its radius, since
@@ -388,7 +394,9 @@ less code than the patches it removed.
 | `src/sim/motion.ts`         | Circles, contact, move-and-slide, the yielding order                                          |
 | `src/sim/targeting.ts`      | Edge-to-edge range and the hysteresis that decides engaged-or-seeking                         |
 | `src/sim/spawn.ts`          | The hexagonal spawn clump                                                                     |
-| `src/sim/tick.ts`           | `classify*`, `planMoves`, `moveSeekers`: the pipeline in order                                |
+| `src/sim/steering.ts`       | `planMoves` and `moveSeekers`: the pipeline's middle, in whatever world it is given           |
+| `src/sim/context.ts`        | `World`: a size, a set of edges, and whatever is solid in it — a lane or the showdown's arena |
+| `src/sim/tick.ts`           | `classify*` and `laneTick`: the pipeline in order                                             |
 | `src/headless/routing.ts`   | `npm run routing` — the measurements above                                                    |
 | `src/sim/movement.test.ts`  | Behavioural guards for every case above                                                       |
 | `src/sim/flowfield.test.ts` | The field's geometry: rings, holes, clearance, waiting positions                              |

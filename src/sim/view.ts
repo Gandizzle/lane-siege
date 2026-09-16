@@ -52,7 +52,16 @@
  */
 
 import type { ArmourType, DamageType } from '../data/schema.ts';
-import type { Attack, EntityId, Lane, MatchState, Phase, TeamId, UnitSpend } from './types.ts';
+import type {
+  Attack,
+  EntityId,
+  Lane,
+  MatchState,
+  Phase,
+  Showdown,
+  TeamId,
+  UnitSpend,
+} from './types.ts';
 
 /**
  * One drawable body. Everything §14.2 needs to pick a silhouette, a fill and a
@@ -195,6 +204,32 @@ export interface OpponentView {
   visionTicksLeft: number;
 }
 
+/** One army in the Final Showdown, as everybody sees it (§3.3, replaced). */
+export interface ShowdownArmyView {
+  teamId: TeamId;
+  /** Which spoke it fights from: `legForSeat(seat)` (arena.ts). */
+  seat: number;
+  units: EntityView[];
+}
+
+/**
+ * The Final Showdown (§3.3, replaced). Nothing in it is hidden from anybody.
+ *
+ * Fog of war is a thing you do to a lane somebody else is building in private.
+ * Four armies converging on one square are in public by construction, and a
+ * player who cannot see what is walking at them cannot play the fight at all -
+ * so every viewer, eliminated or not, gets the same picture.
+ */
+export interface ShowdownView {
+  /**
+   * Ticks left on the "Final Showdown in 3..." card. Nothing moves until it
+   * reaches zero, which is what makes the card a pause rather than an overlay.
+   */
+  countdown: number;
+  armies: ShowdownArmyView[];
+  attacks: AttackView[];
+}
+
 export interface MatchView {
   /** Whose view this is. */
   teamId: TeamId;
@@ -212,6 +247,8 @@ export interface MatchView {
   opponents: OpponentView[];
   /** Lanes whose contents this viewer may watch, keyed by team. */
   watching: Record<TeamId, LaneView>;
+  /** The Final Showdown, once it has started (§3.3, replaced). Null before then. */
+  showdown: ShowdownView | null;
 }
 
 /** The living units, in one pass, so the views and the spend stay in step. */
@@ -299,6 +336,32 @@ function laneView(lane: Lane, own: boolean): LaneView {
   };
 }
 
+function showdownView(showdown: Showdown, countdown: number): ShowdownView {
+  return {
+    countdown,
+    armies: showdown.armies.map((army) => ({
+      teamId: army.teamId,
+      seat: army.seat,
+      units: army.units
+        .filter((unit) => unit.alive)
+        .map((unit) => ({
+          id: unit.id,
+          defId: unit.defId,
+          x: unit.pos.x,
+          y: unit.pos.y,
+          radius: unit.radius,
+          armour: unit.armour,
+          damageType: unit.damageType,
+          hpFraction: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
+        })),
+    })),
+    attacks: showdown.attacks.map((a: Attack) => ({
+      attackerId: a.attackerId,
+      targetId: a.targetId,
+    })),
+  };
+}
+
 /**
  * Everything `teamId` is allowed to know about the match right now.
  *
@@ -357,5 +420,6 @@ export function viewFor(
     lane: ownLane ? laneView(ownLane, true) : null,
     opponents,
     watching,
+    showdown: state.showdown ? showdownView(state.showdown, state.phaseTicksLeft) : null,
   };
 }

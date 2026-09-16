@@ -16,7 +16,11 @@ export type EntityId = number;
 export type PlayerId = string;
 export type TeamId = string;
 
-export type Phase = 'build' | 'combat';
+/**
+ * §3.1, plus §3.3's ending, replaced. `showdown` is the Final Showdown: no lanes, no
+ * monsters, no building - every surviving army in one arena at once.
+ */
+export type Phase = 'build' | 'combat' | 'showdown';
 
 export interface Vec2 {
   x: number;
@@ -337,6 +341,46 @@ export interface Lane {
   economy: Economy;
 }
 
+/**
+ * One player's army in the Final Showdown (§3.3, replaced).
+ *
+ * The units are the SAME objects that fought the waves, moved here rather than
+ * copied: what a player spent twenty-five waves building is what they bring,
+ * and a copy would leave two of every unit for `snapshot` to duplicate and for
+ * the view to have to choose between. `lane.units` is emptied as they move.
+ */
+export interface ShowdownArmy {
+  teamId: TeamId;
+  /**
+   * Seat at the table, which is the whole of where this army fights from:
+   * `legForSeat(seat)` (arena.ts) turns it into a spoke. Stored rather than
+   * the spoke itself because the seat is the fact and the spoke is a reading
+   * of it - and an eliminated player's spoke stays empty rather than being
+   * handed to somebody else.
+   */
+  seat: number;
+  units: DefensiveUnit[];
+}
+
+/**
+ * The Final Showdown (§3.3, replaced). Null until the last wave is cleared.
+ *
+ * Nothing in here is private: four armies converging on one square is not a
+ * thing fog of war can usefully hide, and a player who cannot see what is
+ * walking at them cannot play the fight at all.
+ */
+export interface Showdown {
+  /**
+   * Ticks of fighting so far, not counting the countdown. Dampening is a
+   * function of this and nothing else, so a slow client, a pause or a rejoin
+   * cannot change how hard it bites (§3.3, replaced).
+   */
+  age: number;
+  armies: ShowdownArmy[];
+  /** Blows landed on this tick, as in a lane. See `Attack`. */
+  attacks: Attack[];
+}
+
 export interface MatchState {
   /** One seed per match, shared by every client and the server (§9.2). */
   seed: number;
@@ -352,6 +396,15 @@ export interface MatchState {
   lanes: Record<TeamId, Lane>;
   /** Enrage clocks for every wave with monsters still alive anywhere. */
   waveClocks: WaveClock[];
+  /**
+   * The Final Showdown, once the last wave is cleared (§3.3, replaced). Null before
+   * then, and `phase === 'showdown'` exactly when it is not.
+   *
+   * `phaseTicksLeft` is the countdown card's clock while this is running: the
+   * armies stand still until it reaches zero, which is what the "Final
+   * Showdown in 3..." card is counting.
+   */
+  showdown: Showdown | null;
   nextEntityId: EntityId;
   /** Set when one team (or none) remains (§13). */
   finished: boolean;

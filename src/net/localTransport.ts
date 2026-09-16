@@ -45,6 +45,23 @@ import type { Transport, TransportStatus } from './transport.ts';
 
 const NO_COMMANDS: readonly Command[] = [];
 
+/** What a jumped-to match arrives with, so a late start is not a poor one. */
+const JUMP_GOLD = 6000;
+const JUMP_GEMS = 600;
+
+/**
+ * Where a local match starts, for `?wave=` and `?showdown=` (main.ts).
+ *
+ * Debugging only, and local only. A networked match has three other people in
+ * it and starts at wave 1 like everybody else.
+ */
+export interface LocalStart {
+  /** Open at the build phase before this wave. */
+  wave?: number;
+  /** Open in the Final Showdown's arena, with four scripted armies in it. */
+  showdown?: boolean;
+}
+
 export class LocalTransport implements Transport {
   readonly kind = 'local' as const;
   status: TransportStatus = 'ready';
@@ -69,6 +86,11 @@ export class LocalTransport implements Transport {
     teamId: string,
     /** Lanes played by a scripted builder rather than by a person. */
     botTeamIds: readonly string[] = [],
+    /**
+     * Where to start, instead of at wave 1. A debugging affordance in the same
+     * family as `?seed=` - see `jumpTo` and `jumpToShowdown`.
+     */
+    start: LocalStart = {},
   ) {
     this.state = createMatch(data, { seed, teams });
     this.ctx = createContext(data);
@@ -77,7 +99,68 @@ export class LocalTransport implements Transport {
     this.bots = botTeamIds
       .filter((id) => id !== teamId)
       .map((id) => new AutoBuilder(data, id, this.state.lanes[id]?.builderId ?? ''));
+
+    if (start.showdown) this.jumpToShowdown(data);
+    else if (start.wave !== undefined && start.wave > 1) this.jumpTo(data, start.wave);
     this.refresh();
+  }
+
+  /**
+   * Start at the build phase before `wave` (`?wave=`).
+   *
+   * A practice match is the only way to look at anything, and there are things
+   * - the Final Showdown above all (§3.3, replaced) - that are twenty-five
+   * waves in. Every lane is funded on arrival, since a late start with a
+   * wave-one purse is a late start with nothing on the board. Local matches
+   * only; a real match has three other people in it and no business starting
+   * anywhere but wave 1.
+   */
+  private jumpTo(data: GameData, wave: number): void {
+    this.state.wave = Math.min(wave, data.waves.showdown.afterWave) - 1;
+    for (const lane of Object.values(this.state.lanes)) {
+      lane.economy.gold += JUMP_GOLD;
+      lane.economy.gems += JUMP_GEMS;
+    }
+  }
+
+  /**
+   * Start in the arena itself (`?showdown=1`).
+   *
+   * `?wave=25` is the honest route and it is the one to use to PLAY the
+   * ending, but it only reaches the arena if all four lanes survive wave 25 -
+   * which, with the balance numbers still at their placeholders, they usually
+   * do not. This route funds every lane, runs one build phase so the scripted
+   * builders spend it, and then hands the match to the showdown as though the
+   * last wave had just been cleared. Four armies, no waves, straight in.
+   *
+   * Every lane is scripted here, the player's included: the point is to LOOK
+   * at the arena, and a spoke with nothing standing in it shows nothing.
+   */
+  private jumpToShowdown(data: GameData): void {
+    const builders = Object.values(this.state.lanes).map(
+      (lane) => new AutoBuilder(data, lane.teamId, lane.builderId),
+    );
+    for (const lane of Object.values(this.state.lanes)) {
+      lane.economy.gold += JUMP_GOLD;
+      lane.economy.gems += JUMP_GEMS;
+    }
+
+    // One build phase, spent all at once. Stopped one tick short of its end so
+    // that the last wave never spawns - there is nothing to learn from it here.
+    this.state.wave = data.waves.showdown.afterWave - 1;
+    while (this.state.phase === 'build' && this.state.phaseTicksLeft > 1) {
+      const commands: Command[] = [];
+      for (const bot of builders) commands.push(...bot.plan(this.state));
+      step(this.ctx, this.state, commands);
+    }
+
+    // The state the tick after the last wave's last monster dies. `step` does
+    // the rest, because opening the showdown is the simulation's job (§3.3,
+    // replaced).
+    this.state.wave = data.waves.showdown.afterWave;
+    this.state.phase = 'combat';
+    this.state.phaseTicksLeft = 0;
+    step(this.ctx, this.state);
   }
 
   get alpha(): number {

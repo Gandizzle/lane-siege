@@ -36,20 +36,26 @@ function fail(rejection: CommandRejection): CommandResult {
 }
 
 /**
- * §3.3, decided: from wave 25 NOTHING can be bought - no new units, no tier
- * upgrades, no tech, no fortress or supply purchases.
+ * §3.3, replaced: once the Final Showdown starts, NOTHING can be bought - no new units,
+ * no tier upgrades, no tech, no fortress or supply purchases.
  *
- * DESIGN.md left this OPEN and recommended keeping upgrades available so gold
- * had a sink. Decided against: the attrition endgame is meant to be a hard,
- * terminating grind fought with whatever you brought, not a last shopping trip.
- * Whatever gold is on hand at wave 25 simply stops mattering.
+ * Every build phase before it is open, including the one before the last wave.
+ * §3.3's attrition endgame closed the shop at wave 25 and was fought with
+ * whatever survived; the showdown is fought with the army you built, and the
+ * build phase before the last wave is the last chance to change it. Whatever
+ * gold is still on hand when the armies march simply stops mattering.
  *
  * The free per-build-phase choices - the fortress weapon's damage type and the
- * active aura (§10.1) - still work. They cost nothing, so they are not
- * purchases.
+ * active aura (§10.1) - are not purchases, and are governed by the build phase
+ * itself rather than by this.
+ *
+ * Checked BEFORE the build-phase check at every call site, so that a tap
+ * during the showdown is answered with "there is nothing left to buy" rather
+ * than with "wait for the build phase", which would be a lie about a build
+ * phase that is never coming.
  */
-function purchasesOpen(data: GameData, state: MatchState): boolean {
-  return state.wave < data.waves.attritionStartWave;
+function purchasesOpen(state: MatchState): boolean {
+  return state.phase !== 'showdown';
 }
 
 function laneFor(state: MatchState, teamId: string): Lane | null {
@@ -66,9 +72,9 @@ function placeUnit(
   tileX: number,
   tileY: number,
 ): CommandResult {
+  if (!purchasesOpen(state)) return fail('building-closed');
   // §3.1: building happens in the build phase.
   if (state.phase !== 'build') return fail('not-build-phase');
-  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   // §7.1: you play one builder. Checked here rather than left to the UI,
   // because the UI is a client and a client is not trusted with rules (§15.1).
@@ -150,8 +156,8 @@ function buyTech(
   lane: Lane,
   trackId: string,
 ): CommandResult {
+  if (!purchasesOpen(state)) return fail('building-closed');
   if (state.phase !== 'build') return fail('not-build-phase');
-  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const track = ctx.data.economy.tech.tracks.find((t) => t.id === trackId);
   if (!track) return fail('unknown-definition');
@@ -173,8 +179,8 @@ function buySupply(
   state: MatchState,
   lane: Lane,
 ): CommandResult {
+  if (!purchasesOpen(state)) return fail('building-closed');
   if (state.phase !== 'build') return fail('not-build-phase');
-  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const ladder = ctx.data.economy.supply.capUpgrades;
   const current = lane.fortress.upgrades.supply ?? 0;
@@ -199,8 +205,8 @@ function buyFortressUpgrade(
   lane: Lane,
   upgradeId: string,
 ): CommandResult {
+  if (!purchasesOpen(state)) return fail('building-closed');
   if (state.phase !== 'build') return fail('not-build-phase');
-  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const f = ctx.data.fortress;
   const ladders: Record<string, readonly UpgradeLevel[]> = {
@@ -316,8 +322,8 @@ function send(
   // of two, it puts the decision in the same 30 seconds as the defence it
   // competes with for gems (§11.2), and it means the attacker chooses while the
   // defender can still see the incoming-send notice and respond.
+  if (!purchasesOpen(state)) return fail('building-closed');
   if (state.phase !== 'build') return fail('not-build-phase');
-  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const def = ctx.defs.sends.get(sendId);
   if (!def) return fail('unknown-definition');
@@ -368,8 +374,8 @@ function upgradeUnit(
   lane: Lane,
   unitId: number,
 ): CommandResult {
+  if (!purchasesOpen(state)) return fail('building-closed');
   if (state.phase !== 'build') return fail('not-build-phase');
-  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const unit = lane.units.find((u) => u.id === unitId && u.alive);
   if (!unit) return fail('no-such-unit');
@@ -414,10 +420,10 @@ function upgradeUnit(
 /**
  * §11, decided: sell a unit back for what `sellValue` says.
  *
- * Build phase only, and closed from the attrition wave like every other
- * transaction (§3.3) - after that the endgame is fought with what you brought,
- * and converting a line into gold nobody can spend would be a strange
- * exception to that.
+ * Build phase only, and closed once the showdown starts like every other
+ * transaction (§3.3, replaced) - the arena is fought with what you brought, and
+ * converting a line into gold nobody can spend would be a strange exception to
+ * that.
  *
  * The unit is REMOVED rather than killed. A dead unit respawns at the next
  * build phase (§5.4); a sold one is gone, and its tile is free again.
@@ -428,8 +434,8 @@ function sellUnit(
   lane: Lane,
   unitId: number,
 ): CommandResult {
+  if (!purchasesOpen(state)) return fail('building-closed');
   if (state.phase !== 'build') return fail('not-build-phase');
-  if (!purchasesOpen(ctx.data, state)) return fail('building-closed');
 
   const unit = lane.units.find((u) => u.id === unitId);
   if (!unit) return fail('no-such-unit');

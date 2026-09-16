@@ -201,10 +201,10 @@ describe('when selling is closed', () => {
     });
   });
 
-  it('refuses from the attrition wave, like every other transaction (§3.3)', () => {
+  it('refuses once the showdown begins, like every other transaction (§3.3, replaced)', () => {
     const { state, ctx } = rich();
     const unit = place(ctx, state, 'hammer', 2, 3);
-    state.wave = data.waves.attritionStartWave;
+    state.phase = 'showdown';
 
     expect(applyCommand(ctx, state, { kind: 'sellUnit', teamId: 'l1', unitId: unit.id })).toEqual({
       ok: false,
