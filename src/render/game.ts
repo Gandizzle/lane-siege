@@ -44,6 +44,7 @@ import type { GameData } from '../data/schema.ts';
 import {
   arenaShape,
   buildDefIndex,
+  inBounds,
   summariseWave,
   type Command,
   type LaneView,
@@ -55,7 +56,7 @@ import { ArenaStage, arenaAsLane } from './arena.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
-import { computeLayout, type LaneLayout } from './layout.ts';
+import { bodyAt, computeLayout, type LaneLayout } from './layout.ts';
 import { LaneView as LaneViewLayer } from './laneView.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { BuilderSelect } from './ui/builderSelect.ts';
@@ -141,8 +142,7 @@ export class Game extends Container {
     this.layout = computeLayout(width, height, data.lane);
 
     this.laneLayer = new LaneViewLayer(this.layout, data, {
-      onTapTile: (x, y) => this.tapTile(x, y),
-      onTapElsewhere: () => this.cancelSelection(),
+      onTap: (x, y) => this.tapLane(x, y),
     });
     // §14.2 reads tier off the definition, and the definitions are the same
     // everywhere (§9.2) - so the renderer indexes them itself rather than being
@@ -424,6 +424,7 @@ export class Game extends Container {
 
     this.refreshSummary(view);
     this.dropStaleWatch(view);
+    this.dropStaleSelection(view);
 
     const lane = this.shownLane();
     const watching = this.watchingTeamId !== null;
@@ -432,9 +433,9 @@ export class Game extends Container {
 
     this.auraLayer.read(lane);
     if (lane) {
-      this.laneLayer.render(view, lane, selectedUnitId, this.summary);
+      this.laneLayer.render(view, this.summary);
       this.auraLayer.render();
-      this.entities.render(lane, transport.alpha);
+      this.entities.render(lane, transport.alpha, { selectedId: selectedUnitId });
       this.effectsLayer.render();
     }
     this.hud.render(view, this.summary);
@@ -528,6 +529,21 @@ export class Game extends Container {
     this.pendingUnitDefId = null;
   }
 
+  /**
+   * A unit type in hand belongs to the build phase, and goes back when it ends.
+   *
+   * The Build tab greys out when a wave starts (§3.1), and something still in
+   * hand behind a greyed tab is a tap on the lane that fires a placement
+   * nobody asked for and gets a refusal for it. A SELECTED unit stays: its
+   * panel is worth reading mid-fight, and the ring on it is pointing at
+   * something real.
+   */
+  private dropStaleSelection(view: MatchView): void {
+    if (view.phase === 'build') return;
+    if (this.selection?.kind === 'unitDef') this.selection = null;
+    this.pendingUnitDefId = null;
+  }
+
   /** Bought sight runs out (§11.5), so the camera has to come home by itself. */
   private dropStaleWatch(view: MatchView): void {
     if (this.watchingTeamId === null) return;
@@ -614,33 +630,43 @@ export class Game extends Container {
     this.pendingUnitDefId = null;
   }
 
-  private tapTile(tileX: number, tileY: number): void {
+  /**
+   * A tap in the lane, in tile space. Three things it can mean, in order.
+   *
+   * A BODY first: if the point is inside one of your units' circles, that unit
+   * is selected, wherever it happens to be standing. That is ahead of the tile
+   * reading on purpose - tapping a unit is the only route to upgrading it, so
+   * it must not be blocked by having a build type in hand. The type is
+   * remembered and Back restores it, which keeps laying a line uninterrupted.
+   *
+   * Then a TILE: with a unit type in hand, a tap on the build grid places it.
+   * The simulation refuses an occupied tile (§15.1), which is the right answer
+   * for a tap that landed in an occupied tile but on none of its body.
+   *
+   * Otherwise EMPTY GROUND, which means cancel.
+   */
+  private tapLane(tileX: number, tileY: number): void {
     // Taps on a lane you are watching do nothing. You are a spectator there.
     if (this.watchingTeamId !== null) return;
 
     const lane = this.view?.lane;
     if (!lane) return;
 
-    const existing = lane.units.find((u) => Math.floor(u.x) === tileX && Math.floor(u.y) === tileY);
-
-    // Tapping one of your own units always opens its upgrade panel - that is
-    // the only route to upgrading, so it must not be blocked by having a build
-    // type in hand. The type is remembered and Back restores it, which keeps
-    // laying a line uninterrupted. Upgrading is never a side effect: the panel
-    // has its own button.
-    if (existing) {
+    const body = bodyAt(lane.units, tileX, tileY);
+    if (body) {
       this.pendingUnitDefId = this.selection?.kind === 'unitDef' ? this.selection.unitDefId : null;
-      this.selection = { kind: 'placedUnit', unitId: existing.id };
+      this.selection = { kind: 'placedUnit', unitId: body.id };
       return;
     }
 
-    if (this.selection?.kind === 'unitDef') {
+    const tile = { x: Math.floor(tileX), y: Math.floor(tileY) };
+    if (this.selection?.kind === 'unitDef' && inBounds(this.data.lane.buildZone, tile.x, tile.y)) {
       this.issue({
         kind: 'placeUnit',
         teamId: this.teamId,
         unitDefId: this.selection.unitDefId,
-        tileX,
-        tileY,
+        tileX: tile.x,
+        tileY: tile.y,
       });
       return;
     }

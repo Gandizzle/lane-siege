@@ -12,10 +12,10 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
-import type { LaneView as SimLaneView, MatchView, WaveSummary } from '../sim/index.ts';
+import type { MatchView, WaveSummary } from '../sim/index.ts';
 import { previewWave } from '../sim/index.ts';
 import type { LaneLayout } from './layout.ts';
-import { fortressShape, screenToTile } from './layout.ts';
+import { fortressShape, screenToTilePoint } from './layout.ts';
 import { DAMAGE_COLOURS, UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
 import { label } from './ui/text.ts';
@@ -39,14 +39,21 @@ const PREVIEW_GLYPH_RADIUS = 9;
 const GRID_ALPHA = 0.32;
 
 export interface LaneViewHandlers {
-  onTapTile(tileX: number, tileY: number): void;
-  onTapElsewhere(): void;
+  /**
+   * A tap somewhere in the lane, in TILE SPACE and fractional.
+   *
+   * Not a tile index, because what a tap can land on is not always a tile: a
+   * body is a circle standing wherever it has walked to (§14.2), and picking
+   * one out of a moving line needs the point, not the square. Whether it means
+   * a tile or a body is the caller's decision - `bodyAt` and `screenToTile` in
+   * layout.ts are the two readings of it.
+   */
+  onTap(tileX: number, tileY: number): void;
 }
 
 export class LaneView extends Container {
   private readonly bands = new Graphics();
   private readonly grid = new Graphics();
-  private readonly highlight = new Graphics();
   private readonly furniture = new Graphics();
   private readonly overlay = new Container();
   private readonly touch = new Container();
@@ -57,7 +64,7 @@ export class LaneView extends Container {
     private readonly handlers: LaneViewHandlers,
   ) {
     super();
-    this.addChild(this.bands, this.grid, this.furniture, this.highlight, this.overlay, this.touch);
+    this.addChild(this.bands, this.grid, this.furniture, this.overlay, this.touch);
     this.setLayout(layout);
   }
 
@@ -144,9 +151,13 @@ export class LaneView extends Container {
   }
 
   /**
-   * One hit area over the whole screen. Pixi reports the tap; `screenToTile`
-   * decides whether it landed on the build grid, and anything else clears the
-   * current selection.
+   * One hit area over the whole board, reporting where the tap landed in tile
+   * space. What that means - a unit, a tile, or empty ground - is decided by
+   * whoever is holding the match state, not here.
+   *
+   * The whole band rather than just the build grid: a unit advances during
+   * combat (§5.2, amended) and may be standing in the spawn zone, and a unit
+   * you can see is a unit you can tap.
    */
   private installTouchArea(): void {
     this.touch.removeChildren();
@@ -156,9 +167,8 @@ export class LaneView extends Container {
     surface.eventMode = 'static';
     surface.hitArea = new Rectangle(0, l.tabs.y, l.screen.width, l.buildBar.y - l.tabs.y);
     surface.on('pointertap', (event) => {
-      const tile = screenToTile(this.layout, event.global.x, event.global.y);
-      if (tile) this.handlers.onTapTile(tile.tileX, tile.tileY);
-      else this.handlers.onTapElsewhere();
+      const at = screenToTilePoint(this.layout, event.global.x, event.global.y);
+      this.handlers.onTap(at.x, at.y);
     });
 
     this.touch.addChild(surface);
@@ -171,34 +181,16 @@ export class LaneView extends Container {
    * Fair, because everyone faces the same thing, and it is what makes 30 seconds
    * of building a real decision rather than a shopping trip.
    */
-  render(
-    view: MatchView,
-    lane: SimLaneView,
-    selectedUnitId: number | null,
-    summary: WaveSummary | null,
-  ): void {
-    this.highlight.clear();
+  render(view: MatchView, summary: WaveSummary | null): void {
     this.overlay.removeChildren();
 
     // §3.1: the build phase is the only one in which a tile is a thing you can
     // act on, so it is the only one the lattice is drawn for.
     this.grid.visible = view.phase === 'build';
 
-    if (selectedUnitId !== null) {
-      const unit = lane.units.find((u) => u.id === selectedUnitId);
-      if (unit) {
-        const { gridOrigin, tileSize } = this.layout;
-        this.highlight
-          .rect(
-            gridOrigin.x + Math.floor(unit.x) * tileSize,
-            gridOrigin.y + Math.floor(unit.y) * tileSize,
-            tileSize,
-            tileSize,
-          )
-          .stroke({ width: 2, color: UI.selected });
-      }
-    }
-
+    // The selected unit is ringed by the entity layer rather than boxed here:
+    // it is a mark on a body, and the body is somewhere between two ticks
+    // (entities.ts, `EntityMarks`).
     this.drawWavePreview(view, summary);
   }
 

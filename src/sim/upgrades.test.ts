@@ -1,6 +1,7 @@
 /**
- * M3 systems: global tech, fortress and resource upgrades, supply, auras and
- * the Final Showdown's closed shop. DESIGN.md §3.3 (replaced), §7.4, §10.1, §10.2, §11.4.
+ * M3 systems: global tech, fortress and resource upgrades, supply, auras, and
+ * the two windows they open in - the shop and the board. DESIGN.md §3.1,
+ * §3.3 (replaced), §7.4, §10.1, §10.2, §11.4.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -417,6 +418,70 @@ describe('auras (§10.1)', () => {
     expect(lane.fortress.activeAura).toBe('damage');
     applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armour' });
     expect(lane.fortress.activeAura).toBe('armour');
+  });
+});
+
+describe('the shop stays open in combat; the board does not (§3.1, amended)', () => {
+  /** A funded lane with one unit on it, mid-wave. */
+  function fighting() {
+    const { state, ctx } = rich();
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'hammer',
+      tileX: 1,
+      tileY: 1,
+    });
+    const unitId = state.lanes.l1!.units[0]!.id;
+    while (state.phase !== 'combat') step(ctx, state);
+    return { state, ctx, unitId };
+  }
+
+  it('sells tech, fortress ladders and supply while a wave is running', () => {
+    // Nothing about any of these touches the line the wave is hitting, and a
+    // player with nothing to do for the length of a fight is a player watching
+    // a screen rather than playing.
+    const { state, ctx } = fighting();
+
+    expect(
+      applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_impact' }).ok,
+    ).toBe(true);
+    expect(
+      applyCommand(ctx, state, { kind: 'buyFortressUpgrade', teamId: 'l1', upgradeId: 'weapon' })
+        .ok,
+    ).toBe(true);
+    expect(applyCommand(ctx, state, { kind: 'buySupply', teamId: 'l1' }).ok).toBe(true);
+  });
+
+  it('switches the weapon type and the aura while a wave is running (§10.1)', () => {
+    const { state, ctx } = fighting();
+
+    expect(
+      applyCommand(ctx, state, { kind: 'setWeaponType', teamId: 'l1', damageType: 'arcane' }).ok,
+    ).toBe(true);
+    expect(applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armour' }).ok).toBe(
+      true,
+    );
+    expect(state.lanes.l1!.fortress.activeAura).toBe('armour');
+  });
+
+  it('still refuses to place, upgrade or sell a unit', () => {
+    // The board is what the wave is about to hit. Rearranging it mid-fight
+    // would make every wave a reaction test rather than a plan (§3.1).
+    const { state, ctx, unitId } = fighting();
+    const closed = { ok: false, rejection: 'not-build-phase' };
+
+    expect(
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'l1',
+        unitDefId: 'hammer',
+        tileX: 3,
+        tileY: 3,
+      }),
+    ).toEqual(closed);
+    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'l1', unitId })).toEqual(closed);
+    expect(applyCommand(ctx, state, { kind: 'sellUnit', teamId: 'l1', unitId })).toEqual(closed);
   });
 });
 

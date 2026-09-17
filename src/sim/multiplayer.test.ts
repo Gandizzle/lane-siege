@@ -136,10 +136,15 @@ describe('sends (§11.5)', () => {
     ).toBe('insufficient-gems');
   });
 
-  it('happens in the build phase, like every other purchase (§3.1)', () => {
+  it('can be bought mid-combat, and still lands on the NEXT wave', () => {
+    // A send aims at the target's next wave whenever it is bought, so the
+    // build-phase restriction only ever decided when the player was allowed to
+    // think about it. The monsters queue and wait either way.
     const { state, ctx } = fourPlayerMatch();
     fund(state, 'a', 500);
     while (state.phase !== 'combat') step(ctx, state);
+    const waveDuring = state.wave;
+    const inLaneBefore = state.lanes.b!.monsters.length;
 
     expect(
       applyCommand(ctx, state, {
@@ -147,8 +152,18 @@ describe('sends (§11.5)', () => {
         teamId: 'a',
         targetTeamId: 'b',
         sendId: 'grub_pack',
-      }).rejection,
-    ).toBe('not-build-phase');
+      }).ok,
+    ).toBe(true);
+
+    // Queued, not spawned: the wave already on the board is untouched.
+    expect(state.lanes.b!.incomingSends.length).toBeGreaterThan(0);
+    expect(state.lanes.b!.monsters.length).toBe(inLaneBefore);
+
+    // They arrive when the next wave does.
+    let guard = 0;
+    while (state.wave === waveDuring && guard++ < 40000) step(ctx, state);
+    expect(state.wave).toBe(waveDuring + 1);
+    expect(state.lanes.b!.incomingSends).toHaveLength(0);
   });
 
   it('closes with every other purchase once the showdown begins (§3.3, replaced)', () => {

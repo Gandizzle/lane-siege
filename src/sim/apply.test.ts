@@ -379,11 +379,24 @@ describe('the fortress weapon type (§10.1)', () => {
     expect(lane.economy.gold).toBe(goldBefore);
   });
 
-  it('cannot be switched mid-combat', () => {
+  it('can be switched mid-combat: it is free, and the wall is fighting now', () => {
+    // It used to be build-phase-only, on the reading that §10.1's "each build
+    // phase" was a window rather than a cadence. Watching a wave chew through
+    // the wrong damage type with the control greyed out is not a decision, so
+    // the weapon follows the shop rather than the board (apply.ts, `shopOpen`).
     const { state, ctx } = freshMatch();
     state.phase = 'combat';
     expect(
       applyCommand(ctx, state, { kind: 'setWeaponType', teamId: 'lane1', damageType: 'arcane' }),
-    ).toEqual({ ok: false, rejection: 'not-build-phase' });
+    ).toEqual({ ok: true });
+    expect(state.lanes.lane1!.fortress.weaponDamageType).toBe('arcane');
+  });
+
+  it('cannot be switched once the armies march', () => {
+    const { state, ctx } = freshMatch();
+    state.phase = 'showdown';
+    expect(
+      applyCommand(ctx, state, { kind: 'setWeaponType', teamId: 'lane1', damageType: 'arcane' }),
+    ).toEqual({ ok: false, rejection: 'building-closed' });
   });
 });

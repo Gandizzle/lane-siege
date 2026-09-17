@@ -8,11 +8,11 @@
  */
 
 import type { GameData } from '../data/schema.ts';
-import { arenaShape, type ArenaShape } from './arena.ts';
+import { arenaCentre, arenaShape, type ArenaShape } from './arena.ts';
 import { buildDefIndex, type DefIndex } from './defs.ts';
 import type { FlowField } from './flowfield.ts';
 import type { Body, Bounds } from './motion.ts';
-import { FORTRESS_ID, type Vec2 } from './types.ts';
+import { ARENA_CENTRE_ID, FORTRESS_ID, type Vec2 } from './types.ts';
 
 /**
  * A place bodies can be: its size, its edges, and whatever is solid in it and
@@ -60,6 +60,17 @@ export interface SimContext {
   arena: World;
   /** The arena's geometry, so a transplant does not recompute it per body. */
   arenaShape: ArenaShape;
+  /**
+   * The middle of the arena, as a body with no size.
+   *
+   * What a unit walks at when nothing is inside its acquisition range
+   * (§3.3, replaced). Four armies converge because all four are walking at the
+   * same point, not because any of them can see across the board. A point
+   * rather than the whole centre square on purpose: stopping at the near edge
+   * of an eight-tile square would leave two melee lines eight tiles apart and
+   * blind to each other, which is a stalemate rather than a showdown.
+   */
+  arenaCentre: Body;
   /**
    * Distance fields, one per lane per (kind, radius, range) that has needed one.
    * Scratch, derived entirely from the lane's contents and rebuilt each tick,
@@ -128,6 +139,16 @@ export function createContext(data: GameData): SimContext {
       solids: [],
     },
     arenaShape: shape,
+    arenaCentre: {
+      id: ARENA_CENTRE_ID,
+      pos: arenaCentre(shape),
+      radius: 0,
+      halfWidth: 0,
+      alive: true,
+      settled: true,
+      monster: false,
+      phasesMonsters: false,
+    },
     fields: new Map(),
   };
 }

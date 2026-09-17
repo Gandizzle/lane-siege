@@ -308,6 +308,16 @@ export interface Attack {
 /** Neither a unit nor a monster: the fortress, as an attacker or a target. */
 export const FORTRESS_ID = -1;
 
+/**
+ * Neither a unit nor a monster: the middle of the Final Showdown's arena, as
+ * somewhere to walk (§3.3, replaced).
+ *
+ * A unit in the arena with nothing inside its acquisition range heads for the
+ * centre, so the field needs a goal to mark and the goal needs an id. Nothing
+ * ever attacks it or is attacked by it.
+ */
+export const ARENA_CENTRE_ID = -2;
+
 export interface Lane {
   teamId: TeamId;
   /**

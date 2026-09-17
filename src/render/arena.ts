@@ -168,9 +168,11 @@ export class ArenaStage extends Container {
     }
 
     this.seats = seatsById(view);
-    this.entities.render(lane, alpha, (unit) => {
-      const seat = this.seats.get(unit.id);
-      return seat === undefined ? null : seatColour(seat);
+    this.entities.render(lane, alpha, {
+      ringOf: (unit) => {
+        const seat = this.seats.get(unit.id);
+        return seat === undefined ? null : seatColour(seat);
+      },
     });
     this.effectsLayer.render();
   }

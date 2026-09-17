@@ -69,6 +69,17 @@ function reachShowdown(ctx: SimContext, state: MatchState): void {
   step(ctx, state);
 }
 
+/** Run the countdown card out, so the next step is a tick of fighting. */
+function startFighting(ctx: SimContext, state: MatchState): void {
+  const card = state.phaseTicksLeft;
+  for (let i = 0; i < card; i++) step(ctx, state);
+}
+
+/** How far a body is from the middle of the arena. */
+function toCentre(at: { x: number; y: number }): number {
+  return Math.hypot(at.x - shape.size / 2, at.y - shape.size / 2);
+}
+
 describe('the arena (§3.3, replaced)', () => {
   it('is a cross of four lane-width spokes around a centre the same width', () => {
     expect(shape.spokeWidth).toBe(data.lane.buildZone.width);
@@ -314,6 +325,125 @@ describe('the free-for-all (§3.3, replaced)', () => {
 
     let guard = 0;
     while (!state.finished && guard++ < 500) step(ctx, state);
+    expect(state.finished).toBe(true);
+  });
+});
+
+describe('what a unit can see in the arena (§3.3, replaced)', () => {
+  const { margin, minimum } = data.waves.showdown.acquire;
+
+  /** Two armies of one, put at a chosen gap between their edges. */
+  function duel(defId: string, edgeGap: number) {
+    const { state, ctx } = fourPlayers();
+    arm(ctx, state, 'a', defId, 1);
+    arm(ctx, state, 'b', defId, 1);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    const mine = state.showdown!.armies.find((army) => army.teamId === 'a')!.units[0]!;
+    const theirs = state.showdown!.armies.find((army) => army.teamId === 'b')!.units[0]!;
+    // Side by side in the middle of the arena, `edgeGap` apart edge to edge.
+    mine.pos.x = shape.size / 2;
+    mine.pos.y = shape.size / 2;
+    theirs.pos.x = mine.pos.x + mine.radius + theirs.radius + edgeGap;
+    theirs.pos.y = mine.pos.y;
+
+    step(ctx, state);
+    return { mine, theirs };
+  }
+
+  it('sees a body just inside its reach plus the margin', () => {
+    // A hammer's reach is a hair over nothing, so the floor is what applies.
+    const { mine, theirs } = duel('hammer', minimum - 0.05);
+    expect(mine.targetId).toBe(theirs.id);
+  });
+
+  it('does not see one just outside it', () => {
+    const { mine } = duel('hammer', minimum + 0.05);
+    expect(mine.targetId).toBeNull();
+  });
+
+  it('gives a long-reaching unit sight to match, not the floor', () => {
+    // A lance outranges the floor several times over. Sight is its own reach
+    // plus the margin, so it looks as far as it can actually shoot.
+    const lance = data.units.units.find((u) => u.id === 'lance')!;
+    const reach = lance.range ?? 0;
+    expect(reach + margin).toBeGreaterThan(minimum);
+
+    expect(duel('lance', reach + margin - 0.05).mine.targetId).not.toBeNull();
+    expect(duel('lance', reach + margin + 0.05).mine.targetId).toBeNull();
+  });
+
+  it('sees nothing at all across the board when the card lifts', () => {
+    // The armies open in their own spokes, twenty-odd tiles apart. Under
+    // global sight every one of them would already have picked a duel.
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 6);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+    step(ctx, state);
+
+    for (const army of state.showdown!.armies) {
+      for (const unit of army.units) expect(unit.targetId).toBeNull();
+    }
+  });
+
+  it('walks at the middle of the map instead', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 6);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    const before = new Map<number, number>();
+    for (const army of state.showdown!.armies) {
+      for (const unit of army.units) before.set(unit.id, toCentre(unit.pos));
+    }
+
+    // Two seconds. Nothing has met anything yet at this distance, so every
+    // one of them is still doing the default thing.
+    for (let i = 0; i < 40; i++) step(ctx, state);
+
+    for (const army of state.showdown!.armies) {
+      for (const unit of army.units) {
+        expect(unit.engaged).toBe(false);
+        expect(toCentre(unit.pos)).toBeLessThan(before.get(unit.id)!);
+      }
+    }
+  });
+
+  it('heads for the middle, not for the army it cannot see', () => {
+    // Seat 0 fights from the south spoke and seat 1 from the west one, so
+    // "toward the centre" and "toward them" are different directions. Two
+    // units on the WEST side of the south spoke: the centre is up and to the
+    // right of both of them, and the other army is up and to the left.
+    const { state, ctx } = fourPlayers();
+    arm(ctx, state, 'a', 'hammer', 2);
+    arm(ctx, state, 'b', 'hammer', 4);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+    step(ctx, state);
+
+    const south = state.showdown!.armies.find((army) => army.teamId === 'a')!;
+    expect(south.seat).toBe(0);
+    for (const unit of south.units) {
+      expect(unit.targetId).toBeNull();
+      expect(unit.pos.x).toBeLessThan(shape.size / 2);
+      // Up and to the RIGHT. Walking at the west army would mean up and left.
+      expect(unit.moveY).toBeLessThan(0);
+      expect(unit.moveX).toBeGreaterThan(0.2);
+    }
+  });
+
+  it('still finishes: converging is what makes the armies meet', () => {
+    const { state, ctx } = fourPlayers();
+    arm(ctx, state, 'a', 'hammer', 6);
+    arm(ctx, state, 'b', 'hammer', 4);
+    arm(ctx, state, 'c', 'hammer', 3);
+    arm(ctx, state, 'd', 'hammer', 2);
+    reachShowdown(ctx, state);
+
+    let guard = 0;
+    while (!state.finished && guard++ < 40000) step(ctx, state);
     expect(state.finished).toBe(true);
   });
 });

@@ -34,6 +34,26 @@ interface PreviousPosition {
  */
 export type RingOf = (unit: EntityView) => number | null;
 
+/** What to draw around a body beyond the body itself. */
+export interface EntityMarks {
+  /** Whose each body is, for the Final Showdown's four armies. */
+  ringOf?: RingOf;
+  /**
+   * The selected unit, ringed WHERE IT IS.
+   *
+   * It used to be a box drawn around the tile the unit was mostly inside,
+   * which is fine while a line is standing still on its tiles and nonsense
+   * the moment it advances (§5.2, amended): the box snapped from tile to tile
+   * a third of a second behind the body it was meant to be pointing at. A ring
+   * on the body's own circle is the same circle that decides what a tap hits
+   * and what a shot reaches, so all three agree.
+   */
+  selectedId?: number | null;
+}
+
+/** How much wider than the body the selection ring sits. */
+const SELECTION_RING = 1.25;
+
 export class EntityLayer extends Container {
   private readonly ringGraphics = new Graphics();
   private readonly monsterGraphics = new Graphics();
@@ -95,13 +115,13 @@ export class EntityLayer extends Container {
   }
 
   /** Redraw from current state. `alpha` is the fraction of a tick elapsed. */
-  render(lane: LaneView, alpha: number, ringOf: RingOf | null = null): void {
+  render(lane: LaneView, alpha: number, marks: EntityMarks = {}): void {
     this.ringGraphics.clear();
     this.unitGraphics.clear();
     this.monsterGraphics.clear();
     this.healthGraphics.clear();
 
-    this.drawUnits(lane, alpha, ringOf);
+    this.drawUnits(lane, alpha, marks);
     this.drawMonsters(lane, alpha);
   }
 
@@ -125,7 +145,7 @@ export class EntityLayer extends Container {
     return { x: gridOrigin.x + tileX * tileSize, y: gridOrigin.y + tileY * tileSize };
   }
 
-  private drawUnits(lane: LaneView, alpha: number, ringOf: RingOf | null): void {
+  private drawUnits(lane: LaneView, alpha: number, marks: EntityMarks): void {
     for (const unit of lane.units) {
       // §14.2: tier drives size and pips, and the silhouette is the unit's
       // own. Both are properties of the definition - which is also why the
@@ -140,11 +160,19 @@ export class EntityLayer extends Container {
       // is exactly what takes up space.
       const radius = unit.radius * this.layout.tileSize;
 
-      const ring = ringOf ? ringOf(unit) : null;
+      const ring = marks.ringOf ? marks.ringOf(unit) : null;
       if (ring !== null) {
         this.ringGraphics
           .circle(centre.x, centre.y, radius * 1.34)
           .stroke({ width: Math.max(1.5, radius * 0.2), color: ring, alpha: 0.95 });
+      }
+
+      // The selection, drawn from the interpolated position like the body it
+      // belongs to - so it stays on the unit while the unit is walking.
+      if (unit.id === marks.selectedId) {
+        this.ringGraphics
+          .circle(centre.x, centre.y, radius * SELECTION_RING)
+          .stroke({ width: 2, color: UI.selected });
       }
 
       // Solid fill = a defensive unit (§14.2).

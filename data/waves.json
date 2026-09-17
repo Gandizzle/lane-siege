@@ -7,6 +7,11 @@
     "afterWave": 25,
     "countdownSeconds": 3,
     "approachDepth": 2,
+    "acquire": {
+      "_comment": "How far a unit looks for something to fight in the arena, edge to edge in tiles: its own reach plus margin, never less than minimum. Nothing looks across the whole board - a unit with nothing inside this walks at the centre instead, which is what makes four armies converge rather than each pick a duel from thirty tiles away. The lane's equivalent is lane.monsterAcquireRange. Placeholders.",
+      "margin": 2,
+      "minimum": 3
+    },
     "dampening": {
       "graceSeconds": 30,
       "perSecond": 0.01

@@ -36,26 +36,38 @@ function fail(rejection: CommandRejection): CommandResult {
 }
 
 /**
- * §3.3, replaced: once the Final Showdown starts, NOTHING can be bought - no new units,
- * no tier upgrades, no tech, no fortress or supply purchases.
+ * WHEN THE SHOP IS OPEN, and when the BOARD is.
  *
- * Every build phase before it is open, including the one before the last wave.
- * §3.3's attrition endgame closed the shop at wave 25 and was fought with
- * whatever survived; the showdown is fought with the army you built, and the
- * build phase before the last wave is the last chance to change it. Whatever
- * gold is still on hand when the armies march simply stops mattering.
+ * Two different windows, and conflating them was a mistake worth naming. The
+ * board - placing a unit, upgrading one in place, selling one back - is a
+ * build-phase thing (§3.1): the line is what the wave is about to hit, and
+ * rearranging it mid-wave would make every fight a reaction test. Everything
+ * else is not. Tech, fortress and supply ladders, the weapon's damage type,
+ * the active aura and sends are all decisions about the NEXT wave or about the
+ * match as a whole, and there is no reason a player should have to sit and
+ * watch a fight they cannot act on for want of a tab.
  *
- * The free per-build-phase choices - the fortress weapon's damage type and the
- * active aura (§10.1) - are not purchases, and are governed by the build phase
- * itself rather than by this.
+ * So the shop stays open in combat, and closes only when the Final Showdown
+ * starts (§3.3, replaced): the arena is fought with the army you brought, and
+ * whatever gold is still on hand when the armies march stops mattering.
  *
- * Checked BEFORE the build-phase check at every call site, so that a tap
- * during the showdown is answered with "there is nothing left to buy" rather
- * than with "wait for the build phase", which would be a lie about a build
- * phase that is never coming.
+ * A send bought during combat behaves exactly as one bought during a build
+ * phase: its monsters join the target's NEXT wave (`spawnWave` in tick.ts),
+ * because `incomingSends` is drained when a wave spawns rather than when it is
+ * queued. Nothing lands on a fight already in progress.
+ *
+ * `shopOpen` is checked BEFORE the build-phase check wherever both apply, so
+ * that a tap during the showdown is answered with "there is nothing left to
+ * buy" rather than with "wait for the build phase", which would be a lie about
+ * a build phase that is never coming.
  */
-function purchasesOpen(state: MatchState): boolean {
+function shopOpen(state: MatchState): boolean {
   return state.phase !== 'showdown';
+}
+
+/** §3.1: the line itself is only editable while a wave is not running. */
+function boardOpen(state: MatchState): boolean {
+  return state.phase === 'build';
 }
 
 function laneFor(state: MatchState, teamId: string): Lane | null {
@@ -72,9 +84,9 @@ function placeUnit(
   tileX: number,
   tileY: number,
 ): CommandResult {
-  if (!purchasesOpen(state)) return fail('building-closed');
+  if (!shopOpen(state)) return fail('building-closed');
   // §3.1: building happens in the build phase.
-  if (state.phase !== 'build') return fail('not-build-phase');
+  if (!boardOpen(state)) return fail('not-build-phase');
 
   // §7.1: you play one builder. Checked here rather than left to the UI,
   // because the UI is a client and a client is not trusted with rules (§15.1).
@@ -156,8 +168,7 @@ function buyTech(
   lane: Lane,
   trackId: string,
 ): CommandResult {
-  if (!purchasesOpen(state)) return fail('building-closed');
-  if (state.phase !== 'build') return fail('not-build-phase');
+  if (!shopOpen(state)) return fail('building-closed');
 
   const track = ctx.data.economy.tech.tracks.find((t) => t.id === trackId);
   if (!track) return fail('unknown-definition');
@@ -179,8 +190,7 @@ function buySupply(
   state: MatchState,
   lane: Lane,
 ): CommandResult {
-  if (!purchasesOpen(state)) return fail('building-closed');
-  if (state.phase !== 'build') return fail('not-build-phase');
+  if (!shopOpen(state)) return fail('building-closed');
 
   const ladder = ctx.data.economy.supply.capUpgrades;
   const current = lane.fortress.upgrades.supply ?? 0;
@@ -205,8 +215,7 @@ function buyFortressUpgrade(
   lane: Lane,
   upgradeId: string,
 ): CommandResult {
-  if (!purchasesOpen(state)) return fail('building-closed');
-  if (state.phase !== 'build') return fail('not-build-phase');
+  if (!shopOpen(state)) return fail('building-closed');
 
   const f = ctx.data.fortress;
   const ladders: Record<string, readonly UpgradeLevel[]> = {
@@ -312,18 +321,14 @@ function send(
   targetTeamId: string,
   sendId: string,
 ): CommandResult {
-  // A send costs gems, so it is a purchase: it happens in the build phase like
-  // every other purchase (§3.1), and it closes with them at wave 25 (§3.3,
-  // decided).
-  //
-  // §11.5 does not say when you may send, and mid-combat sending was tried
-  // first - the monsters join the target's next wave either way, so it works.
-  // Build-phase-only is the better rule: it keeps one shopping window instead
-  // of two, it puts the decision in the same 30 seconds as the defence it
-  // competes with for gems (§11.2), and it means the attacker chooses while the
-  // defender can still see the incoming-send notice and respond.
-  if (!purchasesOpen(state)) return fail('building-closed');
-  if (state.phase !== 'build') return fail('not-build-phase');
+  // §11.5 does not say when you may send. Any time the shop is open: a send
+  // aims at the target's NEXT wave whenever it is bought (`spawnWave` drains
+  // `incomingSends` on spawn), so buying one mid-combat changes nothing about
+  // where the monsters land - only about when the player got to decide. It was
+  // build-phase-only at first, on the argument that one shopping window is
+  // tidier than two; watching a wave you have no way to act on is worse than
+  // untidy.
+  if (!shopOpen(state)) return fail('building-closed');
 
   const def = ctx.defs.sends.get(sendId);
   if (!def) return fail('unknown-definition');
@@ -374,8 +379,8 @@ function upgradeUnit(
   lane: Lane,
   unitId: number,
 ): CommandResult {
-  if (!purchasesOpen(state)) return fail('building-closed');
-  if (state.phase !== 'build') return fail('not-build-phase');
+  if (!shopOpen(state)) return fail('building-closed');
+  if (!boardOpen(state)) return fail('not-build-phase');
 
   const unit = lane.units.find((u) => u.id === unitId && u.alive);
   if (!unit) return fail('no-such-unit');
@@ -434,8 +439,8 @@ function sellUnit(
   lane: Lane,
   unitId: number,
 ): CommandResult {
-  if (!purchasesOpen(state)) return fail('building-closed');
-  if (state.phase !== 'build') return fail('not-build-phase');
+  if (!shopOpen(state)) return fail('building-closed');
+  if (!boardOpen(state)) return fail('not-build-phase');
 
   const unit = lane.units.find((u) => u.id === unitId);
   if (!unit) return fail('no-such-unit');
@@ -480,15 +485,16 @@ export function applyCommand(
     case 'buySupply':
       return buySupply(ctx, state, lane);
 
-    // §10.1: free and instant, once per build phase. A small per-wave decision
-    // that keeps every player engaging with the damage matrix.
+    // §10.1: free and instant. A small decision that keeps every player
+    // engaging with the damage matrix, and one of the things there is no
+    // reason to make somebody wait for a build phase to take (`shopOpen`).
     case 'setWeaponType':
-      if (state.phase !== 'build') return fail('not-build-phase');
+      if (!shopOpen(state)) return fail('building-closed');
       lane.fortress.weaponDamageType = command.damageType;
       return OK;
 
     case 'setAura':
-      if (state.phase !== 'build') return fail('not-build-phase');
+      if (!shopOpen(state)) return fail('building-closed');
       lane.fortress.activeAura = command.aura;
       return OK;
 

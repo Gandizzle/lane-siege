@@ -36,12 +36,13 @@
  * each other resolves instead of running forever.
  */
 
-import { NO_ACQUIRE_LIMIT, cooldownTicks, secondsToTicks } from './constants.ts';
+import { cooldownTicks, secondsToTicks } from './constants.ts';
 import { legForSeat, legPosition } from './arena.ts';
 import type { SimContext } from './context.ts';
 import { applyHealing, healingMultiplier } from './dampening.ts';
 import { resolveDamage } from './damage.ts';
 import { stat } from './defs.ts';
+import type { Body } from './motion.ts';
 import { moveSeekers, planMoves, type Walker } from './steering.ts';
 import { holdOrAcquire, withinRange } from './targeting.ts';
 import type { DefensiveUnit, MatchState, Showdown, ShowdownArmy, TeamId } from './types.ts';
@@ -103,6 +104,9 @@ export function beginShowdown(ctx: SimContext, state: MatchState): void {
 // Scratch, reused so that a tick allocates nothing (§15.3).
 const enemyScratch: DefensiveUnit[] = [];
 const everyone: Walker[] = [];
+const seekingScratch: Walker[] = [];
+const chasingScratch: Walker[] = [];
+const chasedScratch: Body[] = [];
 
 /** Everything alive that is not `army`'s, into the shared scratch array. */
 function enemiesOf(showdown: Showdown, army: ShowdownArmy): readonly DefensiveUnit[] {
@@ -146,8 +150,8 @@ export function showdownTick(ctx: SimContext, state: MatchState): void {
   // once per army rather than once per stage.
   for (const army of showdown.armies) {
     const enemies = enemiesOf(showdown, army);
-    classify(army, enemies);
-    planMoves(ctx, ctx.arena, army.teamId, 'showdown', army.units, enemies, army.units, true, null);
+    classify(ctx, army, enemies);
+    planArmyMoves(ctx, army, enemies);
   }
 
   // 3. Everyone walks, in one order.
@@ -166,19 +170,119 @@ export function showdownTick(ctx: SimContext, state: MatchState): void {
 }
 
 /**
- * §5.2, unchanged: hold the target until it dies, then take the nearest. No
- * acquisition cap - a unit in the arena has no fortress to fall back on, so
- * "the nearest enemy anywhere" is its default and it advances on one it cannot
- * yet reach.
+ * How far a unit looks for something to fight: its own reach plus a margin,
+ * never less than a floor, both from `waves.showdown.acquire`.
+ *
+ * A lane gives a unit no acquisition cap at all (`NO_ACQUIRE_LIMIT`), because
+ * a lane holds one enemy - the wave - and there is no question of which way to
+ * face. The arena is the opposite case, and sight of the whole board is wrong
+ * there for the reason §5.1 gives for monsters: "nearest enemy anywhere" is a
+ * GLOBAL question, and forty bodies re-answering it every tick against three
+ * moving crowds all change their minds together. It also has a unit pick a
+ * duel from thirty tiles away instead of walking into the fight. Tied to the
+ * unit's own reach, so a mortar looks as far as it can actually shoot rather
+ * than as far as a melee body would have noticed.
  */
-function classify(army: ShowdownArmy, enemies: readonly DefensiveUnit[]): void {
+function acquireRange(ctx: SimContext, unit: DefensiveUnit): number {
+  const { margin, minimum } = ctx.data.waves.showdown.acquire;
+  return Math.max(minimum, unit.range + margin);
+}
+
+/**
+ * §5.2, unchanged: hold the target until it dies, then take the nearest -
+ * within `acquireRange`, which is the one thing the arena changes.
+ *
+ * Nothing in range returns no target at all, and the caller decides what that
+ * means. Here it means the centre of the map (`planArmyMoves`), exactly as an
+ * empty lane means the fortress for a monster (§5.5).
+ */
+function classify(ctx: SimContext, army: ShowdownArmy, enemies: readonly DefensiveUnit[]): void {
   for (const unit of army.units) {
     if (!unit.alive) continue;
     if (unit.cooldown > 0) unit.cooldown -= 1;
 
-    const target = holdOrAcquire(enemies, unit, NO_ACQUIRE_LIMIT);
+    const target = holdOrAcquire(enemies, unit, acquireRange(ctx, unit));
     unit.targetId = target ? target.id : null;
     unit.engaged = target !== null && withinRange(unit, target, unit.range);
+  }
+}
+
+/**
+ * An army walks in two groups, and which group a unit is in is the whole of
+ * how the arena fills up.
+ *
+ * SEEKERS have nothing inside their acquisition range and are walking at the
+ * middle of the map. Enemies on the way are obstacles to route around, not
+ * destinations - so a unit does not turn aside for a fight it has not noticed,
+ * and an army does not swing as one toward whichever body happened to be
+ * nearest when the countdown lifted.
+ *
+ * CHASERS have something in range and are going to fight it. Their goals are
+ * the free attack positions around the bodies actually being chased, which is
+ * what makes a unit walk round a full ring to the one gap in it rather than
+ * press into the back of it.
+ *
+ * The same split a wave makes in a lane, with the middle of the map where the
+ * fortress would be (tick.ts, `planMonsterMoves`).
+ */
+function planArmyMoves(
+  ctx: SimContext,
+  army: ShowdownArmy,
+  enemies: readonly DefensiveUnit[],
+): void {
+  seekingScratch.length = 0;
+  chasingScratch.length = 0;
+  chasedScratch.length = 0;
+
+  for (const unit of army.units) {
+    if (!unit.alive || unit.engaged) continue;
+    const target =
+      unit.targetId === null
+        ? null
+        : (enemies.find((e) => e.id === unit.targetId && e.alive) ?? null);
+
+    if (!target) {
+      seekingScratch.push(unit);
+      continue;
+    }
+    chasingScratch.push(unit);
+    if (!chasedScratch.includes(target)) chasedScratch.push(target);
+  }
+
+  if (seekingScratch.length > 0) {
+    planMoves(
+      ctx,
+      ctx.arena,
+      army.teamId,
+      'toCentre',
+      seekingScratch,
+      enemies,
+      army.units,
+      true,
+      ctx.arenaCentre,
+    );
+  }
+  if (chasingScratch.length > 0) {
+    planMoves(
+      ctx,
+      ctx.arena,
+      army.teamId,
+      'toTarget',
+      chasingScratch,
+      enemies,
+      army.units,
+      true,
+      null,
+      chasedScratch,
+    );
+  }
+
+  // Engaged units are in neither group and are going nowhere.
+  for (const unit of army.units) {
+    if (!unit.alive || !unit.engaged) continue;
+    unit.moveX = 0;
+    unit.moveY = 0;
+    unit.pathCost = 0;
   }
 }
 

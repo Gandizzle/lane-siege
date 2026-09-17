@@ -334,6 +334,12 @@ export interface ShowdownFile {
   countdownSeconds: number;
   /** Rows of open ground between a player's build grid and the centre. */
   approachDepth: number;
+  /**
+   * How far a unit looks for something to fight in the arena, edge to edge in
+   * tiles: `max(minimum, its own range + margin)`. There is no global sight -
+   * a unit with nothing inside this walks at the centre of the map instead.
+   */
+  acquire: { margin: number; minimum: number };
   dampening: DampeningConfig;
 }
 

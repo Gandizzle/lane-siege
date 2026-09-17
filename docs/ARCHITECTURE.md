@@ -432,10 +432,25 @@ the row they kept safest behind the fight is the row furthest from the centre.
 `lane.units` is left empty; from there the lanes, the fortresses and the
 economy are done.
 
-**The fight is the fight they already know.** Units hold a target until it
-dies, take the nearest otherwise, walk downhill on the same distance field and
-stop when something is in range. The only differences are that there is no
-fortress, no monsters, and three other armies instead of one wave. The movement
+**The fight is the fight they already know, with one thing added.** Units hold
+a target until it dies, take the nearest otherwise, walk downhill on the same
+distance field and stop when something is in range. What the arena adds is a
+LIMIT on how far they look: `max(acquire.minimum, its own range + acquire.margin)`,
+edge to edge, where a lane gives a unit no limit at all. A lane holds one enemy
+and there is no question which way to face; an arena holds three, and "nearest
+enemy anywhere" is a global question that forty bodies re-answer every tick
+against three moving crowds, all changing their minds together — §5.1's
+argument for capping a monster's acquisition, arriving on the other side of the
+board. It is tied to the unit's own reach so a mortar looks as far as it can
+actually shoot rather than as far as a melee body would have noticed.
+
+A unit with nothing inside that range walks at the **middle of the map**, which
+is what makes four armies converge rather than each pick a duel from thirty
+tiles away. The centre is a goal body with no size, not the centre square:
+stopping at the near edge of an eight-tile square would leave two melee lines
+eight tiles apart and blind to each other, which is a stalemate rather than a
+showdown. It is the same seekers-and-chasers split a wave makes in a lane, with
+the middle of the map where the fortress would be. The movement
 code was generalised onto a `World` (`src/sim/context.ts`) — a size, a set of
 edges, and whatever is solid in it — so the same `planMoves` and `moveSeekers`
 run in both places. In the arena every seeker on the board moves in **one**
@@ -696,6 +711,30 @@ every other. Fused shapes such as a teardrop or a crescent are traced as one
 polygon rather than built from overlapping primitives, because a monster is
 stroked and stroking a union draws every seam.
 
+### Two windows: the shop and the board
+
+Everything a player spends on used to be gated on one condition - the build
+phase - and that conflated two different things.
+
+**The board** is the line itself: placing a unit, upgrading one in place,
+selling one back. That is build-phase only (§3.1). The line is what the wave is
+about to hit, and rearranging it mid-fight would make every wave a reaction
+test rather than a plan.
+
+**The shop** is everything else: global tech, the fortress ladders, the supply
+cap, the weapon's damage type, the active aura, and sends. None of it touches
+the line, and a player with nothing they may do for the length of a fight is
+watching a screen rather than playing. So the shop stays open through combat
+and closes only when the Final Showdown starts. Two predicates in
+`src/sim/apply.ts`, `shopOpen` and `boardOpen`, and the build bar greys exactly
+the Build tab and the selected unit's Upgrade and Sell buttons.
+
+A send bought during combat behaves exactly as one bought during a build phase:
+its monsters join the target's **next** wave, because `incomingSends` is
+drained when a wave spawns rather than when it is queued. Nothing lands on a
+fight already in progress, so the only thing the old rule decided was when the
+attacker was allowed to think about it.
+
 ### The build grid, and what a unit button shows
 
 Two small things that both come down to §14.2: show the player the thing
@@ -717,6 +756,18 @@ will have to pick out of a crowd three seconds later, and a row of identical
 squares teaches you nothing about which shape that is. The chips that really
 are just a colour - a damage type on the Aura tab, a tech track - stay squares,
 because that is what they are.
+
+**You tap the body, not the tile it is standing in.** A tap is read as a point
+in tile space, and `bodyAt` takes the unit whose own circle covers it - the
+same circle that collides, that range is measured to and that is drawn (§14.2).
+The tile rule it replaces pointed at the wrong thing in both directions: a unit
+that had advanced off its tile (§5.2, amended) could not be tapped where it
+plainly was, and a tap on an empty corner of an occupied tile selected a unit
+that was nowhere near the finger. Selection is drawn to match - a ring on the
+body, interpolated with it, rather than a box snapping from tile to tile a
+third of a second behind the thing it was pointing at. The consequence worth
+knowing: the tap target is exactly the body, which on a phone is about twenty
+pixels across.
 
 ### The selected unit: what it says, and selling it back
 
@@ -904,6 +955,16 @@ Implemented and tested (388 tests):
   out of the lanes, the countdown holding every army still, four armies
   converging on one centre, the last one standing placed first, and the shop
   closing when the armies march (§3.3, replaced)
+- What a unit can see in the arena: a body just inside its reach plus the
+  margin and not one just outside, a long-reaching unit given sight to match
+  rather than the floor, nothing at all across the board when the card lifts,
+  and the centre of the map walked at instead (§3.3, replaced)
+- The two windows: tech, fortress ladders, supply, the weapon type, the aura
+  and sends all bought mid-wave, the board still refused, and a send bought in
+  combat still landing on the NEXT wave (§3.1, amended)
+- Pointing at a body rather than at a tile: the circle that collides is the
+  circle that a tap hits, including for a unit that has walked off its tile,
+  and nothing selected by an empty corner of an occupied one (§14.2)
 - Dampening's curve and the one function every point of healing goes through
   (§3.3, replaced)
 - Fixed-timestep rendering at any frame rate, with interpolation (§15.1)

@@ -150,6 +150,59 @@ export function tileToScreen(
   };
 }
 
+/**
+ * Screen pixels -> TILE SPACE, as a fractional point.
+ *
+ * `screenToTile` answers "which build tile is this", which is the question a
+ * placement asks. This one answers "where in the lane is this", which is the
+ * question everything else asks - and in particular the one picking a body
+ * asks, since a body is a circle standing wherever it has walked to rather
+ * than a thing that occupies a tile.
+ */
+export function screenToTilePoint(
+  layout: Camera,
+  screenX: number,
+  screenY: number,
+): { x: number; y: number } {
+  return {
+    x: (screenX - layout.gridOrigin.x) / layout.tileSize,
+    y: (screenY - layout.gridOrigin.y) / layout.tileSize,
+  };
+}
+
+/** Enough of a body to point at it: where it is and how big it is. */
+export interface Pickable {
+  id: number;
+  x: number;
+  y: number;
+  radius: number;
+}
+
+/**
+ * The body a tap landed on, in tile space, or null.
+ *
+ * A body is a circle - collision shape, hit shape and drawn size at once
+ * (§14.2) - so the thing you tap is that circle, not the tile it is standing
+ * mostly inside and not the silhouette drawn within it. The tile was the old
+ * rule and it was wrong twice over: a unit that had advanced off its tile
+ * could not be tapped where it was, and a tap on an empty corner of an
+ * occupied tile selected a unit that was nowhere near it.
+ *
+ * Nearest centre wins where two circles overlap, which they can while a line
+ * is packed: the one whose middle is closest to the finger is the one meant.
+ */
+export function bodyAt<T extends Pickable>(bodies: readonly T[], x: number, y: number): T | null {
+  let best: T | null = null;
+  let bestDistance = Infinity;
+  for (const body of bodies) {
+    const distance = Math.hypot(body.x - x, body.y - y);
+    if (distance > body.radius || distance >= bestDistance) continue;
+    bestDistance = distance;
+    best = body;
+  }
+  return best;
+}
+
 /** Screen pixels -> tile indices, or null outside the build grid. */
 export function screenToTile(
   layout: LaneLayout,

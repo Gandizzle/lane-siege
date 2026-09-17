@@ -279,7 +279,7 @@ export function planMoves(
             here === UNREACHABLE
             ? nearestOf(enemies, seeker)
             : null
-          : bodyById(enemies, world.solids, ownerId);
+          : bodyById(enemies, world.solids, goal, ownerId);
       if (!target) continue;
       // Close along the axis the range check measures on: the nearest point
       // of the target's SPINE, not its centre. For a circle the two are the
@@ -322,8 +322,17 @@ export function nearestOf(enemies: readonly Body[], self: Walker): Body | null {
   return best;
 }
 
-/** The enemy a goal cell was marked for: one of `enemies`, or a solid. */
-function bodyById(enemies: readonly Body[], solids: readonly Body[], id: number): Body | null {
+/** The body a goal cell was marked for: the goal, one of `enemies`, or a solid. */
+function bodyById(
+  enemies: readonly Body[],
+  solids: readonly Body[],
+  goal: Body | null,
+  id: number,
+): Body | null {
+  // The goal first, because it is not always one of the others: a lane's goal
+  // is the fortress, which is solid, but the arena's is a point in the middle
+  // of the floor that nothing can stand on and nothing collides with.
+  if (goal && goal.id === id) return goal;
   for (const solid of solids) if (solid.id === id) return solid;
   for (const enemy of enemies) if (enemy.id === id && enemy.alive) return enemy;
   return null;

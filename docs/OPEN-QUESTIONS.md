@@ -309,8 +309,10 @@ Decisions that override the document rather than filling a gap in it:
   3…" — and then to a cross-shaped arena, four spokes of lane width around an
   8 × 8 centre, with every surviving army standing in its own spoke on the
   tiles it was built on, restored to full HP. They converge on the middle and
-  fight a free-for-all under exactly the targeting and movement rules they have
-  used all match. Last player with anything standing wins, and is placed first.
+  fight a free-for-all under the targeting and movement rules they have used all
+  match, with one addition: sight in the arena is local rather than global -
+  a unit looks its own reach plus a margin, never less than a floor, and walks
+  at the middle of the map when nothing is inside that. Last player with anything standing wins, and is placed first.
   Three things follow: every build phase is open, including the one before the
   last wave, and nothing at all is buyable once the armies march; units respawn
   at every build phase without exception; and the camera moves for the first
@@ -322,6 +324,22 @@ Decisions that override the document rather than filling a gap in it:
   already goes through the one function the multiplier will be applied in.
   `waves.showdown` in `data/waves.json` holds all four numbers.
 
+- **§3.1 — the shop stays open during combat; only the board closes.** §3.1
+  puts placing, upgrading, tech, fortress upgrades and queued sends all in the
+  build phase. Only the first two of those are about the LINE, and only the
+  line has a reason to be frozen while a wave is hitting it. Tech, the fortress
+  and resource ladders, the supply cap, the weapon's damage type, the active
+  aura and sends are now all buyable mid-wave; placing a unit, upgrading one in
+  place and selling one back are still build-phase only. A send bought during
+  combat still joins the target's next wave, exactly as one bought during a
+  build phase does, so the old rule only ever decided when the attacker was
+  allowed to think about it. `shopOpen` and `boardOpen` in `src/sim/apply.ts`.
+- **§14.2 — a tap selects the body, not the tile.** A unit is one circle -
+  collision shape, hit shape and drawn size at once - so the thing a tap hits
+  is that circle, wherever the unit has walked to, and the selection is drawn
+  as a ring on it rather than as a box around a tile. The tile rule missed a
+  unit that had advanced off its own tile and selected one from an empty corner
+  of its tile.
 - **§3.2 — there is no global wave-spawn clock.** The only global timers are the
   30s build phase and the enrage clock (§8). Combat runs until every living lane
   is empty. The original clock existed so one slow player could not hold three

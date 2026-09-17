@@ -169,10 +169,18 @@ class TabButton extends Container {
     this.redraw(false);
   }
 
-  redraw(active: boolean): void {
+  /**
+   * `enabled` false dims the tab without taking it away: Build is the one tab
+   * whose contents mean nothing during a wave (§3.1), and a tab that vanished
+   * for thirty seconds and came back would be worse to aim at than one that is
+   * visibly asleep. It still opens - the panel behind it shows what a unit
+   * costs, which is worth reading while you decide what to build next.
+   */
+  redraw(active: boolean, enabled = true): void {
     this.bg.clear();
     this.bg.roundRect(0, 0, this.w, this.h, 6).fill({ color: active ? UI.panelEdge : UI.buildBar });
     this.caption.style.fill = active ? UI.text : UI.textMuted;
+    this.alpha = enabled ? 1 : 0.45;
     centreOn(this.caption, this.w / 2, this.h / 2 - 7);
   }
 }
@@ -444,11 +452,15 @@ export class BuildBar extends Container {
   }
 
   render(view: MatchView, lane: LaneView, selection: Selection, summary: WaveSummary | null): void {
-    // §3.3, decided: from wave 25 nothing can be bought at all. The free
-    // weapon/aura choices stay live, so they use `canChoose` instead.
-    const canChoose = view.phase === 'build';
-    const canAct = canChoose && view.phase !== 'showdown';
-    const canBuild = canAct;
+    // Two windows, not one (apply.ts, `shopOpen` and `boardOpen`). THE BOARD -
+    // placing, upgrading in place, selling back - is the build phase only: it
+    // is what the wave is about to hit. THE SHOP - tech, the fortress ladders,
+    // supply, the weapon type, the aura, sends - stays open through combat,
+    // because none of it touches the line and a player with nothing to do for
+    // the length of a fight is watching rather than playing. Both close when
+    // the armies march (§3.3, replaced).
+    const canShop = view.phase !== 'showdown';
+    const canBuild = canShop && view.phase === 'build';
     // §13: out of the match means out of the shop, whatever the phase says.
     const alive = !view.eliminated;
 
@@ -459,7 +471,9 @@ export class BuildBar extends Container {
     // selection away.
     const upgrading = selection?.kind === 'placedUnit';
     const showing = activeView(this.active, upgrading);
-    for (const button of this.tabButtons) button.redraw(showing === button.id);
+    for (const button of this.tabButtons) {
+      button.redraw(showing === button.id, button.id !== 'build' || (canBuild && alive));
+    }
 
     this.upgradePanel.visible = showing === 'unit';
     this.panels.build.visible = showing === 'build';
@@ -488,7 +502,7 @@ export class BuildBar extends Container {
 
     if (showing === 'unit' && selection?.kind === 'placedUnit') {
       this.selectedUnitId = selection.unitId;
-      this.renderUpgrade(lane, economy, selection.unitId, canAct && alive);
+      this.renderUpgrade(lane, economy, selection.unitId, canBuild && alive);
     } else {
       this.selectedUnitId = null;
     }
@@ -496,10 +510,10 @@ export class BuildBar extends Container {
     if (this.panels.build.visible) {
       this.renderUnits(lane.builderId, economy, selection, summary, canBuild && alive);
     }
-    if (this.panels.tech.visible) this.renderTech(economy, canAct && alive);
-    if (this.panels.fort.visible) this.renderFort(economy, canAct && alive);
-    if (this.panels.aura.visible) this.renderAura(lane, canChoose && alive);
-    if (this.panels.send.visible) this.renderSend(view, economy, canAct && alive);
+    if (this.panels.tech.visible) this.renderTech(economy, canShop && alive);
+    if (this.panels.fort.visible) this.renderFort(economy, canShop && alive);
+    if (this.panels.aura.visible) this.renderAura(lane, canShop && alive);
+    if (this.panels.send.visible) this.renderSend(view, economy, canShop && alive);
   }
 
   /**
