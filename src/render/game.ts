@@ -56,7 +56,7 @@ import { ArenaStage, arenaAsLane } from './arena.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
-import { bodyAt, computeLayout, type LaneLayout } from './layout.ts';
+import { TOUCH_SLACK_PX, bodyNear, computeLayout, type LaneLayout } from './layout.ts';
 import { LaneView as LaneViewLayer } from './laneView.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { BuilderSelect } from './ui/builderSelect.ts';
@@ -633,11 +633,12 @@ export class Game extends Container {
   /**
    * A tap in the lane, in tile space. Three things it can mean, in order.
    *
-   * A BODY first: if the point is inside one of your units' circles, that unit
-   * is selected, wherever it happens to be standing. That is ahead of the tile
-   * reading on purpose - tapping a unit is the only route to upgrading it, so
-   * it must not be blocked by having a build type in hand. The type is
-   * remembered and Back restores it, which keeps laying a line uninterrupted.
+   * A BODY first: the nearest unit whose circle, plus a finger's worth of
+   * slack (`TOUCH_SLACK_PX`), covers the point - wherever it happens to be
+   * standing. That is ahead of the tile reading on purpose: tapping a unit is
+   * the only route to upgrading it, so it must not be blocked by having a
+   * build type in hand. The type is remembered and Back restores it, which
+   * keeps laying a line uninterrupted.
    *
    * Then a TILE: with a unit type in hand, a tap on the build grid places it.
    * The simulation refuses an occupied tile (§15.1), which is the right answer
@@ -652,7 +653,7 @@ export class Game extends Container {
     const lane = this.view?.lane;
     if (!lane) return;
 
-    const body = bodyAt(lane.units, tileX, tileY);
+    const body = bodyNear(lane.units, tileX, tileY, TOUCH_SLACK_PX / this.layout.tileSize);
     if (body) {
       this.pendingUnitDefId = this.selection?.kind === 'unitDef' ? this.selection.unitDefId : null;
       this.selection = { kind: 'placedUnit', unitId: body.id };

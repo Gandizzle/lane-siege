@@ -34,6 +34,16 @@ export interface Vec2 {
 export interface Team {
   id: TeamId;
   playerIds: PlayerId[];
+  /**
+   * What to call this team on screen, or empty for "nobody has said".
+   *
+   * Public, and never secret: §12's fog is about what somebody has BUILT, and
+   * who they are is the opposite of that - the whole point of four tabs across
+   * the top is knowing who is being worn down. Empty rather than defaulted
+   * here, so the fallback label ("Lane 2") stays a presentation decision in
+   * one place rather than a string the simulation invents.
+   */
+  name: string;
   eliminated: boolean;
   /** Locked in at the moment of elimination (§13). */
   placement: number | null;

@@ -176,6 +176,16 @@ export interface WireHello {
   teamIds: TeamId[];
   teamId: TeamId;
   seed: number;
+  /**
+   * Display names, parallel to `teamIds`, empty where nobody has said.
+   *
+   * Here rather than in a frame because a name does not change once a match
+   * has begun, and twenty times a second is the wrong rate for a string that
+   * never moves. The server re-sends the hello at kickoff, once the lobby's
+   * names are final, and again on a reconnect - so a client always has them by
+   * the time it has a frame to draw.
+   */
+  teamNames?: string[];
 }
 
 /**
@@ -184,6 +194,8 @@ export interface WireHello {
  */
 export interface WireTables {
   teamIds: TeamId[];
+  /** Display names, parallel to `teamIds`. See `WireHello.teamNames`. */
+  teamNames: string[];
   /**
    * The match seed. Public and constant (§9.2), so it arrives once with the
    * hello rather than 20 times a second in every frame.
@@ -210,7 +222,12 @@ function num(value: number | null, fallback: number): number {
   return value === null || !Number.isFinite(value) ? fallback : value;
 }
 
-export function buildTables(data: GameData, teamIds: TeamId[], seed = 0): WireTables {
+export function buildTables(
+  data: GameData,
+  teamIds: TeamId[],
+  seed = 0,
+  teamNames: readonly string[] = [],
+): WireTables {
   const unitIds = data.units.units.map((u) => u.id);
   const monsterIds = [
     ...data.monsters.monsters.map((m) => m.id),
@@ -230,6 +247,7 @@ export function buildTables(data: GameData, teamIds: TeamId[], seed = 0): WireTa
 
   return {
     teamIds: [...teamIds],
+    teamNames: teamIds.map((_, i) => teamNames[i] ?? ''),
     seed,
     unitIds,
     monsterIds,
@@ -489,6 +507,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
 
   return {
     teamId: tables.teamIds[frame.me] ?? '',
+    teamName: tables.teamNames[frame.me] ?? '',
     seed: tables.seed,
     tick: frame.tk,
     wave: frame.w,
@@ -501,6 +520,9 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
     opponents: frame.o.map(
       ([teamIndex, hp, maxHp, eliminated, placement, watchingFlag, visionTicksLeft]) => ({
         teamId: tables.teamIds[teamIndex] ?? '',
+        // Not in the frame: a name is constant for a match and arrives with
+        // the hello (`WireHello.teamNames`).
+        name: tables.teamNames[teamIndex] ?? '',
         fortressHp: hp,
         fortressMaxHp: maxHp,
         eliminated: eliminated === 1,

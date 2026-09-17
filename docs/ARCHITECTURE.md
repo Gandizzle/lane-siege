@@ -213,6 +213,15 @@ turned four players into four solitaires, while fog during the build phase is
 the half that was doing real work — what you are building stays private until it
 fights. What is never visible under any of the three is the balance sheet.
 
+One thing is public under all three and always was worth saying out loud: **who
+somebody is**. `OpponentView.name` carries the display name, the four tabs
+across the top are labelled with it, and the leak test in
+`src/sim/multiplayer.test.ts` lists it alongside fortress HP as part of §12's
+public record. Fog is about what a player has BUILT; the point of four labelled
+tabs is knowing who is being worn down. Names travel in the hello rather than in
+every frame, because a name does not change once a match has begun — the server
+re-sends it at kickoff with the lobby's final list, and again on a reconnect.
+
 The existing machinery is untouched, which is the point: sends still grant
 vision, the opponent tabs still gate on `watching`, and the camera still comes
 home by itself when sight lapses — which under `combat` is what happens when the
@@ -735,6 +744,35 @@ drained when a wave spawns rather than when it is queued. Nothing lands on a
 fight already in progress, so the only thing the old rule decided was when the
 attacker was allowed to think about it.
 
+### The top band: what it says, and why it has a floor
+
+Three rows of text above a row of four tabs. Left: the wave and whether it is a
+boss, then the phase — seconds while building, monsters left while fighting.
+Right: gold, gems, supply, then what the wave DEALS (§9.3), then **passive
+income as a rate** (§11.6) — `+12g / wave`, which is not a number you spend but
+the one that decides how fast the other three move, and the whole reason an
+early send is an investment rather than an attack. It shows at zero too,
+dimmed, because zero is where everyone starts and seeing it is how the lever
+gets noticed. The bottom row also carries §11.5's incoming-send warning.
+
+The band's height is `max(11.5% of the screen, 102px)`, and the lane gives up
+what that takes. A share of the screen divides a tall phone correctly and a
+short one badly: at 640 pixels 11.5% is 74, less than the band's own text
+needs, and the send warning was drawn behind the tabs. A lane one tile shorter
+is a cosmetic loss; a warning you cannot read is not. The row of tabs is in the
+layout as `tabStrip` for the same reason — the tabs drew themselves up from the
+bottom of the band while the HUD placed rows down from the top, and the two
+working it out separately is how they collided.
+
+**The tabs are labelled by name, not by lane.** A lane number says nothing
+anybody wants to know, and once the lobby is history these four tabs are the
+only place another player's name appears. A seat nobody has named — a scripted
+lane, or a player who never set one — falls back to `Lane 2`. The second line
+of a tab says something only when there is something to say: `out · 3rd`, or
+how long bought sight has left. The HP percentage that used to sit there is
+gone: the bar underneath is the same number read faster, and two of one fact is
+one too many.
+
 ### The build grid, and what a unit button shows
 
 Two small things that both come down to §14.2: show the player the thing
@@ -765,9 +803,14 @@ that had advanced off its tile (§5.2, amended) could not be tapped where it
 plainly was, and a tap on an empty corner of an occupied tile selected a unit
 that was nowhere near the finger. Selection is drawn to match - a ring on the
 body, interpolated with it, rather than a box snapping from tile to tile a
-third of a second behind the thing it was pointing at. The consequence worth
-knowing: the tap target is exactly the body, which on a phone is about twenty
-pixels across.
+third of a second behind the thing it was pointing at.
+
+Exactly the body turned out to be too small to aim at — about twenty pixels
+across on a phone, against the forty-four a thumb wants — so the tap circle is
+the body plus `TOUCH_SLACK_PX`, and the nearest body within that wins. Eleven
+pixels, which is short on purpose: the REACH has to stay under one tile, or a
+tap on the empty tile beside a line would select the line instead of building
+there, and building beside a line is most of what the build phase is.
 
 ### The selected unit: what it says, and selling it back
 
@@ -965,6 +1008,9 @@ Implemented and tested (388 tests):
 - Pointing at a body rather than at a tile: the circle that collides is the
   circle that a tap hits, including for a unit that has walked off its tile,
   and nothing selected by an empty corner of an occupied one (§14.2)
+- The touch allowance: a tap reaching a short way past a body's edge, the
+  nearer of two bodies within reach, and a reach that stays under one tile so
+  the next tile along is still somewhere to build (§14.2)
 - Dampening's curve and the one function every point of healing goes through
   (§3.3, replaced)
 - Fixed-timestep rendering at any frame rate, with interpolation (§15.1)

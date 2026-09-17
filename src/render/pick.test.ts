@@ -9,7 +9,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { bodyAt, computeLayout, screenToTilePoint, tileToScreen } from './layout.ts';
+import {
+  TOUCH_SLACK_PX,
+  bodyNear,
+  computeLayout,
+  screenToTilePoint,
+  tileToScreen,
+} from './layout.ts';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 
 const { data } = loadDataFromDisk();
@@ -24,38 +30,78 @@ const LINE = [
 
 describe('picking a body out of the lane', () => {
   it('takes the one whose circle covers the point', () => {
-    expect(bodyAt(LINE, 2.5, 4.5)?.id).toBe(1);
-    expect(bodyAt(LINE, 3.5, 4.4)?.id).toBe(2);
+    expect(bodyNear(LINE, 2.5, 4.5)?.id).toBe(1);
+    expect(bodyNear(LINE, 3.5, 4.4)?.id).toBe(2);
   });
 
-  it('takes nothing when the point is inside the tile but outside every body', () => {
+  it('takes nothing when the point is well outside every body', () => {
     // The corner of unit 1's tile: well inside the square it used to be
-    // selected by, and nowhere near the unit.
-    expect(bodyAt(LINE, 2.05, 4.05)).toBeNull();
+    // selected by, and a long way from the unit even with slack allowed.
+    expect(bodyNear(LINE, 2.05, 4.05)).toBeNull();
+    expect(bodyNear(LINE, 2.05, 4.05, 0.3)).toBeNull();
   });
 
   it('takes a body that has walked off its own tile', () => {
     // A unit built on (2, 4) that has advanced most of a tile. The tile rule
     // would look for it on (2, 3) and find nothing there.
     const advanced = [{ id: 9, x: 2.5, y: 3.9, radius: 0.3 }];
-    expect(bodyAt(advanced, 2.5, 3.9)?.id).toBe(9);
+    expect(bodyNear(advanced, 2.5, 3.9)?.id).toBe(9);
   });
 
   it('takes the nearer of two circles that overlap the point', () => {
     // Units 2 and 3 are 0.4 apart with 0.26 radii, so they overlap. A point
     // between them is inside both.
-    expect(bodyAt(LINE, 3.75, 4.5)?.id).toBe(3);
-    expect(bodyAt(LINE, 3.65, 4.5)?.id).toBe(2);
+    expect(bodyNear(LINE, 3.75, 4.5)?.id).toBe(3);
+    expect(bodyNear(LINE, 3.65, 4.5)?.id).toBe(2);
   });
 
-  it('stops exactly at the edge of the circle', () => {
+  it('stops exactly at the edge of the circle when nothing is allowed', () => {
     const one = [{ id: 1, x: 2.5, y: 4.5, radius: 0.26 }];
-    expect(bodyAt(one, 2.5 + 0.259, 4.5)).not.toBeNull();
-    expect(bodyAt(one, 2.5 + 0.261, 4.5)).toBeNull();
+    expect(bodyNear(one, 2.5 + 0.259, 4.5)).not.toBeNull();
+    expect(bodyNear(one, 2.5 + 0.261, 4.5)).toBeNull();
+  });
+
+  it('reaches `slack` past the edge, and no further', () => {
+    const one = [{ id: 1, x: 2.5, y: 4.5, radius: 0.26 }];
+    expect(bodyNear(one, 2.5 + 0.45, 4.5, 0.2)).not.toBeNull();
+    expect(bodyNear(one, 2.5 + 0.47, 4.5, 0.2)).toBeNull();
+  });
+
+  it('takes the nearer body when the slack reaches two of them', () => {
+    const pair = [
+      { id: 1, x: 2.5, y: 4.5, radius: 0.26 },
+      { id: 2, x: 3.5, y: 4.5, radius: 0.26 },
+    ];
+    expect(bodyNear(pair, 2.9, 4.5, 0.3)?.id).toBe(1);
+    expect(bodyNear(pair, 3.1, 4.5, 0.3)?.id).toBe(2);
   });
 
   it('finds nothing in an empty lane', () => {
-    expect(bodyAt([], 4, 4)).toBeNull();
+    expect(bodyNear([], 4, 4, 0.3)).toBeNull();
+  });
+});
+
+describe('the touch allowance', () => {
+  // The rule it must not break: placing a unit NEXT TO a line is most of what
+  // the build phase is, and a tap at the centre of an empty tile beside an
+  // occupied one has to reach the tile, not the neighbour.
+  const slack = TOUCH_SLACK_PX / layout.tileSize;
+
+  it('leaves the next tile along free to build on', () => {
+    const one = [{ id: 1, x: 2.5, y: 4.5, radius: 0.26 }];
+    expect(bodyNear(one, 3.5, 4.5, slack)).toBeNull();
+    expect(bodyNear(one, 2.5, 5.5, slack)).toBeNull();
+    expect(bodyNear(one, 3.5, 5.5, slack)).toBeNull();
+  });
+
+  it('is big enough to be worth having, and smaller than a tile', () => {
+    // A tier-1 unit is about a quarter-tile radius, which is a ~22px target on
+    // a phone against the 44 a thumb wants. With the allowance it is near 44.
+    const radius = 0.26 * layout.tileSize;
+    expect((radius + TOUCH_SLACK_PX) * 2).toBeGreaterThan(38);
+    // And the REACH stays under one tile, which is the invariant that keeps a
+    // tap on the next tile along a placement rather than a selection.
+    expect(radius + TOUCH_SLACK_PX).toBeLessThan(layout.tileSize);
   });
 });
 

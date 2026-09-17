@@ -58,6 +58,8 @@ export interface TeamSetup {
   id: TeamId;
   /** §2: one or more. v1 is free-for-all, so exactly one. */
   playerIds: PlayerId[];
+  /** Display name. Absent means unnamed, and the UI labels it by lane. */
+  name?: string;
   /**
    * Which roster this team builds from (§7.1). Defaults to the first builder in
    * `units.json` so that a caller with no opinion - a test, the headless runner
@@ -146,6 +148,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
   const teams: Team[] = options.teams.map((setup) => ({
     id: setup.id,
     playerIds: [...setup.playerIds],
+    name: setup.name ?? '',
     eliminated: false,
     placement: null,
     vision: {},

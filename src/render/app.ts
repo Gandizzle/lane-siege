@@ -87,6 +87,10 @@ function newTransport(
   const teams = LANE_IDS.map((id, index) => ({
     id,
     playerIds: id === OWN_LANE ? ['you'] : ['bot'],
+    // The four tabs are labelled by name (opponentTabs.ts), so a practice
+    // match says who is who too: your own name, and plainly-marked bots for
+    // the three lanes nobody is playing.
+    name: id === OWN_LANE ? identity.name : `Bot ${index + 1}`,
     builderId:
       id === OWN_LANE ? builderId : (others[(index - 1) % Math.max(1, others.length)] ?? builderId),
   }));

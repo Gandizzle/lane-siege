@@ -26,9 +26,24 @@ import type { LaneFile } from '../data/schema.ts';
  */
 const BAND_WEIGHTS = {
   tabs: 0.115,
-  lane: 0.635,
   buildBar: 0.25,
 } as const;
+
+/** Height of the row of opponent tabs at the bottom of the top band. */
+const TAB_ROW_HEIGHT = 30;
+
+/**
+ * The least the top band can be, in pixels, whatever the screen height says.
+ *
+ * Three rows of text above the tab row - the wave, the phase, and the
+ * incoming-send notice - plus the tabs themselves. A share of the screen is
+ * the right way to divide a tall phone and the wrong way to divide a short
+ * one: at 640 pixels 11.5% is 74, which is less than the HUD's own text needs,
+ * and the notice ended up drawn behind the tabs. So the band takes what it
+ * needs and the lane gives it up, because a lane one tile shorter is a
+ * cosmetic loss and a warning you cannot read is not.
+ */
+const TABS_MIN_HEIGHT = 102;
 
 export interface Rect {
   x: number;
@@ -55,6 +70,15 @@ export interface Camera {
 export interface LaneLayout extends Camera {
   screen: Rect;
   tabs: Rect;
+  /**
+   * The row of opponent tabs, at the bottom of the `tabs` band.
+   *
+   * In the layout rather than computed by whoever draws it, because two things
+   * need it and they disagreed: the tabs drew themselves from the bottom of
+   * the band while the HUD placed its rows from the top, so on a short screen
+   * the last row of text went behind the first row of tabs.
+   */
+  tabStrip: Rect;
   spawn: Rect;
   build: Rect;
   fortress: Rect;
@@ -67,16 +91,31 @@ export interface LaneLayout extends Camera {
  * frame.
  */
 export function computeLayout(width: number, height: number, lane: LaneFile): LaneLayout {
-  const band = (offset: number, weight: number): Rect => ({
-    x: 0,
-    y: height * offset,
-    width,
-    height: height * weight,
-  });
+  // Top and bottom bands first, then the lane gets what is left: the two bands
+  // hold text and controls at a size a thumb and an eye need, and the lane is
+  // the one thing that scales gracefully.
+  const tabsHeight = Math.max(height * BAND_WEIGHTS.tabs, TABS_MIN_HEIGHT);
+  const buildBarHeight = height * BAND_WEIGHTS.buildBar;
 
-  const tabs = band(0, BAND_WEIGHTS.tabs);
-  const laneBand = band(BAND_WEIGHTS.tabs, BAND_WEIGHTS.lane);
-  const buildBar = band(1 - BAND_WEIGHTS.buildBar, BAND_WEIGHTS.buildBar);
+  const tabs: Rect = { x: 0, y: 0, width, height: tabsHeight };
+  const laneBand: Rect = {
+    x: 0,
+    y: tabsHeight,
+    width,
+    height: Math.max(0, height - tabsHeight - buildBarHeight),
+  };
+  const buildBar: Rect = {
+    x: 0,
+    y: height - buildBarHeight,
+    width,
+    height: buildBarHeight,
+  };
+  const tabStrip: Rect = {
+    x: 6,
+    y: tabs.y + tabs.height - TAB_ROW_HEIGHT - 4,
+    width: width - 12,
+    height: TAB_ROW_HEIGHT,
+  };
 
   const grid = { width: lane.buildZone.width, depth: lane.buildZone.depth };
   const tilesDeep = lane.spawnZoneDepth + grid.depth + lane.fortressZoneDepth;
@@ -103,6 +142,7 @@ export function computeLayout(width: number, height: number, lane: LaneFile): La
   return {
     screen: { x: 0, y: 0, width, height },
     tabs,
+    tabStrip,
     spawn,
     build,
     fortress,
@@ -179,24 +219,50 @@ export interface Pickable {
 }
 
 /**
+ * How far past its own edge a body can still be tapped, in PIXELS.
+ *
+ * A body is a circle and the circle is everything - collision shape, hit
+ * shape, drawn size (§14.2) - so the circle is what a tap hits. Exactly the
+ * circle turned out to be too small to aim at: a unit is about half a tile
+ * wide, which is twenty-odd pixels on a phone, against the 44 a thumb wants.
+ * So the tap circle is the body plus this, which takes a tier-1 unit's target
+ * to roughly that 44 without letting go of the rule that you are aiming at
+ * the body rather than at the tile it happens to be standing in.
+ *
+ * Pixels rather than tiles because a finger is a physical size and a tile is
+ * not: the allowance should be the same width of skin on every screen, which
+ * means a different fraction of a tile on each.
+ *
+ * Short on purpose. Half a tile of slack would make a tap next to a line
+ * select the line instead of placing beside it, and placing beside a line is
+ * most of what the build phase is.
+ */
+export const TOUCH_SLACK_PX = 11;
+
+/**
  * The body a tap landed on, in tile space, or null.
  *
- * A body is a circle - collision shape, hit shape and drawn size at once
- * (§14.2) - so the thing you tap is that circle, not the tile it is standing
- * mostly inside and not the silhouette drawn within it. The tile was the old
- * rule and it was wrong twice over: a unit that had advanced off its tile
- * could not be tapped where it was, and a tap on an empty corner of an
- * occupied tile selected a unit that was nowhere near it.
+ * The nearest body whose circle - plus `slack` of forgiveness - covers the
+ * point. The tile was the old rule and it was wrong twice over: a unit that
+ * had advanced off its tile could not be tapped where it was, and a tap on an
+ * empty corner of an occupied tile selected a unit nowhere near it.
  *
- * Nearest centre wins where two circles overlap, which they can while a line
- * is packed: the one whose middle is closest to the finger is the one meant.
+ * Nearest CENTRE wins rather than nearest edge, and it decides both the
+ * overlap case - bodies in a packed line overlap, and the one whose middle is
+ * closest to the finger is the one meant - and the slack case, where two
+ * neighbours are both within reach of a tap between them.
  */
-export function bodyAt<T extends Pickable>(bodies: readonly T[], x: number, y: number): T | null {
+export function bodyNear<T extends Pickable>(
+  bodies: readonly T[],
+  x: number,
+  y: number,
+  slack = 0,
+): T | null {
   let best: T | null = null;
   let bestDistance = Infinity;
   for (const body of bodies) {
     const distance = Math.hypot(body.x - x, body.y - y);
-    if (distance > body.radius || distance >= bestDistance) continue;
+    if (distance > body.radius + slack || distance >= bestDistance) continue;
     bestDistance = distance;
     best = body;
   }

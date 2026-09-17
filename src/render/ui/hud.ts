@@ -17,7 +17,7 @@ import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { fortressShape } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
-import { centreOn, label } from './text.ts';
+import { centreOn, label, overlaid } from './text.ts';
 
 export class Hud extends Container {
   private readonly background = new Graphics();
@@ -50,6 +50,14 @@ export class Hud extends Container {
     const pad = 12;
     const isBoss = view.wave > 0 && view.wave % this.data.waves.bossEveryNWaves === 0;
 
+    // Two rows from the top, and a third pinned just above the tab strip.
+    // Anchoring the last row to the tabs rather than to a fixed offset is what
+    // keeps it out from behind them on a short screen, where the band is at
+    // its floor (layout.ts, `TABS_MIN_HEIGHT`).
+    const rowOne = l.tabs.y + 6;
+    const rowTwo = l.tabs.y + 26;
+    const rowThree = Math.max(rowTwo + 18, l.tabStrip.y - 18);
+
     const waveText = label(
       view.wave === 0 ? 'Prepare' : `Wave ${view.wave}${isBoss ? ' · BOSS' : ''}`,
       15,
@@ -57,7 +65,7 @@ export class Hud extends Container {
       '700',
     );
     waveText.x = pad;
-    waveText.y = l.tabs.y + 8;
+    waveText.y = rowOne;
     this.content.addChild(waveText);
 
     // §3.1, amended: the build phase is the only phase with a clock. Combat now
@@ -72,7 +80,7 @@ export class Hud extends Container {
       '600',
     );
     phaseText.x = pad;
-    phaseText.y = l.tabs.y + 28;
+    phaseText.y = rowTwo;
     this.content.addChild(phaseText);
 
     // Resources. Gold and gems are deliberately separate currencies with
@@ -87,8 +95,24 @@ export class Hud extends Container {
         '600',
       );
       resources.x = l.tabs.width - resources.width - pad;
-      resources.y = l.tabs.y + 10;
+      resources.y = rowOne + 4;
       this.content.addChild(resources);
+
+      // §11.6: passive income is paid every wave and compounds, and it is the
+      // whole reason an early send is an investment rather than an attack.
+      // On its own row, as a RATE rather than a balance: it is not a number
+      // you spend, it is the number that decides how fast the other three
+      // move. Dimmed at zero, because zero is the honest starting value and
+      // seeing it there is how a player learns the lever exists.
+      const income = label(
+        `+${Math.floor(economy.passiveIncome)}g / wave`,
+        11,
+        economy.passiveIncome > 0 ? UI.text : UI.textMuted,
+        '600',
+      );
+      income.x = l.tabs.width - income.width - pad;
+      income.y = rowThree;
+      this.content.addChild(income);
     }
 
     if (summary?.dominantDamageType) {
@@ -101,7 +125,7 @@ export class Hud extends Container {
         '600',
       );
       offence.x = l.tabs.width - offence.width - pad;
-      offence.y = l.tabs.y + 30;
+      offence.y = rowTwo + 2;
       this.content.addChild(offence);
     }
 
@@ -117,7 +141,7 @@ export class Hud extends Container {
         '700',
       );
       notice.x = pad;
-      notice.y = l.tabs.y + 46;
+      notice.y = rowThree;
       this.content.addChild(notice);
     }
 
@@ -150,11 +174,12 @@ export class Hud extends Container {
         .fill({ color: fraction > 0.35 ? UI.healthGood : UI.healthLow });
     }
 
-    const text = label(
+    // Outlined rather than drawn in the background colour: the bar drains, and
+    // a reading painted the colour of the background disappears exactly when
+    // the number matters most (text.ts, `overlaid`).
+    const text = overlaid(
       `${Math.max(0, Math.round(hp))} / ${Math.round(maxHp)}`,
       Math.min(11, height - 6),
-      UI.background,
-      '700',
     );
     centreOn(text, cx, y + (height - text.height) / 2);
     this.content.addChild(text);

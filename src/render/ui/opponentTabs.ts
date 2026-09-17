@@ -114,16 +114,25 @@ class OpponentTab extends Container {
         .fill({ color: clamped > 0.35 ? UI.healthGood : UI.healthLow });
     }
 
-    const name = opponent ? shortName(opponent.teamId) : ownName;
-    if (this.caption.text !== name) this.caption.text = name;
+    // Who, not where. A lane number says nothing a player wants to know, and
+    // the four tabs across the top are the only place anybody else's name
+    // appears once the lobby is history. `shortName` is the fallback for a
+    // seat nobody has named - a bot, or a player who never set one.
+    const name = opponent ? opponent.name || shortName(opponent.teamId) : ownName;
+    const fitted = fit(name, this.w - 8, this.caption.style.fontSize as number);
+    if (this.caption.text !== fitted) this.caption.text = fitted;
     this.caption.style.fill = eliminated ? UI.textMuted : UI.text;
 
+    // The second line says something only when there is something to say:
+    // out and where they placed, or how long you can see inside. The HP
+    // PERCENTAGE used to live here and does not need to - the bar under it is
+    // the same number, read faster, and two of one fact is one too many.
     const detail = eliminated
       ? `out · ${ordinal(opponent?.placement ?? 0)}`
       : opponent
         ? opponent.watching
           ? watchingLabel(opponent)
-          : `${Math.round(clamped * 100)}%`
+          : ''
         : 'you';
     if (this.detail.text !== detail) this.detail.text = detail;
     this.detail.style.fill = opponent?.watching ? UI.accent : UI.textMuted;
@@ -136,9 +145,26 @@ class OpponentTab extends Container {
   }
 }
 
+/** What to call a seat nobody has named: where it sits, since that is all we know. */
 function shortName(teamId: string): string {
   const match = /(\d+)$/.exec(teamId);
   return match ? `Lane ${match[1]}` : teamId;
+}
+
+/**
+ * A name cut to fit the tab it is drawn in.
+ *
+ * Estimated from the font size rather than measured, because measuring means
+ * setting the text and reading `width` back, and this runs every frame for
+ * four tabs. Names are capped at `MAX_NAME_LENGTH` (identity.ts) so the cut is
+ * rare; the estimate only has to be close enough to keep a long one inside its
+ * own tab rather than across the next one.
+ */
+function fit(name: string, width: number, fontSize: number): string {
+  const perCharacter = fontSize * 0.62;
+  const room = Math.max(3, Math.floor(width / perCharacter));
+  const characters = [...name];
+  return characters.length <= room ? name : `${characters.slice(0, room - 1).join('')}…`;
 }
 
 function ordinal(placement: number): string {
@@ -167,15 +193,15 @@ export class OpponentTabs extends Container {
   }
 
   setLayout(layout: LaneLayout): void {
-    const l = layout.tabs;
-    const pad = 6;
+    // From the layout, not computed here: the HUD places its rows against the
+    // same rectangle, and the two of them working it out separately is how the
+    // incoming-send notice ended up behind the tabs (layout.ts, `tabStrip`).
+    const strip = layout.tabStrip;
     const gap = 4;
-    const width = (l.width - pad * 2 - gap * (SLOTS - 1)) / SLOTS;
-    const height = 30;
-    const y = l.y + l.height - height - 4;
+    const width = (strip.width - gap * (SLOTS - 1)) / SLOTS;
 
     this.tabs.forEach((tab, i) => {
-      tab.layout(pad + i * (width + gap), y, width, height);
+      tab.layout(strip.x + i * (width + gap), strip.y, width, strip.height);
     });
   }
 
@@ -193,7 +219,12 @@ export class OpponentTabs extends Container {
     this.tabs.forEach((tab, i) => {
       if (i === 0) {
         tab.visible = true;
-        tab.update(null, shortName(view.teamId), ownFraction, watchingTeamId === null);
+        tab.update(
+          null,
+          view.teamName || shortName(view.teamId),
+          ownFraction,
+          watchingTeamId === null,
+        );
         return;
       }
       const opponent = ordered[i - 1];

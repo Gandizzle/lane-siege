@@ -339,7 +339,15 @@ Decisions that override the document rather than filling a gap in it:
   is that circle, wherever the unit has walked to, and the selection is drawn
   as a ring on it rather than as a box around a tile. The tile rule missed a
   unit that had advanced off its own tile and selected one from an empty corner
-  of its tile.
+  of its tile. The tap circle is the body plus eleven pixels, because the body
+  alone is a ~22px target where a thumb wants 44; the reach stays under one
+  tile so the empty tile beside a line is still somewhere to build.
+- **§12 — a player's NAME is public.** §12 lists fortress HP and
+  alive-or-eliminated as the public record. A name belongs on that list: fog is
+  about what somebody has built, and the four tabs across the top exist to say
+  who is being worn down. Names ride in the hello rather than in every frame,
+  since they do not change once a match starts. The HP percentage that used to
+  be printed under each tab is gone - the bar is the same number, read faster.
 - **§3.2 — there is no global wave-spawn clock.** The only global timers are the
   30s build phase and the enrage clock (§8). Combat runs until every living lane
   is empty. The original clock existed so one slow player could not hold three

@@ -243,12 +243,7 @@ export class LaneSiegeRoom extends Room {
     const team = this.match.teams.find((t) => t.id === placed.teamId);
     if (team && !team.playerIds.includes(playerId)) team.playerIds.push(playerId);
 
-    const hello: WireHello = {
-      teamIds: LANE_IDS,
-      teamId: placed.teamId,
-      seed: this.match.seed,
-    };
-    client.send('hello', hello);
+    client.send('hello', this.helloFor(placed.teamId));
     this.broadcastLobby();
     if (this.started) this.sendFrame(mine);
   }
@@ -283,11 +278,7 @@ export class LaneSiegeRoom extends Room {
       const returned = await this.allowReconnection(client, this.reconnectSeconds);
       seat.client = returned;
       seat.lobby.connected = true;
-      returned.send('hello', {
-        teamIds: LANE_IDS,
-        teamId: seat.lobby.teamId,
-        seed: this.match.seed,
-      } satisfies WireHello);
+      returned.send('hello', this.helloFor(seat.lobby.teamId));
       this.sendFrame(seat);
       this.broadcastLobby();
     } catch {
@@ -363,12 +354,47 @@ export class LaneSiegeRoom extends Room {
   }
 
   /**
+   * What a client is told once, on the way in.
+   *
+   * The names ride along here rather than in every frame: a name does not
+   * change once a match has begun, and twenty times a second is the wrong rate
+   * for a string that never moves. A name set while the lobby is still filling
+   * would be stale in the hello somebody already received, which is why
+   * `kickOff` re-sends it to everyone with the final list.
+   */
+  private helloFor(teamId: string): WireHello {
+    return {
+      teamIds: LANE_IDS,
+      teamId,
+      seed: this.match.seed,
+      teamNames: this.seats.map((seat) => seat.lobby.name),
+    };
+  }
+
+  /**
    * From lobby to match: seat the rosters people chose, hand the empty lanes to
    * scripted builders, and lock the room.
    */
   private kickOff(): void {
     this.started = true;
     this.lock().catch(() => {});
+
+    // Who everybody is, now that it is settled: the lobby is about to become
+    // history, and the names in it are what the four tabs across the top of
+    // every screen will be labelled with for the rest of the match.
+    for (const seat of this.seats) {
+      const team = this.match.teams.find((t) => t.id === seat.lobby.teamId);
+      if (team) team.name = seat.lobby.name;
+    }
+    this.tables = buildTables(
+      this.data,
+      LANE_IDS,
+      this.match.seed,
+      this.seats.map((seat) => seat.lobby.name),
+    );
+    for (const seat of this.seats) {
+      if (seat.client) seat.client.send('hello', this.helloFor(seat.lobby.teamId));
+    }
 
     for (const seat of this.seats) {
       // §7.1: the roster each player settled on in the lobby. Applied here

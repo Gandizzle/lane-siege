@@ -193,6 +193,8 @@ export interface AttackView {
 /** What one player knows about another (§12). */
 export interface OpponentView {
   teamId: TeamId;
+  /** What to call them, or empty when nobody has said. Always public. */
+  name: string;
   eliminated: boolean;
   /** Locked in at elimination (§13). */
   placement: number | null;
@@ -233,6 +235,8 @@ export interface ShowdownView {
 export interface MatchView {
   /** Whose view this is. */
   teamId: TeamId;
+  /** What to call yourself, or empty when nobody has said. */
+  teamName: string;
   /** Public and identical for everyone: every lane faces the same wave (§9.2). */
   seed: number;
   tick: number;
@@ -395,6 +399,7 @@ export function viewFor(
 
     opponents.push({
       teamId: team.id,
+      name: team.name,
       eliminated: team.eliminated,
       placement: team.placement,
       // §12's suggested minimum, and the whole of it.
@@ -409,6 +414,7 @@ export function viewFor(
 
   return {
     teamId,
+    teamName: self?.name ?? '',
     seed: state.seed,
     tick: state.tick,
     wave: state.wave,

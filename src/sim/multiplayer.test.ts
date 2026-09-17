@@ -331,11 +331,15 @@ describe('fog of war (§12)', () => {
     expect(wire).not.toContain('4242');
     // An opponent entry carries exactly the §12 public record and nothing else,
     // so a field added to Team or Lane later cannot quietly become public.
+    // `name` is on the list deliberately: §12's fog is about what somebody has
+    // BUILT, and who they are is the opposite of a secret - four labelled tabs
+    // across the top is the whole point of playing against people.
     for (const opponent of view.opponents) {
       expect(Object.keys(opponent).sort()).toEqual([
         'eliminated',
         'fortressHp',
         'fortressMaxHp',
+        'name',
         'placement',
         'teamId',
         'visionTicksLeft',
