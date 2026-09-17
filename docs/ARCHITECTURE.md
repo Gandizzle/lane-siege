@@ -320,6 +320,32 @@ which §1, §4.1 and §14.1 all assume — is applied by `scripts/prepare-androi
 rather than by committing sixty files of Gradle scaffolding. The script is
 idempotent and fails loudly rather than leaving the app quietly wrong.
 
+**Orientation has three answers, one per platform.** The manifest lock above is
+the complete one: rotating the phone does nothing at all. A browser on Android
+may allow `screen.orientation.lock`, but only while the page is fullscreen, and
+a page cannot put itself fullscreen without a gesture — so the lock is
+attempted and its refusal is expected. Safari on iOS has no orientation lock at
+any time. What covers the gap is a notice (`src/render/ui/orientation.ts`): a
+line of text saying the game is played upright, shown only when the viewport is
+landscape _and_ its short edge is phone-sized, so a desktop window or a tablet
+is never nagged. It does not block play — no scrim, no pointer events — because
+a player who wants to squint at a sideways board is entitled to. When an iOS
+project exists it wants `UISupportedInterfaceOrientations` set the same way the
+manifest is.
+
+**The layout follows the renderer's size, checked every frame, not a `resize`
+event.** This was a bug worth remembering. Pixi's own resize plugin listens to
+`window`'s `resize` and only _queues_ the new size, applying it inside a
+`requestAnimationFrame` — so a listener added after it reads `app.screen`
+before it has been updated, and gets the size the canvas had a moment ago.
+Rotating a phone therefore laid the game out for the orientation it was just
+in, and rotating back laid landscape out inside a portrait canvas: the board
+across the left half of the screen and the build bar off the bottom of it.
+Comparing the numbers at the top of the frame loop fixes the ordering and
+covers every other thing that can change them — browser chrome appearing, a
+soft keyboard, a desktop window drag — with one rule and no guessing about when
+the viewport has settled. `computeLayout` runs only when they actually differ.
+
 Producing the APK needs the Android SDK and Google's Maven repository, so it
 happens on a developer's machine or in CI with the SDK installed, not here:
 
@@ -1084,6 +1110,8 @@ Implemented and tested (388 tests):
   zone (§5.2 amended, §8.1)
 - Send buttons: every send drawing the monster it delivers, no two drawing the
   same picture, and a random target that never picks a lane that is out (§11.5)
+- When the game asks for portrait: a phone on its side, but never a desktop
+  window, a tablet or a square viewport (§1, §14.1)
 - Dampening's curve and the one function every point of healing goes through
   (§3.3, replaced)
 - Fixed-timestep rendering at any frame rate, with interpolation (§15.1)

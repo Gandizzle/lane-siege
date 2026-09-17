@@ -37,6 +37,7 @@ import {
 import { CODE_LENGTH, PUBLIC_CODE, normaliseCode } from '../net/lobby.ts';
 import { Game } from './game.ts';
 import type { MatchMode } from './ui/homeScreen.ts';
+import { keepPortrait } from './ui/orientation.ts';
 import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
 
@@ -184,22 +185,50 @@ export async function startApp(
   // So the accumulator sees the truth, and `MAX_CATCHUP_TICKS` in loop.ts stays
   // the single place that decides what to do about a slow frame.
   let last = performance.now();
+
+  /**
+   * The layout follows the RENDERER's size, checked at the top of every frame.
+   *
+   * It used to be driven from a `window` 'resize' listener, and that listener
+   * was always a frame behind. Pixi's own resize plugin listens to the same
+   * event and only QUEUES the new size - it applies it inside a
+   * `requestAnimationFrame` - so anything reading `app.screen` from a listener
+   * added after it gets the size the canvas had a moment ago. Rotating a phone
+   * therefore laid the game out for the orientation it was just in, and
+   * rotating back laid landscape out inside a portrait canvas: the board across
+   * the left half of the screen and the build bar off the bottom of it.
+   *
+   * Comparing the numbers instead of trusting an event fixes the ordering and
+   * covers everything else that can change them with one rule - browser chrome
+   * appearing and disappearing, a soft keyboard, a desktop window drag, a
+   * resize observer firing late - with no guessing about when the viewport has
+   * settled. `computeLayout` runs only when the numbers actually differ.
+   */
+  let laidOut = { width: app.screen.width, height: app.screen.height };
+
   app.ticker.add(() => {
+    if (app.screen.width !== laidOut.width || app.screen.height !== laidOut.height) {
+      laidOut = { width: app.screen.width, height: app.screen.height };
+      // Fixed camera (§14.1): a resize only recomputes the layout.
+      game.resize(laidOut.width, laidOut.height);
+    }
+
     const now = performance.now();
     const elapsed = now - last;
     last = now;
     game.frame(elapsed);
   });
 
-  // Fixed camera (§14.1): resize only recomputes the layout.
-  const onResize = () => game.resize(app.screen.width, app.screen.height);
-  globalThis.addEventListener('resize', onResize);
+  // §1: portrait, one-handed. The Android shell is locked in its manifest
+  // (scripts/prepare-android.mjs); a browser cannot be made to obey, so this
+  // asks and then says so if it is refused.
+  const orientation = keepPortrait(mount);
 
   return {
     app,
     game,
     destroy() {
-      globalThis.removeEventListener('resize', onResize);
+      orientation.dispose();
       app.destroy(true, { children: true });
     },
   };
