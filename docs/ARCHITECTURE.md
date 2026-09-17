@@ -413,6 +413,36 @@ thing — where a unit may be _built_ — and both sides may fight anywhere in t
 lane, spawn zone included. The renderer square-fits the whole 8 × 14 lane and
 derives the three bands from one tile size.
 
+**The spawn zone belongs to the attacker.** §5.2, amended, let a unit with
+nothing in range advance anywhere in the lane, and measurement showed where
+that ends up. With a line built on the top four rows and forty grub packs
+incoming, the mean unit stood at y = **-0.14** — the whole defence inside the
+spawn zone, camped on the point the wave arrives at — twenty-nine of
+thirty-two units were in the zone at once, and monsters only ever occupied
+**4 of the lane's 14 rows**. Three things were wrong with that at once: a wave
+was born inside a wall of bodies instead of on open ground, so its numbers
+never came to bear and a send against that lane was money thrown away; the
+fight was a four-row scrum with ten rows of empty lane behind it; and §4.2's
+whole point — a front line to absorb, a back line to deal damage — was
+flattened, because the engine walked every unit to the door regardless of
+where the player put it.
+
+So a unit's lane is the lane without its spawn zone (`unitLane` in
+`src/sim/context.ts`): two `World`s over one strip, same grid, different edges.
+A unit advances to the top of the build grid and holds; a ranged one still
+shoots into the zone, because reach is not a boundary. It is a steering rule
+rather than a wall — contact uses the whole lane, since clamping a body between
+an invisible edge and a crowd cost the no-overlap guarantee — so a unit shoved
+a hair over the line simply walks back out. Nothing new in `data/`: the grid's
+top edge already exists.
+
+The same measurement after: **0 units** in the zone (deepest advance y =
+0.047), **0 monsters born overlapping a unit** (was 5 in 140), the cap still
+held 77% of combat, and the wave now reaches 13 of 14 rows as the line gives
+way. Spawn placement was tightened to match — the hex lattice is ten rings
+deep, far more than the zone holds, so points that would put a body outside it
+are skipped rather than spawning out of bounds and being shoved back in.
+
 ### The Final Showdown: one arena, four armies
 
 §3.3 ended a match with an attrition endgame — from wave 25 nothing could be
@@ -773,6 +803,43 @@ how long bought sight has left. The HP percentage that used to sit there is
 gone: the bar underneath is the same number read faster, and two of one fact is
 one too many.
 
+### The send tab: what you are throwing, at whom, and how often
+
+§11.5's offence, made legible and then made comfortable.
+
+**Every send button carries the silhouette of the monster it delivers**, with
+that monster's own name and count beside it — "Plated Push / 3× Husk" over a
+hexagon. A send _is_ a pack of monsters, so the honest icon is the monster, and
+it is also the useful one: the same shape, armour family and damage-type fill
+that §14.2 draws in the lane, in the wave preview and on a unit button. Learn
+"hexagon means plate, and that one is a Husk" once and read it everywhere; a
+send-only shape vocabulary would be five more shapes that appear nowhere else.
+All five sends draw a different picture, and a test in
+`src/render/ui/sends.test.ts` keeps it that way.
+
+**A Random chip** sits beside the three opponent chips. §11.5's default is to
+gang up on the leader; Random is the other shape of pressure — spread across
+every living lane without three taps per send. It re-draws from the living
+opponents each time, so it can never aim at somebody already out, and the
+command that leaves the client still names one concrete lane, which is what
+keeps the simulation deterministic (§15.1).
+
+**Press and hold a send for a second to arm it**, and it fires every 500ms for
+as long as the gems are there. The button fills a bar along its bottom edge
+while the hold counts, so the gesture explains itself; an armed send wears an
+accent ring and says `auto · every 0.5s`. It keeps firing while the player is
+on another tab, because that is the point of arming it. A send you cannot yet
+afford is dimmed but still takes the hold — "fire this as soon as I can afford
+it" is exactly the case auto-send is for — which is why `GridButton` separates
+`enabled` (dimmed, taps do nothing) from `interactive` (takes events at all).
+The purse is tracked locally across one frame's firings, because
+`lane.economy` is last tick's snapshot and two armed sends would otherwise both
+see the same balance.
+
+**Every press blinks.** A send is the one action whose effect happens in
+somebody else's lane, so without a blink there is nothing on screen to say the
+tap landed.
+
 ### The build grid, and what a unit button shows
 
 Two small things that both come down to §14.2: show the player the thing
@@ -1011,6 +1078,12 @@ Implemented and tested (388 tests):
 - The touch allowance: a tap reaching a short way past a body's edge, the
   nearer of two bodies within reach, and a reach that stays under one tile so
   the next tile along is still somewhere to build (§14.2)
+- The spawn zone as the attacker's ground: the whole defence kept out of it
+  however hard it is pushed, no monster born inside a unit, the cap still
+  reached while a queue waits, and a cap-sized clump packed wholly inside the
+  zone (§5.2 amended, §8.1)
+- Send buttons: every send drawing the monster it delivers, no two drawing the
+  same picture, and a random target that never picks a lane that is out (§11.5)
 - Dampening's curve and the one function every point of healing goes through
   (§3.3, replaced)
 - Fixed-timestep rendering at any frame rate, with interpolation (§15.1)

@@ -58,6 +58,30 @@ function latticePitch(data: GameData): number {
   return smallest * 2 + PACK_GAP;
 }
 
+/**
+ * Could a body of `radius` stand at this lattice point and still be wholly
+ * inside the spawn zone?
+ *
+ * The lattice is ten rings deep, which is far more than any wave needs and
+ * far more than the zone holds - so for a large enough clump the outer points
+ * are outside the lane entirely, and a body placed there spawns out of bounds
+ * and is shoved back in by contact resolution. A wave that has to be pushed
+ * into the lane before it can walk is a wave that arrives as a burst.
+ *
+ * The spawn zone specifically, not the whole lane: a wave forms up on the
+ * attacker's own ground and walks in from there. The defence stops at the
+ * grid's edge (`unitLane` in context.ts), so the two never start interleaved.
+ */
+function insideSpawnZone(data: GameData, point: Vec2, radius: number): boolean {
+  const lane = data.lane;
+  return (
+    point.x >= radius &&
+    point.x <= lane.buildZone.width - radius &&
+    point.y >= -lane.spawnZoneDepth + radius &&
+    point.y <= -radius
+  );
+}
+
 const latticeCache = new Map<string, Vec2[]>();
 
 /**
@@ -111,6 +135,7 @@ export function placeWave(data: GameData, radii: readonly number[]): Vec2[] {
   for (const radius of radii) {
     let chosen: Vec2 | null = null;
     for (const point of lattice) {
+      if (!insideSpawnZone(data, point, radius)) continue;
       let clear = true;
       for (const t of taken) {
         const need = t.radius + radius + PACK_GAP;
@@ -126,9 +151,9 @@ export function placeWave(data: GameData, radii: readonly number[]): Vec2[] {
         break;
       }
     }
-    // Lattice exhausted: stack at the centre and let contact resolution sort
-    // it out. It is one allocation past any wave the cap permits, so it does
-    // not happen.
+    // The zone is full: stack at the centre and let contact resolution sort it
+    // out. That takes a wave far larger than the cap permits, so in a match it
+    // does not happen.
     const at = chosen ?? spawnCentre(data);
     taken.push({ x: at.x, y: at.y, radius: Math.max(radius, pitch / 2) });
     positions.push({ x: at.x, y: at.y });
@@ -143,6 +168,7 @@ export function placeWave(data: GameData, radii: readonly number[]): Vec2[] {
  */
 export function reservePosition(data: GameData, radius: number, living: readonly Monster[]): Vec2 {
   for (const point of spawnLattice(data)) {
+    if (!insideSpawnZone(data, point, radius)) continue;
     let clear = true;
     for (const monster of living) {
       if (!monster.alive) continue;

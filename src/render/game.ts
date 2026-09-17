@@ -295,6 +295,7 @@ export class Game extends Container {
     this.gameOver.reset();
     this.entities.reset();
     this.effectsLayer.reset();
+    this.buildBar.reset();
     this.leaveShowdown();
     this.showScreen('home');
   }
@@ -312,6 +313,7 @@ export class Game extends Container {
     this.entities.reset();
     this.effectsLayer.reset();
     this.gameOver.reset();
+    this.buildBar.reset();
     this.leaveShowdown();
     // A remote match opens in its lobby, even before the room has answered; a
     // practice match has no lobby and is already running.
@@ -442,7 +444,7 @@ export class Game extends Container {
     this.tabs.render(view, this.watchingTeamId);
     if (connected) this.banner.render(view, this.watchingTeamId);
     else this.banner.renderStatus(transport.status, transport.detail);
-    if (view.lane) this.buildBar.render(view, view.lane, this.selection, this.summary);
+    if (view.lane) this.buildBar.render(view, view.lane, this.selection, this.summary, deltaMs);
     this.toast.update(deltaMs, this.layout);
     this.gameOver.render(view);
   }

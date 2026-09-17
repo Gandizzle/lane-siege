@@ -18,6 +18,7 @@ import {
   createMonster,
   FORTRESS_ID,
   gap,
+  placeWave,
   step,
 } from './index.ts';
 import type { GameData } from '../data/schema.ts';
@@ -333,7 +334,11 @@ describe('defensive units advance when nothing is in range (§5.2, amended)', ()
     expect(unit.pos.y).toBe(y);
   });
 
-  it('may fight in the spawn zone: the lane is one stretch of ground', () => {
+  it('advances to the top of the grid and holds: the spawn zone is theirs', () => {
+    // The wave's ground. A line that walks onto the spawn point is a line a
+    // wave is born inside, which costs the attacker their numbers and makes a
+    // send against that lane worthless - see `unitLane` in context.ts for the
+    // measurements. A unit walks up to the line and waits there.
     const d = passiveData();
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
     const { state, ctx } = setup(d);
@@ -343,8 +348,29 @@ describe('defensive units advance when nothing is in range (§5.2, amended)', ()
 
     run(ctx, state, 400);
     const unit = lane.units[0]!;
+    // It advanced - it was built on row 3 and the monsters are above row 0.
+    expect(unit.pos.y).toBeLessThan(3.5);
+    // But not onto the spawn point. A crowd can shove it a hair over the line
+    // and it walks back, so the bar is "not meaningfully inside", not "never".
+    expect(unit.pos.y).toBeGreaterThan(-0.2);
+  });
+
+  it('still shoots into the spawn zone: reach is not a boundary', () => {
+    // The line stops at the grid's edge; a lance's 4.9 tiles of reach does
+    // not, and a monster standing in the open is a monster it can hit.
+    const d = passiveData();
+    for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    place(ctx, state, 'lance', 3, 3);
+    startCombat(ctx, state);
+
+    run(ctx, state, 400);
+    const unit = lane.units[0]!;
     expect(unit.engaged).toBe(true);
-    expect(unit.pos.y).toBeLessThan(0);
+    const target = lane.monsters.find((m) => m.id === unit.targetId);
+    expect(target).toBeDefined();
+    expect(target!.pos.y).toBeLessThan(0);
   });
 
   it('returns the line to its build tiles at the next build phase', () => {
@@ -749,5 +775,150 @@ describe('a boss passes through its own escort (§3.4)', () => {
     expect(engagedAt).toBeGreaterThan(0);
     const progress = Math.hypot(boss.pos.x - start.x, boss.pos.y - start.y);
     expect(walked / progress).toBeLessThan(1.5);
+  });
+});
+
+describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () => {
+  /**
+   * The measured case. A line on the top four rows, and far more sent at it
+   * than the lane can hold at once: before this rule the mean unit stood at
+   * y = -0.14, twenty-nine of thirty-two units were inside the spawn zone, and
+   * a wave was born inside them.
+   */
+  function underSiege(sends = 12) {
+    // Live combat, not `passiveData`: the reserve only drains as monsters die,
+    // and a queue that never drains is not the case under test. The fortress
+    // is given a bottomless pool so the lane survives being sent at twelve
+    // times over.
+    const d = data;
+    const state = createMatch(d, {
+      seed: 4,
+      teams: ['l1', 'l2'].map((id) => ({ id, playerIds: [id] })),
+    });
+    const ctx = createContext(d);
+    for (const id of ['l1', 'l2']) {
+      const lane = state.lanes[id]!;
+      lane.economy.gold = 9_000_000;
+      lane.economy.gems = 9_000_000;
+      lane.economy.supplyCap = 9999;
+      lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+      lane.fortress.hp = lane.fortress.maxHp;
+    }
+    for (let x = 0; x < 8; x++) {
+      for (let y = 0; y < 4; y++) {
+        applyCommand(ctx, state, {
+          kind: 'placeUnit',
+          teamId: 'l1',
+          unitDefId: 'hammer',
+          tileX: x,
+          tileY: y,
+        });
+      }
+    }
+    for (let i = 0; i < sends; i++) {
+      applyCommand(ctx, state, {
+        kind: 'send',
+        teamId: 'l2',
+        targetTeamId: 'l1',
+        sendId: 'grub_pack',
+      });
+    }
+    while (state.phase !== 'combat') step(ctx, state);
+    return { state, ctx, d };
+  }
+
+  it('keeps the whole defence out of it, however hard it is pushed', () => {
+    const { state, ctx } = underSiege();
+    const lane = state.lanes.l1!;
+
+    let deepest = 0;
+    for (let t = 0; t < 600; t++) {
+      step(ctx, state);
+      for (const unit of lane.units) {
+        if (unit.alive) deepest = Math.min(deepest, unit.pos.y);
+      }
+    }
+    // Shoved a hair past the line by a crowd is allowed - contact is local
+    // physics and the field walks it back. Camping the spawn point is not.
+    expect(deepest).toBeGreaterThan(-0.2);
+  });
+
+  it('never lets a monster be born inside a unit', () => {
+    const { state, ctx } = underSiege();
+    const lane = state.lanes.l1!;
+    const seen = new Set<number>();
+    let born = 0;
+    let overlapping = 0;
+
+    for (let t = 0; t < 600; t++) {
+      step(ctx, state);
+      for (const monster of lane.monsters) {
+        if (!monster.alive || seen.has(monster.id)) continue;
+        seen.add(monster.id);
+        born++;
+        for (const unit of lane.units) {
+          if (!unit.alive) continue;
+          if (gap(unit, monster) < 0) {
+            overlapping++;
+            break;
+          }
+        }
+      }
+    }
+
+    // More than the cap, so the reserve has been feeding arrivals in - which is
+    // the case that used to put a monster inside a unit.
+    expect(born).toBeGreaterThan(data.waves.maxConcurrentMonsters);
+    expect(overlapping).toBe(0);
+  });
+
+  it('still fills the lane to the cap while a queue is waiting', () => {
+    // The point of the rule is not fewer monsters - it is that the ones the
+    // cap allows have somewhere to be.
+    const { state, ctx, d } = underSiege();
+    const lane = state.lanes.l1!;
+    let peak = 0;
+    let sawQueue = false;
+
+    for (let t = 0; t < 600; t++) {
+      step(ctx, state);
+      peak = Math.max(peak, lane.monsters.filter((m) => m.alive).length);
+      if (lane.reserve.length > 0) sawQueue = true;
+    }
+
+    expect(sawQueue).toBe(true);
+    expect(peak).toBe(d.waves.maxConcurrentMonsters);
+  });
+
+  it('gives the wave the lane to fight in rather than a scrum at the door', () => {
+    // Enough sent that the line is eventually overrun, which is when the lane
+    // behind it matters. Before the rule this scenario put monsters in only 4
+    // of the lane's 14 rows for the whole fight: the wave was ground down on
+    // the spawn point and never got past the door.
+    const { state, ctx } = underSiege(40);
+    const lane = state.lanes.l1!;
+    const rows = new Set<number>();
+
+    // Long enough for the line to be overrun, which is when the rows behind it
+    // start earning their keep: the front holds for the first eighty seconds
+    // and the lane opens up as it gives way.
+    for (let t = 0; t < 2200; t++) {
+      step(ctx, state);
+      for (const monster of lane.monsters) {
+        if (monster.alive) rows.add(Math.floor(monster.pos.y));
+      }
+    }
+
+    expect(rows.size).toBeGreaterThan(6);
+  });
+
+  it('packs a cap-sized clump wholly inside the zone', () => {
+    const radii = new Array(data.waves.maxConcurrentMonsters).fill(0.3);
+    for (const at of placeWave(data, radii)) {
+      expect(at.x).toBeGreaterThanOrEqual(0.3);
+      expect(at.x).toBeLessThanOrEqual(data.lane.buildZone.width - 0.3);
+      expect(at.y).toBeGreaterThanOrEqual(-data.lane.spawnZoneDepth + 0.3);
+      expect(at.y).toBeLessThanOrEqual(-0.3);
+    }
   });
 });

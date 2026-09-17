@@ -48,12 +48,19 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { AuraType, DamageType, GameData, UnitDef } from '../../data/schema.ts';
 import { sellValue, ticksToSeconds } from '../../sim/index.ts';
-import type { EconomyView, LaneView, MatchView, WaveSummary } from '../../sim/index.ts';
+import type {
+  EconomyView,
+  LaneView,
+  MatchView,
+  OpponentView,
+  WaveSummary,
+} from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { auraColour } from '../aura.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { DamagePanel } from './damagePanel.ts';
 import { GridButton } from './gridButton.ts';
+import { pickSendTarget, sendIcon } from './sends.ts';
 import type { EntityStyle } from '../shapes.ts';
 import { centreOn, label, wrapped } from './text.ts';
 import {
@@ -214,6 +221,7 @@ export class BuildBar extends Container {
 
   private readonly sendButtons: { sendId: string; button: GridButton }[] = [];
   private readonly targetButtons: GridButton[] = [];
+  private readonly randomButton: GridButton;
   /**
    * Which opponent the next send is aimed at.
    *
@@ -222,8 +230,26 @@ export class BuildBar extends Container {
    * when the chosen target is eliminated.
    */
   private sendTarget: string | null = null;
+  /**
+   * Spread sends across the living opponents instead of stacking them on one.
+   *
+   * A separate flag rather than a magic value in `sendTarget`, so the chosen
+   * lane is remembered underneath it and turning Random off puts the player
+   * back where they were.
+   */
+  private sendAtRandom = false;
   /** Which team each target chip currently stands for, in chip order. */
   private targetIds: (string | null)[] = [null, null, null];
+  /**
+   * Sends the player has armed, and the milliseconds left on each cooldown.
+   *
+   * Held here rather than in the simulation because it is a way of pressing
+   * the button, not a rule of the game: what leaves this class is the same
+   * `send` command a tap produces (§15.1). It keeps running while the player
+   * is on another tab - `render` is called every frame whichever panel is
+   * showing - because that is the whole point of arming it.
+   */
+  private readonly armed = new Map<string, number>();
 
   private readonly upgradePanel = new Container();
   private readonly upgradeTitle: Text;
@@ -296,19 +322,28 @@ export class BuildBar extends Container {
     }
 
     // §2: at most three opponents, so three target chips exist from boot and
-    // are hidden when there are fewer.
+    // are hidden when there are fewer. The fourth is Random, which always
+    // exists because it is not about any particular opponent.
     for (let slot = 0; slot < 3; slot++) {
       const button = new GridButton(() => {
         const teamId = this.targetIds[slot];
-        if (teamId) this.sendTarget = teamId;
+        if (teamId) {
+          this.sendTarget = teamId;
+          this.sendAtRandom = false;
+        }
       });
       this.targetButtons.push(button);
       this.panels.send.addChild(button);
     }
+    this.randomButton = new GridButton(() => (this.sendAtRandom = !this.sendAtRandom));
+    this.targetButtons.push(this.randomButton);
+    this.panels.send.addChild(this.randomButton);
+
     for (const send of data.sends.sends) {
-      const button = new GridButton(() => {
-        if (this.sendTarget) this.handlers.onSend(send.id, this.sendTarget);
-      });
+      const button = new GridButton(
+        () => this.sendOnce(send.id),
+        () => this.toggleArmed(send.id),
+      );
       this.sendButtons.push({ sendId: send.id, button });
       this.panels.send.addChild(button);
     }
@@ -337,6 +372,20 @@ export class BuildBar extends Container {
       this.backButton,
     );
 
+    this.everyButton = [
+      ...this.unitButtons,
+      ...this.techButtons.map((t) => t.button),
+      ...this.fortButtons.map((f) => f.button),
+      this.supplyButton,
+      ...this.weaponButtons.map((w) => w.button),
+      ...this.auraButtons.map((a) => a.button),
+      ...this.targetButtons,
+      ...this.sendButtons.map((s) => s.button),
+      this.upgradeButton,
+      this.sellButton,
+      this.backButton,
+    ];
+
     this.addChild(
       this.background,
       this.tabStrip,
@@ -349,6 +398,97 @@ export class BuildBar extends Container {
       this.upgradePanel,
     );
     this.setLayout(layout);
+  }
+
+  /**
+   * How long an armed send waits between shots, in milliseconds.
+   *
+   * Half a second, as asked. Slow enough that a full purse does not empty in
+   * one frame, fast enough that arming it is genuinely less work than tapping.
+   */
+  private static readonly ARMED_COOLDOWN_MS = 500;
+
+  /** New match: nothing is armed and nobody is targeted. */
+  reset(): void {
+    this.armed.clear();
+    this.sendAtRandom = false;
+    this.sendTarget = null;
+  }
+
+  /** One send, now, at whoever is selected. Blinks so the tap is acknowledged. */
+  private sendOnce(sendId: string): void {
+    const target = this.resolveTarget();
+    if (!target) return;
+    this.handlers.onSend(sendId, target);
+    this.blink(sendId);
+  }
+
+  /**
+   * Arm or disarm a send (press and hold).
+   *
+   * Armed with the cooldown already expired, so the first shot leaves on the
+   * next frame rather than half a second after the thumb comes off.
+   */
+  private toggleArmed(sendId: string): void {
+    if (this.armed.has(sendId)) this.armed.delete(sendId);
+    else this.armed.set(sendId, 0);
+  }
+
+  private blink(sendId: string): void {
+    this.sendButtons.find((s) => s.sendId === sendId)?.button.flash();
+  }
+
+  /** Who the next send is aimed at: the chosen lane, or a living one at random. */
+  private resolveTarget(): string | null {
+    return pickSendTarget(
+      this.opponents,
+      this.sendTarget,
+      this.sendAtRandom,
+      // The renderer may use the wall clock and Math.random; the simulation may
+      // not (§15.1). The command that leaves here names one concrete lane, so
+      // the match stays deterministic whichever chip was lit.
+      Math.random,
+    );
+  }
+
+  /** The opponents from the last frame, for `resolveTarget` between renders. */
+  private opponents: readonly OpponentView[] = [];
+
+  /** Every button, so blinks and holds can be ticked without hunting for them. */
+  private everyButton: GridButton[] = [];
+
+  /**
+   * Fire whatever is armed whose cooldown has run out and whose gems are
+   * there.
+   *
+   * The purse is tracked locally across the loop, because `lane.economy` is
+   * last tick's snapshot: two armed sends firing on one frame would both see
+   * the same balance and the second would be refused. Spending it here keeps
+   * the client's arithmetic and the simulation's in step.
+   */
+  private fireArmed(deltaMs: number, gems: number, canSend: boolean): void {
+    if (this.armed.size === 0) return;
+    if (!canSend) {
+      this.armed.clear();
+      return;
+    }
+
+    let purse = gems;
+    for (const [sendId, left] of this.armed) {
+      const next = Math.max(0, left - deltaMs);
+      this.armed.set(sendId, next);
+      if (next > 0) continue;
+
+      const cost = this.data.sends.sends.find((s) => s.id === sendId)?.gemCost ?? 0;
+      if (purse < cost) continue;
+      const target = this.resolveTarget();
+      if (!target) continue;
+
+      purse -= cost;
+      this.handlers.onSend(sendId, target);
+      this.blink(sendId);
+      this.armed.set(sendId, BuildBar.ARMED_COOLDOWN_MS);
+    }
   }
 
   private setTab(tab: Tab): void {
@@ -407,7 +547,7 @@ export class BuildBar extends Container {
     // to be visible while choosing what to throw, or picking one becomes a
     // separate step to forget.
     const chipH = 38;
-    grid(this.targetButtons, 3, 1, 6, top, bar.width - 12, chipH);
+    grid(this.targetButtons, 4, 1, 6, top, bar.width - 12, chipH);
     grid(
       this.sendButtons.map((s) => s.button),
       3,
@@ -451,7 +591,13 @@ export class BuildBar extends Container {
     this.backButton.layout(bar.width - backWidth - PANEL_INSET, buttonTop, backWidth, MIN_TOUCH);
   }
 
-  render(view: MatchView, lane: LaneView, selection: Selection, summary: WaveSummary | null): void {
+  render(
+    view: MatchView,
+    lane: LaneView,
+    selection: Selection,
+    summary: WaveSummary | null,
+    deltaMs = 0,
+  ): void {
     // Two windows, not one (apply.ts, `shopOpen` and `boardOpen`). THE BOARD -
     // placing, upgrading in place, selling back - is the build phase only: it
     // is what the wave is about to hit. THE SHOP - tech, the fortress ladders,
@@ -463,6 +609,13 @@ export class BuildBar extends Container {
     const canBuild = canShop && view.phase === 'build';
     // §13: out of the match means out of the shop, whatever the phase says.
     const alive = !view.eliminated;
+
+    // Blinks and hold gestures run on wall time, on every button, whichever
+    // panel is showing: a hold that stopped counting when the player looked
+    // away would be a hold that never completed.
+    for (const button of this.everyButton) button.animate(deltaMs);
+    this.opponents = view.opponents;
+    this.fireArmed(deltaMs, lane.economy?.gems ?? 0, canShop && alive && !view.finished);
 
     // A selected unit is a view of its own, belonging to no tab: none of them
     // is lit while it is up, and tapping any of them puts the unit down and
@@ -538,6 +691,7 @@ export class BuildBar extends Container {
 
     this.targetIds = [null, null, null];
     this.targetButtons.forEach((button, slot) => {
+      if (button === this.randomButton) return;
       const target = targets[slot];
       button.visible = target !== undefined;
       if (!target) return;
@@ -548,7 +702,9 @@ export class BuildBar extends Container {
 
       button.setSwatch(null);
       button.update({
-        title: laneName(target.teamId),
+        // Who, not where, as on the tabs above the lane: a lane number tells
+        // the player nothing about which opponent they are about to hit.
+        title: target.name || laneName(target.teamId),
         detail: `${fraction}% fortress`,
         // A countdown only where there is one to count: sight can also come
         // from the lane simply being open during a wave (§12), which does not
@@ -560,26 +716,58 @@ export class BuildBar extends Container {
           : '',
         noteColour: UI.accent,
         enabled: canAct,
-        selected: this.sendTarget === target.teamId,
+        selected: !this.sendAtRandom && this.sendTarget === target.teamId,
       });
     });
 
+    // §11.5's default is to gang up on the leader, and Random is the other
+    // shape of pressure: spread across every living lane without three taps
+    // per send. It is always offered, because it is about the table rather
+    // than about any one opponent.
+    this.randomButton.visible = true;
+    this.randomButton.setSwatch(null);
+    this.randomButton.update({
+      title: 'Random',
+      detail: targets.length > 1 ? `of ${targets.length}` : 'any lane',
+      note: this.sendAtRandom ? 'spreading' : '',
+      noteColour: UI.accent,
+      enabled: canAct && targets.length > 0,
+      selected: this.sendAtRandom,
+    });
+
     const gems = economy.gems;
+    const aimed = this.resolveTarget() !== null;
     for (const { sendId, button } of this.sendButtons) {
       const def = this.data.sends.sends.find((s) => s.id === sendId);
       if (!def) continue;
 
       const cost = def.gemCost ?? 0;
       const income = def.incomeGranted ?? 0;
+      const icon = sendIcon(this.data, sendId);
+      const armed = this.armed.has(sendId);
 
-      button.setSwatch(null);
+      // The monster's own silhouette, and its own name beside the count: a
+      // send is a pack of that monster (§11.5), and the shape here is the
+      // shape that will be walking at somebody in thirty seconds (sends.ts).
+      button.setSwatch(icon ? icon.style : null);
       button.update({
         title: def.name,
         // §11.5: the income is the whole reason an early send is an investment
         // rather than an attack, so it is priced right next to the cost.
         detail: `${cost} gem → +${income}g/wave`,
-        note: def.grantsVision ? `${def.monsters.length}× · sight` : `${def.monsters.length}×`,
-        enabled: canAct && this.sendTarget !== null && gems >= cost,
+        note: armed
+          ? `auto · every ${(BuildBar.ARMED_COOLDOWN_MS / 1000).toFixed(1)}s`
+          : icon
+            ? `${icon.count}× ${icon.monsterName}${def.grantsVision ? ' · sight' : ''}`
+            : `${def.monsters.length}×`,
+        noteColour: armed ? UI.accent : UI.textMuted,
+        enabled: canAct && aimed && gems >= cost,
+        // Dimmed when the gems are not there, but still able to take a HOLD:
+        // arming a send you cannot yet afford is exactly the case auto-send is
+        // for (gridButton.ts).
+        interactive: canAct && aimed,
+        selected: armed,
+        selectedColour: UI.accent,
       });
     }
   }

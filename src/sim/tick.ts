@@ -294,7 +294,19 @@ function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
   classifyMonsters(ctx, lane);
 
   // 2. Every walker picks a direction, off fields built from step 1.
-  planMoves(ctx, ctx.lane, lane.teamId, 'unit', lane.units, lane.monsters, lane.units, true, null);
+  // A unit plans and walks in `unitLane` - the lane without its spawn zone -
+  // so the ground a wave arrives on stays the attacker's (context.ts).
+  planMoves(
+    ctx,
+    ctx.unitLane,
+    lane.teamId,
+    'unit',
+    lane.units,
+    lane.monsters,
+    lane.units,
+    true,
+    null,
+  );
   planMonsterMoves(ctx, lane, unitsBlock);
 
   // 3. Everyone walks: units first, then monsters. Whichever kind is not
@@ -306,6 +318,12 @@ function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
     ? [lane.units, lane.monsters, ctx.fortressBodies]
     : [lane.monsters, ctx.fortressBodies];
   for (const monster of lane.monsters) monster.settled = true;
+  // The whole lane for CONTACT, `unitLane` only for steering above. The spawn
+  // zone is somewhere a unit will not walk, not a wall it can be crushed
+  // against: clamping a body between an invisible edge and a crowd pressing on
+  // it is the wedge `SLIDE_PASSES` exists for, and it measurably cost the
+  // no-overlap guarantee (0.0147 tiles against a 0.01 tolerance). Shoved a
+  // hair past the line by a crowd, a unit simply walks back out.
   moveSeekers(ctx.lane, lane.units, (u) => u.moveSpeed, [
     lane.units,
     lane.monsters,

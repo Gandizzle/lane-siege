@@ -147,6 +147,14 @@ range walks downhill off the same answer. What makes it the right field:
   every obstacle. Routing stays at cell resolution, which is where the
   clearance guarantee lives; only "is there an attack position in this cell"
   is asked more carefully.
+- **A unit's lane is smaller than a monster's.** The spawn zone belongs to the
+  attacker: a unit's field blocks it, so a unit advances to the top of the
+  build grid and holds there, while a monster may go anywhere. Same grid, same
+  origin, different edges - two `World`s over one lane (context.ts). It is a
+  STEERING rule and not a wall: contact still uses the whole lane, because
+  clamping a body between an invisible edge and a crowd pressing on it is the
+  wedge `SLIDE_PASSES` exists for, and it measurably cost the no-overlap
+  guarantee. Shoved a hair over the line, a unit walks back out.
 - **The world's own edges are terrain.** Contact keeps a body's whole width
   inside the world, so the strip along each side is ground nothing of that size
   can stand in, and the field blocks it before anything else is marked. Left
@@ -373,6 +381,16 @@ less code than the patches it removed.
   see and it is load-bearing: it is also the continuity that stops a body
   dithering between two equally good steps. Averaging the tied directions
   removes the lean and is far worse (row 14).
+- **A big wave's clump is one body left-heavy.** The spawn lattice is
+  mirror-symmetric and it is filled in mirrored pairs, but a count that
+  truncates a pair leaves the unpaired body on the LEFT - up to about 0.1
+  tiles of offset in the centre of mass of a thirty-body clump, or a fifth of a
+  body radius. It is the same lattice in every lane on every wave (§9.2), so
+  nobody holds it over anybody; it does mean the left of a lane takes
+  marginally more of a large wave. Visible in `npm run routing`'s mirror check,
+  which went from 0.9% skew / 4.0% worst pair to 2.2% / 9.5% when the defence
+  stopped walking into the clump and started waiting at the line for it - the
+  wait exposes an asymmetry the walk used to average over.
 - **A defender more than `monsterAcquireRange` from a monster's route is
   ignored by it.** That is the point of rule zero, but it does mean a tower
   tucked into a corner earns its keep only if something walks past it - or if
@@ -388,15 +406,15 @@ less code than the patches it removed.
 
 ## Where the code is
 
-| File                        | Role                                                                                          |
-| --------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/sim/flowfield.ts`      | The distance field: inflation, attack annuli at fine resolution, the sweep, downhill steering |
-| `src/sim/motion.ts`         | Circles, contact, move-and-slide, the yielding order                                          |
-| `src/sim/targeting.ts`      | Edge-to-edge range and the hysteresis that decides engaged-or-seeking                         |
-| `src/sim/spawn.ts`          | The hexagonal spawn clump                                                                     |
-| `src/sim/steering.ts`       | `planMoves` and `moveSeekers`: the pipeline's middle, in whatever world it is given           |
-| `src/sim/context.ts`        | `World`: a size, a set of edges, and whatever is solid in it — a lane or the showdown's arena |
-| `src/sim/tick.ts`           | `classify*` and `laneTick`: the pipeline in order                                             |
-| `src/headless/routing.ts`   | `npm run routing` — the measurements above                                                    |
-| `src/sim/movement.test.ts`  | Behavioural guards for every case above                                                       |
-| `src/sim/flowfield.test.ts` | The field's geometry: rings, holes, clearance, waiting positions                              |
+| File                        | Role                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `src/sim/flowfield.ts`      | The distance field: inflation, attack annuli at fine resolution, the sweep, downhill steering                           |
+| `src/sim/motion.ts`         | Circles, contact, move-and-slide, the yielding order                                                                    |
+| `src/sim/targeting.ts`      | Edge-to-edge range and the hysteresis that decides engaged-or-seeking                                                   |
+| `src/sim/spawn.ts`          | The hexagonal spawn clump                                                                                               |
+| `src/sim/steering.ts`       | `planMoves` and `moveSeekers`: the pipeline's middle, in whatever world it is given                                     |
+| `src/sim/context.ts`        | `World`: a size, a set of edges, and whatever is solid in it — a monster's lane, a unit's lane, or the showdown's arena |
+| `src/sim/tick.ts`           | `classify*` and `laneTick`: the pipeline in order                                                                       |
+| `src/headless/routing.ts`   | `npm run routing` — the measurements above                                                                              |
+| `src/sim/movement.test.ts`  | Behavioural guards for every case above                                                                                 |
+| `src/sim/flowfield.test.ts` | The field's geometry: rings, holes, clearance, waiting positions                                                        |

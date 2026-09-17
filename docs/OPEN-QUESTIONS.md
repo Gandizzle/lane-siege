@@ -334,6 +334,12 @@ Decisions that override the document rather than filling a gap in it:
   combat still joins the target's next wave, exactly as one bought during a
   build phase does, so the old rule only ever decided when the attacker was
   allowed to think about it. `shopOpen` and `boardOpen` in `src/sim/apply.ts`.
+- **§11.5 — sends can be aimed at random, and armed to repeat.** §11.5 has the
+  player choose a target per send. Two additions, both conveniences rather than
+  rules: a Random chip spreads sends across the living opponents (the command
+  still names one concrete lane, so determinism is untouched), and pressing and
+  holding a send for a second arms it to fire every 500ms while the gems last.
+  Neither changes what a send does or costs.
 - **§14.2 — a tap selects the body, not the tile.** A unit is one circle -
   collision shape, hit shape and drawn size at once - so the thing a tap hits
   is that circle, wherever the unit has walked to, and the selection is drawn
@@ -386,6 +392,18 @@ Decisions that override the document rather than filling a gap in it:
   is drawn is exactly what collides and exactly what counts as in range. Bodies
   are about half a tile wide (0.26 for units, 0.22 for monsters, 0.44 for
   bosses) so a crowd has room to move between them.
+- **§5.2 — a unit advances, but not into the spawn zone.** The amendment below
+  let a unit with nothing in range walk anywhere in the lane, spawn zone
+  included. Measured under load that put the whole defence on the spawn point:
+  mean unit y of -0.14, twenty-nine of thirty-two units inside the zone, and
+  monsters confined to 4 of the lane's 14 rows. A wave born inside a wall of
+  bodies never brings its numbers to bear, which quietly made a send against
+  that lane worthless and flattened §4.2's front-line/back-line decision. The
+  spawn zone is now the attacker's ground: a unit advances to the top of the
+  build grid and holds, and its reach still crosses the line. A steering rule,
+  not a wall - contact uses the whole lane, so a unit shoved over the line
+  walks back rather than being crushed against it. No new number: the grid's
+  top edge is the line.
 - **§5.2 — defensive units are no longer permanently stationary.** A unit with
   nothing in range advances toward the nearest free attack position until
   something comes into range, then plants and fights — anywhere in the lane,

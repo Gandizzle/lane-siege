@@ -12,26 +12,118 @@ import { drawEntity } from '../shapes.ts';
 import type { EntityStyle } from '../shapes.ts';
 import { label } from './text.ts';
 
+/**
+ * How long a press has to be held to count as a hold rather than a tap.
+ *
+ * A second. Long enough that nobody arms auto-send by mistake, short enough
+ * that holding does not feel like waiting - and the button fills a bar along
+ * its bottom edge while the clock runs, so the gesture explains itself the
+ * first time somebody's thumb rests on it.
+ */
+export const HOLD_MS = 1000;
+
+/** How long the blink after a press lasts. */
+const FLASH_MS = 240;
+
 export class GridButton extends Container {
   private readonly bg = new Graphics();
   private readonly ring = new Graphics();
   private readonly swatch = new Graphics();
+  private readonly pulse = new Graphics();
   private readonly title: Text;
   private readonly detail: Text;
   private readonly note: Text;
   private w = 0;
   private h = 0;
 
-  constructor(onTap: () => void) {
+  /** Milliseconds left on the blink, and on the press being held. */
+  private flashLeft = 0;
+  private holdMs = 0;
+  private holding = false;
+  /** A hold that has already fired: the release must not also count as a tap. */
+  private holdFired = false;
+  /** False while the button is dimmed: it still takes events, taps just do nothing. */
+  private tappable = true;
+
+  constructor(
+    onTap: () => void,
+    /** Press and hold for `HOLD_MS`. Absent: the button has no hold gesture. */
+    private readonly onHold?: () => void,
+  ) {
     super();
     this.title = label('', 11, UI.text, '700');
     this.detail = label('', 9, UI.textMuted);
     this.note = label('', 9, UI.textMuted, '700');
-    this.addChild(this.bg, this.swatch, this.ring, this.title, this.detail, this.note);
+    this.addChild(this.bg, this.swatch, this.ring, this.pulse, this.title, this.detail, this.note);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
-    this.on('pointertap', onTap);
+    this.on('pointertap', () => {
+      // A release that completed a hold is not a tap. Consumed here rather
+      // than cleared on release, because Pixi fires the release first.
+      if (this.holdFired) {
+        this.holdFired = false;
+        return;
+      }
+      if (this.tappable) onTap();
+    });
+    this.on('pointerdown', () => {
+      this.holding = this.onHold !== undefined;
+      this.holdMs = 0;
+      this.holdFired = false;
+    });
+    this.on('pointerup', () => (this.holding = false));
+    this.on('pointerupoutside', () => {
+      this.holding = false;
+      this.holdFired = false;
+    });
+  }
+
+  /**
+   * Wall-clock time, not ticks: a blink and a hold are things a thumb does, and
+   * they run at the same speed whatever the simulation is doing.
+   */
+  animate(deltaMs: number): void {
+    const wasHolding = this.holding && !this.holdFired;
+    if (this.holding && !this.holdFired) {
+      this.holdMs += deltaMs;
+      if (this.holdMs >= HOLD_MS) {
+        this.holdFired = true;
+        this.holding = false;
+        this.onHold?.();
+      }
+    }
+    if (this.flashLeft > 0) this.flashLeft = Math.max(0, this.flashLeft - deltaMs);
+
+    // Redraw only while something is moving, or on the frame it stops.
+    if (wasHolding || this.flashLeft > 0 || this.pulseDrawn) this.drawPulse();
+  }
+
+  /** Whether the overlay currently has anything in it, so it is cleared once. */
+  private pulseDrawn = false;
+
+  private drawPulse(): void {
+    this.pulse.clear();
+    this.pulseDrawn = false;
+
+    if (this.flashLeft > 0) {
+      // Fades out rather than in: the moment of the press is the bright one.
+      this.pulse
+        .roundRect(0, 0, this.w, this.h, 8)
+        .fill({ color: UI.selected, alpha: 0.45 * (this.flashLeft / FLASH_MS) });
+      this.pulseDrawn = true;
+    }
+    if (this.holding && !this.holdFired && this.holdMs > 0) {
+      const fraction = Math.min(1, this.holdMs / HOLD_MS);
+      this.pulse.rect(0, this.h - 3, this.w * fraction, 3).fill({ color: UI.accent, alpha: 0.9 });
+      this.pulseDrawn = true;
+    }
+  }
+
+  /** Blink, to say that the press did something. */
+  flash(): void {
+    this.flashLeft = FLASH_MS;
+    this.drawPulse();
   }
 
   layout(x: number, y: number, width: number, height: number): void {
@@ -92,8 +184,20 @@ export class GridButton extends Container {
     detail: string;
     note?: string;
     noteColour?: number;
+    /** Dimmed and unresponsive to taps when false. */
     enabled: boolean;
+    /**
+     * Whether the button takes pointer events at all. Defaults to `enabled`.
+     *
+     * The two come apart for exactly one thing: a send you cannot currently
+     * afford is dimmed and does nothing when tapped, but must still take a
+     * HOLD, because "fire this as soon as I can afford it" is the whole point
+     * of arming auto-send (buildBar.ts).
+     */
+    interactive?: boolean;
     selected?: boolean;
+    /** Ring colour, for a selection that means something other than "chosen". */
+    selectedColour?: number;
   }): void {
     if (this.title.text !== opts.title) this.title.text = opts.title;
     if (this.detail.text !== opts.detail) this.detail.text = opts.detail;
@@ -104,7 +208,20 @@ export class GridButton extends Container {
     if (note.length > 0) this.note.style.fill = opts.noteColour ?? UI.textMuted;
 
     this.ring.visible = opts.selected === true;
+    if (opts.selected === true) {
+      this.ring.clear();
+      this.ring
+        .roundRect(0, 0, this.w, this.h, 8)
+        .stroke({ width: 2, color: opts.selectedColour ?? UI.selected });
+    }
+
     this.alpha = opts.enabled ? 1 : 0.42;
-    this.eventMode = opts.enabled ? 'static' : 'none';
+    const interactive = opts.interactive ?? opts.enabled;
+    this.tappable = opts.enabled;
+    this.eventMode = interactive ? 'static' : 'none';
+    if (!interactive) {
+      this.holding = false;
+      this.holdFired = false;
+    }
   }
 }

@@ -176,12 +176,21 @@ function bandOffset(band: { min: number; max: number }, v: number, half: number)
  * fortress wall is a harder case: bodies wedge between two immovable surfaces
  * that are nearly parallel, the residue per pass is much closer to 1, and eight
  * passes left up to 0.015 tiles of overlap on engaged bodies in the thirty-on-
- * one-tank scenario (`npm run routing`). Twenty-four take the same scenario to
- * zero. They are nearly free: passes end the moment nothing touches, which is
- * after the first in open ground, so the extra iterations are only ever spent
- * where a pile actually needs them - the §15.3 budget went from 6.8% to 7.3%.
+ * one-tank scenario (`npm run routing`). Twenty-four took the same scenario to
+ * zero.
+ *
+ * Thirty-two, because the defence now holds a line at the top of the build
+ * grid rather than walking onto the spawn point (`unitLane` in context.ts).
+ * That is a second nearly-parallel surface to wedge against - a rank of units
+ * that will not advance, with a wave pressing down on it - and it put 0.0147
+ * tiles back on the engaged-overlap measurement at twenty-four passes.
+ *
+ * They are nearly free: passes end the moment nothing touches, which is after
+ * the first in open ground, so the extra iterations are only ever spent where
+ * a pile actually needs them. The §15.3 budget went 6.8% -> 7.3% at
+ * twenty-four and is unmoved at thirty-two.
  */
-const SLIDE_PASSES = 24;
+const SLIDE_PASSES = 32;
 
 /**
  * A hair of clearance left after resolving a contact, so two bodies that were

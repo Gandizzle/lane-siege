@@ -18,12 +18,16 @@ import { ARENA_CENTRE_ID, FORTRESS_ID, type Vec2 } from './types.ts';
  * A place bodies can be: its size, its edges, and whatever is solid in it and
  * never moves.
  *
- * There are two. A LANE is one player's 8-wide strip with the fortress across
- * the end of it, and every lane has the same shape. The ARENA is the cross the
- * Final Showdown is fought in (§3.3, replaced): four spokes of lane width around a
- * shared centre, no fortress, everybody in it at once. The movement code takes
- * a world rather than reaching for the lane's numbers, so one set of rules
- * runs in both.
+ * There are three, and two of them are the same lane seen by different kinds
+ * of body. A MONSTER'S LANE is the whole 8-wide strip - the spawn zone it
+ * enters through, the build grid, and the fortress zone with the wall across
+ * it. A UNIT'S LANE is the same strip without the spawn zone, because the
+ * spawn zone is the attacker's ground (see `unitLane`). The ARENA is the cross
+ * the Final Showdown is fought in (§3.3, replaced): four spokes of lane width
+ * around a shared centre, no fortress, everybody in it at once.
+ *
+ * The movement code takes a world rather than reaching for the lane's numbers,
+ * so one set of rules runs in all three.
  */
 export interface World {
   /** Field-cache prefix. Two worlds never share a field. */
@@ -54,8 +58,34 @@ export interface SimContext {
   fortressBodies: readonly Body[];
   /** The lane's edges. Bodies stay inside them. */
   bounds: Bounds;
-  /** One player's lane, as the movement code sees it. */
+  /** One player's lane, as a MONSTER sees it: the whole strip. */
   lane: World;
+  /**
+   * The same lane as a UNIT sees it: everything but the spawn zone.
+   *
+   * §5.2, amended, let a unit with nothing in range advance anywhere in the
+   * lane, and measurement showed where that ends up: with a line built on the
+   * top four rows and a wave of forty incoming, the mean unit stood at y =
+   * -0.14 - the whole defence inside the spawn zone, camped on the point the
+   * wave arrives at - and monsters only ever occupied 4 of the lane's 14 rows.
+   * Three things were wrong with that at once. A wave was born inside a wall
+   * of bodies instead of on open ground, so its numbers never came to bear and
+   * a send bought against that lane was money thrown away. The fight was a
+   * four-row scrum with ten rows of empty lane behind it. And §4.2's whole
+   * point - a front line to absorb and a back line to deal damage - was
+   * flattened, because the engine walked every unit to the door regardless of
+   * where the player put it.
+   *
+   * So the spawn zone belongs to the attacker. A unit advances as far as the
+   * top of the build grid and holds there; a ranged one still shoots into the
+   * zone, because reach is not a boundary. Derived from `spawnZoneDepth`
+   * rather than being its own number: the grid's top edge is the line, and
+   * there is nothing to tune.
+   *
+   * Same grid and origin as `lane`, because a unit's field still has to hold
+   * the monsters standing in the spawn zone - only the EDGES differ.
+   */
+  unitLane: World;
   /** The cross the Final Showdown is fought in (§3.3, replaced). */
   arena: World;
   /** The arena's geometry, so a transplant does not recompute it per body. */
@@ -125,6 +155,15 @@ export function createContext(data: GameData): SimContext {
       originY: -lane.spawnZoneDepth,
       subdivision: lane.pathSubdivision,
       bounds,
+      solids: [fortress],
+    },
+    unitLane: {
+      id: 'lane-units',
+      width: lane.buildZone.width,
+      depth: lane.spawnZoneDepth + lane.buildZone.depth + lane.fortressZoneDepth,
+      originY: -lane.spawnZoneDepth,
+      subdivision: lane.pathSubdivision,
+      bounds: { ...bounds, minY: 0 },
       solids: [fortress],
     },
     arena: {
