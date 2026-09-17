@@ -57,8 +57,10 @@ export class Toast extends Container {
     this.remaining -= deltaMs;
     if (this.remaining <= 0) return;
 
-    const cx = layout.screen.width / 2;
-    const y = layout.buildBar.y - 44;
+    // Over the board, near its bottom edge - which is the build bar's top in
+    // portrait and the lane column's own bottom in landscape.
+    const cx = layout.lane.x + layout.lane.width / 2;
+    const y = layout.lane.y + layout.lane.height - 44;
 
     const text = label(this.text, 12, UI.text, '600');
     const width = text.width + 28;

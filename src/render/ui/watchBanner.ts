@@ -73,7 +73,7 @@ export class WatchBanner extends Container {
   /** Across the top of the spawn band, above the lane and below the tabs. */
   private stripRect(): { x: number; y: number; width: number; height: number } {
     const l = this.layout;
-    return { x: 6, y: l.spawn.y + 2, width: l.screen.width - 12, height: 26 };
+    return { x: l.lane.x + 6, y: l.spawn.y + 2, width: l.lane.width - 12, height: 26 };
   }
 
   render(view: MatchView, watchingTeamId: string | null): void {

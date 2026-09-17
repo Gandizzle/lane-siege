@@ -1,9 +1,15 @@
 /**
  * Heads-up display. DESIGN.md §4.1, §9.3, §11.
  *
- * The top rows of the band §4.1 reserves for opponent tabs: the wave clock and
- * your own resources. The tabs themselves are `opponentTabs.ts` and sit below
- * these, sharing the band.
+ * The wave clock and your own resources, in the area §4.1 reserves for them -
+ * the top band on an upright phone, the left column on a sideways one. The
+ * opponent tabs themselves are `opponentTabs.ts` and share the area.
+ *
+ * The two arrangements differ only in where the lines go. Upright, the band is
+ * wide and short, so it is read in two columns: what is happening on the left,
+ * what you have on the right. Sideways it is narrow and tall, so everything is
+ * one stack in reading order - and the resources split across two lines,
+ * because a 240-pixel column cannot hold gold, gems and supply side by side.
  *
  * Read-only over a `MatchView`, like everything under render/ - so it shows
  * your wallet and never anyone else's, because it has never been given anyone
@@ -11,6 +17,7 @@
  */
 
 import { Container, Graphics } from 'pixi.js';
+import type { Text } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
 import type { MatchView, WaveSummary } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
@@ -47,102 +54,143 @@ export class Hud extends Container {
     const l = this.layout;
     this.background.rect(l.tabs.x, l.tabs.y, l.tabs.width, l.tabs.height).fill({ color: UI.tabs });
 
-    const pad = 12;
     const isBoss = view.wave > 0 && view.wave % this.data.waves.bossEveryNWaves === 0;
+    const economy = lane.economy;
+    const remaining = lane.monsters.length + lane.reserveCount;
+    const seconds = Math.ceil(ticksToSeconds(view.phaseTicksLeft));
+    const attackers = new Set(lane.sendLog.map((entry) => entry.fromTeamId));
 
-    // Two rows from the top, and a third pinned just above the tab strip.
-    // Anchoring the last row to the tabs rather than to a fixed offset is what
-    // keeps it out from behind them on a short screen, where the band is at
-    // its floor (layout.ts, `TABS_MIN_HEIGHT`).
-    const rowOne = l.tabs.y + 6;
-    const rowTwo = l.tabs.y + 26;
-    const rowThree = Math.max(rowTwo + 18, l.tabStrip.y - 18);
-
-    const waveText = label(
-      view.wave === 0 ? 'Prepare' : `Wave ${view.wave}${isBoss ? ' · BOSS' : ''}`,
-      15,
-      isBoss ? UI.danger : UI.text,
-      '700',
-    );
-    waveText.x = pad;
-    waveText.y = rowOne;
-    this.content.addChild(waveText);
-
+    // What there is to say, once, so the two arrangements below differ only in
+    // where they put it.
+    const wave = () =>
+      label(
+        view.wave === 0 ? 'Prepare' : `Wave ${view.wave}${isBoss ? ' · BOSS' : ''}`,
+        15,
+        isBoss ? UI.danger : UI.text,
+        '700',
+      );
     // §3.1, amended: the build phase is the only phase with a clock. Combat now
     // runs until the lane is empty (§3.2, amended), so it counts monsters left
     // rather than seconds - a countdown stuck at 0s would say nothing.
-    const remaining = lane.monsters.length + lane.reserveCount;
-    const seconds = Math.ceil(ticksToSeconds(view.phaseTicksLeft));
-    const phaseText = label(
-      view.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${remaining} left`,
-      12,
-      view.phase === 'build' ? UI.accent : UI.textMuted,
-      '600',
-    );
-    phaseText.x = pad;
-    phaseText.y = rowTwo;
-    this.content.addChild(phaseText);
-
-    // Resources. Gold and gems are deliberately separate currencies with
-    // separate sinks (§11.3).
-    const economy = lane.economy;
-    if (economy) {
-      const resources = label(
-        `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem   ` +
-          `${economy.supplyUsed}/${economy.supplyCap} supply`,
+    const phase = () =>
+      label(
+        view.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${remaining} left`,
         12,
-        UI.text,
+        view.phase === 'build' ? UI.accent : UI.textMuted,
         '600',
       );
-      resources.x = l.tabs.width - resources.width - pad;
-      resources.y = rowOne + 4;
-      this.content.addChild(resources);
-
-      // §11.6: passive income is paid every wave and compounds, and it is the
-      // whole reason an early send is an investment rather than an attack.
-      // On its own row, as a RATE rather than a balance: it is not a number
-      // you spend, it is the number that decides how fast the other three
-      // move. Dimmed at zero, because zero is the honest starting value and
-      // seeing it there is how a player learns the lever exists.
-      const income = label(
-        `+${Math.floor(economy.passiveIncome)}g / wave`,
+    // §11.6: passive income is paid every wave and compounds, and it is the
+    // whole reason an early send is an investment rather than an attack. A RATE
+    // rather than a balance: not a number you spend, but the one that decides
+    // how fast the other three move. Dimmed at zero, because zero is the honest
+    // starting value and seeing it there is how a player learns the lever
+    // exists.
+    const income = () =>
+      label(
+        `+${Math.floor(economy?.passiveIncome ?? 0)}g / wave`,
         11,
-        economy.passiveIncome > 0 ? UI.text : UI.textMuted,
+        (economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted,
         '600',
       );
-      income.x = l.tabs.width - income.width - pad;
-      income.y = rowThree;
-      this.content.addChild(income);
-    }
+    // §9.3: say what the wave DEALS, or the matrix stays invisible.
+    const offence = () =>
+      summary?.dominantDamageType
+        ? label(
+            `incoming: ${Math.round(summary.dominantDamageShare * 100)}% ` +
+              `${summary.dominantDamageType}`,
+            11,
+            DAMAGE_COLOURS[summary.dominantDamageType],
+            '600',
+          )
+        : null;
+    // §11.5: being sent at is the one thing that happens to you because of
+    // somebody else, so it needs saying out loud.
+    const notice = () =>
+      lane.sendLog.length > 0
+        ? label(
+            `⚠ ${lane.sendLog.length} send${lane.sendLog.length === 1 ? '' : 's'} incoming` +
+              ` from ${attackers.size} lane${attackers.size === 1 ? '' : 's'}`,
+            11,
+            UI.danger,
+            '700',
+          )
+        : null;
 
-    if (summary?.dominantDamageType) {
-      // §9.3: say what the wave DEALS, or the matrix stays invisible.
-      const pct = Math.round(summary.dominantDamageShare * 100);
-      const offence = label(
-        `incoming: ${pct}% ${summary.dominantDamageType}`,
-        11,
-        DAMAGE_COLOURS[summary.dominantDamageType],
-        '600',
-      );
-      offence.x = l.tabs.width - offence.width - pad;
-      offence.y = rowTwo + 2;
-      this.content.addChild(offence);
-    }
+    if (l.orientation === 'landscape') {
+      // One stack, in reading order: what wave it is, what is happening, what
+      // you have, what is coming.
+      const left = l.tabs.x + 12;
+      let y = l.tabs.y + 6;
+      const place = (text: Text | null, gap: number) => {
+        if (!text) return;
+        text.x = left;
+        text.y = y;
+        this.content.addChild(text);
+        y += gap;
+      };
 
-    // §11.5: the incoming-attack notice. Being sent at is the one thing that
-    // happens to you because of somebody else, so it needs saying out loud.
-    if (lane.sendLog.length > 0) {
-      const attackers = new Set(lane.sendLog.map((entry) => entry.fromTeamId));
-      const notice = label(
-        `⚠ ${lane.sendLog.length} send${lane.sendLog.length === 1 ? '' : 's'} incoming` +
-          ` from ${attackers.size} lane${attackers.size === 1 ? '' : 's'}`,
-        11,
-        UI.danger,
-        '700',
-      );
-      notice.x = pad;
-      notice.y = rowThree;
-      this.content.addChild(notice);
+      place(wave(), 21);
+      place(phase(), 18);
+      if (economy) {
+        // Two lines, because the column is too narrow for three numbers and
+        // their units side by side.
+        place(
+          label(
+            `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem`,
+            12,
+            UI.text,
+            '600',
+          ),
+          17,
+        );
+        place(label(`${economy.supplyUsed}/${economy.supplyCap} supply`, 12, UI.text, '600'), 17);
+        place(income(), 17);
+      }
+      place(offence(), 16);
+      place(notice(), 16);
+    } else {
+      // Two columns: what is happening on the left, what you have on the right.
+      // The last row is pinned just above the tab strip rather than at a fixed
+      // offset, which is what keeps it out from behind the tabs on a short
+      // screen where the band is at its floor (layout.ts, `TABS_MIN_HEIGHT`).
+      const pad = 12;
+      const rowOne = l.tabs.y + 6;
+      const rowTwo = l.tabs.y + 26;
+      const rowThree = Math.max(rowTwo + 18, l.tabStrip.y - 18);
+      const rightEdge = l.tabs.x + l.tabs.width - pad;
+
+      const left = (text: Text | null, y: number) => {
+        if (!text) return;
+        text.x = l.tabs.x + pad;
+        text.y = y;
+        this.content.addChild(text);
+      };
+      const right = (text: Text | null, y: number) => {
+        if (!text) return;
+        text.x = rightEdge - text.width;
+        text.y = y;
+        this.content.addChild(text);
+      };
+
+      left(wave(), rowOne);
+      left(phase(), rowTwo);
+      left(notice(), rowThree);
+      // Gold and gems are deliberately separate currencies with separate sinks
+      // (§11.3).
+      if (economy) {
+        right(
+          label(
+            `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem   ` +
+              `${economy.supplyUsed}/${economy.supplyCap} supply`,
+            12,
+            UI.text,
+            '600',
+          ),
+          rowOne + 4,
+        );
+        right(income(), rowThree);
+      }
+      right(offence(), rowTwo + 2);
     }
 
     this.drawFortress(lane.fortress.hp, lane.fortress.maxHp);

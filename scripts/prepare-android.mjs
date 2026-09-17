@@ -17,16 +17,26 @@
  *
  * WHAT IT SETS, AND WHY
  *
- *   - `screenOrientation="portrait"` on the main activity. §1 says portrait,
- *     one-handed, and §4.1 and §14.1 build a fixed camera on top of that
- *     assumption. A landscape phone would letterbox a layout that was never
- *     designed to be laid out any other way.
+ *   - `screenOrientation="fullUser"` on the main activity. §1 says portrait,
+ *     one-handed, and that is still the shape the game is designed around - but
+ *     the layout now has a landscape arrangement of the same three areas
+ *     (layout.ts), so a sideways phone gets a screen built for it rather than a
+ *     letterboxed one. `fullUser` is what says that without taking the choice
+ *     away from the player: a device with rotation locked stays where the owner
+ *     put it, and one with auto-rotate on may use any of the four.
+ *
+ *     This is also a REPAIR. Earlier builds of this script locked the activity
+ *     to `portrait`, and `android/` is generated once and then reused, so the
+ *     lock is still sitting in the manifest of every checkout that ever ran it.
+ *     The patch below replaces whatever value is there rather than only filling
+ *     in a missing attribute, which is why it is a regex and not an `includes`.
  *
  * Everything else Capacitor's defaults get right: INTERNET is already declared
  * (the game needs it to reach a room), the launcher activity is `singleTask`
  * so returning to a backgrounded match resumes it rather than starting a second
  * one, and `configChanges` already covers the rotations the WebView would
- * otherwise be destroyed and rebuilt for.
+ * otherwise be destroyed and rebuilt for - so a turn of the phone reaches the
+ * renderer as a resize, which is what app.ts watches for.
  */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -55,11 +65,7 @@ if (!existsSync(MANIFEST)) {
 }
 
 const before = readFileSync(MANIFEST, 'utf8');
-
-if (before.includes('android:screenOrientation="portrait"')) {
-  console.log('[lane-siege] android manifest already portrait-locked');
-  process.exit(0);
-}
+const WANTED = 'fullUser';
 
 // Anchored on the activity's own name so this cannot land on the provider or
 // on some future second activity.
@@ -69,6 +75,24 @@ if (!before.includes(anchor)) {
   process.exit(1);
 }
 
-const after = before.replace(anchor, `${anchor}\n            android:screenOrientation="portrait"`);
+// Either value: whatever the attribute says now, or nothing at all. A manifest
+// left over from the portrait-locked version of this script has to be corrected
+// rather than left alone, so an existing attribute is rewritten in place.
+const existing = /android:screenOrientation="([^"]*)"/;
+const current = existing.exec(before);
+
+if (current?.[1] === WANTED) {
+  console.log(`[lane-siege] android manifest already allows rotation (${WANTED})`);
+  process.exit(0);
+}
+
+const after = current
+  ? before.replace(existing, `android:screenOrientation="${WANTED}"`)
+  : before.replace(anchor, `${anchor}\n            android:screenOrientation="${WANTED}"`);
+
 writeFileSync(MANIFEST, after);
-console.log('[lane-siege] android manifest locked to portrait (§1)');
+console.log(
+  current
+    ? `[lane-siege] android manifest orientation ${current[1]} -> ${WANTED}: both layouts are supported`
+    : `[lane-siege] android manifest orientation set to ${WANTED}: both layouts are supported`,
+);

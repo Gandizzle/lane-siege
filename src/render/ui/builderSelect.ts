@@ -140,7 +140,8 @@ class BuilderCard extends Container {
     }
 
     const strong = this.summary.types.filter((t) => t.strong).map((t) => t.type);
-    this.note.text = strong.length > 0 ? `strongest: ${strong.join(' + ')}` : 'even across the four';
+    this.note.text =
+      strong.length > 0 ? `strongest: ${strong.join(' + ')}` : 'even across the four';
     this.note.x = 14;
     this.note.y = 34;
 
@@ -214,17 +215,29 @@ export class BuilderSelect extends Container {
     this.scrim.eventMode = 'static';
     this.scrim.hitArea = new Rectangle(0, 0, l.width, l.height);
 
-    centreOn(this.heading, l.width / 2, l.height * 0.1);
-    centreOn(this.subheading, l.width / 2, l.height * 0.1 + 34);
+    const headTop = l.height * (layout.compact ? 0.05 : 0.1);
+    centreOn(this.heading, l.width / 2, headTop);
+    centreOn(this.subheading, l.width / 2, headTop + 34);
 
+    // Four cards in one column upright, two-by-two sideways: the same cards
+    // and the same height each, using the width a short screen has instead of
+    // the height it does not (layout.ts, `isCompact`).
     const cardHeight = 74;
     const gap = 10;
-    const top = l.height * 0.1 + 68;
+    const top = headTop + 68;
+    const cols = layout.compact ? 2 : 1;
+    const rows = Math.ceil(this.cards.length / cols);
+    const cardWidth = (l.width - 32 - gap * (cols - 1)) / cols;
     this.cards.forEach((card, i) => {
-      card.layout(16, top + i * (cardHeight + gap), l.width - 32, cardHeight);
+      card.layout(
+        16 + (i % cols) * (cardWidth + gap),
+        top + Math.floor(i / cols) * (cardHeight + gap),
+        cardWidth,
+        cardHeight,
+      );
     });
 
-    const buttonY = top + this.cards.length * (cardHeight + gap) + 16;
+    const buttonY = top + rows * (cardHeight + gap) + 16;
     const buttonWidth = 180;
     const buttonX = (l.width - buttonWidth) / 2;
 

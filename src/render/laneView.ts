@@ -155,9 +155,11 @@ export class LaneView extends Container {
    * space. What that means - a unit, a tile, or empty ground - is decided by
    * whoever is holding the match state, not here.
    *
-   * The whole band rather than just the build grid: a unit advances during
-   * combat (§5.2, amended) and may be standing in the spawn zone, and a unit
-   * you can see is a unit you can tap.
+   * The whole lane column rather than just the build grid: a unit advances
+   * during combat (§5.2, amended) and may be standing in the spawn zone, and a
+   * unit you can see is a unit you can tap. The column and not the screen,
+   * because in landscape the screen also holds the HUD and the build bar, and
+   * their buttons are not the board.
    */
   private installTouchArea(): void {
     this.touch.removeChildren();
@@ -165,7 +167,7 @@ export class LaneView extends Container {
 
     const surface = new Container();
     surface.eventMode = 'static';
-    surface.hitArea = new Rectangle(0, l.tabs.y, l.screen.width, l.buildBar.y - l.tabs.y);
+    surface.hitArea = new Rectangle(l.lane.x, l.lane.y, l.lane.width, l.lane.height);
     surface.on('pointertap', (event) => {
       const at = screenToTilePoint(this.layout, event.global.x, event.global.y);
       this.handlers.onTap(at.x, at.y);
@@ -203,6 +205,10 @@ export class LaneView extends Container {
   private drawWavePreview(view: MatchView, summary: WaveSummary | null): void {
     const l = this.layout;
     const pad = 12;
+    // The lane COLUMN's edges, not the screen's: in landscape the preview has
+    // the lane's width to work in and the panels either side are not its room.
+    const leftEdge = l.lane.x + pad;
+    const rightEdge = l.lane.x + l.lane.width - pad;
     const nextWave = view.phase === 'build' ? view.wave + 1 : view.wave;
     const entries = previewWave(this.data, view.seed, nextWave);
     if (entries.length === 0) return;
@@ -217,7 +223,7 @@ export class LaneView extends Container {
       UI.textMuted,
       '700',
     );
-    heading.x = pad;
+    heading.x = leftEdge;
     heading.y = rowOne;
     this.overlay.addChild(heading);
 
@@ -235,9 +241,9 @@ export class LaneView extends Container {
 
       if (parts.length > 0) {
         const hint = label(parts.join('   '), 10, UI.textMuted, '600');
-        const room = l.screen.width - pad - (heading.x + heading.width + 10);
+        const room = rightEdge - (heading.x + heading.width + 10);
         if (hint.width <= room) {
-          hint.x = l.screen.width - pad - hint.width;
+          hint.x = rightEdge - hint.width;
           hint.y = rowOne;
           this.overlay.addChild(hint);
         }
@@ -254,14 +260,14 @@ export class LaneView extends Container {
     // the same outline-means-monster convention. One size for all of them: this
     // is a key, not a scale model, and at nine pixels a size difference reads
     // as noise rather than as information. The HUD already says BOSS in red.
-    let x = pad;
+    let x = leftEdge;
     for (const entry of entries) {
       const colour = DAMAGE_COLOURS[entry.damageType];
       const text = label(`${entry.count}× ${entry.name}`, 11, colour, '700');
       const armour = label(` ${entry.armour}`, 10, UI.textMuted);
       const width = text.width + armour.width;
 
-      if (x + width + 12 > l.screen.width - pad) {
+      if (x + width + 12 > rightEdge) {
         const more = label('…', 11, UI.textMuted, '700');
         more.x = x;
         more.y = rowTwo;

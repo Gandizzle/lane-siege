@@ -37,7 +37,6 @@ import {
 import { CODE_LENGTH, PUBLIC_CODE, normaliseCode } from '../net/lobby.ts';
 import { Game } from './game.ts';
 import type { MatchMode } from './ui/homeScreen.ts';
-import { keepPortrait } from './ui/orientation.ts';
 import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
 
@@ -219,16 +218,10 @@ export async function startApp(
     game.frame(elapsed);
   });
 
-  // §1: portrait, one-handed. The Android shell is locked in its manifest
-  // (scripts/prepare-android.mjs); a browser cannot be made to obey, so this
-  // asks and then says so if it is refused.
-  const orientation = keepPortrait(mount);
-
   return {
     app,
     game,
     destroy() {
-      orientation.dispose();
       app.destroy(true, { children: true });
     },
   };

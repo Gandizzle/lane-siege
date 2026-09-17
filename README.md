@@ -14,8 +14,8 @@ it.
 **M1 through M6 complete** (DESIGN.md §17), except for hosting a server, which
 is money rather than code.
 
-- `npm run dev` — a playable match in portrait. Set a name, then take a practice
-  match, a quick match, or a private room with a four-letter code. Pick one of
+- `npm run dev` — a playable match, upright or sideways. Set a name, then take
+  a practice match, a quick match, or a private room with a four-letter code. Pick one of
   four builders. Build, upgrade in place, buy global tech, upgrade the fortress,
   pick a weapon type and an aura, and send monsters at whichever opponent is
   doing best. While a wave is running you can watch any lane, and every attack
@@ -35,7 +35,7 @@ is money rather than code.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-475 tests, plus five measurement harnesses that are part of how this is
+482 tests, plus five measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
 sockets), `npm run lobby` (matchmaking, the lobby and reconnection, also over
 real sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`

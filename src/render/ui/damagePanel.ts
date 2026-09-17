@@ -149,7 +149,9 @@ export class DamagePanel extends Container {
 
   /** Positions everything. `top` and `height` are the bar's panel area. */
   layout(bar: Rect, top: number, height: number): void {
-    const left = 6;
+    // Inside the bar: its own left edge, which is zero in portrait and the
+    // right-hand column's in landscape.
+    const left = bar.x + 6;
     const width = bar.width - 12;
     this.rowsRight = left + width;
 

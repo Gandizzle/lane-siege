@@ -139,19 +139,24 @@ export class HomeScreen extends Container {
 
   private redraw(): void {
     const l = this.layout.screen;
+    // Sideways there is half the height. Everything still stacks - there are
+    // only five things here - but the rhythm tightens so the footnote stays on
+    // the screen (layout.ts, `isCompact`).
+    const compact = this.layout.compact;
+    const top = l.height * (compact ? 0.07 : 0.12);
 
     this.scrim.clear();
     this.scrim.rect(0, 0, l.width, l.height).fill({ color: UI.background });
     this.scrim.eventMode = 'static';
     this.scrim.hitArea = new Rectangle(0, 0, l.width, l.height);
 
-    centreOn(this.heading, l.width / 2, l.height * 0.12);
+    centreOn(this.heading, l.width / 2, top);
 
     // The name sits under the title because it is the one thing on this screen
     // that other people will see.
     const rowWidth = Math.min(l.width - 32, 320);
     const rowX = (l.width - rowWidth) / 2;
-    const rowY = l.height * 0.12 + 52;
+    const rowY = top + (compact ? 40 : 52);
     this.nameBackground.clear();
     this.nameBackground
       .roundRect(rowX, rowY, rowWidth, 48, 10)
@@ -164,9 +169,9 @@ export class HomeScreen extends Container {
 
     this.nameHint.position.set(rowX + rowWidth - this.nameHint.width - 14, rowY + 19);
 
-    const buttonHeight = 62;
-    const gap = 12;
-    let y = rowY + 48 + 26;
+    const buttonHeight = compact ? 52 : 62;
+    const gap = compact ? 8 : 12;
+    let y = rowY + 48 + (compact ? 14 : 26);
 
     for (const [index, button] of this.buttons.entries()) {
       // Practice is index 0 and always available; the rest need a server.

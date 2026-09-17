@@ -315,23 +315,24 @@ is not there, copies the build in, and applies the manifest edits the config
 file has no field for.
 
 `android/` is generated and has been in `.gitignore` since the first commit, so
-the one attribute Capacitor cannot express — `screenOrientation="portrait"`,
-which §1, §4.1 and §14.1 all assume — is applied by `scripts/prepare-android.mjs`
-rather than by committing sixty files of Gradle scaffolding. The script is
-idempotent and fails loudly rather than leaving the app quietly wrong.
+the one attribute Capacitor cannot express — `screenOrientation`, which is
+`fullUser` — is applied by `scripts/prepare-android.mjs` rather than by
+committing sixty files of Gradle scaffolding. The script is idempotent and
+fails loudly rather than leaving the app quietly wrong, and because `android/`
+is generated once and then reused, it rewrites an existing value rather than
+only filling in a missing one: a checkout that ran the portrait-locked version
+of the script still has that lock sitting in its manifest, and gets corrected.
 
-**Orientation has three answers, one per platform.** The manifest lock above is
-the complete one: rotating the phone does nothing at all. A browser on Android
-may allow `screen.orientation.lock`, but only while the page is fullscreen, and
-a page cannot put itself fullscreen without a gesture — so the lock is
-attempted and its refusal is expected. Safari on iOS has no orientation lock at
-any time. What covers the gap is a notice (`src/render/ui/orientation.ts`): a
-line of text saying the game is played upright, shown only when the viewport is
-landscape _and_ its short edge is phone-sized, so a desktop window or a tablet
-is never nagged. It does not block play — no scrim, no pointer events — because
-a player who wants to squint at a sideways board is entitled to. When an iOS
-project exists it wants `UISupportedInterfaceOrientations` set the same way the
-manifest is.
+**Orientation is the player's, on every platform.** `fullUser` allows all four
+and still obeys the device's own rotation lock, so a phone held upright stays
+upright and a phone with auto-rotate on may be turned. Nothing is locked in a
+browser either: the earlier code attempted `screen.orientation.lock` (allowed
+on Android only while fullscreen, which a page cannot enter without a gesture;
+never on iOS) and showed a notice asking for the phone to be turned upright.
+Both are gone, and so is `src/render/ui/orientation.ts`. What replaced them is
+a layout that has something to show either way round — see **Two arrangements**
+below — so there is nothing left to ask the player for. When an iOS project
+exists it wants `UISupportedInterfaceOrientations` listing all of them too.
 
 **The layout follows the renderer's size, checked every frame, not a `resize`
 event.** This was a bug worth remembering. Pixi's own resize plugin listens to
@@ -339,8 +340,8 @@ event.** This was a bug worth remembering. Pixi's own resize plugin listens to
 `requestAnimationFrame` — so a listener added after it reads `app.screen`
 before it has been updated, and gets the size the canvas had a moment ago.
 Rotating a phone therefore laid the game out for the orientation it was just
-in, and rotating back laid landscape out inside a portrait canvas: the board
-across the left half of the screen and the build bar off the bottom of it.
+in, and rotating back laid the sideways arrangement inside an upright canvas:
+the board across the left half of the screen and the build bar off the bottom.
 Comparing the numbers at the top of the frame loop fixes the ordering and
 covers every other thing that can change them — browser chrome appearing, a
 soft keyboard, a desktop window drag — with one rule and no guessing about when
@@ -800,6 +801,52 @@ drained when a wave spawns rather than when it is queued. Nothing lands on a
 fight already in progress, so the only thing the old rule decided was when the
 attacker was allowed to think about it.
 
+### Two arrangements of the same three areas
+
+A match screen is three things: the HUD with the opponent tabs, the lane, and
+the build bar. Upright they are stacked — band, board, band. Sideways they are
+columns — HUD left, board middle, build bar right, each the full height. That
+is the whole difference, and it is the whole of `computeLayout`'s branching:
+`portraitBands` and `landscapeBands` each return the three rectangles, and one
+shared `fitLane` puts the lane inside the middle one.
+
+Which one runs is decided by `width > height`, and a square screen is called
+upright — the stacked arrangement is the one the game was designed around, and
+a tie has to go somewhere. Everything downstream reads `layout.orientation`
+rather than measuring the screen again, so there is one answer to the question.
+
+`fitLane` is why this was a small change rather than a rewrite. It fits the
+8 × 14 lane square inside whatever rectangle it is handed and derives the
+spawn, build and fortress bands from that rectangle's own x and width, so the
+tile↔screen transform, picking, the wave preview, the watch banner and the
+toasts all work off `layout.lane` and never off the screen. The simulation
+never learns which way the phone is: the lane is 8 wide in both.
+
+What each area does with its column is its own business, and two of them do
+something different:
+
+- **The HUD** stacks its rows down the left instead of splitting them into two
+  columns, and puts the four opponent tabs at the BOTTOM of its column rather
+  than under the text. The tabs are a fixed block — four rows at 30px — so
+  anchoring them to the bottom is what leaves the text rows room to breathe;
+  reserving a fixed height at the top instead ran the last row of text behind
+  the first tab, which is exactly the collision `tabStrip` exists to prevent.
+- **The build bar** halves its grids. A column 34% of a wide screen is narrower
+  than a band across a tall one, so the tab strip goes 3 × 2 instead of 6 × 1,
+  the unit and upgrade panels go two across, and the send target chips go 2 × 2.
+  Four columns of buttons in a narrow column are unreadably tall.
+
+The front screens — home, roster picker, lobby — are laid out down the middle
+and have no columns to rearrange, so they get one bit instead: `layout.compact`,
+true under 560 pixels of height. It moves the seat cards and the roster cards
+into 2 × 2 grids and tightens the vertical rhythm, which is the difference
+between a lobby that fits a sideways phone and one whose Ready button is off
+the bottom of it.
+
+The Final Showdown needed nothing. Its camera already fits the arena's side to
+the screen's LONGER edge and scrolls the other (`arenaCamera`), which is a rule
+about the arena and the viewport rather than about orientation.
+
 ### The top band: what it says, and why it has a floor
 
 Three rows of text above a row of four tabs. Left: the wave and whether it is a
@@ -1081,6 +1128,14 @@ Implemented and tested (388 tests):
 - End-to-end determinism: same seed, same final state (§15.1)
 - Portrait layout, the tile↔screen transform, and the shape vocabulary (§4.1,
   §14.2)
+- The same three areas in columns: which way round a viewport is, the order of
+  the columns, three areas that never share a pixel at five sizes, the opponent
+  tabs kept inside the HUD, the lane still whole and square with its zone bands
+  spanning its own column, the tile↔screen round trip sideways, and the short
+  screens that ask the front screens to compact (§4.1, amended)
+- An opponent tab's second line: clear of the HP bar on a tab with height to
+  spare, using every pixel of one that has none, and never climbing into the
+  name (§14.1, §12)
 - Global tech, tied to damage types and cached per unit (§7.4, §15.3)
 - Fortress, weapon, regen, aura and resource upgrades, bought with gems (§10)
 - The supply cap as a purchase (§11.4)
@@ -1110,8 +1165,6 @@ Implemented and tested (388 tests):
   zone (§5.2 amended, §8.1)
 - Send buttons: every send drawing the monster it delivers, no two drawing the
   same picture, and a random target that never picks a lane that is out (§11.5)
-- When the game asks for portrait: a phone on its side, but never a desktop
-  window, a tablet or a square viewport (§1, §14.1)
 - Dampening's curve and the one function every point of healing goes through
   (§3.3, replaced)
 - Fixed-timestep rendering at any frame rate, with interpolation (§15.1)

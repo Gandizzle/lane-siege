@@ -503,58 +503,72 @@ export class BuildBar extends Container {
     this.background.clear();
     this.background.rect(bar.x, bar.y, bar.width, bar.height).fill({ color: UI.buildBar });
 
-    // Tab strip along the top of the bar.
-    const tabH = 26;
+    // Everything below is laid out inside the bar, so the bar's own left edge
+    // is where it starts. In portrait that is zero; in landscape the bar is
+    // the right-hand column and everything would otherwise be drawn off the
+    // left of the screen.
+    const left = bar.x + 6;
+    const inner = bar.width - 12;
+
+    // The tab strip: one row across a wide bar, two rows down a narrow one.
+    // Six tabs across a 240-pixel landscape column would be forty pixels each,
+    // and "Damage" does not fit in forty pixels.
     const tabGap = 4;
-    const tabW = (bar.width - 12 - tabGap * (TABS.length - 1)) / TABS.length;
+    const tabCols = l.orientation === 'landscape' ? 3 : TABS.length;
+    const tabRows = Math.ceil(TABS.length / tabCols);
+    const tabH = 26;
+    const tabW = (inner - tabGap * (tabCols - 1)) / tabCols;
     this.tabButtons.forEach((button, i) => {
-      button.layout(6 + i * (tabW + tabGap), bar.y + 3, tabW, tabH);
+      button.layout(
+        left + (i % tabCols) * (tabW + tabGap),
+        bar.y + 3 + Math.floor(i / tabCols) * (tabH + tabGap),
+        tabW,
+        tabH,
+      );
     });
 
-    const top = bar.y + tabH + 7;
-    const height = bar.height - tabH - 12;
+    const stripH = tabRows * tabH + (tabRows - 1) * tabGap;
+    const top = bar.y + stripH + 7;
+    const height = bar.height - stripH - 12;
 
-    grid(this.unitButtons, 3, 2, 6, top, bar.width - 12, height);
-    grid(
+    // Panel grids. Upright the bar is wide and short, so the buttons go across
+    // it; sideways it is narrow and tall, so they go down it. Same buttons,
+    // same order, turned a quarter turn - which keeps a button in roughly the
+    // place a player's thumb already expects it.
+    const wide = l.orientation === 'portrait';
+    const across = (items: GridButton[], portraitCols: number) => {
+      const cols = wide ? portraitCols : 2;
+      grid(items, cols, Math.ceil(items.length / cols), 6, left, top, inner, height);
+    };
+
+    across(this.unitButtons, 3);
+    across(
       this.techButtons.map((t) => t.button),
       3,
-      2,
-      6,
-      top,
-      bar.width - 12,
-      height,
     );
-    grid(
-      [...this.fortButtons.map((f) => f.button), this.supplyButton],
-      4,
-      2,
-      6,
-      top,
-      bar.width - 12,
-      height,
-    );
-    grid(
+    across([...this.fortButtons.map((f) => f.button), this.supplyButton], 4);
+    across(
       [...this.weaponButtons.map((w) => w.button), ...this.auraButtons.map((a) => a.button)],
       4,
-      2,
-      6,
-      top,
-      bar.width - 12,
-      height,
     );
 
-    // Send: a row of target chips, then the catalogue under it. The target has
-    // to be visible while choosing what to throw, or picking one becomes a
-    // separate step to forget.
-    const chipH = 38;
-    grid(this.targetButtons, 4, 1, 6, top, bar.width - 12, chipH);
+    // Send: the target chips, then the catalogue under them. The target has to
+    // be visible while choosing what to throw, or picking one becomes a
+    // separate step to forget. Four chips across a narrow column would be
+    // sixty pixels each, so landscape puts them in two rows of two.
+    const chipCols = l.orientation === 'landscape' ? 2 : 4;
+    const chipRows = Math.ceil(this.targetButtons.length / chipCols);
+    const chipH = 38 * chipRows + 6 * (chipRows - 1);
+    grid(this.targetButtons, chipCols, chipRows, 6, left, top, inner, chipH);
+    const sendCols = wide ? 3 : 2;
     grid(
       this.sendButtons.map((s) => s.button),
-      3,
-      2,
+      sendCols,
+      Math.ceil(this.sendButtons.length / sendCols),
       6,
+      left,
       top + chipH + 6,
-      bar.width - 12,
+      inner,
       height - chipH - 6,
     );
 
@@ -563,20 +577,21 @@ export class BuildBar extends Container {
     // Upgrade panel replaces the Build grid when a placed unit is selected.
     // Top to bottom: what it is, what it does, what is special about it, and
     // the three things you can do about it.
+    const panelLeft = bar.x + PANEL_INSET;
     const column = (bar.width - PANEL_INSET * 2) / STAT_COLUMNS;
-    this.upgradeTitle.position.set(PANEL_INSET, top + 2);
-    this.upgradeSubtitle.position.set(PANEL_INSET, top + 21);
+    this.upgradeTitle.position.set(panelLeft, top + 2);
+    this.upgradeSubtitle.position.set(panelLeft, top + 21);
 
     const statTop = top + 37;
     this.statCells.forEach((cell, i) => {
-      const x = PANEL_INSET + (i % STAT_COLUMNS) * column;
+      const x = panelLeft + (i % STAT_COLUMNS) * column;
       const y = statTop + Math.floor(i / STAT_COLUMNS) * STAT_ROW_HEIGHT;
       cell.name.position.set(x, y + 1);
       cell.value.position.set(x + STAT_VALUE_INSET, y);
     });
 
     const rows = Math.ceil(STAT_CELLS.length / STAT_COLUMNS);
-    this.traitText.position.set(PANEL_INSET, statTop + rows * STAT_ROW_HEIGHT + 6);
+    this.traitText.position.set(panelLeft, statTop + rows * STAT_ROW_HEIGHT + 6);
     this.traitText.style.wordWrapWidth = bar.width - PANEL_INSET * 2;
 
     // Buttons pinned to the bottom of the bar, where the thumb already is.
@@ -586,9 +601,14 @@ export class BuildBar extends Container {
     const backWidth = 88;
     const gap = 8;
     const actionWidth = Math.min(140, (bar.width - PANEL_INSET * 2 - backWidth - gap * 2) / 2);
-    this.upgradeButton.layout(PANEL_INSET, buttonTop, actionWidth, MIN_TOUCH);
-    this.sellButton.layout(PANEL_INSET + actionWidth + gap, buttonTop, actionWidth, MIN_TOUCH);
-    this.backButton.layout(bar.width - backWidth - PANEL_INSET, buttonTop, backWidth, MIN_TOUCH);
+    this.upgradeButton.layout(panelLeft, buttonTop, actionWidth, MIN_TOUCH);
+    this.sellButton.layout(panelLeft + actionWidth + gap, buttonTop, actionWidth, MIN_TOUCH);
+    this.backButton.layout(
+      bar.x + bar.width - backWidth - PANEL_INSET,
+      buttonTop,
+      backWidth,
+      MIN_TOUCH,
+    );
   }
 
   render(
@@ -1060,6 +1080,8 @@ function grid(
   cols: number,
   rows: number,
   gap: number,
+  /** The bar's own left edge. Zero in portrait; the right column's in landscape. */
+  left: number,
   top: number,
   width: number,
   height: number,
@@ -1069,6 +1091,6 @@ function grid(
   buttons.forEach((button, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    button.layout(6 + col * (w + gap), top + row * (h + gap), w, Math.max(MIN_TOUCH, h));
+    button.layout(left + col * (w + gap), top + row * (h + gap), w, Math.max(MIN_TOUCH, h));
   });
 }

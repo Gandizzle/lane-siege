@@ -27,6 +27,9 @@ import { centreOn, label } from './text.ts';
 /** §2: four lanes. */
 const SLOTS = 4;
 
+/** One tab's height where there is room to choose it. Matches layout.ts. */
+const TAB_ROW_HEIGHT = 30;
+
 export interface OpponentTabHandlers {
   /** A tab the viewer can see inside was tapped. */
   onWatch(teamId: string): void;
@@ -76,8 +79,9 @@ class OpponentTab extends Container {
     this.caption.x = 6;
     this.caption.y = 3;
     this.detail.x = 6;
-    this.detail.y = height - 13;
+    this.detail.y = detailTop(this.caption.y, height);
   }
+
 
   /** `null` for the viewer's own lane, which is always shown first. */
   update(
@@ -141,8 +145,25 @@ class OpponentTab extends Container {
     // and there is nothing to hide once somebody is out.
     this.alpha = eliminated ? 0.6 : 1;
     centreOn(this.caption, this.w / 2, 3);
-    centreOn(this.detail, this.w / 2, this.h - 13);
+    centreOn(this.detail, this.w / 2, detailTop(this.caption.y, this.h));
   }
+}
+
+/**
+ * Where a tab's second line sits: above the HP bar, and never up into the name.
+ *
+ * The bar is drawn at `height - 6` and a nine-pixel line is about eleven tall,
+ * so an upright tab - thirty pixels, all of them spoken for - can only put the
+ * two edge to edge. A landscape tab is eight pixels taller than it needs to be,
+ * and spends two of them on a gap rather than leaving the tail of a `y` resting
+ * on the bar. Pure, and out here where a test can reach it: the tab itself
+ * cannot be constructed without a canvas.
+ */
+export function detailTop(captionY: number, height: number): number {
+  const DETAIL_LINE = 11;
+  const CAPTION_LINE = 10;
+  const BAR_TOP = height - 6;
+  return Math.max(captionY + CAPTION_LINE, BAR_TOP - DETAIL_LINE - 2);
 }
 
 /** What to call a seat nobody has named: where it sits, since that is all we know. */
@@ -198,8 +219,20 @@ export class OpponentTabs extends Container {
     // incoming-send notice ended up behind the tabs (layout.ts, `tabStrip`).
     const strip = layout.tabStrip;
     const gap = 4;
-    const width = (strip.width - gap * (SLOTS - 1)) / SLOTS;
 
+    // A row across a wide strip, a column down a tall one. Four tabs across a
+    // 240-pixel landscape column would be sixty pixels each, which is not
+    // enough for a name; down it they get the full width and there is height
+    // to spare.
+    if (layout.orientation === 'landscape') {
+      const height = Math.min(TAB_ROW_HEIGHT + 8, (strip.height - gap * (SLOTS - 1)) / SLOTS);
+      this.tabs.forEach((tab, i) => {
+        tab.layout(strip.x, strip.y + i * (height + gap), strip.width, height);
+      });
+      return;
+    }
+
+    const width = (strip.width - gap * (SLOTS - 1)) / SLOTS;
     this.tabs.forEach((tab, i) => {
       tab.layout(strip.x + i * (width + gap), strip.y, width, strip.height);
     });

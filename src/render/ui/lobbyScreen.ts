@@ -121,12 +121,14 @@ export class LobbyScreen extends Container {
 
     const you = lobby.seats[lobby.yourSeat];
 
+    const compact = this.layout.compact;
+    const headTop = l.height * (compact ? 0.05 : 0.08);
     const heading = lobby.code === PUBLIC_CODE ? 'Quick match' : 'Private room';
-    this.addChild(centreOn(label(heading, 22, UI.text, '700'), cx, l.height * 0.08));
+    this.addChild(centreOn(label(heading, 22, UI.text, '700'), cx, headTop));
 
     // The code is the thing one player reads out and three others type, so it
     // is drawn as big as the heading and spaced out, not as a subtitle.
-    let y = l.height * 0.08 + 36;
+    let y = headTop + 36;
     if (lobby.code !== PUBLIC_CODE) {
       this.addChild(centreOn(label([...lobby.code].join(' '), 28, UI.accent, '700'), cx, y));
       y += 38;
@@ -139,14 +141,27 @@ export class LobbyScreen extends Container {
       y += 24;
     }
 
+    // The controls keep a readable column width; the four seat cards go
+    // two-by-two on a short screen, which is where the height goes.
     const cardWidth = Math.min(l.width - 32, 340);
     const cardX = (l.width - cardWidth) / 2;
     const cardHeight = 52;
+    const seatCols = compact ? 2 : 1;
+    const seatWidth = (cardWidth - 8 * (seatCols - 1)) / seatCols;
 
     for (const [index, seat] of lobby.seats.entries()) {
-      this.addChild(this.seatCard(cardX, y, cardWidth, cardHeight, seat, index === lobby.yourSeat));
-      y += cardHeight + 8;
+      this.addChild(
+        this.seatCard(
+          cardX + (index % seatCols) * (seatWidth + 8),
+          y + Math.floor(index / seatCols) * (cardHeight + 8),
+          seatWidth,
+          cardHeight,
+          seat,
+          index === lobby.yourSeat,
+        ),
+      );
     }
+    y += Math.ceil(lobby.seats.length / seatCols) * (cardHeight + 8);
 
     y += 10;
 

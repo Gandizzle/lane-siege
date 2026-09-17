@@ -316,7 +316,7 @@ Decisions that override the document rather than filling a gap in it:
   Three things follow: every build phase is open, including the one before the
   last wave, and nothing at all is buyable once the armies march; units respawn
   at every build phase without exception; and the camera moves for the first
-  time, since a 32 × 32 arena does not fit a portrait phone at a readable
+  time, since a 32 × 32 arena does not fit a phone screen at a readable
   scale. **Dampening** is the brake that guarantees termination — healing, a
   summon's starting HP and crowd-control durations all fade 1% per second
   additively after the first 30 seconds — and is scaffolding: none of those
@@ -496,6 +496,19 @@ Decisions that override the document rather than filling a gap in it:
   global wave clock is now "fixed unless everyone is done", matching how the
   ready button already works for the build phase. It still cannot be used to
   stall other players, since it only ever moves the clock forward.
+
+- **§1, §14.1 — the game plays either way up, and asks for neither.** §1 says
+  portrait and one-handed, and the renderer used to enforce it: an attempted
+  `screen.orientation.lock`, a `screenOrientation="portrait"` line in the
+  Android manifest, and a notice telling a sideways player to turn the phone
+  upright. A lock a browser refuses and a notice a player cannot act on are
+  not a layout. `computeLayout` now has a second arrangement of the same three
+  areas — HUD left, lane middle, build bar right, instead of the three stacked
+  bands — and the lock, the notice and `src/render/ui/orientation.ts` are gone.
+  Portrait is untouched and is still the shape the game is designed around; it
+  is simply no longer the only one. Nothing in the simulation is aware of any
+  of this: the lane is 8 × 14 either way round, so the same match plays the
+  same however the phone is held, and a phone turned mid-match keeps playing.
 
 ## Invented for M1, and flagged as such
 

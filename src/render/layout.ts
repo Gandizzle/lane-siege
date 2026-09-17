@@ -1,15 +1,27 @@
 /**
- * Portrait layout. DESIGN.md §4.1 and §14.1.
+ * Where everything goes. DESIGN.md §4.1 and §14.1.
  *
- * Fixed camera. The entire lane fits on one portrait screen: no panning, no
- * zooming, no scrolling. That is a hard constraint, and it is what removes an
- * entire class of mobile UX problems and keeps the renderer simple - there is
- * exactly one transform from tile space to screen space and it changes only on
- * resize.
+ * Fixed camera: the entire lane fits on one screen, no panning, no zooming, no
+ * scrolling. That is the hard constraint, and it is what removes an entire
+ * class of mobile UX problems and keeps the renderer simple - there is exactly
+ * one transform from tile space to screen space and it changes only on resize.
  *
- * Top to bottom: opponent tabs, spawn zone, build zone, fortress + resource
- * building, build bar. The build bar sits at the bottom because that is the
- * thumb zone for one-handed play.
+ * TWO ARRANGEMENTS OF THE SAME THREE THINGS
+ *
+ * A screen holds three things: the HUD (the wave, your wallet, the four
+ * opponent tabs), the LANE, and the BUILD BAR. §4.1 stacks them for a phone
+ * held upright - HUD at the top, lane in the middle, bar at the bottom, where
+ * the thumb is.
+ *
+ * Turned sideways, that stack is wrong twice over: the lane gets a third of a
+ * short screen, and the two panels get long thin strips they cannot use. So
+ * landscape puts the same three things in COLUMNS instead - HUD on the left,
+ * lane in the middle, build bar on the right - which is the same reading order
+ * rotated a quarter turn, and gives every one of them the full height.
+ *
+ * The lane is unchanged either way: 8 x 14 tiles, square-fitted, whole. What
+ * changes is only which axis the furniture is stacked along, so the simulation
+ * is untouched and both orientations are the same game (§15.1).
  */
 
 import type { LaneFile } from '../data/schema.ts';
@@ -24,13 +36,36 @@ import type { LaneFile } from '../data/schema.ts';
  * same size in the spawn zone as on the grid, so a monster standing in the
  * open is the same size as one standing on the line.
  */
+/** Portrait: the share of the SCREEN HEIGHT each band takes. */
 const BAND_WEIGHTS = {
   tabs: 0.115,
   buildBar: 0.25,
 } as const;
 
-/** Height of the row of opponent tabs at the bottom of the top band. */
+/**
+ * Landscape: the share of the SCREEN WIDTH each column takes, and the least it
+ * can be given.
+ *
+ * The lane takes what is left, which is more than it needs: a landscape screen
+ * is short, so the lane's tile size is set by the height and the extra width
+ * goes to centring it. That is not waste - the wave preview (§9.3) is drawn
+ * across the top of the lane column, and at the tile width alone it would have
+ * room for one chip.
+ */
+const COLUMN_WEIGHTS = {
+  hud: 0.26,
+  buildBar: 0.34,
+} as const;
+const COLUMN_MINIMUM = {
+  hud: 150,
+  buildBar: 240,
+} as const;
+
+/** Height of one opponent tab. They sit in a row in portrait, a column in landscape. */
 const TAB_ROW_HEIGHT = 30;
+
+/** Landscape: the block the four stacked opponent tabs are given, with gaps. */
+const LANDSCAPE_TAB_BLOCK = 4 * (TAB_ROW_HEIGHT + 8) + 3 * 4;
 
 /**
  * The least the top band can be, in pixels, whatever the screen height says.
@@ -67,11 +102,35 @@ export interface Camera {
   gridOrigin: { x: number; y: number };
 }
 
+/** Which way the furniture is stacked. Decided by the screen, never stored. */
+export type Orientation = 'portrait' | 'landscape';
+
+/**
+ * A screen too short for the front screens' natural vertical rhythm.
+ *
+ * Home, the builder picker and the lobby are single centred columns of cards,
+ * sized for an upright phone. Turned sideways there is half the height and
+ * twice the width, so they lay the same cards out in two columns and tighten
+ * the spacing rather than running off the bottom. The board itself does not
+ * use this - it has `orientation` for the same question, asked properly.
+ */
+export function isCompact(height: number): boolean {
+  return height < COMPACT_HEIGHT;
+}
+
+const COMPACT_HEIGHT = 560;
+
 export interface LaneLayout extends Camera {
+  /** Portrait stacks the three areas; landscape puts them in columns. */
+  orientation: Orientation;
+  /** Short enough that the front screens need two columns. See `isCompact`. */
+  compact: boolean;
   screen: Rect;
+  /** The HUD: the top band in portrait, the left column in landscape. */
   tabs: Rect;
   /**
-   * The row of opponent tabs, at the bottom of the `tabs` band.
+   * The opponent tabs, inside the HUD area: a row across the bottom of the
+   * band in portrait, a column down it in landscape.
    *
    * In the layout rather than computed by whoever draws it, because two things
    * need it and they disagreed: the tabs drew themselves from the bottom of
@@ -79,9 +138,12 @@ export interface LaneLayout extends Camera {
    * the last row of text went behind the first row of tabs.
    */
   tabStrip: Rect;
+  /** The whole board area - spawn zone, build grid and fortress zone together. */
+  lane: Rect;
   spawn: Rect;
   build: Rect;
   fortress: Rect;
+  /** The build bar: the bottom band in portrait, the right column in landscape. */
   buildBar: Rect;
   grid: { width: number; depth: number };
 }
@@ -89,34 +151,105 @@ export interface LaneLayout extends Camera {
 /**
  * Computes the layout for a viewport. Called on boot and on resize, never per
  * frame.
+ *
+ * Wider than it is tall means landscape. A square screen is portrait, because
+ * a tie has to go somewhere and the stacked arrangement is the one the game
+ * was designed around.
  */
 export function computeLayout(width: number, height: number, lane: LaneFile): LaneLayout {
-  // Top and bottom bands first, then the lane gets what is left: the two bands
-  // hold text and controls at a size a thumb and an eye need, and the lane is
-  // the one thing that scales gracefully.
+  const bands = width > height ? landscapeBands(width, height) : portraitBands(width, height);
+  return fitLane(width, height, lane, bands);
+}
+
+/** The three areas, and which way they were stacked to get there. */
+interface Bands {
+  orientation: Orientation;
+  tabs: Rect;
+  tabStrip: Rect;
+  laneBand: Rect;
+  buildBar: Rect;
+}
+
+/**
+ * §4.1's stack: opponent tabs, lane, build bar. The bar is at the bottom
+ * because that is the thumb zone for one-handed play.
+ *
+ * Top and bottom bands first, then the lane gets what is left: the two bands
+ * hold text and controls at a size a thumb and an eye need, and the lane is the
+ * one thing that scales gracefully.
+ */
+function portraitBands(width: number, height: number): Bands {
   const tabsHeight = Math.max(height * BAND_WEIGHTS.tabs, TABS_MIN_HEIGHT);
   const buildBarHeight = height * BAND_WEIGHTS.buildBar;
 
   const tabs: Rect = { x: 0, y: 0, width, height: tabsHeight };
-  const laneBand: Rect = {
-    x: 0,
-    y: tabsHeight,
-    width,
-    height: Math.max(0, height - tabsHeight - buildBarHeight),
+  return {
+    orientation: 'portrait',
+    tabs,
+    // A row across the bottom of the band.
+    tabStrip: {
+      x: 6,
+      y: tabs.y + tabs.height - TAB_ROW_HEIGHT - 4,
+      width: width - 12,
+      height: TAB_ROW_HEIGHT,
+    },
+    laneBand: {
+      x: 0,
+      y: tabsHeight,
+      width,
+      height: Math.max(0, height - tabsHeight - buildBarHeight),
+    },
+    buildBar: { x: 0, y: height - buildBarHeight, width, height: buildBarHeight },
   };
-  const buildBar: Rect = {
-    x: 0,
-    y: height - buildBarHeight,
-    width,
-    height: buildBarHeight,
-  };
-  const tabStrip: Rect = {
-    x: 6,
-    y: tabs.y + tabs.height - TAB_ROW_HEIGHT - 4,
-    width: width - 12,
-    height: TAB_ROW_HEIGHT,
-  };
+}
 
+/**
+ * The same three areas as columns: HUD, lane, build bar, left to right.
+ *
+ * The same reading order turned a quarter turn, and it is the arrangement a
+ * short screen wants: stacked, the lane would get a third of four hundred
+ * pixels and the two panels would get strips too thin to put a button in. In
+ * columns every one of them has the full height, and the lane's tile size is
+ * set by that height rather than by a third of it.
+ *
+ * The build bar takes the larger share because it holds the most: six tabs and
+ * a grid of up to eight buttons, against the HUD's few rows of text and four
+ * opponent tabs.
+ */
+function landscapeBands(width: number, height: number): Bands {
+  const hudWidth = Math.max(COLUMN_MINIMUM.hud, width * COLUMN_WEIGHTS.hud);
+  const barWidth = Math.max(COLUMN_MINIMUM.buildBar, width * COLUMN_WEIGHTS.buildBar);
+  const laneWidth = Math.max(0, width - hudWidth - barWidth);
+
+  const tabs: Rect = { x: 0, y: 0, width: hudWidth, height };
+  return {
+    orientation: 'landscape',
+    tabs,
+    // A column of four, anchored to the BOTTOM of the HUD so the rows of text
+    // above it get everything else. Sideways the HUD says more than it does
+    // upright - the resources split across two lines - and a fixed reservation
+    // at the top ran the last rows behind the first tab.
+    tabStrip: {
+      x: 6,
+      y: Math.max(0, height - LANDSCAPE_TAB_BLOCK - 6),
+      width: hudWidth - 12,
+      height: Math.min(LANDSCAPE_TAB_BLOCK, height - 12),
+    },
+    laneBand: { x: hudWidth, y: 0, width: laneWidth, height },
+    buildBar: { x: width - barWidth, y: 0, width: barWidth, height },
+  };
+}
+
+/**
+ * The lane, square-fitted into whatever space the bands left, and the three
+ * zone rectangles drawn from it.
+ *
+ * Shared, because this is the part that must not differ between the two
+ * arrangements: the same 8 x 14 tiles, whole, at one scale, however the
+ * furniture around them is stacked.
+ */
+function fitLane(width: number, height: number, lane: LaneFile, bands: Bands): LaneLayout {
+  const { laneBand } = bands;
   const grid = { width: lane.buildZone.width, depth: lane.buildZone.depth };
   const tilesDeep = lane.spawnZoneDepth + grid.depth + lane.fortressZoneDepth;
 
@@ -130,23 +263,26 @@ export function computeLayout(width: number, height: number, lane: LaneFile): La
     y: laneTop + lane.spawnZoneDepth * tileSize,
   };
 
-  const spawn: Rect = { x: 0, y: laneTop, width, height: lane.spawnZoneDepth * tileSize };
-  const build: Rect = { x: 0, y: gridOrigin.y, width, height: grid.depth * tileSize };
-  const fortress: Rect = {
-    x: 0,
-    y: gridOrigin.y + grid.depth * tileSize,
-    width,
-    height: lane.fortressZoneDepth * tileSize,
-  };
+  // The zone bands span the lane COLUMN rather than the screen. In portrait
+  // the column is the screen, so nothing about that layout changes.
+  const band = (y: number, tiles: number): Rect => ({
+    x: laneBand.x,
+    y,
+    width: laneBand.width,
+    height: tiles * tileSize,
+  });
 
   return {
+    orientation: bands.orientation,
+    compact: isCompact(height),
     screen: { x: 0, y: 0, width, height },
-    tabs,
-    tabStrip,
-    spawn,
-    build,
-    fortress,
-    buildBar,
+    tabs: bands.tabs,
+    tabStrip: bands.tabStrip,
+    lane: laneBand,
+    spawn: band(laneTop, lane.spawnZoneDepth),
+    build: band(gridOrigin.y, grid.depth),
+    fortress: band(gridOrigin.y + grid.depth * tileSize, lane.fortressZoneDepth),
+    buildBar: bands.buildBar,
     tileSize,
     gridOrigin,
     grid,
