@@ -296,6 +296,26 @@ rather than by a bare timer, and a unit that is not killing anything fires it
 less often. Gloomtide's Murmur grants energy directly, which is what makes it
 worth its supply.
 
+**Energy belongs to the fight, so nothing spends it outside one.** No ability
+that costs energy fires during a build phase (`AbilityEnv.fighting`), because
+everything it could be spent on there is spent on nothing — Absolution
+cleansing allies nobody has stunned, Closing Ranks buffing a line with thirty
+seconds to stand in — and the unit then met the wave with a part-empty pool.
+Only the energy ones need the rule: an ability with no cost that fires at
+nothing finds no targets, and `cast` gives up before charging itself a
+cooldown.
+
+**And every unit meets every wave with all of it.** A build phase hands each
+one a full pool (`respawnUnits`), a unit bought mid-phase is built with one,
+and the Final Showdown opens with one for the same reason it opens with full
+HP — a pool that carried over would make the wave after a long fight quietly
+weaker than the one after a short fight, for a reason no player could see. The
+"built with one" half was a bug for a while: `createUnit`'s energy ceiling
+defaulted to zero and the call site that builds a unit a player paid for did
+not pass it, so every unit spent its first seventeen seconds filling a pool it
+should have started with. The parameter is required now, which is the only
+version of that fix that stays fixed.
+
 **Two files hold the rules, and each is the only place its thing happens.**
 `strike.ts` is the one place a body's HP goes down, and `dampening.ts` the one
 place it goes up. Evasion, wards, criticals, the §6 matrix, vulnerability,
@@ -1444,6 +1464,10 @@ Implemented and tested (388 tests):
 - A frame carrying energy, sparse: the body that can spend it carries a number
   through the round trip and the one beside it that cannot carries nothing
   (§15.2)
+- Energy belongs to the fight: nothing spends it during a build phase however
+  many allies an ability could aim at, every wave opens with a full pool
+  however the last one went, and so does the Final Showdown (§7, §18, §3.3
+  replaced)
 - The roster design rules, asserted against the data rather than intended:
   every unit has an ability, every tier carries its signature forward at that
   tier's rank, every ladder ends in a second ability, a three-tier unit's

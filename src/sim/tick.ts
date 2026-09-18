@@ -347,7 +347,7 @@ function laneTick(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): voi
   // replaced, so the common tick allocates nothing (§15.3).
   lane.attacks.length = 0;
 
-  const env = buildLaneAbilityEnv(ctx, lane, rng);
+  const env = buildLaneAbilityEnv(ctx, lane, rng, state.phase === 'combat');
 
   // 0. Every clock a body carries: statuses expire, burns burn, wounds close,
   // energy fills, and the abilities that fire on their own initiative do
@@ -498,7 +498,7 @@ function payTheTable(ctx: SimContext, state: MatchState, killedIn: Lane): void {
  */
 function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): void {
   let anyMonsterDied = false;
-  const env = buildLaneAbilityEnv(ctx, lane, rng);
+  const env = buildLaneAbilityEnv(ctx, lane, rng, state.phase === 'combat');
 
   // Deathrattles first, while the body is still standing and still has a
   // position to explode at. Firing after `alive = false` would be firing from
@@ -562,7 +562,13 @@ function respawnUnits(lane: Lane, energyMax: number): void {
     unit.maxHp = unit.baseMaxHp;
     unit.hp = unit.maxHp;
     // A fresh body, which is what §5.4 says respawning is: no burns carried
-    // over from the wave that killed it, no cooldowns part-spent, full energy.
+    // over from the wave that killed it, no cooldowns part-spent, and a FULL
+    // ENERGY POOL. Every unit that can spend energy meets every wave with all
+    // of it - a pool that carried over would make the first wave after a long
+    // fight quietly weaker than the one after a short one, for a reason no
+    // player could see. Nothing can spend it during the build phase either
+    // (abilityRuntime.ts, `AbilityEnv.fighting`), so full here is full when
+    // the wave lands.
     Object.assign(unit, freshAbilityState(energyMax));
     unit.targetId = null;
     unit.cooldown = 0;

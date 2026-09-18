@@ -33,6 +33,7 @@ import { applyCommand } from './apply.ts';
 import { TICKS_PER_SECOND } from './constants.ts';
 import { dampeningRemaining } from './dampening.ts';
 import { createContext, createMatch, step } from './index.ts';
+import { beginShowdown } from './showdown.ts';
 import {
   ADDITIVE_STATS,
   FLAT_CAPABLE,
@@ -394,6 +395,57 @@ describe('a real roster applies its real abilities', () => {
     expect(spent).toBeLessThan(full);
     // And it recovers: an energy ability is a rhythm, not one use per match.
     expect(unit.energy).toBeGreaterThan(0);
+  });
+
+  it('spends none of it during a build phase', () => {
+    // Everything a unit could spend energy on while building is spent on
+    // nothing - Absolution cleansing allies nobody has stunned, Closing Ranks
+    // buffing a line with thirty seconds to stand in - and the unit then meets
+    // the wave with a part-empty pool.
+    const { state, ctx } = match('ironvow');
+    // Two whose energy abilities target ALLIES, so they have something to aim
+    // at during a build phase and would otherwise fire at it.
+    place(ctx, state, 'vigil_3', 3, 2);
+    place(ctx, state, 'pledge_3', 4, 2);
+
+    const units = state.lanes.lane1!.units;
+    const full = data.abilities.energy.max;
+    for (let t = 0; t < 400 && state.phase === 'build'; t++) {
+      step(ctx, state);
+      for (const unit of units) expect(unit.energy, unit.defId).toBe(full);
+    }
+    // And the build phase really did run long enough to have fired them.
+    expect(state.tick).toBeGreaterThan(100);
+  });
+
+  it('opens every wave with a full pool, however the last one went', () => {
+    const { state, ctx } = match('ironvow');
+    place(ctx, state, 'sanction_3', 4, 2);
+    toCombat(ctx, state);
+
+    const unit = state.lanes.lane1!.units[0]!;
+    let guard = 0;
+    while (unit.energy === data.abilities.energy.max && guard++ < 2000) step(ctx, state);
+    expect(unit.energy, 'it spent some during the fight').toBeLessThan(data.abilities.energy.max!);
+
+    // A pool that carried over would make the wave after a long fight quietly
+    // weaker than the one after a short fight, for a reason nobody can see.
+    while (state.phase !== 'build' && guard++ < 20000) step(ctx, state);
+    expect(state.phase).toBe('build');
+    expect(unit.energy).toBe(data.abilities.energy.max);
+  });
+
+  it('opens the Final Showdown with a full pool too', () => {
+    // Same reason as the full HP the transplant already restores: the showdown
+    // is the fight the whole match was for, and opening it with one army's
+    // tier-3 abilities half-charged decides it on how wave 25 happened to end.
+    const { state, ctx } = match('ironvow');
+    place(ctx, state, 'sanction_3', 4, 2);
+    const unit = state.lanes.lane1!.units[0]!;
+    unit.energy = 3;
+
+    beginShowdown(ctx, state);
+    expect(state.showdown!.armies[0]!.units[0]!.energy).toBe(data.abilities.energy.max);
   });
 
   it('makes a monster with spell immunity untouchable by abilities', () => {

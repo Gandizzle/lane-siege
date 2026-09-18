@@ -174,6 +174,20 @@ export interface AbilityEnv {
   /** Dampening (§3.3, replaced): 1 outside the showdown. */
   healing: number;
   control: number;
+  /**
+   * Whether a fight is actually happening - a wave in the lane, or the arena.
+   *
+   * False during the build phase, and it gates exactly one thing: an ability
+   * that costs energy will not fire. Everything a unit could spend it on
+   * during a build phase is spent on nothing - Absolution cleansing allies
+   * nobody has stunned, Closing Ranks buffing a line with thirty seconds to
+   * stand in - and the unit then meets the wave with a part-empty pool.
+   *
+   * Only the energy ones, because only they have anything to waste. An
+   * ability with no cost that fires at nothing during a build phase finds no
+   * targets, and `cast` gives up before it charges itself a cooldown.
+   */
+  fighting: boolean;
   sides: (body: AbilityBody) => { allies: readonly AbilityBody[]; enemies: readonly AbilityBody[] };
   /** What this body's own swing is worth, after tech and auras. */
   attackDamage: (body: AbilityBody) => number;
@@ -351,6 +365,8 @@ function cast(
   if (clock > 0) return false;
 
   if (ability.trigger.chance < 1 && env.strike.rng.next() >= ability.trigger.chance) return false;
+  // Nothing that costs energy fires outside a fight. See `AbilityEnv.fighting`.
+  if (ability.energyCost > 0 && !env.fighting) return false;
   if (ability.energyCost > 0 && source.energy < ability.energyCost) return false;
 
   const targets = selectTargets(env, source, ability.target, context);
@@ -898,6 +914,8 @@ export function buildLaneAbilityEnv(
   },
   lane: { units: AbilityBody[]; monsters: AbilityBody[] },
   rng: Rng,
+  /** False during the build phase, when energy may not be spent. */
+  fighting: boolean,
 ): AbilityEnv {
   const env: AbilityEnv = {
     data: ctx.data,
@@ -917,6 +935,7 @@ export function buildLaneAbilityEnv(
     },
     healing: 1,
     control: 1,
+    fighting,
     sides: (body) =>
       body.monster
         ? { allies: lane.monsters, enemies: lane.units }
@@ -1001,6 +1020,8 @@ export function buildArenaAbilityEnv(
     },
     healing: healingMultiplier(dampening, showdown.age),
     control: crowdControlMultiplier(dampening, showdown.age),
+    // The arena is nothing but a fight (§3.3, replaced).
+    fighting: true,
     sides: (body) => {
       const team = teamOf.get(body.id) ?? '';
       return { allies: allies.get(team) ?? NONE_BODIES, enemies: enemies.get(team) ?? NONE_BODIES };

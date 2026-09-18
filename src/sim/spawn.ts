@@ -238,8 +238,16 @@ export function createUnit(
   def: UnitDef,
   tileX: number,
   tileY: number,
-  /** The energy ceiling from `abilities.json`; a fresh body starts full. */
-  energyMax = 0,
+  /**
+   * The energy ceiling from `abilities.json`. A fresh body starts FULL.
+   *
+   * Required rather than defaulted. It used to default to zero, and the one
+   * caller that builds a unit a player paid for did not pass it - so every
+   * unit was built with an empty pool and spent the first seventeen seconds of
+   * its life filling one. A default that is wrong for the real call site is a
+   * bug waiting on somebody to notice.
+   */
+  energyMax: number,
 ): DefensiveUnit {
   const pos = { x: tileX + 0.5, y: tileY + 0.5 };
 

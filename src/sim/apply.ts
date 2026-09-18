@@ -108,7 +108,7 @@ function placeUnit(
   lane.economy.gold -= goldCost;
   lane.economy.supplyUsed += supplyCost;
 
-  const unit = createUnit(state, def, tileX, tileY);
+  const unit = createUnit(state, def, tileX, tileY, stat(ctx.data.abilities.energy.max));
   // Stamped here rather than in `createUnit`, which also builds units for
   // tests and fixtures that nobody paid for.
   unit.spend.thisPhase = goldCost;

@@ -79,6 +79,12 @@ export function beginShowdown(ctx: SimContext, state: MatchState): void {
       unit.alive = true;
       unit.hp = unit.maxHp;
       unit.cooldown = 0;
+      // And a full pool, for the same reason as the HP: a build phase hands
+      // every unit all of its energy (tick.ts, `respawnUnits`), and the
+      // showdown is the fight the whole match was for. Opening it with one
+      // army's tier-3 abilities half-charged would decide it on how wave 25
+      // happened to end.
+      unit.energy = stat(ctx.data.abilities.energy.max);
       unit.targetId = null;
       unit.engaged = false;
       unit.settled = false;
