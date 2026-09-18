@@ -785,7 +785,7 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
    * y = -0.14, twenty-nine of thirty-two units were inside the spawn zone, and
    * a wave was born inside them.
    */
-  function underSiege(sends = 12) {
+  function underSiege(monsters = 60) {
     // Live combat, not `passiveData`: the reserve only drains as monsters die,
     // and a queue that never drains is not the case under test. The fortress
     // is given a bottomless pool so the lane survives being sent at twelve
@@ -815,7 +815,11 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
         });
       }
     }
-    for (let i = 0; i < sends; i++) {
+    // Counted in MONSTERS, not in taps. A send used to deliver a pack and now
+    // delivers one body (sends.json), and a fixture that counts taps measures
+    // a number in the data file rather than the pressure it meant to apply.
+    const pack = Math.max(1, d.sends.sends.find((x) => x.id === 'grub_pack')!.monsters.length);
+    for (let i = 0; i < Math.ceil(monsters / pack); i++) {
       applyCommand(ctx, state, {
         kind: 'send',
         teamId: 'l2',
@@ -896,14 +900,14 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
     // of the lane's 14 rows for the whole fight: the wave was ground down on
     // the spawn point and never got past the door.
     //
-    // Sixty rather than the forty this used to need. A block of thirty-two
+    // Three hundred monsters rather than the two hundred this used to need. A block of thirty-two
     // Pledges all grant each other Shoulder to Shoulder (abilities.json), so
     // the same wall of bodies is about a quarter stronger than it was and forty
-    // sends no longer break it - at forty the line finishes the fight intact
+    // bodies no longer break it - at two hundred the line finishes the fight intact
     // and the wave never leaves the doorway, which measures the ABILITY rather
-    // than the rule under test. At sixty the line gives way and thirteen of the
-    // fourteen rows see a monster.
-    const { state, ctx } = underSiege(60);
+    // than the rule under test. At three hundred the line gives way and
+    // thirteen of the fourteen rows see a monster.
+    const { state, ctx } = underSiege(300);
     const lane = state.lanes.l1!;
     const rows = new Set<number>();
 

@@ -37,7 +37,7 @@ is money rather than code.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-520 tests, plus five measurement harnesses that are part of how this is
+533 tests, plus five measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
 sockets), `npm run lobby` (matchmaking, the lobby and reconnection, also over
 real sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`

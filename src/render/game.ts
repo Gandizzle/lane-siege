@@ -430,8 +430,14 @@ export class Game extends Container {
 
     const lane = this.shownLane();
     const watching = this.watchingTeamId !== null;
+    // A selected monster wears the ring in whatever lane it is standing in; a
+    // selected unit only in your own, since that is the only lane it is in.
     const selectedUnitId =
-      !watching && this.selection?.kind === 'placedUnit' ? this.selection.unitId : null;
+      this.selection?.kind === 'monster'
+        ? this.selection.monsterId
+        : !watching && this.selection?.kind === 'placedUnit'
+          ? this.selection.unitId
+          : null;
 
     this.auraLayer.read(lane);
     if (lane) {
@@ -444,7 +450,16 @@ export class Game extends Container {
     this.tabs.render(view, this.watchingTeamId);
     if (connected) this.banner.render(view, this.watchingTeamId);
     else this.banner.renderStatus(transport.status, transport.detail);
-    if (view.lane) this.buildBar.render(view, view.lane, this.selection, this.summary, deltaMs);
+    if (view.lane) {
+      this.buildBar.render(
+        view,
+        view.lane,
+        lane ?? view.lane,
+        this.selection,
+        this.summary,
+        deltaMs,
+      );
+    }
     this.toast.update(deltaMs, this.layout);
     this.gameOver.render(view);
   }
@@ -541,6 +556,14 @@ export class Game extends Container {
    * something real.
    */
   private dropStaleSelection(view: MatchView): void {
+    // A monster's panel lasts as long as the monster does. Holding it open on
+    // a corpse would leave the tabs unavailable until the player noticed, and
+    // there is nothing left to read anyway.
+    if (this.selection?.kind === 'monster') {
+      const id = this.selection.monsterId;
+      const shown = this.shownLane();
+      if (!shown?.monsters.some((m) => m.id === id)) this.selection = null;
+    }
     if (view.phase === 'build') return;
     if (this.selection?.kind === 'unitDef') this.selection = null;
     this.pendingUnitDefId = null;
@@ -649,13 +672,33 @@ export class Game extends Container {
    * Otherwise EMPTY GROUND, which means cancel.
    */
   private tapLane(tileX: number, tileY: number): void {
-    // Taps on a lane you are watching do nothing. You are a spectator there.
-    if (this.watchingTeamId !== null) return;
+    const watching = this.watchingTeamId !== null;
+    const shown = this.shownLane();
+    if (!shown) return;
+
+    const slack = TOUCH_SLACK_PX / this.layout.tileSize;
+
+    // A MONSTER first, and in any lane including one you are only watching:
+    // reading what is walking at somebody costs nobody anything, and it is the
+    // only way to find out what a Revenant or a Bloater actually does. Ahead
+    // of the unit reading because a monster standing on your line is the body
+    // you can no longer see, and the one you are more likely to be asking
+    // about.
+    const monster = bodyNear(shown.monsters, tileX, tileY, slack);
+    if (monster) {
+      this.pendingUnitDefId = this.selection?.kind === 'unitDef' ? this.selection.unitDefId : null;
+      this.selection = { kind: 'monster', monsterId: monster.id };
+      return;
+    }
+
+    // Everything else is about YOUR lane. A tap on a lane you are watching is
+    // a spectator's tap and does nothing more.
+    if (watching) return;
 
     const lane = this.view?.lane;
     if (!lane) return;
 
-    const body = bodyNear(lane.units, tileX, tileY, TOUCH_SLACK_PX / this.layout.tileSize);
+    const body = bodyNear(lane.units, tileX, tileY, slack);
     if (body) {
       this.pendingUnitDefId = this.selection?.kind === 'unitDef' ? this.selection.unitDefId : null;
       this.selection = { kind: 'placedUnit', unitId: body.id };

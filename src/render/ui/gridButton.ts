@@ -10,7 +10,7 @@ import type { Text } from 'pixi.js';
 import { UI } from '../palette.ts';
 import { drawEntity } from '../shapes.ts';
 import type { EntityStyle } from '../shapes.ts';
-import { label } from './text.ts';
+import { fit, label } from './text.ts';
 
 /**
  * How long a press has to be held to count as a hold rather than a tap.
@@ -199,10 +199,17 @@ export class GridButton extends Container {
     /** Ring colour, for a selection that means something other than "chosen". */
     selectedColour?: number;
   }): void {
-    if (this.title.text !== opts.title) this.title.text = opts.title;
-    if (this.detail.text !== opts.detail) this.detail.text = opts.detail;
+    // Every line is cut to the button it is in. A button knows its own width
+    // and the strings it is handed do not - "Revenant · Raider's Haste" fits a
+    // landscape column and runs off a portrait one - so the cut belongs here
+    // rather than at each of the dozen call sites that build a label.
+    const room = this.w - 16;
+    const title = fit(opts.title, room, this.title.style.fontSize as number);
+    const detail = fit(opts.detail, room, this.detail.style.fontSize as number);
+    if (this.title.text !== title) this.title.text = title;
+    if (this.detail.text !== detail) this.detail.text = detail;
 
-    const note = opts.note ?? '';
+    const note = fit(opts.note ?? '', room, this.note.style.fontSize as number);
     if (this.note.text !== note) this.note.text = note;
     this.note.visible = note.length > 0;
     if (note.length > 0) this.note.style.fill = opts.noteColour ?? UI.textMuted;

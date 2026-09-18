@@ -44,7 +44,11 @@ describe('sends (§11.5)', () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(state.lanes.b!.incomingSends).toHaveLength(5);
+    // Exactly what the definition lists, which is one body per send today
+    // (sends.json) and is read from the data rather than written down here.
+    const pack = data.sends.sends.find((s) => s.id === 'grub_pack')!.monsters;
+    expect(state.lanes.b!.incomingSends).toHaveLength(pack.length);
+    expect(state.lanes.b!.incomingSends.map((s) => s.defId)).toEqual(pack);
     expect(state.lanes.b!.incomingSends.every((s) => s.fromTeamId === 'a')).toBe(true);
     // §11.5: sending grants the sender permanent passive income.
     expect(state.lanes.a!.economy.passiveIncome).toBeGreaterThan(incomeBefore);

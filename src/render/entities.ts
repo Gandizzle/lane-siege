@@ -122,7 +122,7 @@ export class EntityLayer extends Container {
     this.healthGraphics.clear();
 
     this.drawUnits(lane, alpha, marks);
-    this.drawMonsters(lane, alpha);
+    this.drawMonsters(lane, alpha, marks);
   }
 
   /**
@@ -190,7 +190,7 @@ export class EntityLayer extends Container {
     }
   }
 
-  private drawMonsters(lane: LaneView, alpha: number): void {
+  private drawMonsters(lane: LaneView, alpha: number, marks: EntityMarks): void {
     for (const monster of lane.monsters) {
       const at = this.interpolate(monster, alpha);
       const centre = this.tileToPixel(at.x, at.y);
@@ -198,6 +198,15 @@ export class EntityLayer extends Container {
       // used to be drawn at twice its collision radius, so its silhouette
       // clipped straight through the escort around it.
       const radius = monster.radius * this.layout.tileSize;
+
+      // A monster can be selected too - to read what it is and what it does
+      // (buildBar.ts) - and wears the same ring a selected unit does, because
+      // it means the same thing: this is the body the panel is about.
+      if (monster.id === marks.selectedId) {
+        this.ringGraphics
+          .circle(centre.x, centre.y, radius * SELECTION_RING)
+          .stroke({ width: 2, color: UI.selected });
+      }
 
       // Outline = monster (§14.2).
       const shape = this.defs.monsters.get(monster.defId)?.shape ?? 'orb';

@@ -22,7 +22,7 @@ import type { MatchView, OpponentView } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
-import { centreOn, label } from './text.ts';
+import { centreOn, fit, label } from './text.ts';
 
 /** §2: four lanes. */
 const SLOTS = 4;
@@ -169,22 +169,6 @@ export function detailTop(captionY: number, height: number): number {
 function shortName(teamId: string): string {
   const match = /(\d+)$/.exec(teamId);
   return match ? `Lane ${match[1]}` : teamId;
-}
-
-/**
- * A name cut to fit the tab it is drawn in.
- *
- * Estimated from the font size rather than measured, because measuring means
- * setting the text and reading `width` back, and this runs every frame for
- * four tabs. Names are capped at `MAX_NAME_LENGTH` (identity.ts) so the cut is
- * rare; the estimate only has to be close enough to keep a long one inside its
- * own tab rather than across the next one.
- */
-function fit(name: string, width: number, fontSize: number): string {
-  const perCharacter = fontSize * 0.62;
-  const room = Math.max(3, Math.floor(width / perCharacter));
-  const characters = [...name];
-  return characters.length <= room ? name : `${characters.slice(0, room - 1).join('')}…`;
 }
 
 function ordinal(placement: number): string {

@@ -499,6 +499,23 @@ Decisions that override the document rather than filling a gap in it:
   ready button already works for the build phase. It still cannot be used to
   stall other players, since it only ever moves the clock forward.
 
+- **§11.5 — a send delivers one monster, not a pack.** §11.5 describes a send
+  as monsters, plural, added to an opponent's next wave, and the catalogue
+  priced packs: eighteen gems for six Swarmlings, ninety for two Bloaters. That
+  makes every send a decision about a pack rather than about a monster, makes
+  the cheapest button the one that drops the most bodies, and spends the send
+  button's third line on a count. Each send now delivers exactly one, with its
+  gem cost and its granted income divided by the old pack size so that the gems
+  and the gold per monster are exactly what they were. Pressure is something a
+  player builds up rather than drops; the freed line on the button says what the
+  monster will DO when it arrives, which is the thing worth weighing.
+
+- **§14.1 — a monster can be selected and read.** §14.1's panel is about a unit
+  you own. Half of what the ability system added is on the other side of the
+  board — a Revenant that abilities slide off, a Bloater that bursts — and none
+  of it was readable anywhere. Tapping a monster now opens the same panel with
+  no buttons on it, in your own lane or in one you are watching.
+
 - **§7, §18 — every unit has an ability, and the rosters are named for what
   they do.** §7 gives a builder six units and differentiates them by damage
   type, armour type and price; §18 lists ability mechanics as a later concern.

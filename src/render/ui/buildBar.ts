@@ -46,7 +46,7 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
-import type { AuraType, DamageType, GameData, UnitDef } from '../../data/schema.ts';
+import type { AuraType, DamageType, GameData, MonsterDef, UnitDef } from '../../data/schema.ts';
 import { sellValue, ticksToSeconds } from '../../sim/index.ts';
 import type {
   EconomyView,
@@ -69,24 +69,44 @@ import {
   STAT_ROW_HEIGHT,
   STAT_VALUE_INSET,
   abilityLines,
+  briefAbilityLines,
+  briefLines,
+  monsterAbilityLines,
+  monsterStatText,
+  panelRegions,
   statText,
+  typeLine,
 } from './unitStats.ts';
 
 export type Selection =
-  { kind: 'unitDef'; unitDefId: string } | { kind: 'placedUnit'; unitId: number } | null;
+  | { kind: 'unitDef'; unitDefId: string }
+  | { kind: 'placedUnit'; unitId: number }
+  /**
+   * A monster in the lane, which is read-only: there is nothing to buy and
+   * nothing to sell, and the panel is there to answer "what is that, and what
+   * does it do to me". Selectable in a lane you are only WATCHING too, for the
+   * same reason - reading an opponent's wave costs nobody anything.
+   */
+  | { kind: 'monster'; monsterId: number }
+  | null;
 
-/** What the bar is showing: one of the tabs, or the selected-unit view. */
+/** What the bar is showing: one of the tabs, or the selected-body view. */
 export type View = Tab | 'unit';
 
 /**
  * Which view is up.
  *
- * A selected unit outranks the tabs and belongs to none of them, so while one
+ * A selected body outranks the tabs and belongs to none of them, so while one
  * is selected no tab is lit and no tab's panel is drawn. Tapping a tab clears
  * the selection (`setTab`), which is what brings that tab back.
  */
-export function activeView(tab: Tab, unitSelected: boolean): View {
-  return unitSelected ? 'unit' : tab;
+export function activeView(tab: Tab, bodySelected: boolean): View {
+  return bodySelected ? 'unit' : tab;
+}
+
+/** Is this selection a body on the board - a unit of yours, or a monster? */
+export function selectsBody(selection: Selection): boolean {
+  return selection?.kind === 'placedUnit' || selection?.kind === 'monster';
 }
 
 export interface BuildBarHandlers {
@@ -144,8 +164,15 @@ const AURAS: { id: AuraType; name: string }[] = [
 
 const MIN_TOUCH = 44;
 
+/**
+ * The narrowest a send button may be before the tab drops a column.
+ *
+ * Measured against its longest line: "Revenant · Raider's Haste" at nine
+ * pixels is about 150, and the button pads eight either side.
+ */
+const MIN_SEND_WIDTH = 170;
+
 /** Side margin of the selected-unit panel. */
-const PANEL_INSET = 18;
 
 /** §7.1: every builder has exactly six units. */
 const UNITS_PER_BUILDER = 6;
@@ -253,6 +280,14 @@ export class BuildBar extends Container {
   private readonly armed = new Map<string, number>();
 
   private readonly upgradePanel = new Container();
+  /** Where each part of the selected-body panel goes (unitStats.ts). */
+  private regions = panelRegions({ x: 0, y: 0, width: 0, height: 0 }, 0, 0);
+  /** The panel's own box, kept so the regions can be recomputed per body kind. */
+  private panelBox = { bar: { x: 0, y: 0, width: 0, height: 0 }, top: 0, height: 0 };
+  /** Whether the regions currently reserve a button row. */
+  private panelHasButtons = true;
+  /** Clips the ability text to its box, so it can never reach the buttons. */
+  private readonly textMask = new Graphics();
   private readonly upgradeTitle: Text;
   private readonly upgradeSubtitle: Text;
   /** One `name  value` pair per cell of the stat block, in reading order. */
@@ -260,7 +295,6 @@ export class BuildBar extends Container {
   private readonly traitText: Text;
   private readonly upgradeButton: GridButton;
   private readonly sellButton: GridButton;
-  private readonly backButton: GridButton;
   private selectedUnitId: number | null = null;
 
   constructor(
@@ -363,14 +397,14 @@ export class BuildBar extends Container {
     this.sellButton = new GridButton(() => {
       if (this.selectedUnitId !== null) this.handlers.onSell(this.selectedUnitId);
     });
-    this.backButton = new GridButton(() => this.handlers.onClearSelection());
+    this.traitText.mask = this.textMask;
     this.upgradePanel.addChild(
       this.upgradeTitle,
       this.upgradeSubtitle,
+      this.textMask,
       this.traitText,
       this.upgradeButton,
       this.sellButton,
-      this.backButton,
     );
 
     this.everyButton = [
@@ -384,7 +418,6 @@ export class BuildBar extends Container {
       ...this.sendButtons.map((s) => s.button),
       this.upgradeButton,
       this.sellButton,
-      this.backButton,
     ];
 
     this.addChild(
@@ -561,7 +594,13 @@ export class BuildBar extends Container {
     const chipRows = Math.ceil(this.targetButtons.length / chipCols);
     const chipH = 38 * chipRows + 6 * (chipRows - 1);
     grid(this.targetButtons, chipCols, chipRows, 6, left, top, inner, chipH);
-    const sendCols = wide ? 3 : 2;
+    // Wide enough for what a send button has to say, rather than a fixed
+    // count. The note line is "Revenant · Raider's Haste" - the monster and
+    // what it does when it gets there (sends.ts) - and three across a portrait
+    // phone cut both of them in half. Columns are chosen so each button clears
+    // `MIN_SEND_WIDTH`, which is two across a phone, one down a landscape
+    // column, and three on something genuinely wide.
+    const sendCols = Math.max(1, Math.min(3, Math.floor(inner / MIN_SEND_WIDTH)));
     grid(
       this.sendButtons.map((s) => s.button),
       sendCols,
@@ -575,46 +614,76 @@ export class BuildBar extends Container {
 
     this.damagePanel.layout(bar, top, height);
 
-    // Upgrade panel replaces the Build grid when a placed unit is selected.
-    // Top to bottom: what it is, what it does, what is special about it, and
-    // the three things you can do about it.
-    const panelLeft = bar.x + PANEL_INSET;
-    const column = (bar.width - PANEL_INSET * 2) / STAT_COLUMNS;
-    this.upgradeTitle.position.set(panelLeft, top + 2);
-    this.upgradeSubtitle.position.set(panelLeft, top + 21);
+    // The selected-body panel replaces the Build grid. Its boxes come from
+    // `panelRegions`, which SUBTRACTS the title, the stats and the buttons
+    // from the panel and gives the ability text what is left - so the text can
+    // never be the thing that runs into the buttons, whatever it has to say
+    // and however short the screen is (unitStats.ts).
+    this.panelBox = { bar, top, height };
+    this.placePanel(this.panelHasButtons);
+  }
 
-    const statTop = top + 37;
+  /**
+   * Put the parts of the selected-body panel where its regions say.
+   *
+   * Called on resize and whenever the KIND of body changes, because a monster
+   * has nothing to buy: its panel reserves no button row and the reading space
+   * grows by a touch target. Cheap, and skipped entirely when neither has
+   * changed.
+   */
+  private placePanel(hasButtons: boolean): void {
+    const { bar, top, height } = this.panelBox;
+    this.panelHasButtons = hasButtons;
+    this.regions = panelRegions(bar, top, height, hasButtons);
+    const r = this.regions;
+    const column = r.stats.width / STAT_COLUMNS;
+
+    this.upgradeTitle.position.set(r.title.x, r.title.y);
+    // The type line is placed BESIDE the name, at render time, because where
+    // it starts depends on how wide the name turned out to be.
+
     this.statCells.forEach((cell, i) => {
-      const x = panelLeft + (i % STAT_COLUMNS) * column;
-      const y = statTop + Math.floor(i / STAT_COLUMNS) * STAT_ROW_HEIGHT;
+      const row = Math.floor(i / STAT_COLUMNS);
+      const x = r.stats.x + (i % STAT_COLUMNS) * column;
+      const y = r.stats.y + row * STAT_ROW_HEIGHT;
       cell.name.position.set(x, y + 1);
       cell.value.position.set(x + STAT_VALUE_INSET, y);
+      // A row that did not fit is not drawn. On a short phone the last one -
+      // Dmg/s and Move - gives way to the ability names, and Dmg/s is the two
+      // cells above it multiplied together anyway (unitStats.ts).
+      const fits = row < r.statRows;
+      cell.name.visible = fits;
+      cell.value.visible = fits;
     });
 
-    const rows = Math.ceil(STAT_CELLS.length / STAT_COLUMNS);
-    this.traitText.position.set(panelLeft, statTop + rows * STAT_ROW_HEIGHT + 6);
-    this.traitText.style.wordWrapWidth = bar.width - PANEL_INSET * 2;
+    this.traitText.position.set(r.text.x, r.text.y);
+    this.traitText.style.wordWrapWidth = r.text.width;
+    // Belt as well as braces. The fitting in `renderAbilityText` shrinks the
+    // wording until it fits the box; the mask makes the box a hard edge, so a
+    // string nobody anticipated is cut off rather than drawn over a button.
+    this.textMask
+      .clear()
+      .rect(r.text.x, r.text.y, r.text.width, r.text.height)
+      .fill({ color: 0xffffff });
 
-    // Buttons pinned to the bottom of the bar, where the thumb already is.
-    // Upgrade and Sell together on the left because they are the two things
-    // being decided between; Back apart on the right because it is neither.
-    const buttonTop = top + height - MIN_TOUCH - 2;
-    const backWidth = 88;
+    // Two buttons across the full width, now that Back is gone: tapping empty
+    // space already puts the body down, which is what Back did and one fewer
+    // thing to explain.
     const gap = 8;
-    const actionWidth = Math.min(140, (bar.width - PANEL_INSET * 2 - backWidth - gap * 2) / 2);
-    this.upgradeButton.layout(panelLeft, buttonTop, actionWidth, MIN_TOUCH);
-    this.sellButton.layout(panelLeft + actionWidth + gap, buttonTop, actionWidth, MIN_TOUCH);
-    this.backButton.layout(
-      bar.x + bar.width - backWidth - PANEL_INSET,
-      buttonTop,
-      backWidth,
-      MIN_TOUCH,
-    );
+    const actionWidth = (r.buttons.width - gap) / 2;
+    this.upgradeButton.layout(r.buttons.x, r.buttons.y, actionWidth, MIN_TOUCH);
+    this.sellButton.layout(r.buttons.x + actionWidth + gap, r.buttons.y, actionWidth, MIN_TOUCH);
   }
 
   render(
     view: MatchView,
     lane: LaneView,
+    /**
+     * The lane actually on screen, which is `lane` unless the player is
+     * watching somebody else's (§12). Only the monster panel reads it: every
+     * other thing in the bar is about your own wallet and your own board.
+     */
+    shown: LaneView,
     selection: Selection,
     summary: WaveSummary | null,
     deltaMs = 0,
@@ -643,8 +712,7 @@ export class BuildBar extends Container {
     // goes there. It used to live inside Build, so a unit tapped from any other
     // tab opened nothing and the tap that went looking for it threw the
     // selection away.
-    const upgrading = selection?.kind === 'placedUnit';
-    const showing = activeView(this.active, upgrading);
+    const showing = activeView(this.active, selectsBody(selection));
     for (const button of this.tabButtons) {
       button.redraw(showing === button.id, button.id !== 'build' || (canBuild && alive));
     }
@@ -667,6 +735,13 @@ export class BuildBar extends Container {
         view.phase,
         selection?.kind === 'placedUnit' ? selection.unitId : null,
       );
+    }
+
+    // Before the wallet check, deliberately: a monster panel is read-only and
+    // is exactly as useful in a lane you are watching as in your own.
+    if (showing === 'unit' && selection?.kind === 'monster') {
+      this.selectedUnitId = null;
+      this.renderMonster(shown, selection.monsterId);
     }
 
     const economy = lane.economy;
@@ -767,19 +842,23 @@ export class BuildBar extends Container {
       const icon = sendIcon(this.data, sendId);
       const armed = this.armed.has(sendId);
 
-      // The monster's own silhouette, and its own name beside the count: a
-      // send is a pack of that monster (§11.5), and the shape here is the
-      // shape that will be walking at somebody in thirty seconds (sends.ts).
+      // The monster's own silhouette, its own name, and what it will do when it
+      // arrives: a send delivers one of that monster (§11.5), and the shape
+      // here is the shape that will be walking at somebody in thirty seconds
+      // (sends.ts).
       button.setSwatch(icon ? icon.style : null);
       button.update({
         title: def.name,
         // §11.5: the income is the whole reason an early send is an investment
         // rather than an attack, so it is priced right next to the cost.
-        detail: `${cost} gem → +${income}g/wave`,
+        // Sight belongs beside the price, not beside the monster: it is part
+        // of what the gems buy (§12), where the monster's name and what it
+        // does are what arrives in somebody's lane.
+        detail: `${cost} gem → +${income}g/wave${def.grantsVision ? ' · sight' : ''}`,
         note: armed
           ? `auto · every ${(BuildBar.ARMED_COOLDOWN_MS / 1000).toFixed(1)}s`
           : icon
-            ? `${icon.count}× ${icon.monsterName}${def.grantsVision ? ' · sight' : ''}`
+            ? [icon.monsterName, icon.abilityName].filter((part) => part !== null).join(' · ')
             : `${def.monsters.length}×`,
         noteColour: armed ? UI.accent : UI.textMuted,
         enabled: canAct && aimed && gems >= cost,
@@ -943,13 +1022,11 @@ export class BuildBar extends Container {
       ? this.data.units.units.find((u) => u.id === current.upgradesTo)
       : undefined;
 
-    this.backButton.setSwatch(null);
-    this.backButton.update({ title: 'Back', detail: '', enabled: true });
+    if (!this.panelHasButtons) this.placePanel(true);
 
     if (!current) {
       // Sold, or killed and not yet respawned. Nothing left to describe.
-      this.upgradeTitle.text = 'Unit lost';
-      this.upgradeSubtitle.text = '';
+      this.setHeader('Unit lost', '');
       this.traitText.text = '';
       this.showStats(null, null);
       this.upgradeButton.visible = false;
@@ -957,21 +1034,121 @@ export class BuildBar extends Container {
       return;
     }
 
-    this.upgradeTitle.text = next ? `${current.name} → ${next.name}` : current.name;
-    this.upgradeSubtitle.text = next
-      ? `Tier ${current.tier} → ${next.tier} · ${current.damageType} · ${current.armour}`
-      : `Tier ${current.tier} · max · ${current.damageType} · ${current.armour}`;
+    // The name, and what it deals and is made of, on ONE line. The tier it is
+    // about to become used to be here twice - "Vigil → Vigil II" over "Tier 1
+    // → 2" - which spent two of the panel's lines telling a player that the
+    // next Vigil is called Vigil II. The Upgrade button's pips say the tier
+    // and the stat block says what the tier buys.
+    this.setHeader(current.name, typeLine(current.damageType, current.armour));
     this.showStats(current, next ?? null);
     // What it DOES, which is most of why one unit is not another (§7, §18).
     // `traits` are the older, purely descriptive lines and are usually absent;
     // the ability lines are never absent, because every unit has an ability.
-    this.traitText.text = [
-      ...(current.traits ?? []),
-      ...abilityLines(this.data, current, next ?? null),
-    ].join('\n');
+    const traits = current.traits ?? [];
+    this.renderAbilityText(
+      [...traits, ...abilityLines(this.data, current, next ?? null)],
+      [...traits, ...briefAbilityLines(this.data, current, next ?? null)],
+    );
 
+    this.upgradeButton.visible = true;
+    this.sellButton.visible = true;
     this.renderUpgradeButton(economy, next, canAct);
     this.renderSellButton(lane, index, canAct);
+  }
+
+  /**
+   * The panel for a MONSTER: what it is, what it is made of, and what it does.
+   *
+   * There is nothing to buy here, so the two buttons are hidden and the text
+   * gets their space - `panelRegions` is told there are no buttons and the
+   * subtraction comes out differently, which is the whole reason the boxes are
+   * computed rather than fixed.
+   *
+   * Abilities come from the definition, so a monster with none says so rather
+   * than showing an empty block: "nothing special" is information, and a
+   * player who has just tapped a Grub to find out has been answered.
+   */
+  private renderMonster(lane: LaneView, monsterId: number): void {
+    const body = lane.monsters.find((m) => m.id === monsterId);
+    const def = body
+      ? [...this.data.monsters.monsters, ...this.data.monsters.bosses].find(
+          (m) => m.id === body.defId,
+        )
+      : undefined;
+
+    this.upgradeButton.visible = false;
+    this.sellButton.visible = false;
+    // Nothing to buy, so the button row is not reserved and the reading space
+    // is a touch target taller (unitStats.ts, `panelRegions`).
+    if (this.panelHasButtons) this.placePanel(false);
+
+    if (!def) {
+      // Killed while its panel was open, which happens constantly mid-wave.
+      this.setHeader('Gone', '');
+      this.traitText.text = '';
+      this.showStats(null, null);
+      return;
+    }
+
+    this.setHeader(def.name, typeLine(def.damageType, def.armour));
+    this.showMonsterStats(def);
+    const lines = monsterAbilityLines(this.data, def);
+    this.renderAbilityText(lines, briefLines(lines));
+  }
+
+  /** Name on the left, what it deals and is made of immediately after it. */
+  private setHeader(name: string, type: string): void {
+    this.upgradeTitle.text = name;
+    this.upgradeSubtitle.text = type;
+    // Beside the name rather than under it, so the panel spends one line where
+    // it used to spend two. `width` is only meaningful once the text has been
+    // measured, which is why this is here and not in `setLayout`.
+    this.upgradeSubtitle.position.set(
+      this.regions.title.x + this.upgradeTitle.width + 8,
+      this.regions.title.y + 5,
+    );
+  }
+
+  /**
+   * Put the ability text in its box, shrinking it until it fits.
+   *
+   * Four attempts, fullest first: the whole wording at ten pixels, at nine, at
+   * eight, then names only. A short panel - a 360x640 phone leaves about thirty
+   * pixels here - gets the names, which is still the useful half; a tall one
+   * gets the sentences. Whatever is chosen, the mask set in `setLayout` is the
+   * hard edge, so even an unfitted string stops at the box.
+   */
+  private renderAbilityText(full: string[], brief: string[]): void {
+    const box = this.regions.text.height;
+    const attempts: { lines: string[]; size: number }[] = [
+      { lines: full, size: 10 },
+      { lines: full, size: 9 },
+      { lines: full, size: 8 },
+      { lines: brief, size: 10 },
+      { lines: brief, size: 9 },
+    ];
+
+    for (const [index, attempt] of attempts.entries()) {
+      this.traitText.style.fontSize = attempt.size;
+      this.traitText.text = attempt.lines.join('\n');
+      // The last attempt is taken whether it fits or not: something legible
+      // and clipped beats nothing at all.
+      if (this.traitText.height <= box || index === attempts.length - 1) return;
+    }
+  }
+
+  /** The same six cells, read off a monster definition. */
+  private showMonsterStats(def: MonsterDef): void {
+    this.statCells.forEach((cell, i) => {
+      const meta = STAT_CELLS[i];
+      if (!meta) {
+        cell.name.text = '';
+        cell.value.text = '';
+        return;
+      }
+      cell.name.text = meta.name;
+      cell.value.text = monsterStatText(meta.key, def);
+    });
   }
 
   /** Fills the stat block. `next` null means there is no tier to compare to. */

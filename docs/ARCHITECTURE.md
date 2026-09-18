@@ -1015,15 +1015,38 @@ one too many.
 
 §11.5's offence, made legible and then made comfortable.
 
-**Every send button carries the silhouette of the monster it delivers**, with
-that monster's own name and count beside it — "Plated Push / 3× Husk" over a
-hexagon. A send _is_ a pack of monsters, so the honest icon is the monster, and
-it is also the useful one: the same shape, armour family and damage-type fill
-that §14.2 draws in the lane, in the wave preview and on a unit button. Learn
-"hexagon means plate, and that one is a Husk" once and read it everywhere; a
-send-only shape vocabulary would be five more shapes that appear nowhere else.
+**One send, one monster.** A send used to buy a pack — eighteen gems put six
+Swarmlings in somebody's lane — which made every send a decision about a pack
+rather than about a monster, and made the cheapest button the one that dropped
+the most bodies. Each send now delivers exactly one, with its cost and its
+income divided by the old pack size so the gems and the gold per monster are
+unchanged. Pressure is something a player builds up rather than drops, and the
+button gets its third line back.
+
+**Every send button carries the silhouette of the monster it delivers**, that
+monster's own name, and **what it will do when it gets there** — "Plated Push /
+15 gem → +4g/wave / Husk · Siegework" over a hexagon. The icon is the monster
+because a send _is_ that monster: the same shape, armour family and damage-type
+fill that §14.2 draws in the lane, in the wave preview and on a unit button.
+Learn "hexagon means plate, and that one is a Husk" once and read it everywhere;
+a send-only shape vocabulary would be five more shapes that appear nowhere else.
 All five sends draw a different picture, and a test in
 `src/render/ui/sends.test.ts` keeps it that way.
+
+The ability named is **the send's own where it has one, the monster's
+otherwise**. `plated_push` grants Siegework to a husk that has nothing of its
+own and that IS the purchase; `bloat_drop` grants Volatile Cargo to a Bloater
+that already ruptures. Sight moved from that line to the price line, where it
+belongs — it is part of what the gems buy (§12), not part of what arrives. The
+full wording is one tap away: a monster in the lane can be selected and read.
+
+**The tab drops a column rather than cutting the words.** Send buttons are laid
+out at whatever column count keeps each one at least 170 pixels wide — two
+across a portrait phone, one down a landscape column, three on something
+genuinely wide — because "Revenant · Raider's Haste" is what the line has to
+hold. And `GridButton` now cuts each of its three lines to its own width with
+an ellipsis, which it can do and the dozen call sites that build labels cannot:
+a button knows how wide it is and a string does not.
 
 **A Random chip** sits beside the three opponent chips. §11.5's default is to
 gang up on the leader; Random is the other shape of pressure — spread across
@@ -1087,10 +1110,53 @@ pixels, which is short on purpose: the REACH has to stay under one tile, or a
 tap on the empty tile beside a line would select the line instead of building
 there, and building beside a line is most of what the build phase is.
 
-### The selected unit: what it says, and selling it back
+### The selected body: what it says, and selling it back
 
-Tapping a unit on the board replaces the Build grid with a panel about that
-unit: what it is, six numbers, a line of prose, and three buttons.
+Tapping a body on the board replaces the Build grid with a panel about it: what
+it is, six numbers, what it does, and — for a unit of yours — two buttons.
+
+**A monster is a body too.** Tapping one opens the same panel with no buttons
+on it: there is nothing to buy and nothing to sell, and the question a tap on a
+Revenant asks is "what is that and what does it do to me". It works in a lane
+you are only WATCHING as well, because reading somebody else's wave costs
+nobody anything, which is why `BuildBar.render` takes the lane on screen
+alongside your own. A monster with no ability says "nothing special" rather
+than showing an empty block — a blank panel reads as one that failed to load —
+and a selected monster wears the same ring a selected unit does. Its panel
+closes itself when it dies, since holding a panel open on a corpse would leave
+the tabs unreachable until the player noticed.
+
+**The header is one line.** It used to be two: "Vigil → Vigil II" over "Tier 1 →
+2 · arcane · ward", which spent a quarter of the panel telling a player that the
+next Vigil is called Vigil II. It is now `Vigil` with `arcane · ward` beside it —
+placed at render time, because where it starts depends on how wide the name
+measured. The tier lives on the Upgrade button's pips and what the tier buys is
+in the stat block. The "Next tier · Kindle, improved" line went the same way; a
+tier that unlocks a NEW ability still gets a line, because that is something to
+decide about.
+
+**Back is gone.** Tapping empty ground already puts the body down, which is
+what Back did, so the two remaining buttons take the full width.
+
+**The boxes are a subtraction, not a guess** (`panelRegions` in
+`unitStats.ts`). The buttons are pinned to the bottom of the panel and the
+ability text above them grows with what it has to say, so on a short screen the
+two used to meet — and the text lost, because the buttons are drawn over it.
+The panel is now allocated in priority order: the buttons take a touch target
+off the bottom first (being able to act on the thing outranks reading about
+it), the title takes its line off the top, the ability text claims a floor of
+two lines, and the **stat grid takes whatever is left, in whole rows**. On a
+360 × 640 phone that means one row of stats and both ability names rather than
+three rows of stats and nothing; Dmg/s is the two cells above it multiplied
+together, and what a unit DOES is not readable anywhere else. A test asserts
+the subtraction at seven viewports both ways round, and a mask over the text's
+box is the hard edge behind the fitting — a string nobody anticipated is cut
+off rather than drawn over a button.
+
+**The text shrinks before it truncates.** `renderAbilityText` tries the full
+wording at ten pixels, then nine, then eight, then the ability names alone. A
+tall panel gets the sentences; a short one gets the names, which is still the
+half that matters.
 
 The six numbers are HP, Damage, Dmg/s, Range, Atk spd and Move, two across and
 three down. Each reads `now` or `now → after the upgrade`, and **the arrow
@@ -1107,13 +1173,13 @@ multiply on top of them and are shown on their own tabs. Folding them in would
 make the tier comparison — which is what the panel is for — move for reasons
 that have nothing to do with the tier.
 
-The prose line is `UnitDef.traits`, and it is **descriptive only**. Nothing in
-the simulation reads it. A line there does not give a unit an ability; it
-describes one the rules already give it, so the mechanic is built first and the
-line written second, or the panel starts lying. It is empty for every unit
-today; the place exists and the schema carries it.
+Under the numbers is **what the body does**: its abilities, by name and
+description, from `abilities.json`. Unlike the older `UnitDef.traits` lines —
+still supported, still descriptive only, and empty for every unit today — these
+cannot lie by accident, because `validate.ts` refuses an ability built out of
+effects the simulation does not honour.
 
-**Selling** is the third button, and the rule is in
+**Selling** is the second button, and the rule is in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — full price inside the build phase that
 bought it, half afterwards, per purchase rather than per unit. What matters
 architecturally is where the price is computed. Each unit carries two numbers,
@@ -1281,6 +1347,15 @@ Implemented and tested (388 tests):
   the INTEGRATION happens - a real roster sets a wave alight, slows one down,
   drags one onto its tank, spends and refills energy, fails entirely against
   spell immunity, and a paid send arrives carrying the send's own ability
+- The selected-body panel's boxes, at seven viewports both ways round: the text
+  never reaches the buttons, the four boxes stack in order without overlap, a
+  panel too short for anything reports no room rather than a box that grows
+  upwards, the ability text keeps a two-line floor by giving up a stat row, and
+  a monster's panel spends the button row on reading instead (§14.1)
+- What the panel says: the name and the types on one line with no tier and no
+  "II", a line for an ability the next tier UNLOCKS and none for one it merely
+  improves, names-only when there is no room for sentences, and an answer
+  rather than a blank for a monster that does nothing special (§14.1, §7)
 - The roster design rules, asserted against the data rather than intended:
   every unit has an ability, every tier carries its signature forward at that
   tier's rank, every ladder ends in a second ability, a three-tier unit's

@@ -71,3 +71,20 @@ export function centreOn(text: Text, cx: number, y: number): Text {
   text.y = y;
   return text;
 }
+
+/**
+ * A string cut to fit a box, with an ellipsis where it was cut.
+ *
+ * Estimated from the font size rather than measured. Measuring means setting
+ * the text and reading `width` back, and this runs every frame for every
+ * button on screen; the estimate only has to be close enough to keep a long
+ * line inside its own button rather than across the next one. The factor is
+ * the average advance width of the UI font at these sizes, checked against the
+ * strings that actually appear - names, ability names, prices.
+ */
+export function fit(text: string, width: number, fontSize: number): string {
+  const perCharacter = fontSize * 0.62;
+  const room = Math.max(3, Math.floor(width / perCharacter));
+  const characters = [...text];
+  return characters.length <= room ? text : `${characters.slice(0, room - 1).join('')}…`;
+}
