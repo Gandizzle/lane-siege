@@ -15,7 +15,9 @@
  * resolved ability so it cannot go stale (abilityText.ts). It covers the
  * screen because the answer is worth the screen for the two seconds it takes
  * to read, and it closes on a tap anywhere - there is nothing to decide on it,
- * so there is nothing to aim at.
+ * so there is nothing to aim at. The scrim is what makes "anywhere" true: it
+ * covers the whole screen, so a tap outside the box lands on the card rather
+ * than on the board behind it.
  */
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
@@ -35,12 +37,25 @@ export class AbilityCard extends Container {
   /** What is showing, so a repeated frame costs nothing. */
   private signature = '';
 
-  constructor(layout: LaneLayout) {
+  /**
+   * `onDismiss` is not optional decoration: it is the whole of how the card
+   * closes.
+   *
+   * The card is re-rendered every frame from whatever its owner says is open
+   * (game.ts), so hiding ITSELF lasts exactly one frame - the next render puts
+   * it straight back, and the tap looks like it did nothing. A dismissal has to
+   * reach the thing that decides what is open, and this is the wire it travels
+   * down.
+   */
+  constructor(
+    layout: LaneLayout,
+    private readonly onDismiss: () => void,
+  ) {
     super();
     this.layout = layout;
     this.visible = false;
     this.eventMode = 'static';
-    this.on('pointertap', () => this.close());
+    this.on('pointertap', () => this.onDismiss());
   }
 
   setLayout(layout: LaneLayout): void {
@@ -52,10 +67,6 @@ export class AbilityCard extends Container {
     this.visible = false;
     this.signature = '';
     this.removeChildren();
-  }
-
-  get open(): boolean {
-    return this.visible;
   }
 
   /**

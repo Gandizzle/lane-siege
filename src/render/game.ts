@@ -164,7 +164,7 @@ export class Game extends Container {
       onBlocked: () => this.toast.showText('No sight of that lane'),
     });
     this.banner = new WatchBanner(this.layout, () => this.watch(null));
-    this.abilityCard = new AbilityCard(this.layout);
+    this.abilityCard = new AbilityCard(this.layout, () => this.closeAbility());
     this.buildBar = new BuildBar(this.layout, data, {
       onSelectUnitDef: (id) => this.selectUnitDef(id),
       onUpgrade: (id) => this.issue({ kind: 'upgradeUnit', teamId: this.teamId, unitId: id }),
