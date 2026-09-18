@@ -403,7 +403,7 @@ describe('a real roster applies its real abilities', () => {
 
     const lane = state.lanes.lane1!;
     // Revenants are Unhallowed: nothing an ability does may reach them.
-    lane.incomingSends.push({ defId: 'revenant', fromTeamId: 'lane1', sendId: 'ward_raid' });
+    lane.incomingSends.push({ defId: 'revenant', fromTeamId: 'lane1', sendId: 'revenant' });
     for (let t = 0; t < 900; t++) {
       step(ctx, state);
       for (const monster of lane.monsters) {
@@ -426,14 +426,14 @@ describe('a real roster applies its real abilities', () => {
     toCombat(ctx, state);
 
     const lane = state.lanes.lane1!;
-    lane.incomingSends.push({ defId: 'husk', fromTeamId: 'lane1', sendId: 'plated_push' });
+    lane.incomingSends.push({ defId: 'husk', fromTeamId: 'lane1', sendId: 'husk' });
 
     let arrived = false;
     let braced = false;
     for (let t = 0; t < 4000 && !braced; t++) {
       step(ctx, state);
       for (const monster of lane.monsters) {
-        if (monster.sendId !== 'plated_push') continue;
+        if (monster.sendId !== 'husk') continue;
         arrived = true;
         // A husk that walked in with a wave has nothing. This one was paid
         // for, so it arrives braced - and the ability is the SEND's, not a

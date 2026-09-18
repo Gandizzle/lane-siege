@@ -40,7 +40,7 @@ describe('what a send button draws', () => {
   it('names the monster, not just the pack', () => {
     // The point of the icon is that a shape gets a word attached to it: a
     // player who reads "5x Grub" under a circle learns the circle.
-    const icon = sendIcon(data, 'grub_pack')!;
+    const icon = sendIcon(data, 'grub')!;
     const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
     expect(icon.monsterName).toBe(grub.name);
     expect(icon.style.shape).toBe(grub.shape);

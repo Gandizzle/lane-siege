@@ -55,7 +55,7 @@ const monsters = lane.monsters.filter((m) => m.alive).length;
 console.log(`load: ${lane.units.length} units and ${monsters} monsters per lane, 4 lanes`);
 
 function report(label: string, teamId: string): void {
-  const view = viewFor(state, teamId);
+  const view = viewFor(ctx, state, teamId);
   const asObjects = JSON.stringify(view).length;
   const asFrame = JSON.stringify(encodeFrame(view, tables)).length;
   const perSecond = (asFrame * TICKS_PER_SECOND) / 1024;
@@ -83,7 +83,7 @@ report('spectator', 'a');
   const ticks = TICKS_PER_SECOND * 2;
   for (let i = 0; i < ticks; i++) {
     step(ctx, state);
-    const view = viewFor(state, 'a');
+    const view = viewFor(ctx, state, 'a');
     const attacks = Object.values(view.watching).reduce(
       (sum, l) => sum + l.attacks.length,
       view.lane?.attacks.length ?? 0,
@@ -103,7 +103,7 @@ report('spectator', 'a');
 state.teams.find((t) => t.id === 'a')!.eliminated = false;
 
 // And prove the frame still says what the view said.
-const original = viewFor(state, 'a');
+const original = viewFor(ctx, state, 'a');
 const round = decodeFrame(encodeFrame(original, tables), tables);
 const drift = Math.max(
   ...round.lane!.monsters.map((m, i) => Math.abs(m.x - original.lane!.monsters[i]!.x)),
@@ -151,7 +151,7 @@ console.log(
   while (arena.phaseTicksLeft > 0) step(arenaCtx, arena);
   for (let i = 0; i < 60; i++) step(arenaCtx, arena);
 
-  const view = viewFor(arena, 'a');
+  const view = viewFor(ctx, arena, 'a');
   const bodies = view.showdown?.armies.reduce((n, army) => n + army.units.length, 0) ?? 0;
   const asObjects = JSON.stringify(view).length;
   const asFrame = JSON.stringify(encodeFrame(view, tables)).length;

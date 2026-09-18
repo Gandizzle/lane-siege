@@ -499,6 +499,28 @@ Decisions that override the document rather than filling a gap in it:
   ready button already works for the build phase. It still cannot be used to
   stall other players, since it only ever moves the clock forward.
 
+- **§14.1 — an ability is a name you can tap, and the description is
+  generated.** The panel has about two lines for what a body does, and a unit
+  at the top of its ladder has two abilities with a sentence each. Fitting them
+  meant shrinking until they fit, and what actually happened is that the
+  descriptions were dropped entirely - a tier-1 Oathwall showed "Hold the Line"
+  and nothing else. The panel now lists NAMES, each a button, and tapping one
+  opens a card. The card's authored line says what the ability is for in one
+  short sentence and carries no numbers at all; every figure on it is read off
+  the resolved ability, so the panel and the data cannot disagree and a balance
+  pass cannot leave a stale description behind. A test caps the authored lines
+  at ninety characters and refuses a figure in one.
+
+- **§14.1 — a stat cell shows what the body is fighting with, not what its
+  definition says.** The panel deliberately showed definition numbers so that
+  the tier comparison would not move for reasons unrelated to the tier. With
+  abilities that is the wrong half of the trade: a player watching a slow land
+  on a wave wants to see the Move cell drop. Tech, the aura and every status
+  are now folded in, the cell is green where something raised it and red where
+  something lowered it, and the SAME multiplier is applied to the tier being
+  compared with - so the arrow still compares two tiers. It costs a sparse,
+  masked row per modified body on the wire (`EntityView.mods`).
+
 - **§11.5 — a send delivers one monster, not a pack.** §11.5 describes a send
   as monsters, plural, added to an opponent's next wave, and the catalogue
   priced packs: eighteen gems for six Swarmlings, ninety for two Bloaters. That
@@ -509,6 +531,12 @@ Decisions that override the document rather than filling a gap in it:
   and the gold per monster are exactly what they were. Pressure is something a
   player builds up rather than drops; the freed line on the button says what the
   monster will DO when it arrives, which is the thing worth weighing.
+
+  The sends were then RENAMED after the monsters they deliver - Swarmling,
+  Grub, Husk, Revenant, Bloater - because a button that said "Swarm Probe" and
+  then "Swarmling" underneath was the same name twice. A send id now matches
+  the monster id it delivers, which is the same word in two separate namespaces
+  and reads correctly in both.
 
 - **§14.1 — a monster can be selected and read.** §14.1's panel is about a unit
   you own. Half of what the ability system added is on the other side of the

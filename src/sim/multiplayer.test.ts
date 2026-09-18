@@ -40,13 +40,13 @@ describe('sends (§11.5)', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'grub_pack',
+      sendId: 'grub',
     });
 
     expect(result.ok).toBe(true);
     // Exactly what the definition lists, which is one body per send today
     // (sends.json) and is read from the data rather than written down here.
-    const pack = data.sends.sends.find((s) => s.id === 'grub_pack')!.monsters;
+    const pack = data.sends.sends.find((s) => s.id === 'grub')!.monsters;
     expect(state.lanes.b!.incomingSends).toHaveLength(pack.length);
     expect(state.lanes.b!.incomingSends.map((s) => s.defId)).toEqual(pack);
     expect(state.lanes.b!.incomingSends.every((s) => s.fromTeamId === 'a')).toBe(true);
@@ -63,7 +63,7 @@ describe('sends (§11.5)', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'grub_pack',
+      sendId: 'grub',
     });
 
     // Into combat, so the sent monsters actually spawn.
@@ -90,7 +90,7 @@ describe('sends (§11.5)', () => {
         kind: 'send',
         teamId: 'a',
         targetTeamId: 'a',
-        sendId: 'grub_pack',
+        sendId: 'grub',
       }).rejection,
     ).toBe('invalid-target');
 
@@ -99,7 +99,7 @@ describe('sends (§11.5)', () => {
         kind: 'send',
         teamId: 'a',
         targetTeamId: 'nobody',
-        sendId: 'grub_pack',
+        sendId: 'grub',
       }).rejection,
     ).toBe('invalid-target');
 
@@ -110,7 +110,7 @@ describe('sends (§11.5)', () => {
         kind: 'send',
         teamId: 'a',
         targetTeamId: 'b',
-        sendId: 'grub_pack',
+        sendId: 'grub',
       }).rejection,
     ).toBe('eliminated');
   });
@@ -125,7 +125,7 @@ describe('sends (§11.5)', () => {
         kind: 'send',
         teamId: 'a',
         targetTeamId: 'b',
-        sendId: 'grub_pack',
+        sendId: 'grub',
       }).rejection,
     ).toBe('target-eliminated');
 
@@ -135,7 +135,7 @@ describe('sends (§11.5)', () => {
         kind: 'send',
         teamId: 'a',
         targetTeamId: 'c',
-        sendId: 'grub_pack',
+        sendId: 'grub',
       }).rejection,
     ).toBe('insufficient-gems');
   });
@@ -155,7 +155,7 @@ describe('sends (§11.5)', () => {
         kind: 'send',
         teamId: 'a',
         targetTeamId: 'b',
-        sendId: 'grub_pack',
+        sendId: 'grub',
       }).ok,
     ).toBe(true);
 
@@ -180,7 +180,7 @@ describe('sends (§11.5)', () => {
         kind: 'send',
         teamId: 'a',
         targetTeamId: 'b',
-        sendId: 'grub_pack',
+        sendId: 'grub',
       }).rejection,
     ).toBe('building-closed');
   });
@@ -193,7 +193,7 @@ describe('sends (§11.5)', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'grub_pack',
+      sendId: 'grub',
     });
     expect(state.teams.find((t) => t.id === 'a')!.vision.b ?? 0).toBe(0);
 
@@ -201,7 +201,7 @@ describe('sends (§11.5)', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarm_probe',
+      sendId: 'swarmling',
     });
     const granted = state.teams.find((t) => t.id === 'a')!.vision.b ?? 0;
     expect(granted).toBeGreaterThan(0);
@@ -223,7 +223,7 @@ describe('fog of war (§12)', () => {
       tileY: 5,
     });
 
-    const view = viewFor(state, 'a');
+    const view = viewFor(ctx, state, 'a');
     const b = view.opponents.find((o) => o.teamId === 'b')!;
 
     expect(b.fortressMaxHp).toBeGreaterThan(0);
@@ -234,8 +234,8 @@ describe('fog of war (§12)', () => {
   });
 
   it('gives you your own lane in full, wallet included', () => {
-    const { state } = fourPlayerMatch();
-    const view = viewFor(state, 'a');
+    const { state, ctx } = fourPlayerMatch();
+    const view = viewFor(ctx, state, 'a');
 
     expect(view.lane).not.toBeNull();
     expect(view.lane!.economy).not.toBeNull();
@@ -256,23 +256,23 @@ describe('fog of war (§12)', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarm_probe',
+      sendId: 'swarmling',
     });
 
-    const view = viewFor(state, 'a');
+    const view = viewFor(ctx, state, 'a');
     expect(view.watching.b).toBeDefined();
     expect(view.watching.b!.units).toHaveLength(1);
     expect(view.watching.b!.economy).toBeNull();
 
     // Nobody else got a look.
-    expect(viewFor(state, 'c').watching.b).toBeUndefined();
+    expect(viewFor(ctx, state, 'c').watching.b).toBeUndefined();
   });
 
   it('lets an eliminated player spectate every lane (§13)', () => {
-    const { state } = fourPlayerMatch();
+    const { state, ctx } = fourPlayerMatch();
     state.teams.find((t) => t.id === 'a')!.eliminated = true;
 
-    const view = viewFor(state, 'a');
+    const view = viewFor(ctx, state, 'a');
     expect(Object.keys(view.watching).sort()).toEqual(['b', 'c', 'd']);
     expect(view.eliminated).toBe(true);
     // Still not their wallets.
@@ -291,14 +291,14 @@ describe('fog of war (§12)', () => {
 
     // The build phase stays private: what you are BUILDING is still yours.
     state.phase = 'build';
-    expect(viewFor(state, 'a', 'combat').watching.b).toBeUndefined();
-    expect(viewFor(state, 'a', 'combat').opponents.find((o) => o.teamId === 'b')!.watching).toBe(
-      false,
-    );
+    expect(viewFor(ctx, state, 'a', 'combat').watching.b).toBeUndefined();
+    expect(
+      viewFor(ctx, state, 'a', 'combat').opponents.find((o) => o.teamId === 'b')!.watching,
+    ).toBe(false);
 
     // Once the wave is running, everyone can watch everyone.
     state.phase = 'combat';
-    const watching = viewFor(state, 'a', 'combat');
+    const watching = viewFor(ctx, state, 'a', 'combat');
     expect(Object.keys(watching.watching).sort()).toEqual(['b', 'c', 'd']);
     expect(watching.watching.b!.units).toHaveLength(1);
     // And still never the balance sheet, whatever the setting.
@@ -306,16 +306,20 @@ describe('fog of war (§12)', () => {
   });
 
   it('never closes a lane when the setting says always', () => {
-    const { state } = fourPlayerMatch();
+    const { state, ctx } = fourPlayerMatch();
     state.phase = 'build';
-    expect(Object.keys(viewFor(state, 'a', 'always').watching).sort()).toEqual(['b', 'c', 'd']);
+    expect(Object.keys(viewFor(ctx, state, 'a', 'always').watching).sort()).toEqual([
+      'b',
+      'c',
+      'd',
+    ]);
   });
 
   it('keeps §12 as written when the setting says granted, which is the default', () => {
-    const { state } = fourPlayerMatch();
+    const { state, ctx } = fourPlayerMatch();
     state.phase = 'combat';
-    expect(viewFor(state, 'a', 'granted').watching.b).toBeUndefined();
-    expect(viewFor(state, 'a').watching.b).toBeUndefined();
+    expect(viewFor(ctx, state, 'a', 'granted').watching.b).toBeUndefined();
+    expect(viewFor(ctx, state, 'a').watching.b).toBeUndefined();
   });
 
   it('serialises without leaking anything the view left out', () => {
@@ -328,7 +332,7 @@ describe('fog of war (§12)', () => {
     state.lanes.b!.economy.gold = 4242;
 
     // What the server would actually put on the wire.
-    const view = viewFor(state, 'a');
+    const view = viewFor(ctx, state, 'a');
     const wire = JSON.stringify(view);
 
     // b's gold is not on it anywhere.

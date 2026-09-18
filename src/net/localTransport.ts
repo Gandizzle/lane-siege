@@ -244,6 +244,6 @@ export class LocalTransport implements Transport {
   }
 
   private refresh(): void {
-    this.current = viewFor(this.state, this.teamId, this.visibility);
+    this.current = viewFor(this.ctx, this.state, this.teamId, this.visibility);
   }
 }

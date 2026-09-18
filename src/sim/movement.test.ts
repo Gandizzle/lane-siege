@@ -818,13 +818,13 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
     // Counted in MONSTERS, not in taps. A send used to deliver a pack and now
     // delivers one body (sends.json), and a fixture that counts taps measures
     // a number in the data file rather than the pressure it meant to apply.
-    const pack = Math.max(1, d.sends.sends.find((x) => x.id === 'grub_pack')!.monsters.length);
+    const pack = Math.max(1, d.sends.sends.find((x) => x.id === 'grub')!.monsters.length);
     for (let i = 0; i < Math.ceil(monsters / pack); i++) {
       applyCommand(ctx, state, {
         kind: 'send',
         teamId: 'l2',
         targetTeamId: 'l1',
-        sendId: 'grub_pack',
+        sendId: 'grub',
       });
     }
     while (state.phase !== 'combat') step(ctx, state);

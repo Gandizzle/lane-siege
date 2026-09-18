@@ -43,6 +43,7 @@ const IGNORED_KEYS = new Set([
   '_tags',
   '_planned',
   '_abilities',
+  '_text',
   '_tuning',
   '_vision',
   '_open',

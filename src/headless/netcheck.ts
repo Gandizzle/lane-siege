@@ -166,7 +166,7 @@ async function main(): Promise<void> {
     kind: 'send',
     teamId: a.teamId,
     targetTeamId: a.teamId,
-    sendId: 'swarm_probe',
+    sendId: 'swarmling',
   });
   await wait(400);
   check(
@@ -180,7 +180,7 @@ async function main(): Promise<void> {
     kind: 'send',
     teamId: a.teamId,
     targetTeamId: b.teamId,
-    sendId: 'swarm_probe',
+    sendId: 'swarmling',
   });
   await wait(500);
   const bought = a.view?.opponents.find((o) => o.teamId === b.teamId);

@@ -156,7 +156,7 @@ describe('when the scoreboard clears (§14.1, added)', () => {
     // Dead units are gone from the entity list a viewer draws, so the rows are
     // a list of their own - and the row for a unit that was overrun is exactly
     // the one worth reading.
-    const view = viewFor(state, 'lane1');
+    const view = viewFor(ctx, state, 'lane1');
     const row = view.lane!.unitDamage.find((r) => r.unitId === unit.id);
     expect(view.lane!.units.some((u) => u.id === unit.id)).toBe(false);
     expect(row?.damage).toBe(earned);
@@ -183,7 +183,7 @@ describe('who may see a scoreboard (§12)', () => {
 
     // `always` is the widest fog setting there is; even that does not hand
     // over what somebody else's line is worth.
-    const view = viewFor(state, 'lane1', 'always');
+    const view = viewFor(ctx, state, 'lane1', 'always');
     expect(view.watching.lane2).toBeDefined();
     expect(view.watching.lane2!.unitDamage).toEqual([]);
     expect(view.lane!.unitDamage).toEqual([]);

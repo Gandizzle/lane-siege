@@ -1,11 +1,11 @@
 {
-  "_comment": "DESIGN.md §11.5. Sends cost gems, add monsters to a target opponent's next wave, and grant the sender permanent passive income in gold. The defender always gets the kill bounty. ONE MONSTER PER SEND: a tap used to buy a whole pack, which made the cheapest send the one that put six bodies in somebody's lane for eighteen gems and made every send a decision about a pack rather than about a monster. One tap, one body - so pressure is something a player builds up rather than drops, and the button has room to say what the thing it sends actually does. Costs and income were divided by the old pack sizes, so the gems and gold per monster are exactly what they were. Placeholders, like every number in data/.",
+  "_comment": "DESIGN.md §11.5. Sends cost gems, add a monster to a target opponent's next wave, and grant the sender permanent passive income in gold. The defender always gets the kill bounty. ONE MONSTER PER SEND, and the send is NAMED AFTER IT: a tap used to buy a whole pack under a product name - 'Swarm Probe' for six swarmlings - which made every send a decision about a pack, and left the button saying its own name and then the monster's underneath. One tap buys one body, the button says which body, and the line under it says what that body does when it arrives. A send id therefore matches the monster id it delivers, which is the same word in two separate namespaces (defs.sends and defs.monsters) and reads correctly in both. Costs and income were divided by the old pack sizes, so the gems and gold per monster are exactly what they were. Placeholders, like every number in data/.",
   "_tuning": "§11.5 asks for a payback period of roughly 5-6 waves, so that an early send is an economic investment and a late one is a pure attack. Income is sized against unit prices rather than against the gem cost, because the two currencies are not interchangeable: grub_pack at 10 gold a wave buys a 40g hammer in four waves, and is noise against late-game prices. That is the intended arc - clearly correct before wave 10, clearly a weapon after wave 14.",
   "_vision": "§12: some send types grant temporary sight of the target's lane. The cheap probe and the expensive raid do; the bread-and-butter sends do not, so vision is a thing you pay for rather than a side effect of attacking.",
   "sends": [
     {
-      "id": "swarm_probe",
-      "name": "Swarm Probe",
+      "id": "swarmling",
+      "name": "Swarmling",
       "gemCost": 3,
       "monsters": ["swarmling"],
       "incomeGranted": 1,
@@ -13,8 +13,8 @@
       "visionDurationSeconds": 20
     },
     {
-      "id": "grub_pack",
-      "name": "Grub Pack",
+      "id": "grub",
+      "name": "Grub",
       "gemCost": 6,
       "monsters": ["grub"],
       "incomeGranted": 2,
@@ -22,8 +22,8 @@
       "visionDurationSeconds": 0
     },
     {
-      "id": "plated_push",
-      "name": "Plated Push",
+      "id": "husk",
+      "name": "Husk",
       "gemCost": 15,
       "monsters": ["husk"],
       "incomeGranted": 4,
@@ -32,8 +32,8 @@
       "abilities": ["siegework"]
     },
     {
-      "id": "ward_raid",
-      "name": "Ward Raid",
+      "id": "revenant",
+      "name": "Revenant",
       "gemCost": 33,
       "monsters": ["revenant"],
       "incomeGranted": 5,
@@ -42,8 +42,8 @@
       "abilities": ["raiders_haste"]
     },
     {
-      "id": "bloat_drop",
-      "name": "Bloat Drop",
+      "id": "bloater",
+      "name": "Bloater",
       "gemCost": 45,
       "monsters": ["bloater"],
       "incomeGranted": 3,

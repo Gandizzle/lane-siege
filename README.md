@@ -18,7 +18,10 @@ is money rather than code.
   a practice match, a quick match, or a private room with a four-letter code.
   Pick one of four builders — Ironvow, Pyre, Thornweald or Gloomtide, six units
   each and every one of them with an ability of its own, from Hold the Line to
-  Wildfire to Drownward. Build, upgrade in place, buy global tech, upgrade the fortress,
+  Wildfire to Drownward. Tap any body, yours or a monster walking at you, to
+  read what it is and what it does; its numbers show what it is fighting with
+  right now, green where something has raised them and red where something has
+  lowered them. Build, upgrade in place, buy global tech, upgrade the fortress,
   pick a weapon type and an aura, and send monsters at whichever opponent is
   doing best. While a wave is running you can watch any lane, and every attack
   animates — a projectile whose shape, size and speed come from the unit that
@@ -37,7 +40,7 @@ is money rather than code.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-533 tests, plus five measurement harnesses that are part of how this is
+558 tests, plus five measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
 sockets), `npm run lobby` (matchmaking, the lobby and reconnection, also over
 real sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`

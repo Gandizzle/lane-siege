@@ -18,7 +18,7 @@
     {
       "id": "shoulder_to_shoulder",
       "name": "Shoulder to Shoulder",
-      "text": "Every nearby Ironvow unit hits harder. Three Pledges in a row are three times braced.",
+      "text": "Allies standing close hit harder, and stack with each other.",
       "role": "support",
       "numbers": {
         "radius": 1.6,
@@ -59,7 +59,7 @@
     {
       "id": "hold_the_line",
       "name": "Hold the Line",
-      "text": "Roars every few seconds and drags the nearest attackers onto itself.",
+      "text": "Drags the nearest attackers onto itself, off whatever they were hitting.",
       "role": "control",
       "numbers": {
         "period": 5.0,
@@ -95,7 +95,7 @@
     {
       "id": "unbroken",
       "name": "Unbroken",
-      "text": "Below half health nothing holds it, blows start glancing off, and it takes less of what lands.",
+      "text": "Badly wounded, nothing holds it and blows start glancing off.",
       "role": "defence",
       "numbers": {
         "reduction": -0.25,
@@ -170,7 +170,7 @@
     {
       "id": "riposte",
       "name": "Riposte",
-      "text": "A blow turned aside is a blow it gets to answer.",
+      "text": "A blow it turns aside is a blow it answers.",
       "role": "defence",
       "numbers": {
         "share": 0.9
@@ -191,7 +191,7 @@
     {
       "id": "verdict",
       "name": "Verdict",
-      "text": "Each shot carries a share of whatever it is aimed at, however big.",
+      "text": "Every shot takes a slice of whatever it is aimed at, however big.",
       "role": "offence",
       "numbers": {
         "share": 0.02
@@ -239,7 +239,7 @@
     {
       "id": "censure",
       "name": "Censure",
-      "text": "The blast leaves everything around it hitting softer.",
+      "text": "The blast leaves everything near it hitting softer.",
       "role": "control",
       "numbers": {
         "radius": 1.4,
@@ -282,7 +282,7 @@
     {
       "id": "interdict",
       "name": "Interdict",
-      "text": "Calls a halt. Everything in the circle stops where it stands.",
+      "text": "Everything in the circle stops where it stands.",
       "role": "control",
       "numbers": {
         "period": 8.0,
@@ -311,7 +311,7 @@
     {
       "id": "warding_light",
       "name": "Warding Light",
-      "text": "Lays a ward on nearby allies that eats the next blow entirely.",
+      "text": "Wards nearby allies against the next blow that lands.",
       "role": "support",
       "numbers": {
         "period": 6.0,
@@ -350,7 +350,7 @@
     {
       "id": "absolution",
       "name": "Absolution",
-      "text": "Nothing holds an absolved ally, and what is left of their wounds closes.",
+      "text": "Nothing holds an absolved ally, and their wounds close.",
       "role": "support",
       "numbers": {
         "period": 10.0,
@@ -384,7 +384,7 @@
     {
       "id": "closing_ranks",
       "name": "Closing Ranks",
-      "text": "The line tightens: everyone beside it hits harder and bleeds slower.",
+      "text": "The line beside it hits harder and takes less, for a few seconds.",
       "role": "support",
       "numbers": {
         "period": 9.0,
@@ -463,7 +463,7 @@
     {
       "id": "molten_hide",
       "name": "Molten Hide",
-      "text": "Hitting it costs something. Its hide gives back a share of every blow.",
+      "text": "Its hide gives back a share of every blow that lands on it.",
       "role": "defence",
       "numbers": {
         "share": 0.15
@@ -708,7 +708,7 @@
     {
       "id": "wildfire",
       "name": "Wildfire",
-      "text": "Carries a fire from one body to the next. Only spreads to what is already burning.",
+      "text": "Carries a fire from one body to the next, but only to what already burns.",
       "role": "offence",
       "numbers": {
         "jumps": 2,
@@ -776,7 +776,7 @@
     {
       "id": "conflagration",
       "name": "Conflagration",
-      "text": "Everything near it catches at once, and what was burning catches worse.",
+      "text": "Everything near it catches at once; what was burning catches worse.",
       "role": "offence",
       "numbers": {
         "period": 8.0,
@@ -998,7 +998,7 @@
     {
       "id": "underweb",
       "name": "Underweb",
-      "text": "Threads the ground under the line: whatever stands on it is bigger, and mending.",
+      "text": "Threads the ground under the line: whoever stands on it is bigger, and mending.",
       "role": "support",
       "numbers": {
         "radius": 2.0,
@@ -1171,7 +1171,7 @@
     {
       "id": "heartpiercer",
       "name": "Heartpiercer",
-      "text": "One shot straight through the armour, worth a slice of whatever it went through.",
+      "text": "One shot straight through the armour, worth a slice of what it hit.",
       "role": "offence",
       "numbers": {
         "period": 7.0,
@@ -1230,7 +1230,7 @@
     {
       "id": "blightbloom",
       "name": "Blightbloom",
-      "text": "Opens every bloom at once. The rot spreads and holds.",
+      "text": "Opens every bloom at once: the rot spreads, holds, and stops them mending.",
       "role": "control",
       "numbers": {
         "period": 9.0,
@@ -1341,7 +1341,7 @@
     {
       "id": "snarekelp",
       "name": "Snarekelp",
-      "text": "Leaves everything it hits waterlogged: slower, and easier for the tide to find.",
+      "text": "Leaves what it hits waterlogged: slower, and easier for the tide to find.",
       "role": "control",
       "numbers": {
         "slow": -0.18,
@@ -1488,7 +1488,7 @@
     {
       "id": "hailburst",
       "name": "Hailburst",
-      "text": "Hail on soaked bodies is worth twice the hail.",
+      "text": "Hail on a soaked body is worth twice the hail.",
       "role": "offence",
       "numbers": {
         "radius": 1.4,
@@ -1519,7 +1519,7 @@
     {
       "id": "undertow",
       "name": "Undertow",
-      "text": "Runs from one soaked body to the next and pulls the strength out of each.",
+      "text": "Runs from one soaked body to the next, taking a share from each.",
       "role": "offence",
       "numbers": {
         "jumps": 2,
@@ -1558,7 +1558,7 @@
     {
       "id": "drownward",
       "name": "Drownward",
-      "text": "Pressure, not injury. It takes a share of whatever is left.",
+      "text": "Pressure, not injury: it takes a share of whatever is left.",
       "role": "offence",
       "numbers": {
         "period": 6.0,
@@ -1666,7 +1666,7 @@
     {
       "id": "deepcall",
       "name": "Deepcall",
-      "text": "Calls something up from below, and the line finds its second wind sooner.",
+      "text": "Calls something up from below; the line finds its second wind sooner.",
       "role": "support",
       "numbers": {
         "period": 5.0,
@@ -1719,7 +1719,7 @@
     {
       "id": "unhallowed",
       "name": "Unhallowed",
-      "text": "Abilities slide off it. Only damage works.",
+      "text": "Abilities slide off it. Only plain damage works.",
       "role": "defence",
       "trigger": {
         "when": "passive"
@@ -1928,7 +1928,7 @@
     {
       "id": "siegework",
       "name": "Siegework",
-      "text": "Sent braced for a wall. Harder to shift than the ones that walked in.",
+      "text": "Sent braced for a wall: harder to shift than one that walked in.",
       "role": "defence",
       "numbers": {
         "reduction": -0.15
@@ -2263,5 +2263,6 @@
       ],
       "energyCost": 80
     }
-  ]
+  ],
+  "_text": "Every `text` is ONE SHORT SENTENCE saying what the ability is for, and carries no numbers. The numbers are generated from the resolved ability instead (src/render/ui/abilityText.ts), so the panel and the data cannot disagree and a balance pass never leaves a stale figure in a description. A test caps these at 90 characters, because the panel shows them in a box."
 }

@@ -48,6 +48,7 @@ export type {
   AttackView,
   EconomyView,
   EntityView,
+  StatMods,
   FortressView,
   LaneVisibility,
   LaneView,

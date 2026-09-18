@@ -27,8 +27,8 @@ function match(): { state: MatchState; ctx: SimContext } {
 
 const tables = buildTables(data, TEAMS, SEED);
 
-function roundTrip(state: MatchState, teamId: string) {
-  const original = viewFor(state, teamId);
+function roundTrip(state: MatchState, ctx: SimContext, teamId: string) {
+  const original = viewFor(ctx, state, teamId);
   const decoded = decodeFrame(encodeFrame(original, tables), tables);
   return { original, decoded };
 }
@@ -38,7 +38,7 @@ describe('a frame survives the round trip', () => {
     const { state, ctx } = match();
     for (let i = 0; i < 30; i++) step(ctx, state);
 
-    const { original, decoded } = roundTrip(state, 'a');
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.teamId).toBe(original.teamId);
     expect(decoded.tick).toBe(original.tick);
     expect(decoded.wave).toBe(original.wave);
@@ -67,7 +67,7 @@ describe('a frame survives the round trip', () => {
     while (state.phase !== 'combat') step(ctx, state);
     for (let i = 0; i < 40; i++) step(ctx, state);
 
-    const { original, decoded } = roundTrip(state, 'a');
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.lane!.units).toHaveLength(original.lane!.units.length);
     expect(decoded.lane!.monsters).toHaveLength(original.lane!.monsters.length);
     expect(decoded.lane!.monsters.length).toBeGreaterThan(0);
@@ -109,14 +109,50 @@ describe('a frame survives the round trip', () => {
     }
     expect(attacks).toBeGreaterThan(0);
 
-    const { original, decoded } = roundTrip(state, 'a');
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.lane!.attacks).toEqual(original.lane!.attacks);
   });
 
   it('carries an empty attack list as an empty list, not as absent', () => {
-    const { state } = match();
-    const { decoded } = roundTrip(state, 'a');
+    const { state, ctx } = match();
+    const { decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.lane!.attacks).toEqual([]);
+  });
+
+  it('carries live stat modifiers, and only for the bodies that have any', () => {
+    const { state, ctx } = match();
+    // A row of Pledges buffing each other (Shoulder to Shoulder), so some
+    // bodies are modified and the wave walking at them is not.
+    for (let x = 0; x < 4; x++) {
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'a',
+        unitDefId: 'pledge',
+        tileX: x,
+        tileY: 0,
+      });
+    }
+    for (let i = 0; i < 60; i++) step(ctx, state);
+
+    const { original, decoded } = roundTrip(state, ctx, 'a');
+    const modified = original.lane!.units.filter((u) => u.mods);
+    expect(modified.length, 'the aura is doing something').toBeGreaterThan(0);
+
+    for (const unit of modified) {
+      const after = decoded.lane!.units.find((u) => u.id === unit.id)!;
+      expect(after.mods, `unit ${unit.id}`).not.toBeNull();
+      expect(after.mods!.damage).toBeCloseTo(unit.mods!.damage, 2);
+      expect(after.mods!.attackSpeed).toBeCloseTo(unit.mods!.attackSpeed, 2);
+      expect(after.mods!.moveSpeed).toBeCloseTo(unit.mods!.moveSpeed, 2);
+      expect(after.mods!.maxHealth).toBeCloseTo(unit.mods!.maxHealth, 2);
+    }
+
+    // And an unmodified body carries nothing rather than a row of ones, which
+    // is the whole reason the rows are sparse.
+    for (const unit of original.lane!.units) {
+      if (unit.mods) continue;
+      expect(decoded.lane!.units.find((u) => u.id === unit.id)!.mods ?? null).toBeNull();
+    }
   });
 
   it('carries your own wallet, including what you have bought', () => {
@@ -128,7 +164,7 @@ describe('a frame survives the round trip', () => {
     applyCommand(ctx, state, { kind: 'buyTech', teamId: 'a', trackId });
     applyCommand(ctx, state, { kind: 'buyFortressUpgrade', teamId: 'a', upgradeId: 'weapon' });
 
-    const { original, decoded } = roundTrip(state, 'a');
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     const wallet = decoded.lane!.economy!;
     expect(wallet.gold).toBe(Math.round(original.lane!.economy!.gold));
     expect(wallet.supplyCap).toBe(original.lane!.economy!.supplyCap);
@@ -155,7 +191,7 @@ describe('a frame survives the round trip', () => {
       tileY: 1,
     });
 
-    const { original, decoded } = roundTrip(state, 'a');
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.lane!.unitSpend).toEqual(original.lane!.unitSpend);
     // Parallel to `units`, which is the whole reason it needs no ids of its own.
     expect(decoded.lane!.unitSpend).toHaveLength(decoded.lane!.units.length);
@@ -187,7 +223,7 @@ describe('a frame survives the round trip', () => {
     // The second one was overrun. Its row is exactly the one worth keeping.
     second!.alive = false;
 
-    const { decoded } = roundTrip(state, 'a');
+    const { decoded } = roundTrip(state, ctx, 'a');
     const rows = decoded.lane!.unitDamage;
     expect(rows).toHaveLength(2);
     expect(rows.map((r) => r.unitId)).toEqual([first!.id, second!.id]);
@@ -207,14 +243,14 @@ describe('a frame survives the round trip', () => {
       kind: 'send',
       teamId: 'b',
       targetTeamId: 'a',
-      sendId: 'grub_pack',
+      sendId: 'grub',
     });
 
-    const { original, decoded } = roundTrip(state, 'a');
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.lane!.fortress.weaponDamageType).toBe('arcane');
     expect(decoded.lane!.fortress.activeAura).toBe('armour');
     expect(decoded.lane!.fortress.hp).toBe(Math.round(original.lane!.fortress.hp));
-    expect(decoded.lane!.sendLog).toEqual([{ sendId: 'grub_pack', fromTeamId: 'b' }]);
+    expect(decoded.lane!.sendLog).toEqual([{ sendId: 'grub', fromTeamId: 'b' }]);
   });
 
   it('carries the opponents and, when you have sight, their lanes', () => {
@@ -231,10 +267,10 @@ describe('a frame survives the round trip', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarm_probe',
+      sendId: 'swarmling',
     });
 
-    const { original, decoded } = roundTrip(state, 'a');
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.opponents.map((o) => o.teamId)).toEqual(original.opponents.map((o) => o.teamId));
     expect(decoded.watching.b).toBeDefined();
     expect(decoded.watching.b!.units).toHaveLength(1);
@@ -251,10 +287,10 @@ describe('a frame cannot leak what the view withheld', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarm_probe',
+      sendId: 'swarmling',
     });
 
-    const frame = encodeFrame(viewFor(state, 'a'), tables);
+    const frame = encodeFrame(viewFor(ctx, state, 'a'), tables);
     expect(JSON.stringify(frame)).not.toContain('31337');
 
     // The watched lane is there; its wallet is not.
@@ -280,10 +316,10 @@ describe('a frame cannot leak what the view withheld', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarm_probe',
+      sendId: 'swarmling',
     });
 
-    const decoded = decodeFrame(encodeFrame(viewFor(state, 'a'), tables), tables);
+    const decoded = decodeFrame(encodeFrame(viewFor(ctx, state, 'a'), tables), tables);
     expect(decoded.watching.b!.units).toHaveLength(1);
     expect(decoded.watching.b!.unitSpend).toEqual([]);
     // Nor what somebody else's line is worth (§12).
@@ -300,7 +336,7 @@ describe('a frame cannot leak what the view withheld', () => {
       tileY: 2,
     });
 
-    const decoded = decodeFrame(encodeFrame(viewFor(state, 'a'), tables), tables);
+    const decoded = decodeFrame(encodeFrame(viewFor(ctx, state, 'a'), tables), tables);
     expect(Object.keys(decoded.watching)).toHaveLength(0);
   });
 });
@@ -337,15 +373,15 @@ describe('the Final Showdown on the wire (§3.3, replaced)', () => {
   }
 
   it('carries the phase, which is now one of three', () => {
-    const { state } = showdownMatch();
-    const { original, decoded } = roundTrip(state, 'a');
+    const { state, ctx } = showdownMatch();
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(original.phase).toBe('showdown');
     expect(decoded.phase).toBe('showdown');
   });
 
   it('carries every army, its seat and every body in it', () => {
-    const { state } = showdownMatch();
-    const { original, decoded } = roundTrip(state, 'a');
+    const { state, ctx } = showdownMatch();
+    const { original, decoded } = roundTrip(state, ctx, 'a');
 
     expect(decoded.showdown).not.toBeNull();
     expect(decoded.showdown!.countdown).toBe(original.showdown!.countdown);
@@ -371,7 +407,7 @@ describe('the Final Showdown on the wire (§3.3, replaced)', () => {
     let guard = 0;
     while (state.showdown!.attacks.length === 0 && guard++ < 20000) step(ctx, state);
 
-    const { original, decoded } = roundTrip(state, 'a');
+    const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(original.showdown!.attacks.length).toBeGreaterThan(0);
     expect(decoded.showdown!.attacks).toEqual(original.showdown!.attacks);
   });
@@ -379,18 +415,18 @@ describe('the Final Showdown on the wire (§3.3, replaced)', () => {
   it('shows the same arena to everybody, eliminated or not', () => {
     // Nothing about four armies in one square is hideable, and a player who
     // cannot see what is walking at them cannot play the fight.
-    const { state } = showdownMatch();
+    const { state, ctx } = showdownMatch();
     state.teams[3]!.eliminated = true;
 
-    const alive = roundTrip(state, 'a').decoded.showdown!;
-    const out = roundTrip(state, 'd').decoded.showdown!;
+    const alive = roundTrip(state, ctx, 'a').decoded.showdown!;
+    const out = roundTrip(state, ctx, 'd').decoded.showdown!;
     expect(out.armies.map((a) => a.teamId)).toEqual(alive.armies.map((a) => a.teamId));
     expect(out.armies[0]!.units).toHaveLength(alive.armies[0]!.units.length);
   });
 
   it('says nothing about a showdown that has not started', () => {
-    const { state } = match();
-    const { decoded } = roundTrip(state, 'a');
+    const { state, ctx } = match();
+    const { decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.showdown).toBeNull();
   });
 });

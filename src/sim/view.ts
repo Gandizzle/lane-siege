@@ -51,9 +51,13 @@
  * simulation's own hot loop stays allocation-free.
  */
 
-import type { ArmourType, DamageType } from '../data/schema.ts';
+import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
+import { auraFor } from './buffs.ts';
+import type { SimContext } from './context.ts';
+import { modifiersOf } from './status.ts';
 import type {
   Attack,
+  DefensiveUnit,
   EntityId,
   Lane,
   MatchState,
@@ -61,6 +65,7 @@ import type {
   Showdown,
   TeamId,
   UnitSpend,
+  Vec2,
 } from './types.ts';
 
 /**
@@ -83,6 +88,56 @@ export interface EntityView {
   damageType: DamageType;
   /** 0 to 1. A fraction rather than absolute HP: it is all the bar needs. */
   hpFraction: number;
+  /**
+   * What is currently changing this body's numbers, or null when nothing is.
+   *
+   * Every field is a MULTIPLE OF THE DEFINITION - 1.2 means "a fifth more than
+   * `units.json` says" - so the client multiplies the number it already has
+   * rather than being sent an absolute it would then have to trust. Null
+   * rather than four ones when nothing applies, so a wave nobody has buffed or
+   * debuffed costs nothing at all to send (protocol.ts).
+   *
+   * Tech (§7.4), the fortress aura (§10.1) and every ability status are all
+   * folded in together, because the panel is answering "what does this body do
+   * RIGHT NOW" and a player watching a number move does not care which system
+   * moved it.
+   *
+   * Optional rather than `| null` everywhere: a fixture that is about
+   * silhouettes has no opinion about buffs, and absent says that better than a
+   * null does.
+   */
+  mods?: StatMods | null;
+}
+
+/** How far a body's four changeable numbers are from its definition's. */
+export interface StatMods {
+  damage: number;
+  attackSpeed: number;
+  moveSpeed: number;
+  maxHealth: number;
+}
+
+/** Nothing is changing: the shape `mods` collapses to when it is null. */
+export const NO_STAT_MODS: Readonly<StatMods> = {
+  damage: 1,
+  attackSpeed: 1,
+  moveSpeed: 1,
+  maxHealth: 1,
+};
+
+/** Within a thousandth of unmodified, in all four. */
+export function isUnmodified(mods: StatMods): boolean {
+  return (
+    Math.abs(mods.damage - 1) < 1e-3 &&
+    Math.abs(mods.attackSpeed - 1) < 1e-3 &&
+    Math.abs(mods.moveSpeed - 1) < 1e-3 &&
+    Math.abs(mods.maxHealth - 1) < 1e-3
+  );
+}
+
+/** A multiple of `base`, or 1 when there is no base to be a multiple of. */
+function share(effective: number, base: number): number {
+  return base > 0 ? effective / base : 1;
 }
 
 /** What a viewer may see of a fortress. */
@@ -260,9 +315,10 @@ function livingUnits(lane: Lane) {
   return lane.units.filter((unit) => unit.alive);
 }
 
-function unitViews(lane: Lane): EntityView[] {
+function unitViews(data: GameData, lane: Lane, fortressPos: Vec2): EntityView[] {
   const out: EntityView[] = [];
   for (const unit of livingUnits(lane)) {
+    const def = data.units.units.find((u) => u.id === unit.defId);
     out.push({
       id: unit.id,
       defId: unit.defId,
@@ -272,15 +328,58 @@ function unitViews(lane: Lane): EntityView[] {
       armour: unit.armour,
       damageType: unit.damageType,
       hpFraction: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
+      mods: def ? unitMods(lane, unit, def, fortressPos) : null,
     });
   }
   return out;
+}
+
+/**
+ * Everything currently multiplying one unit's numbers, against its definition.
+ *
+ * The three layers the simulation applies when the unit swings (tick.ts): the
+ * tech it has bought, the aura it is standing in, and whatever statuses are on
+ * it. Gathered here rather than in the renderer because only the simulation
+ * knows any of them, and because a client working them out for itself would be
+ * a second implementation of the rules to keep in step.
+ */
+function unitMods(
+  lane: Lane,
+  unit: DefensiveUnit,
+  def: UnitDef,
+  fortressPos: Vec2,
+): StatMods | null {
+  const status = modifiersOf(unit);
+  const aura = auraFor(lane, unit, fortressPos);
+  const baseDamage = def.damage ?? 0;
+
+  const mods: StatMods = {
+    damage: share(
+      (baseDamage * unit.techDamage * aura.damage + status.damageAdd) * status.damageMul,
+      baseDamage,
+    ),
+    attackSpeed: unit.techAttackSpeed * aura.attackSpeed * status.attackSpeedMul,
+    moveSpeed: share(unit.moveSpeed * status.moveSpeedMul + status.moveSpeedAdd, unit.moveSpeed),
+    maxHealth: share(unit.maxHp, def.hp ?? 0),
+  };
+  return isUnmodified(mods) ? null : mods;
 }
 
 function monsterViews(lane: Lane): EntityView[] {
   const out: EntityView[] = [];
   for (const monster of lane.monsters) {
     if (!monster.alive) continue;
+    // Against its own SPAWN stats rather than the definition's: §9.1 scales a
+    // monster when it is born, and a wave-22 grub being twice the definition's
+    // grub is not a buff anybody applied to it.
+    const status = modifiersOf(monster);
+    const mods: StatMods = {
+      damage: status.damageMul + (monster.damage > 0 ? status.damageAdd / monster.damage : 0),
+      attackSpeed: status.attackSpeedMul,
+      moveSpeed:
+        status.moveSpeedMul + (monster.moveSpeed > 0 ? status.moveSpeedAdd / monster.moveSpeed : 0),
+      maxHealth: share(monster.maxHp, monster.baseMaxHp),
+    };
     out.push({
       id: monster.id,
       defId: monster.defId,
@@ -290,16 +389,17 @@ function monsterViews(lane: Lane): EntityView[] {
       armour: monster.armour,
       damageType: monster.damageType,
       hpFraction: monster.maxHp > 0 ? monster.hp / monster.maxHp : 0,
+      mods: isUnmodified(mods) ? null : mods,
     });
   }
   return out;
 }
 
-function laneView(lane: Lane, own: boolean): LaneView {
+function laneView(ctx: SimContext, lane: Lane, own: boolean): LaneView {
   return {
     teamId: lane.teamId,
     builderId: lane.builderId,
-    units: unitViews(lane),
+    units: unitViews(ctx.data, lane, ctx.fortressPosition),
     monsters: monsterViews(lane),
     fortress: {
       hp: lane.fortress.hp,
@@ -374,6 +474,12 @@ function showdownView(showdown: Showdown, countdown: number): ShowdownView {
  * directly is how fog of war springs a leak.
  */
 export function viewFor(
+  /**
+   * The same context a tick runs against. Needed for one thing only: a body's
+   * live modifiers are a multiple of its DEFINITION, and the aura layer is a
+   * function of where the fortress is (`EntityView.mods`).
+   */
+  ctx: SimContext,
   state: MatchState,
   teamId: TeamId,
   visibility: LaneVisibility = 'granted',
@@ -409,7 +515,7 @@ export function viewFor(
       visionTicksLeft,
     });
 
-    if (canWatch && lane) watching[team.id] = laneView(lane, false);
+    if (canWatch && lane) watching[team.id] = laneView(ctx, lane, false);
   }
 
   return {
@@ -423,7 +529,7 @@ export function viewFor(
     finished: state.finished,
     eliminated: self?.eliminated ?? false,
     placement: self?.placement ?? null,
-    lane: ownLane ? laneView(ownLane, true) : null,
+    lane: ownLane ? laneView(ctx, ownLane, true) : null,
     opponents,
     watching,
     showdown: state.showdown ? showdownView(state.showdown, state.phaseTicksLeft) : null,

@@ -41,6 +41,7 @@
 
 import { Container } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
+import { resolveAbility } from '../data/schema.ts';
 import {
   arenaShape,
   buildDefIndex,
@@ -58,6 +59,7 @@ import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
 import { TOUCH_SLACK_PX, bodyNear, computeLayout, type LaneLayout } from './layout.ts';
 import { LaneView as LaneViewLayer } from './laneView.ts';
+import { AbilityCard } from './ui/abilityCard.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { BuilderSelect } from './ui/builderSelect.ts';
 import { ShowdownCountdown } from './ui/countdown.ts';
@@ -92,6 +94,8 @@ type Screen = 'home' | 'builder' | 'lobby' | 'match';
 export class Game extends Container {
   private layout: LaneLayout;
   private selection: Selection = null;
+  /** The ability whose card is open, or null (abilityCard.ts). */
+  private openAbility: { id: string; rank: number } | null = null;
   /**
    * The unit type that was in hand when the player opened an upgrade panel, so
    * Back returns them to laying their line instead of to nothing.
@@ -121,6 +125,7 @@ export class Game extends Container {
   private readonly banner: WatchBanner;
   private readonly buildBar: BuildBar;
   private readonly toast = new Toast();
+  private readonly abilityCard: AbilityCard;
   private readonly gameOver: GameOver;
   private readonly builderSelect: BuilderSelect;
   private readonly home: HomeScreen;
@@ -159,6 +164,7 @@ export class Game extends Container {
       onBlocked: () => this.toast.showText('No sight of that lane'),
     });
     this.banner = new WatchBanner(this.layout, () => this.watch(null));
+    this.abilityCard = new AbilityCard(this.layout);
     this.buildBar = new BuildBar(this.layout, data, {
       onSelectUnitDef: (id) => this.selectUnitDef(id),
       onUpgrade: (id) => this.issue({ kind: 'upgradeUnit', teamId: this.teamId, unitId: id }),
@@ -183,6 +189,7 @@ export class Game extends Container {
       },
       onClearSelection: () => this.clearSelection(),
       onSelectPlacedUnit: (unitId) => this.selectPlacedUnit(unitId),
+      onShowAbility: (abilityId, rank) => this.showAbility(abilityId, rank),
     });
     this.gameOver = new GameOver(this.layout, {
       onRestart: () => this.chooseAgain(),
@@ -225,6 +232,9 @@ export class Game extends Container {
       this.tabs,
       this.banner,
       this.buildBar,
+      // Over the bar it is opened from, because it is a modal answer to a tap
+      // on it and a tap anywhere has to close it rather than reach the board.
+      this.abilityCard,
       this.toast,
       this.gameOver,
       // Over the board and under the front screens: it is a cut to a card, but
@@ -339,6 +349,7 @@ export class Game extends Container {
     this.tabs.setLayout(this.layout);
     this.banner.setLayout(this.layout);
     this.buildBar.setLayout(this.layout);
+    this.abilityCard.setLayout(this.layout);
     this.gameOver.setLayout(this.layout);
     this.arena.setLayout(this.layout.screen, this.layout.tileSize);
     this.countdown.setLayout(this.layout);
@@ -460,6 +471,7 @@ export class Game extends Container {
         deltaMs,
       );
     }
+    this.abilityCard.render(this.resolveOpenAbility());
     this.toast.update(deltaMs, this.layout);
     this.gameOver.render(view);
   }
@@ -521,6 +533,7 @@ export class Game extends Container {
     // The card is a cut, so it goes over the arena rather than beside it, and
     // the arena is already standing behind it when it lifts (showdown.ts).
     this.countdown.render(view.showdown?.countdown ?? 0);
+    this.abilityCard.render(this.resolveOpenAbility());
     this.toast.update(deltaMs, this.layout);
     this.gameOver.render(view);
   }
@@ -649,10 +662,40 @@ export class Game extends Container {
     this.pendingUnitDefId = null;
   }
 
+  /**
+   * Open the card for an ability (abilityCard.ts).
+   *
+   * Stored as an id and a rank rather than a resolved ability, because
+   * resolving is the definition index's job and the renderer holding its own
+   * copy is how two of them come to disagree (§15.3). Tapping the same chip
+   * again closes it, which is what a player expects of a thing they opened.
+   */
+  private showAbility(abilityId: string, rank: number): void {
+    const open = this.openAbility;
+    this.openAbility =
+      open && open.id === abilityId && open.rank === rank ? null : { id: abilityId, rank };
+    if (this.openAbility === null) this.abilityCard.close();
+  }
+
+  /** The open card's ability, resolved, or null. */
+  private resolveOpenAbility() {
+    if (!this.openAbility) return null;
+    const def = this.data.abilities.abilities.find((a) => a.id === this.openAbility?.id);
+    if (!def) return null;
+    return resolveAbility(def, this.openAbility.rank);
+  }
+
   /** A tap on empty space means "cancel", so it drops the memory too. */
   private cancelSelection(): void {
     this.selection = null;
     this.pendingUnitDefId = null;
+    this.closeAbility();
+  }
+
+  /** Put the card away. Called wherever the body it described goes away. */
+  private closeAbility(): void {
+    this.openAbility = null;
+    this.abilityCard.close();
   }
 
   /**

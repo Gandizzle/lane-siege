@@ -75,6 +75,20 @@ export interface WireLane {
   u: WireEntity[];
   m: WireEntity[];
   /**
+   * Live stat modifiers, SPARSE and flat: id, a mask of which of the four
+   * differ, then one value per set bit. Each value is a hundredth of a
+   * multiple of the body's definition, so 120 reads "a fifth more than
+   * `units.json` says".
+   *
+   * Sparse AND masked, because both matter. Most bodies are unmodified, so a
+   * row per body would have been the largest thing in a frame; and a body that
+   * IS modified almost always has exactly one thing changed - a damage aura, a
+   * slow - so a fixed five-number row would have sent three ones to say
+   * nothing. Together they cost about half of what a dense row would, which is
+   * what a panel whose numbers move while you watch them is worth (§14.1).
+   */
+  md: number[];
+  /**
    * `[hp, maxHp, destroyed, weaponTypeIndex, auraIndex, auraRadius,
    * auraStrength]`. The last two are hundredths, like every other fraction
    * here.
@@ -265,6 +279,58 @@ export function buildTables(
   };
 }
 
+/** Hundredths of a multiple, which is a percentage of the definition's value. */
+const MOD_SCALE = 100;
+
+/** The four fields of `StatMods`, in the order the mask's bits count them. */
+const MOD_FIELDS = ['damage', 'attackSpeed', 'moveSpeed', 'maxHealth'] as const;
+
+/** The sparse, masked modifier rows for one list of bodies. See `WireLane.md`. */
+function encodeMods(entities: readonly EntityView[]): number[] {
+  const out: number[] = [];
+  for (const entity of entities) {
+    const mods = entity.mods;
+    if (!mods) continue;
+
+    let mask = 0;
+    const values: number[] = [];
+    for (const [bit, field] of MOD_FIELDS.entries()) {
+      const scaled = Math.round(mods[field] * MOD_SCALE);
+      if (scaled === MOD_SCALE) continue;
+      mask |= 1 << bit;
+      values.push(scaled);
+    }
+    // Rounded back to unmodified: the sim thought it was worth sending and the
+    // quantisation disagrees, so say nothing rather than send a row of ones.
+    if (mask === 0) continue;
+    out.push(entity.id, mask, ...values);
+  }
+  return out;
+}
+
+/** Put the sparse rows back on the bodies they belong to. */
+function applyMods(entities: EntityView[], rows: readonly number[]): void {
+  if (rows.length === 0) return;
+  const byId = new Map<number, EntityView>();
+  for (const entity of entities) byId.set(entity.id, entity);
+
+  let i = 0;
+  while (i + 1 < rows.length) {
+    const entity = byId.get(rows[i]!);
+    const mask = rows[i + 1]!;
+    i += 2;
+    const mods = { damage: 1, attackSpeed: 1, moveSpeed: 1, maxHealth: 1 };
+    for (const [bit, field] of MOD_FIELDS.entries()) {
+      if ((mask & (1 << bit)) === 0) continue;
+      mods[field] = (rows[i] ?? MOD_SCALE) / MOD_SCALE;
+      i += 1;
+    }
+    // A row for a body this viewer cannot see is skipped, not dropped: the
+    // cursor has already walked past its values.
+    if (entity) entity.mods = mods;
+  }
+}
+
 function encodeEntity(entity: EntityView, index: Map<string, number>): WireEntity {
   return [
     entity.id,
@@ -291,6 +357,9 @@ function decodeEntity(
     armour: trait ? trait.armour : ('flesh' as ArmourType),
     damageType: trait ? trait.damageType : ('impact' as DamageType),
     hpFraction: hp / HEALTH_SCALE,
+    // Filled in by `applyMods` from the lane's sparse rows, for the few bodies
+    // that have any.
+    mods: null,
   };
 }
 
@@ -347,6 +416,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
     b: tables.builderIds.indexOf(lane.builderId),
     u: lane.units.map((u) => encodeEntity(u, tables.unitIndex)),
     m: lane.monsters.map((m) => encodeEntity(m, tables.monsterIndex)),
+    md: [...encodeMods(lane.units), ...encodeMods(lane.monsters)],
     f: [
       Math.round(lane.fortress.hp),
       Math.round(lane.fortress.maxHp),
@@ -412,11 +482,18 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
       }
     : null;
 
+  const units = wire.u.map((row) => decodeEntity(row, tables.unitIds, tables.unitTraits));
+  const monsters = wire.m.map((row) => decodeEntity(row, tables.monsterIds, tables.monsterTraits));
+  // One flat list for both kinds, matched back by id: a body is a body and
+  // splitting the rows would be two arrays where one does.
+  applyMods(units, wire.md ?? []);
+  applyMods(monsters, wire.md ?? []);
+
   return {
     teamId: tables.teamIds[wire.t] ?? '',
     builderId: tables.builderIds[wire.b] ?? tables.builderIds[0] ?? '',
-    units: wire.u.map((row) => decodeEntity(row, tables.unitIds, tables.unitTraits)),
-    monsters: wire.m.map((row) => decodeEntity(row, tables.monsterIds, tables.monsterTraits)),
+    units,
+    monsters,
     fortress: {
       hp,
       maxHp,

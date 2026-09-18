@@ -53,6 +53,7 @@ import type {
   LaneView,
   MatchView,
   OpponentView,
+  StatMods,
   WaveSummary,
 } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
@@ -63,19 +64,23 @@ import { GridButton } from './gridButton.ts';
 import { pickSendTarget, sendIcon } from './sends.ts';
 import type { EntityStyle } from '../shapes.ts';
 import { centreOn, label, wrapped } from './text.ts';
+import { AbilityChips, type Chip } from './abilityChips.ts';
+import type { StatDirection } from './unitStats.ts';
 import {
+  NOTHING_SPECIAL,
   STAT_CELLS,
   STAT_COLUMNS,
   STAT_ROW_HEIGHT,
   STAT_VALUE_INSET,
-  abilityLines,
-  briefAbilityLines,
-  briefLines,
-  monsterAbilityLines,
+  monsterChips,
   monsterStatText,
+  MIN_ROW_HEIGHT,
+  columnsThatFit,
   panelRegions,
+  statDirection,
   statText,
   typeLine,
+  unitChips,
 } from './unitStats.ts';
 
 export type Selection =
@@ -122,6 +127,8 @@ export interface BuildBarHandlers {
   onSelectWeapon(damageType: DamageType): void;
   onSelectAura(aura: AuraType): void;
   onClearSelection(): void;
+  /** Open the full card for an ability (abilityCard.ts). */
+  onShowAbility(abilityId: string, rank: number): void;
   /**
    * A damage row was tapped: point the lane's selection at that unit, so the
    * body doing the damage is picked out of the crowd on the board.
@@ -167,10 +174,27 @@ const MIN_TOUCH = 44;
 /**
  * The narrowest a send button may be before the tab drops a column.
  *
- * Measured against its longest line: "Revenant · Raider's Haste" at nine
- * pixels is about 150, and the button pads eight either side.
+ * Measured against its longest line, which is now an ability name on its own -
+ * "Volatile Cargo" at nine pixels is about 80, and the button pads eight
+ * either side.
  */
-const MIN_SEND_WIDTH = 170;
+const MIN_SEND_WIDTH = 110;
+
+/**
+ * What colour a stat cell is drawn in: green when something is making the
+ * number better, red when something is making it worse, and the ordinary
+ * text colour when the body is fighting with exactly what its definition says.
+ *
+ * "Better" is higher for every cell the panel shows - more health, more
+ * damage, a faster swing, a faster walk - which is why one comparison covers
+ * all six. A stat where lower is better would need its own sense, and none of
+ * these is one.
+ */
+const STAT_COLOURS: Record<StatDirection, number> = {
+  plain: UI.text,
+  up: UI.healthGood,
+  down: UI.danger,
+};
 
 /** Side margin of the selected-unit panel. */
 
@@ -286,8 +310,10 @@ export class BuildBar extends Container {
   private panelBox = { bar: { x: 0, y: 0, width: 0, height: 0 }, top: 0, height: 0 };
   /** Whether the regions currently reserve a button row. */
   private panelHasButtons = true;
-  /** Clips the ability text to its box, so it can never reach the buttons. */
+  /** Clips the ability chips to their box, so they can never reach the buttons. */
   private readonly textMask = new Graphics();
+  /** What the selected body does, one tappable name each (abilityChips.ts). */
+  private readonly abilityChips: AbilityChips;
   private readonly upgradeTitle: Text;
   private readonly upgradeSubtitle: Text;
   /** One `name  value` pair per cell of the stat block, in reading order. */
@@ -397,12 +423,17 @@ export class BuildBar extends Container {
     this.sellButton = new GridButton(() => {
       if (this.selectedUnitId !== null) this.handlers.onSell(this.selectedUnitId);
     });
+    this.abilityChips = new AbilityChips((chip) =>
+      this.handlers.onShowAbility(chip.abilityId, chip.rank),
+    );
+    this.abilityChips.mask = this.textMask;
     this.traitText.mask = this.textMask;
     this.upgradePanel.addChild(
       this.upgradeTitle,
       this.upgradeSubtitle,
       this.textMask,
       this.traitText,
+      this.abilityChips,
       this.upgradeButton,
       this.sellButton,
     );
@@ -594,22 +625,20 @@ export class BuildBar extends Container {
     const chipRows = Math.ceil(this.targetButtons.length / chipCols);
     const chipH = 38 * chipRows + 6 * (chipRows - 1);
     grid(this.targetButtons, chipCols, chipRows, 6, left, top, inner, chipH);
-    // Wide enough for what a send button has to say, rather than a fixed
-    // count. The note line is "Revenant · Raider's Haste" - the monster and
-    // what it does when it gets there (sends.ts) - and three across a portrait
-    // phone cut both of them in half. Columns are chosen so each button clears
-    // `MIN_SEND_WIDTH`, which is two across a phone, one down a landscape
-    // column, and three on something genuinely wide.
-    const sendCols = Math.max(1, Math.min(3, Math.floor(inner / MIN_SEND_WIDTH)));
+    // Columns chosen against the box rather than fixed, so the last row is
+    // never drawn past the bottom of the bar (`columnsThatFit`).
+    const sendTop = top + chipH + 6;
+    const sendHeight = height - chipH - 6;
+    const sendCols = columnsThatFit(this.sendButtons.length, inner, sendHeight, MIN_SEND_WIDTH, 6);
     grid(
       this.sendButtons.map((s) => s.button),
       sendCols,
       Math.ceil(this.sendButtons.length / sendCols),
       6,
       left,
-      top + chipH + 6,
+      sendTop,
       inner,
-      height - chipH - 6,
+      sendHeight,
     );
 
     this.damagePanel.layout(bar, top, height);
@@ -851,15 +880,22 @@ export class BuildBar extends Container {
         title: def.name,
         // §11.5: the income is the whole reason an early send is an investment
         // rather than an attack, so it is priced right next to the cost.
-        // Sight belongs beside the price, not beside the monster: it is part
-        // of what the gems buy (§12), where the monster's name and what it
-        // does are what arrives in somebody's lane.
-        detail: `${cost} gem → +${income}g/wave${def.grantsVision ? ' · sight' : ''}`,
+        // The price line is cost and income and nothing else, so it is never
+        // the line that gets cut: they are the two numbers a send is weighed
+        // by (§11.5).
+        detail: `${cost} gem → +${income}g/wave`,
+        // ONE NAME PER BUTTON. This line used to repeat the monster - "Swarm
+        // Probe" over "Swarmling" - which is the send's name said twice, since
+        // a send now delivers exactly one monster and is named after it
+        // (sends.json). What is worth the line is what that monster DOES, and
+        // then whether the gems also buy a look at the lane (§12). In that
+        // order, because a button too narrow for both loses its tail and the
+        // ability is the half that decides the purchase.
         note: armed
           ? `auto · every ${(BuildBar.ARMED_COOLDOWN_MS / 1000).toFixed(1)}s`
-          : icon
-            ? [icon.monsterName, icon.abilityName].filter((part) => part !== null).join(' · ')
-            : `${def.monsters.length}×`,
+          : [icon?.abilityName ?? null, def.grantsVision ? 'sight' : null]
+              .filter((part) => part !== null)
+              .join(' · '),
         noteColour: armed ? UI.accent : UI.textMuted,
         enabled: canAct && aimed && gems >= cost,
         // Dimmed when the gems are not there, but still able to take a HOLD:
@@ -1017,6 +1053,7 @@ export class BuildBar extends Container {
   ): void {
     const index = lane.units.findIndex((u) => u.id === unitId);
     const unit = index < 0 ? undefined : lane.units[index];
+    const mods = unit?.mods ?? null;
     const current = unit ? this.data.units.units.find((u) => u.id === unit.defId) : undefined;
     const next = current?.upgradesTo
       ? this.data.units.units.find((u) => u.id === current.upgradesTo)
@@ -1027,8 +1064,8 @@ export class BuildBar extends Container {
     if (!current) {
       // Sold, or killed and not yet respawned. Nothing left to describe.
       this.setHeader('Unit lost', '');
-      this.traitText.text = '';
-      this.showStats(null, null);
+      this.renderAbilities([], []);
+      this.showStats(null, null, null);
       this.upgradeButton.visible = false;
       this.sellButton.visible = false;
       return;
@@ -1040,15 +1077,11 @@ export class BuildBar extends Container {
     // next Vigil is called Vigil II. The Upgrade button's pips say the tier
     // and the stat block says what the tier buys.
     this.setHeader(current.name, typeLine(current.damageType, current.armour));
-    this.showStats(current, next ?? null);
+    this.showStats(current, next ?? null, mods);
     // What it DOES, which is most of why one unit is not another (§7, §18).
     // `traits` are the older, purely descriptive lines and are usually absent;
     // the ability lines are never absent, because every unit has an ability.
-    const traits = current.traits ?? [];
-    this.renderAbilityText(
-      [...traits, ...abilityLines(this.data, current, next ?? null)],
-      [...traits, ...briefAbilityLines(this.data, current, next ?? null)],
-    );
+    this.renderAbilities(unitChips(this.data, current, next ?? null), current.traits ?? []);
 
     this.upgradeButton.visible = true;
     this.sellButton.visible = true;
@@ -1085,15 +1118,18 @@ export class BuildBar extends Container {
     if (!def) {
       // Killed while its panel was open, which happens constantly mid-wave.
       this.setHeader('Gone', '');
-      this.traitText.text = '';
-      this.showStats(null, null);
+      this.renderAbilities([], []);
+      this.showStats(null, null, null);
       return;
     }
 
     this.setHeader(def.name, typeLine(def.damageType, def.armour));
-    this.showMonsterStats(def);
-    const lines = monsterAbilityLines(this.data, def);
-    this.renderAbilityText(lines, briefLines(lines));
+    this.showMonsterStats(def, body?.mods ?? null);
+    // A monster with nothing special says so in the trait line rather than
+    // showing an empty row of chips: a blank block reads as a panel that
+    // failed to load.
+    const chips = monsterChips(this.data, def);
+    this.renderAbilities(chips, chips.length > 0 ? [] : [NOTHING_SPECIAL]);
   }
 
   /** Name on the left, what it deals and is made of immediately after it. */
@@ -1110,35 +1146,29 @@ export class BuildBar extends Container {
   }
 
   /**
-   * Put the ability text in its box, shrinking it until it fits.
+   * Draw what the body does: its abilities as names, and the older descriptive
+   * `traits` lines above them where a unit has any.
    *
-   * Four attempts, fullest first: the whole wording at ten pixels, at nine, at
-   * eight, then names only. A short panel - a 360x640 phone leaves about thirty
-   * pixels here - gets the names, which is still the useful half; a tall one
-   * gets the sentences. Whatever is chosen, the mask set in `setLayout` is the
-   * hard edge, so even an unfitted string stops at the box.
+   * Names rather than sentences, because a name always fits and a sentence has
+   * to be shrunk until it does - which is how a tier-1 Oathwall came to show
+   * "Hold the Line" and no description at all. Each name is a button and the
+   * whole description is one tap away (abilityCard.ts).
    */
-  private renderAbilityText(full: string[], brief: string[]): void {
-    const box = this.regions.text.height;
-    const attempts: { lines: string[]; size: number }[] = [
-      { lines: full, size: 10 },
-      { lines: full, size: 9 },
-      { lines: full, size: 8 },
-      { lines: brief, size: 10 },
-      { lines: brief, size: 9 },
-    ];
-
-    for (const [index, attempt] of attempts.entries()) {
-      this.traitText.style.fontSize = attempt.size;
-      this.traitText.text = attempt.lines.join('\n');
-      // The last attempt is taken whether it fits or not: something legible
-      // and clipped beats nothing at all.
-      if (this.traitText.height <= box || index === attempts.length - 1) return;
-    }
+  private renderAbilities(chips: Chip[], traits: readonly string[]): void {
+    const box = this.regions.text;
+    this.traitText.text = traits.join('\n');
+    this.traitText.style.fontSize = 10;
+    const traitHeight = traits.length > 0 ? Math.min(this.traitText.height + 4, box.height) : 0;
+    this.abilityChips.render(chips, {
+      x: box.x,
+      y: box.y + traitHeight,
+      width: box.width,
+      height: Math.max(0, box.height - traitHeight),
+    });
   }
 
-  /** The same six cells, read off a monster definition. */
-  private showMonsterStats(def: MonsterDef): void {
+  /** The same six cells, read off a monster definition and its live modifiers. */
+  private showMonsterStats(def: MonsterDef, mods: StatMods | null): void {
     this.statCells.forEach((cell, i) => {
       const meta = STAT_CELLS[i];
       if (!meta) {
@@ -1147,12 +1177,19 @@ export class BuildBar extends Container {
         return;
       }
       cell.name.text = meta.name;
-      cell.value.text = monsterStatText(meta.key, def);
+      cell.value.text = monsterStatText(meta.key, def, mods);
+      cell.value.style.fill = STAT_COLOURS[statDirection(meta.key, mods)];
     });
   }
 
-  /** Fills the stat block. `next` null means there is no tier to compare to. */
-  private showStats(current: UnitDef | null, next: UnitDef | null): void {
+  /**
+   * Fills the stat block. `next` null means there is no tier to compare to.
+   *
+   * `mods` is what is currently on the body (`EntityView.mods`), so a cell
+   * shows the number the body is fighting with rather than the number its
+   * definition was written with - and is coloured by which way that moved it.
+   */
+  private showStats(current: UnitDef | null, next: UnitDef | null, mods: StatMods | null): void {
     this.statCells.forEach((cell, i) => {
       const meta = STAT_CELLS[i];
       if (!meta || !current) {
@@ -1161,7 +1198,8 @@ export class BuildBar extends Container {
         return;
       }
       cell.name.text = meta.name;
-      cell.value.text = statText(meta.key, current, next);
+      cell.value.text = statText(meta.key, current, next, mods);
+      cell.value.style.fill = STAT_COLOURS[statDirection(meta.key, mods)];
     });
   }
 
@@ -1257,6 +1295,17 @@ function glyphOf(def: UnitDef): EntityStyle {
 }
 
 /** Lay buttons out in a fixed grid, left to right then top to bottom. */
+/**
+ * Lay buttons out in a grid that FITS ITS BOX.
+ *
+ * It used to draw each button at least `MIN_TOUCH` tall while still spacing
+ * the rows at the unclamped pitch, so a grid whose rows did not fit spilled
+ * off the bottom of the bar and the last row was cut in half. A button
+ * slightly under a touch target is worse than one at a touch target; a button
+ * drawn off the bottom of the screen is worse than either. Callers pick their
+ * column count with `columnsThatFit` so the clamp below is a floor of last
+ * resort rather than something that happens.
+ */
 function grid(
   buttons: GridButton[],
   cols: number,
@@ -1269,10 +1318,10 @@ function grid(
   height: number,
 ): void {
   const w = (width - gap * (cols - 1)) / cols;
-  const h = (height - gap * (rows - 1)) / rows;
+  const h = Math.max(MIN_ROW_HEIGHT, (height - gap * (rows - 1)) / rows);
   buttons.forEach((button, i) => {
     const col = i % cols;
     const row = Math.floor(i / cols);
-    button.layout(left + col * (w + gap), top + row * (h + gap), w, Math.max(MIN_TOUCH, h));
+    button.layout(left + col * (w + gap), top + row * (h + gap), w, h);
   });
 }

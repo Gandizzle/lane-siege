@@ -7,8 +7,10 @@
  */
 
 import type { GameData, MonsterDef, UnitDef } from '../../data/schema.ts';
-import { refId } from '../../data/schema.ts';
+import { refId, refRank } from '../../data/schema.ts';
 import { RANGED_MIN_TILES } from '../attackStyle.ts';
+import type { StatMods } from '../../sim/index.ts';
+import type { Chip } from './abilityChips.ts';
 
 /**
  * The selected-unit stat block, laid out two across and three down in reading
@@ -40,34 +42,90 @@ export const STAT_ROW_HEIGHT = 15;
 export const STAT_VALUE_INSET = 58;
 
 /**
+ * How each stat cell is scaled by what is currently on the body.
+ *
+ * `Dmg/s` is the only one that is not a straight lookup: it is damage times
+ * attack speed, so anything changing either changes it, which is exactly why
+ * the cell exists. Range and HP are not multiplied - reach is not modifiable
+ * at all (abilities.ts), and the HP cell is the body's MAXIMUM, which is what
+ * `maxHealth` moves.
+ */
+function scaleFor(key: StatKey, mods: StatMods): number {
+  switch (key) {
+    case 'damage':
+      return mods.damage;
+    case 'attackSpeed':
+      return mods.attackSpeed;
+    case 'dps':
+      return mods.damage * mods.attackSpeed;
+    case 'moveSpeed':
+      return mods.moveSpeed;
+    case 'hp':
+      return mods.maxHealth;
+    case 'range':
+      return 1;
+  }
+}
+
+/** Unmodified, to within the hundredth the wire quantises to (protocol.ts). */
+export function isPlain(scale: number): boolean {
+  return Math.abs(scale - 1) < 0.005;
+}
+
+/**
  * One stat, as `now` or `now → then` - the arrow only where the tier actually
  * changes it, so what an upgrade buys is what stands out.
+ *
+ * `mods` is what is on the body RIGHT NOW: an aura it is standing in, a slow
+ * somebody put on it, the tech its owner bought (`EntityView.mods`). The cell
+ * shows the number the body is actually fighting with, because that is the
+ * question a player looking at a selected body is asking - and the SAME
+ * multiplier is applied to the next tier's reading, so the comparison stays
+ * between two tiers rather than between a buffed body and an unbuffed one.
  */
-export function statText(key: StatKey, current: UnitDef, next: UnitDef | null): string {
-  const now = reading(key, current);
-  const then = next ? reading(key, next) : null;
+export function statText(
+  key: StatKey,
+  current: UnitDef,
+  next: UnitDef | null,
+  mods: StatMods | null = null,
+): string {
+  const scale = mods ? scaleFor(key, mods) : 1;
+  const now = reading(key, current, scale);
+  const then = next ? reading(key, next, scale) : null;
   const body = then === null || then === now ? now : `${now} → ${then}`;
   // The unit goes on the outside, so a change reads "2.4 → 2.6 tiles" rather
   // than saying "tiles" twice about one number.
   return body + unitFor(key, current);
 }
 
-function reading(key: StatKey, def: UnitDef): string {
-  const damage = def.damage ?? 0;
+/** Which way a cell's number has moved, for the colour it is drawn in. */
+export type StatDirection = 'plain' | 'up' | 'down';
+
+export function statDirection(key: StatKey, mods: StatMods | null): StatDirection {
+  if (!mods) return 'plain';
+  const scale = scaleFor(key, mods);
+  if (isPlain(scale)) return 'plain';
+  return scale > 1 ? 'up' : 'down';
+}
+
+function reading(key: StatKey, def: UnitDef, scale = 1): string {
+  const damage = (def.damage ?? 0) * scale;
   const attackSpeed = def.attackSpeed ?? 0;
   switch (key) {
     case 'hp':
-      return String(Math.round(def.hp ?? 0));
+      return String(Math.round((def.hp ?? 0) * scale));
     case 'damage':
       return String(Math.round(damage));
     case 'attackSpeed':
-      return trim(attackSpeed);
+      return trim(attackSpeed * scale);
     case 'dps':
-      return trim(damage * attackSpeed);
+      // `scale` is already damage × attack speed here, so the base pair is
+      // multiplied once rather than twice.
+      return trim((def.damage ?? 0) * attackSpeed * scale);
     case 'moveSpeed':
       // Two decimals: every unit in the game walks between 0.2 and 0.65 tiles a
       // second, so one decimal rounds most of a tier's gain away.
-      return trim(def.moveSpeed ?? 0, 2);
+      return trim((def.moveSpeed ?? 0) * scale, 2);
     case 'range':
       // A melee reach is a hair over zero (§5.2, edge to edge), so the number
       // says nothing a player can use. The word does.
@@ -91,55 +149,6 @@ function trim(value: number, places = 1): string {
   const scale = 10 ** places;
   const rounded = Math.round(value * scale) / scale;
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
-}
-
-/**
- * The ability lines for the panel: what this unit does, and what the next tier
- * would add.
- *
- * Every unit has an ability (units.json), so this block is never empty and the
- * panel can rely on it. It is also the one place a player reads what they are
- * buying, which is why the wording comes from `abilities.json` rather than from
- * here: the ability's own `text` is authored beside its numbers, and
- * `validate.ts` refuses an ability whose effects the simulation does not
- * honour - so a line here always describes a rule the unit actually has.
- *
- * The next tier is summarised rather than restated. A tier usually keeps its
- * signature and raises one figure, which reads as "improved"; when it unlocks
- * something new, the new thing is worth the whole line.
- */
-export function abilityLines(data: GameData, current: UnitDef, next: UnitDef | null): string[] {
-  const lines: string[] = [];
-  const held = new Set<string>();
-
-  for (const ref of current.abilities ?? []) {
-    const ability = data.abilities.abilities.find((a) => a.id === refId(ref));
-    if (!ability) continue;
-    held.add(ability.id);
-    lines.push(`${ability.name} — ${ability.text}`);
-  }
-
-  if (!next) return lines;
-
-  for (const ref of next.abilities ?? []) {
-    const id = refId(ref);
-    const ability = data.abilities.abilities.find((a) => a.id === id);
-    if (!ability) continue;
-    // A NEW ability is worth a line; the same one with a bigger number is not
-    // - "Kindle, improved" tells a player nothing they can act on, and the
-    // stat block above already shows what the tier moves.
-    if (!held.has(id)) lines.push(`Next tier · ${ability.name} — ${ability.text}`);
-  }
-  return lines;
-}
-
-/** The same lines with the descriptions stripped, for a panel with no room. */
-export function briefAbilityLines(
-  data: GameData,
-  current: UnitDef,
-  next: UnitDef | null,
-): string[] {
-  return briefLines(abilityLines(data, current, next));
 }
 
 /**
@@ -248,6 +257,56 @@ export function panelRegions(
 }
 
 /**
+ * The shortest a grid row may be drawn, when even dropping to one column
+ * cannot give every row a touch target. Below this a button is not a button.
+ */
+export const MIN_ROW_HEIGHT = 30;
+
+/**
+ * How many columns to put `count` buttons in, given the box they have.
+ *
+ * Two constraints pull opposite ways: a button needs width for its words, and
+ * a row needs height to be worth tapping. More columns means wider buttons but
+ * more rows to stack, so both are functions of the same choice - and on a
+ * short phone neither can be fully satisfied.
+ *
+ * So it is a preference order rather than a rule: rows at a full touch target
+ * and buttons wide enough to read; then buttons wide enough with shorter rows;
+ * then tappable rows however narrow; and finally as many columns as there are
+ * buttons. Within each step it takes the MOST columns that qualify, which is
+ * the fewest rows - five sends two across is three rows of half-height buttons
+ * with a gap beside the last, and three across is two rows that fill the tab.
+ * Whichever is chosen, the rows FIT: a button drawn past the bottom of the bar
+ * can be neither read nor tapped, which is worse than anything being traded.
+ */
+export function columnsThatFit(
+  count: number,
+  width: number,
+  height: number,
+  minWidth: number,
+  gap: number,
+): number {
+  const room = (cols: number) => {
+    const rows = Math.ceil(count / cols);
+    return {
+      width: (width - gap * (cols - 1)) / cols,
+      height: (height - gap * (rows - 1)) / rows,
+    };
+  };
+  const preferences: ((cols: number) => boolean)[] = [
+    (c) => room(c).width >= minWidth && room(c).height >= PANEL_BUTTON_HEIGHT,
+    (c) => room(c).width >= minWidth && room(c).height >= MIN_ROW_HEIGHT,
+    (c) => room(c).height >= MIN_ROW_HEIGHT,
+  ];
+  for (const wanted of preferences) {
+    for (let cols = count; cols >= 1; cols--) {
+      if (wanted(cols)) return cols;
+    }
+  }
+  return count;
+}
+
+/**
  * The type line beside a body's name: what it deals and what it is made of.
  *
  * Beside rather than under, because the tier it is about to become was the
@@ -260,49 +319,82 @@ export function typeLine(damageType: string, armour: string): string {
 }
 
 /**
- * A monster's stat cells. The same six readings as a unit's, minus the tier
- * comparison a monster has no use for.
+ * What the selected body does, as one chip per ability.
  *
- * Separate from `statText` rather than folded into it because the two take
- * different definitions and the shared version would be a function of a union
- * that branches on every line. Six identical strings are cheaper to read.
+ * A chip is a NAME. The description and every number behind it are one tap
+ * away on a card (abilityCard.ts), because a name always fits the panel's two
+ * lines and a sentence has to be shrunk until it does - which is how a tier-1
+ * Oathwall came to show "Hold the Line" and nothing else at all.
+ *
+ * The next tier's NEW abilities are chips too, marked `upcoming`: what an
+ * upgrade unlocks is exactly the sort of thing to read before buying it. An
+ * ability the next tier merely improves is not a chip, because the stat block
+ * above already shows what the tier moves.
  */
-export function monsterStatText(key: StatKey, def: MonsterDef): string {
-  const damage = def.damage ?? 0;
-  const attackSpeed = def.attackSpeed ?? 0;
-  switch (key) {
-    case 'hp':
-      return String(Math.round(def.hp ?? 0));
-    case 'damage':
-      return String(Math.round(damage));
-    case 'attackSpeed':
-      return `${trim(attackSpeed)}/s`;
-    case 'dps':
-      return trim(damage * attackSpeed);
-    case 'moveSpeed':
-      return `${trim(def.moveSpeed ?? 0, 2)} t/s`;
-    case 'range':
-      return (def.range ?? 0) < RANGED_MIN_TILES ? 'melee' : `${trim(def.range ?? 0)} tiles`;
+export function unitChips(data: GameData, current: UnitDef, next: UnitDef | null): Chip[] {
+  const chips: Chip[] = [];
+  const held = new Set<string>();
+
+  for (const ref of current.abilities ?? []) {
+    const ability = data.abilities.abilities.find((a) => a.id === refId(ref));
+    if (!ability) continue;
+    held.add(ability.id);
+    chips.push({ abilityId: ability.id, rank: refRank(ref), name: ability.name, upcoming: false });
   }
+
+  for (const ref of next?.abilities ?? []) {
+    const id = refId(ref);
+    if (held.has(id)) continue;
+    const ability = data.abilities.abilities.find((a) => a.id === id);
+    if (!ability) continue;
+    chips.push({ abilityId: id, rank: refRank(ref), name: ability.name, upcoming: true });
+  }
+  return chips;
+}
+
+/** The same for a monster, which has no tiers and therefore nothing upcoming. */
+export function monsterChips(data: GameData, def: MonsterDef): Chip[] {
+  const chips: Chip[] = [];
+  for (const ref of def.abilities ?? []) {
+    const ability = data.abilities.abilities.find((a) => a.id === refId(ref));
+    if (!ability) continue;
+    chips.push({ abilityId: ability.id, rank: refRank(ref), name: ability.name, upcoming: false });
+  }
+  return chips;
 }
 
 /**
- * What a monster does, for the panel that opens when one is tapped.
+ * What a body with no abilities says.
  *
  * Most monsters do nothing special, and saying so is the answer to the
- * question the tap asked. A blank block would read as a panel that failed to
- * load.
+ * question the tap asked. A blank block reads as a panel that failed to load.
  */
-export function monsterAbilityLines(data: GameData, def: MonsterDef): string[] {
-  const lines = (def.abilities ?? [])
-    .map((ref) => data.abilities.abilities.find((a) => a.id === refId(ref)))
-    .filter((ability): ability is NonNullable<typeof ability> => ability !== undefined)
-    .map((ability) => `${ability.name} — ${ability.text}`);
+export const NOTHING_SPECIAL = 'Nothing special. It walks at you and hits things.';
 
-  return lines.length > 0 ? lines : ['Nothing special. It walks at you and hits things.'];
-}
-
-/** Any ability lines with their descriptions stripped, for a panel with no room. */
-export function briefLines(lines: string[]): string[] {
-  return lines.map((line) => line.split(' — ')[0] ?? line);
+/**
+ * A monster's stat cells. The same six readings as a unit's, minus the tier
+ * comparison a monster has no use for.
+ */
+export function monsterStatText(
+  key: StatKey,
+  def: MonsterDef,
+  mods: StatMods | null = null,
+): string {
+  const scale = mods ? scaleFor(key, mods) : 1;
+  const damage = (def.damage ?? 0) * scale;
+  const attackSpeed = def.attackSpeed ?? 0;
+  switch (key) {
+    case 'hp':
+      return String(Math.round((def.hp ?? 0) * scale));
+    case 'damage':
+      return String(Math.round(damage));
+    case 'attackSpeed':
+      return `${trim(attackSpeed * scale)}/s`;
+    case 'dps':
+      return trim((def.damage ?? 0) * attackSpeed * scale);
+    case 'moveSpeed':
+      return `${trim((def.moveSpeed ?? 0) * scale, 2)} t/s`;
+    case 'range':
+      return (def.range ?? 0) < RANGED_MIN_TILES ? 'melee' : `${trim(def.range ?? 0)} tiles`;
+  }
 }

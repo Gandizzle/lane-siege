@@ -17,15 +17,21 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../../data/loadNode.ts';
 import type { UnitDef } from '../../data/schema.ts';
 import { computeLayout } from '../layout.ts';
+import type { StatMods } from '../../sim/index.ts';
+import { layOutChips } from './abilityChips.ts';
 import {
+  MIN_ROW_HEIGHT,
+  NOTHING_SPECIAL,
   STAT_CELLS,
-  abilityLines,
-  briefAbilityLines,
-  monsterAbilityLines,
+  columnsThatFit,
+  isPlain,
+  monsterChips,
   monsterStatText,
   panelRegions,
+  statDirection,
   statText,
   typeLine,
+  unitChips,
 } from './unitStats.ts';
 
 const { data } = loadDataFromDisk();
@@ -250,42 +256,43 @@ describe('what a body panel says', () => {
     expect(typeLine(vigil.damageType, vigil.armour)).not.toContain('II');
   });
 
-  it('names a NEW ability the next tier brings, and says nothing about a rank', () => {
+  it('offers a NEW ability the next tier brings, and says nothing about a rank', () => {
     const ember = def('ember');
     const ember2 = def('ember_2');
     const ember3 = def('ember_3');
 
     // Tier 2 is the same ability with bigger numbers, which the stat block
     // already shows. Nothing is added.
-    expect(abilityLines(data, ember, ember2).filter((s) => s.startsWith('Next tier'))).toEqual([]);
-    // Tier 3 unlocks Conflagration, which is worth a line.
-    const unlocks = abilityLines(data, ember2, ember3).filter((s) => s.startsWith('Next tier'));
+    expect(unitChips(data, ember, ember2).filter((c) => c.upcoming)).toEqual([]);
+    // Tier 3 unlocks Conflagration, which is worth a chip of its own.
+    const unlocks = unitChips(data, ember2, ember3).filter((c) => c.upcoming);
     expect(unlocks).toHaveLength(1);
-    expect(unlocks[0]).toContain('Conflagration');
+    expect(unlocks[0]?.name).toBe('Conflagration');
   });
 
-  it('gives every unit at least one line, because every unit has an ability', () => {
+  it('gives every unit at least one chip, because every unit has an ability', () => {
     for (const unit of data.units.units) {
-      expect(abilityLines(data, unit, null).length, unit.id).toBeGreaterThan(0);
+      expect(unitChips(data, unit, null).length, unit.id).toBeGreaterThan(0);
     }
   });
 
-  it('strips the descriptions when the panel has no room for them', () => {
-    const brief = briefAbilityLines(data, def('ember_3'), null);
-    expect(brief).toEqual(['Kindle', 'Conflagration']);
-    for (const line of brief) expect(line).not.toContain('—');
+  it('carries the rank the body actually has, so the card shows its numbers', () => {
+    const chips = unitChips(data, def('ember_3'), null);
+    expect(chips.map((c) => [c.abilityId, c.rank])).toEqual([
+      ['kindle', 3],
+      ['conflagration', 1],
+    ]);
   });
 
   it('answers a tap on an ordinary monster rather than showing nothing', () => {
     const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
-    const lines = monsterAbilityLines(data, grub);
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toContain('Nothing special');
+    expect(monsterChips(data, grub)).toEqual([]);
+    expect(NOTHING_SPECIAL).toContain('Nothing special');
   });
 
   it('reads a monster that does have one', () => {
     const bloater = data.monsters.monsters.find((m) => m.id === 'bloater')!;
-    expect(monsterAbilityLines(data, bloater)[0]).toContain('Rupture');
+    expect(monsterChips(data, bloater)[0]?.name).toBe('Rupture');
   });
 
   it('reads a monster the same way it reads a unit', () => {
@@ -294,5 +301,173 @@ describe('what a body panel says', () => {
       expect(monsterStatText(cell.key, husk), cell.key).not.toBe('');
     }
     expect(monsterStatText('range', husk)).toBe('melee');
+  });
+});
+
+describe('ability chips wrap and never leave their box', () => {
+  const chips = (names: string[]) =>
+    names.map((name, i) => ({ abilityId: `a${i}`, rank: 1, name, upcoming: false }));
+
+  it('wraps to the next row when a chip does not fit the current one', () => {
+    const placed = layOutChips(chips(['Kindle', 'Conflagration', 'Wildfire']), {
+      x: 0,
+      y: 0,
+      width: 140,
+      height: 200,
+    });
+    expect(placed).toHaveLength(3);
+    expect(new Set(placed.map((p) => p.y)).size).toBeGreaterThan(1);
+    // Nothing sticks out the side.
+    for (const p of placed) expect(p.x + p.width).toBeLessThanOrEqual(140.001);
+  });
+
+  it('drops the chips that do not fit rather than drawing past the bottom', () => {
+    const box = { x: 0, y: 0, width: 100, height: 26 };
+    const placed = layOutChips(
+      chips(['Shoulder to Shoulder', 'Closing Ranks', 'Hold the Line']),
+      box,
+    );
+    expect(placed.length).toBeLessThan(3);
+    for (const p of placed) {
+      expect(p.y + p.height, 'inside the box').toBeLessThanOrEqual(box.y + box.height + 0.001);
+    }
+  });
+
+  it("fits both of a tier-3 unit's abilities in the box the panel gives it", () => {
+    // The case that mattered: a 360x640 phone, where the sentences did not fit
+    // and the panel fell back to showing nothing at all.
+    const regions = panelRegions(
+      computeLayout(360, 640, data.lane).buildBar,
+      computeLayout(360, 640, data.lane).buildBar.y + 6,
+      computeLayout(360, 640, data.lane).buildBar.height - 12,
+    );
+    const both = unitChips(data, def('pledge_3'), null);
+    expect(both).toHaveLength(2);
+    expect(layOutChips(both, regions.text)).toHaveLength(2);
+  });
+});
+
+describe('a stat cell shows what the body is actually fighting with', () => {
+  const pledge = () => def('pledge');
+  const mods = (over: Partial<StatMods> = {}): StatMods => ({
+    damage: 1,
+    attackSpeed: 1,
+    moveSpeed: 1,
+    maxHealth: 1,
+    ...over,
+  });
+
+  it('reads the definition when nothing is on it', () => {
+    expect(statText('damage', pledge(), null, null)).toBe(statText('damage', pledge(), null));
+    expect(statDirection('damage', null)).toBe('plain');
+  });
+
+  it('multiplies the reading by what is on it', () => {
+    const base = Number(statText('damage', pledge(), null));
+    const buffed = Number(statText('damage', pledge(), null, mods({ damage: 1.5 })));
+    expect(buffed).toBe(Math.round(base * 1.5));
+  });
+
+  it('colours a rise green and a fall red, per cell', () => {
+    expect(statDirection('damage', mods({ damage: 1.24 }))).toBe('up');
+    expect(statDirection('moveSpeed', mods({ moveSpeed: 0.8 }))).toBe('down');
+    // A slow does not colour the damage cell.
+    expect(statDirection('damage', mods({ moveSpeed: 0.8 }))).toBe('plain');
+  });
+
+  it('moves Dmg/s when EITHER of the two behind it moves', () => {
+    expect(statDirection('dps', mods({ damage: 1.2 }))).toBe('up');
+    expect(statDirection('dps', mods({ attackSpeed: 0.7 }))).toBe('down');
+    // And a buff to one against a debuff to the other can cancel out, which is
+    // the whole reason the cell is damage times attack speed and not either.
+    expect(statDirection('dps', mods({ damage: 1.25, attackSpeed: 0.8 }))).toBe('plain');
+  });
+
+  it('leaves reach alone, because no ability may modify it', () => {
+    expect(statDirection('range', mods({ damage: 2, attackSpeed: 2, moveSpeed: 2 }))).toBe('plain');
+  });
+
+  it('applies the same multiplier to the tier it is being compared with', () => {
+    // Otherwise the arrow compares a buffed body against an unbuffed tier and
+    // an aura reads as an upgrade.
+    const buffed = statText('damage', def('pledge'), def('pledge_2'), mods({ damage: 2 }));
+    const [now, then] = buffed.split(' → ').map(Number);
+    expect(now).toBe(Math.round((def('pledge').damage ?? 0) * 2));
+    expect(then).toBe(Math.round((def('pledge_2').damage ?? 0) * 2));
+  });
+
+  it("reads a monster's live numbers the same way", () => {
+    const husk = data.monsters.monsters.find((m) => m.id === 'husk')!;
+    const slowed = monsterStatText('moveSpeed', husk, mods({ moveSpeed: 0.5 }));
+    expect(Number(slowed.split(' ')[0])).toBeCloseTo((husk.moveSpeed ?? 0) * 0.5, 2);
+  });
+
+  it('ignores a difference the wire could not have carried', () => {
+    // The rows quantise to hundredths (protocol.ts), so anything under that is
+    // rounding rather than a buff and must not paint a cell green.
+    expect(statDirection('damage', mods({ damage: 1.002 }))).toBe('plain');
+    expect(isPlain(1.002)).toBe(true);
+    expect(isPlain(1.02)).toBe(false);
+  });
+});
+
+describe('a grid of buttons fits the box it is given', () => {
+  /** The send tab's box, as `setLayout` computes it. */
+  function sendBox(width: number, height: number) {
+    const l = computeLayout(width, height, data.lane);
+    const landscape = l.orientation === 'landscape';
+    const stripH = landscape ? 2 * 30 + 4 : 30;
+    const top = l.buildBar.y + stripH + 7;
+    const panelHeight = l.buildBar.height - stripH - 12;
+    const chipH = landscape ? 38 * 2 + 6 : 38;
+    return {
+      x: landscape ? l.buildBar.x + 6 : 6,
+      y: top + chipH + 6,
+      width: l.buildBar.width - 12,
+      height: panelHeight - chipH - 6,
+      barBottom: l.buildBar.y + l.buildBar.height,
+    };
+  }
+
+  it('never puts a row past the bottom of the bar, at any size', () => {
+    // The bug this pins: `grid` used to draw each button at least a touch
+    // target tall while spacing the rows at the unclamped pitch, so a grid
+    // whose rows did not fit spilled off the bottom and the last row was cut
+    // in half. Five sends in two columns on a phone was exactly that case.
+    for (const [w, h] of [
+      [412, 915],
+      [360, 640],
+      [320, 568],
+      [915, 412],
+      [640, 360],
+      [1400, 800],
+    ] as const) {
+      const box = sendBox(w, h);
+      const cols = columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6);
+      const rows = Math.ceil(data.sends.sends.length / cols);
+      const rowHeight = Math.max(MIN_ROW_HEIGHT, (box.height - 6 * (rows - 1)) / rows);
+      const bottom = box.y + (rows - 1) * (rowHeight + 6) + rowHeight;
+      expect(bottom, `${w}x${h}`).toBeLessThanOrEqual(box.barBottom + 0.5);
+    }
+  });
+
+  it('gives a phone three columns rather than two half-height ones', () => {
+    const box = sendBox(412, 915);
+    expect(columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6)).toBe(3);
+  });
+
+  it('fills a landscape column rather than leaving a gap beside the last row', () => {
+    // Two across and three down, not one across and five down: the column is
+    // tall enough for either and two makes the buttons twice the height.
+    const box = sendBox(915, 412);
+    expect(columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6)).toBe(2);
+  });
+
+  it('would rather shorten a row than make a button unreadable', () => {
+    // 360x640 leaves the send grid 74 pixels. Five columns would fit one tall
+    // row and leave each button 65 pixels wide, which is not a name; three
+    // columns of 34-pixel rows are still tappable and still readable.
+    const box = sendBox(360, 640);
+    expect(columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6)).toBe(3);
   });
 });

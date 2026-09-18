@@ -1015,38 +1015,41 @@ one too many.
 
 §11.5's offence, made legible and then made comfortable.
 
-**One send, one monster.** A send used to buy a pack — eighteen gems put six
-Swarmlings in somebody's lane — which made every send a decision about a pack
-rather than about a monster, and made the cheapest button the one that dropped
-the most bodies. Each send now delivers exactly one, with its cost and its
-income divided by the old pack size so the gems and the gold per monster are
-unchanged. Pressure is something a player builds up rather than drops, and the
-button gets its third line back.
+**One send, one monster, and the send is named after it.** A send used to buy a
+pack under a product name — "Swarm Probe", eighteen gems, six Swarmlings —
+which made every send a decision about a pack rather than about a monster, made
+the cheapest button the one that dropped the most bodies, and left the button
+saying its own name and then the monster's underneath it. Each send now
+delivers exactly one body and is CALLED that body: Swarmling, Grub, Husk,
+Revenant, Bloater. Cost and income were divided by the old pack sizes, so the
+gems and the gold per monster are unchanged. A send id therefore matches the
+monster id it delivers, which is the same word in two separate namespaces
+(`defs.sends` and `defs.monsters`) and reads correctly in both.
 
-**Every send button carries the silhouette of the monster it delivers**, that
-monster's own name, and **what it will do when it gets there** — "Plated Push /
-15 gem → +4g/wave / Husk · Siegework" over a hexagon. The icon is the monster
-because a send _is_ that monster: the same shape, armour family and damage-type
-fill that §14.2 draws in the lane, in the wave preview and on a unit button.
-Learn "hexagon means plate, and that one is a Husk" once and read it everywhere;
-a send-only shape vocabulary would be five more shapes that appear nowhere else.
-All five sends draw a different picture, and a test in
+So a button is a name, a price, and **what that monster will do when it gets
+there** — "Husk / 15 gem → +4g/wave / Siegework" over a hexagon. The icon is
+the monster because a send _is_ that monster: the same shape, armour family and
+damage-type fill that §14.2 draws in the lane, in the wave preview and on a
+unit button. All five draw a different picture, and a test in
 `src/render/ui/sends.test.ts` keeps it that way.
 
 The ability named is **the send's own where it has one, the monster's
-otherwise**. `plated_push` grants Siegework to a husk that has nothing of its
-own and that IS the purchase; `bloat_drop` grants Volatile Cargo to a Bloater
-that already ruptures. Sight moved from that line to the price line, where it
-belongs — it is part of what the gems buy (§12), not part of what arrives. The
-full wording is one tap away: a monster in the lane can be selected and read.
+otherwise**. `husk` grants Siegework to a husk that has nothing of its own and
+that IS the purchase; `bloater` grants Volatile Cargo to a Bloater that already
+ruptures. Sight follows it on the same line, because the price line is the two
+numbers a send is weighed by and must never be the line that gets cut.
 
-**The tab drops a column rather than cutting the words.** Send buttons are laid
-out at whatever column count keeps each one at least 170 pixels wide — two
-across a portrait phone, one down a landscape column, three on something
-genuinely wide — because "Revenant · Raider's Haste" is what the line has to
-hold. And `GridButton` now cuts each of its three lines to its own width with
-an ellipsis, which it can do and the dozen call sites that build labels cannot:
-a button knows how wide it is and a string does not.
+**The grid fits its box, and the columns are chosen against it.** `grid` used
+to draw each button at least a touch target tall while spacing the rows at the
+unclamped pitch, so five sends in a column count whose rows did not fit spilled
+off the bottom of the bar and the last row was cut in half. It now honours its
+box, and `columnsThatFit` picks the count: rows at a full touch target and
+buttons wide enough to read, else buttons wide enough with shorter rows, else
+tappable rows however narrow — taking the MOST columns that qualify at each
+step, which is the fewest rows. Three across a portrait phone, two down a
+landscape column. And `GridButton` cuts each of its three lines to its own
+width with an ellipsis, which it can do and the dozen call sites that build
+labels cannot: a button knows how wide it is and a string does not.
 
 **A Random chip** sits beside the three opponent chips. §11.5's default is to
 gang up on the leader; Random is the other shape of pressure — spread across
@@ -1168,16 +1171,55 @@ upgrade in one cell and a downgrade in the next until you multiply them. Range
 below the melee threshold prints as `melee`; §5.2 measures reach edge to edge,
 so a melee value is a hair over zero and the digits are true but useless.
 
-These are **definition** numbers. Tech (§7.4) and the fortress aura (§10.1)
-multiply on top of them and are shown on their own tabs. Folding them in would
-make the tier comparison — which is what the panel is for — move for reasons
-that have nothing to do with the tier.
+These are the numbers the body is **actually fighting with**. Tech (§7.4), the
+fortress aura (§10.1) and every ability status on it are folded in, and a cell
+is drawn **green where something has raised it and red where something has
+lowered it** — a slowed monster's Move goes red while you watch, a Pledge
+standing beside two others shows its Damage in green. Higher is better in every
+cell the panel shows, which is why one comparison colours all six.
 
-Under the numbers is **what the body does**: its abilities, by name and
-description, from `abilities.json`. Unlike the older `UnitDef.traits` lines —
-still supported, still descriptive only, and empty for every unit today — these
-cannot lie by accident, because `validate.ts` refuses an ability built out of
-effects the simulation does not honour.
+The same multiplier is applied to the tier being compared with, so the arrow
+still compares two TIERS rather than a buffed body against an unbuffed
+definition. `Dmg/s` is scaled by damage times attack speed, so a buff to one
+against a debuff to the other correctly cancels out and the cell stays plain.
+
+**Where the numbers come from** is `EntityView.mods`: four multiples of the
+definition, computed in the simulation because only the simulation knows any of
+the three layers, and put on the wire SPARSE and MASKED — a row only for a body
+that has something on it, and inside the row only the fields that differ.
+Most bodies are unmodified and a body that is modified almost always has one
+thing changed, so the two together cost about half what a dense row would. It
+is still the biggest thing added to a frame in a while: 2.13 → 2.48 KiB for a
+player at §15.3's load, 6.45 → 7.95 for a spectator.
+
+Under the numbers is **what the body does**: one chip per ability, each one a
+button. A name always fits and a sentence has to be shrunk until it does —
+which is how a tier-1 Oathwall came to show "Hold the Line" and no description
+at all, because the fitting fell all the way back to names. So the panel shows
+names, the chips wrap like words, a chip that would fall outside the box is not
+drawn, and tapping one opens a card.
+
+**The card's numbers are generated, not authored** (`abilityText.ts`). An
+ability's `text` in `abilities.json` says what it is FOR in one short sentence
+and carries no figures at all; everything else on the card is read off the
+RESOLVED ability, so the panel and the data cannot disagree and a balance pass
+never leaves a stale description behind it. It also answers what the flavour
+line could not: "three Pledges in a row are three times braced" left a player
+asking whether they had to stay in a row, and the card says `Always on, while
+they are in range` / `Up to 3 allies within 1.6 tiles` / `+8% damage · up to 3
+stacks, one per unit`. Where an ability controls, the card adds the one-line
+note about diminishing returns, because that is where somebody is deciding
+whether a stun is worth building.
+
+A chip for an ability the NEXT tier unlocks is drawn dimmer and marked `+`:
+what an upgrade buys is exactly the sort of thing to read before buying it. An
+ability the next tier merely improves gets no chip, because the stat block
+above already shows what the tier moves.
+
+The older `UnitDef.traits` lines are still supported, still descriptive only,
+and still empty for every unit; an ability's description cannot lie the same
+way, because `validate.ts` refuses an ability built out of effects the
+simulation does not honour.
 
 **Selling** is the second button, and the rule is in
 [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md) — full price inside the build phase that
@@ -1353,9 +1395,29 @@ Implemented and tested (388 tests):
   upwards, the ability text keeps a two-line floor by giving up a stat row, and
   a monster's panel spends the button row on reading instead (§14.1)
 - What the panel says: the name and the types on one line with no tier and no
-  "II", a line for an ability the next tier UNLOCKS and none for one it merely
-  improves, names-only when there is no room for sentences, and an answer
-  rather than a blank for a monster that does nothing special (§14.1, §7)
+  "II", a chip for an ability the next tier UNLOCKS and none for one it merely
+  improves, the rank the body actually has so the card shows its numbers, and
+  an answer rather than a blank for a monster that does nothing special
+  (§14.1, §7)
+- Ability chips wrap like words and stop at the bottom of their box, and both
+  of a tier-3 unit's fit the box a 360 × 640 phone gives them (§14.1)
+- Abilities in words (§7, §18): every ability in the catalogue describes at
+  every rank with no placeholder left in it, the authored line stays short and
+  carries no figures, and the generated lines say what a player is actually
+  asking - that a passive holds only while they are in range, what a stack is
+  counted per, what a chance is, what an energy cost is, and both halves of a
+  synergy
+- A stat cell showing what the body is fighting with: multiplied by what is on
+  it, green up and red down per cell, `Dmg/s` moving when either of the two
+  behind it moves and staying plain when they cancel, reach never modified, the
+  compared tier scaled the same way, and a difference too small for the wire to
+  carry not painting anything (§14.1)
+- A grid of buttons that fits its box at six viewport sizes, three columns on a
+  phone and two down a landscape column, and a narrow row preferred over an
+  unreadable button (§14.1)
+- A frame carrying live stat modifiers, sparse: every modified body's four
+  numbers survive the round trip, and an unmodified one carries nothing at all
+  (§15.2)
 - The roster design rules, asserted against the data rather than intended:
   every unit has an ability, every tier carries its signature forward at that
   tier's rank, every ladder ends in a second ability, a three-tier unit's
