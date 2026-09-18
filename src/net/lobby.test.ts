@@ -29,7 +29,7 @@ const TIMING: LobbyTiming = { minWaitSeconds: 10, autoStartSeconds: 60 };
 function lobbyOf(count: number, ready = false) {
   const seats = createSeats(TEAMS);
   for (let i = 0; i < count; i++) {
-    const seat = seatPlayer(seats, `p${i}`, `Player ${i}`, 'bastion');
+    const seat = seatPlayer(seats, `p${i}`, `Player ${i}`, 'ironvow');
     if (seat) seat.ready = ready;
   }
   return seats;
@@ -38,43 +38,43 @@ function lobbyOf(count: number, ready = false) {
 describe('seats belong to players, not to connections', () => {
   it('seats a new player in the first free lane', () => {
     const seats = createSeats(TEAMS);
-    expect(seatPlayer(seats, 'a', 'Ann', 'bastion')?.teamId).toBe('lane1');
-    expect(seatPlayer(seats, 'b', 'Bo', 'ashfall')?.teamId).toBe('lane2');
+    expect(seatPlayer(seats, 'a', 'Ann', 'ironvow')?.teamId).toBe('lane1');
+    expect(seatPlayer(seats, 'b', 'Bo', 'pyre')?.teamId).toBe('lane2');
   });
 
   it('gives a returning player their own lane back, not the first free one', () => {
     const seats = createSeats(TEAMS);
-    seatPlayer(seats, 'a', 'Ann', 'bastion');
-    const mine = seatPlayer(seats, 'b', 'Bo', 'ashfall')!;
-    seatPlayer(seats, 'c', 'Cai', 'verdance');
+    seatPlayer(seats, 'a', 'Ann', 'ironvow');
+    const mine = seatPlayer(seats, 'b', 'Bo', 'pyre')!;
+    seatPlayer(seats, 'c', 'Cai', 'thornweald');
 
     // Bo drops: the seat is held, not released.
     mine.connected = false;
-    expect(seatPlayer(seats, 'b', 'Bo', 'ashfall')?.teamId).toBe('lane2');
+    expect(seatPlayer(seats, 'b', 'Bo', 'pyre')?.teamId).toBe('lane2');
     expect(occupiedSeats(seats)).toHaveLength(3);
   });
 
   it('keeps a returning player’s roster and ready state', () => {
     const seats = createSeats(TEAMS);
-    const seat = seatPlayer(seats, 'a', 'Ann', 'tidemark')!;
+    const seat = seatPlayer(seats, 'a', 'Ann', 'gloomtide')!;
     seat.ready = true;
     seat.connected = false;
 
     const back = seatPlayer(seats, 'a', '', '')!;
-    expect(back.builderId).toBe('tidemark');
+    expect(back.builderId).toBe('gloomtide');
     expect(back.ready).toBe(true);
     expect(back.connected).toBe(true);
   });
 
   it('refuses a fifth player', () => {
     const seats = lobbyOf(4);
-    expect(seatPlayer(seats, 'p9', 'Late', 'bastion')).toBeNull();
+    expect(seatPlayer(seats, 'p9', 'Late', 'ironvow')).toBeNull();
   });
 
   it('frees a released seat for somebody else', () => {
     const seats = lobbyOf(4);
     releaseSeat(seats[1]!);
-    expect(seatPlayer(seats, 'p9', 'Late', 'bastion')?.teamId).toBe('lane2');
+    expect(seatPlayer(seats, 'p9', 'Late', 'ironvow')?.teamId).toBe('lane2');
   });
 });
 

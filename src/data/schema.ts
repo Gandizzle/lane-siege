@@ -9,6 +9,9 @@
  * reports nulls as missing rather than letting them reach the simulation.
  */
 
+export * from './abilities.ts';
+import type { AbilityRef, AbilitiesFile } from './abilities.ts';
+
 export const DAMAGE_TYPES = ['impact', 'pierce', 'blast', 'arcane'] as const;
 export const ARMOUR_TYPES = ['flesh', 'plate', 'swarm', 'ward'] as const;
 
@@ -245,6 +248,20 @@ export interface UnitDef {
    */
   traits?: string[];
   /**
+   * What this unit DOES beyond its stats, by id into `abilities.json`.
+   *
+   * The theory the roster is built on: a unit that differs from the next one
+   * only in armour type and damage type is not a unit anybody remembers, so
+   * every unit has an ability - some from tier 1, some earned by upgrading.
+   * `"thorn_bite"` is rank 1; `{ "id": "thorn_bite", "rank": 2 }` is the same
+   * ability with the tier's numbers (abilities.ts).
+   *
+   * Unlike `traits` these are not decorative: `validate.ts` refuses a
+   * reference to an ability the simulation does not honour, so what the panel
+   * says about a unit is a rule the unit has.
+   */
+  abilities?: AbilityRef[];
+  /**
    * Tiles per second while advancing on a distant monster. DESIGN CHANGE from
    * §5.2 (units were stationary); 0 restores the original behaviour per unit.
    */
@@ -275,6 +292,15 @@ export interface MonsterDef {
   bounty: Unfilled<number>;
   /** Collision and drawn radius in tiles. Bosses are genuinely bigger. */
   bodyRadius: Unfilled<number>;
+  /**
+   * What this monster does beyond walking and hitting (abilities.json).
+   *
+   * Deliberately not every monster. A wave whose every member has something
+   * special is a wave with nothing special in it, and the cheap bodies are
+   * there to be cheap bodies - so the ones that carry an ability are the ones
+   * a defence should recognise on sight and answer differently.
+   */
+  abilities?: AbilityRef[];
   isBoss?: boolean;
 }
 
@@ -421,6 +447,17 @@ export interface SendDef {
   incomeGranted: Unfilled<number>;
   grantsVision: boolean;
   visionDurationSeconds: Unfilled<number>;
+  /**
+   * Abilities granted to every monster this send delivers, on top of whatever
+   * that monster has of its own (abilities.json).
+   *
+   * This is what makes a send a THING rather than a quantity of monsters. The
+   * same husk arriving in a wave and arriving in a paid attack should not
+   * behave identically - and putting the difference on the send rather than on
+   * a duplicate monster definition means one entry to tune and no second
+   * husk to keep in step with the first.
+   */
+  abilities?: AbilityRef[];
 }
 
 export interface SendsFile {
@@ -476,4 +513,5 @@ export interface GameData {
   fortress: FortressFile;
   sends: SendsFile;
   economy: EconomyFile;
+  abilities: AbilitiesFile;
 }

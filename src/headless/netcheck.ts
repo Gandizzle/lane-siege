@@ -119,7 +119,7 @@ async function main(): Promise<void> {
   rooms[0]!.send('command', {
     kind: 'placeUnit',
     teamId: a.teamId,
-    unitDefId: 'hammer',
+    unitDefId: 'pledge',
     tileX: 3,
     tileY: 6,
   });
@@ -137,7 +137,7 @@ async function main(): Promise<void> {
   rooms[0]!.send('command', {
     kind: 'placeUnit',
     teamId: b.teamId,
-    unitDefId: 'hammer',
+    unitDefId: 'pledge',
     tileX: 5,
     tileY: 6,
   });

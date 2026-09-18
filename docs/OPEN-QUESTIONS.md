@@ -84,7 +84,7 @@ Drop. Placeholders like every other number, but coherent ones:
 
 - Income is sized against **unit prices**, not against the gem cost, because the
   two currencies are not interchangeable. Grub Pack at 10 gold a wave buys a 40g
-  hammer in four waves and is noise by wave 14 — which is §11.5's stated arc,
+  Pledge in four waves and is noise by wave 14 — which is §11.5's stated arc,
   "clearly correct before wave 10, clearly a weapon after wave 14".
 - The cheap probe and the expensive raid grant vision; the bread-and-butter
   sends do not. So sight is a thing you pay for rather than a side effect of
@@ -114,13 +114,14 @@ builders differ by distribution rather than coverage. §7.3's tier upgrades and
 ### 8. Two rosters needed structural correction, which is not the same as tuning
 
 Recorded because it looks like balance and is not. `npm run builders` played all
-four against identical waves; Verdance and Tidemark were eliminated every run
-while Bastion and Ashfall never leaked. Two of the causes were structural:
+four against identical waves; Thornweald and Gloomtide (then Verdance and
+Tidemark) were eliminated every run while Ironvow and Pyre never leaked. Two of
+the causes were structural:
 
-- **Tidemark paid more supply per point of value than Bastion.** Supply is a
+- **Gloomtide paid more supply per point of value than Ironvow.** Supply is a
   hard cap (§11.4), so "fewer, stronger units" landed as "less army" — strictly
   worse, not a trade. One supply came off each of its units.
-- **Verdance's tank took 1.5× from Impact**, which is what most early waves
+- **Thornweald's tank took 1.5× from Impact**, which is what most early waves
   deal. A tank countered by the commonest damage type is not a tank; it is now
   flesh-armoured, one supply class down, with HP cut to match.
 
@@ -130,7 +131,7 @@ about the wave order — and it never built a tank at all, because a 700 HP wall
 loses a damage contest to everything. It now picks each row against the incoming
 wave using the same §9.3 preview a human gets, and scores the front row on how
 much of that wave its armour turns away (§4.1: front line to absorb). All four
-rosters then survive; Tidemark is the most fragile, which is its identity.
+rosters then survive; Gloomtide is the most fragile, which is its identity.
 
 **The curve is still soft for everyone** — nothing leaks before wave 25, where
 §5.5 wants a first elimination around 13–15. That is the balance pass, still
@@ -319,10 +320,11 @@ Decisions that override the document rather than filling a gap in it:
   time, since a 32 × 32 arena does not fit a phone screen at a readable
   scale. **Dampening** is the brake that guarantees termination — healing, a
   summon's starting HP and crowd-control durations all fade 1% per second
-  additively after the first 30 seconds — and is scaffolding: none of those
-  three effects exists yet, but every point of healing in the simulation
-  already goes through the one function the multiplier will be applied in.
-  `waves.showdown` in `data/waves.json` holds all four numbers.
+  additively after the first 30 seconds. Two of the three are load-bearing now
+  that abilities exist: the arena heals and holds, and both multipliers are
+  applied every tick. The summon curve is still waiting on summons, which are
+  vocabulary rather than a rule. `waves.showdown` in `data/waves.json` holds all
+  four numbers.
 
 - **§3.1 — the shop stays open during combat; only the board closes.** §3.1
   puts placing, upgrading, tech, fortress upgrades and queued sends all in the
@@ -496,6 +498,39 @@ Decisions that override the document rather than filling a gap in it:
   global wave clock is now "fixed unless everyone is done", matching how the
   ready button already works for the build phase. It still cannot be used to
   stall other players, since it only ever moves the clock forward.
+
+- **§7, §18 — every unit has an ability, and the rosters are named for what
+  they do.** §7 gives a builder six units and differentiates them by damage
+  type, armour type and price; §18 lists ability mechanics as a later concern.
+  Six units that differ only in those three things are a spreadsheet, so the
+  ability system is built now and the numbers are tuned later, like every other
+  number in `data/`. Every unit has a signature ability from tier 1 whose
+  numbers rise with the tier, and a second one unlocked at the top of its
+  ladder - which for the ten three-tier units is an ability that spends energy.
+  Five of the nine monsters have one and four deliberately do not; every boss
+  has one, and three of the four are thresholds. Three sends hand an ability to
+  everything they deliver, which is what makes a send a thing rather than a
+  quantity of monsters.
+
+  The four rosters were RENAMED to match, because a name that says nothing is
+  a name a player has to memorise: Bastion, Ashfall, Verdance and Tidemark are
+  now **Ironvow** (oaths: taunts, wards, answered blows), **Pyre** (heat:
+  `burning`, escalation, dying loudly), **Thornweald** (growth: roots, rot, a
+  line that mends itself) and **Gloomtide** (pressure: `soaked`, chill, chains
+  through the wet). Every unit id and name changed with them - Pledge, Oathwall,
+  Sentinel, Judgement, Sanction, Vigil; Ember, Slagmaw, Firebrand, Wickling,
+  Scoria, Foxfire; Thornling, Hollowbark, Sporecrown, Mycelia, Nettlespire,
+  Rotgourd; Fathomhold, Kelpsnare, Torrent, Sleet, Maelstrom, Murmur - so that
+  a unit's id, its name and its builder's name all say the same thing. No stat
+  moved: this was flavour and mechanics, and balance is still ahead of us.
+
+  The one rule worth stating as a rule: an ability a unit can reference must be
+  built out of effect kinds the simulation actually honours, and `validate.ts`
+  enforces it. The rest of §18's list - summons, resurrection, knockback,
+  teleportation, transformation, spirit link, detonation, path blocking, cost
+  reduction, charm, fear, banishment - is typed, validated and inert, and lives
+  in `abilities.json`'s `planned` list where it is a design rather than a
+  promise. See [ARCHITECTURE.md](ARCHITECTURE.md#abilities-a-trigger-a-target-some-effects-and-a-price).
 
 - **§1, §14.1 — the game plays either way up, and asks for neither.** §1 says
   portrait and one-handed, and the renderer used to enforce it: an attempted

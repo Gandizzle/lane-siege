@@ -11,6 +11,7 @@
  */
 
 import type { ArmourType, DamageType } from '../data/schema.ts';
+import type { Status } from './status.ts';
 
 export type EntityId = number;
 export type PlayerId = string;
@@ -172,6 +173,43 @@ export interface DefensiveUnit {
    * from the fight just finished survive the whole build phase to be read.
    */
   damageDealt: number;
+  /**
+   * Abilities, running (§7, §18, extended). One block of fields on both kinds
+   * of body, because a burn on a monster and a ward on a unit are the same
+   * machinery (status.ts).
+   *
+   *   statuses  - every effect currently on it, with its own clock and source.
+   *   energy    - the resource an expensive ability spends (abilities.json).
+   *   clocks    - ticks until each ability may fire again, by ability id.
+   *   latched   - threshold abilities that have fired and not yet rearmed.
+   *   control*  - §18's diminishing returns: how many control effects have
+   *               landed inside the current window, and how long this body is
+   *               immune for once that ladder is spent.
+   */
+  statuses: Status[];
+  energy: number;
+  clocks: Record<string, number>;
+  latched: string[];
+  controlUses: number;
+  controlWindowLeft: number;
+  controlImmuneLeft: number;
+  /**
+   * Whether this body has had its `onSpawn` abilities fired yet.
+   *
+   * Fired on a body's FIRST TICK rather than by whoever created it, because
+   * there are five ways onto the field - a wave spawning, the reserve admitting
+   * one as a slot opens, a unit being built, a unit respawning at a build
+   * phase, and the showdown transplant - and a rule with five call sites has
+   * five places to be forgotten (abilityRuntime.ts).
+   */
+  spawnFired: boolean;
+  /**
+   * Maximum HP before any ability touched it. `maxHp` is the effective figure
+   * and is recomputed from this whenever a `maxHealth` modifier changes, which
+   * is the only way to raise a ceiling without either healing the body or
+   * quietly wounding it (abilityRuntime.ts).
+   */
+  baseMaxHp: number;
   alive: boolean;
 }
 
@@ -231,6 +269,51 @@ export interface Monster {
   /** The direction it wants to walk this tick, decided before anyone moves. */
   moveX: number;
   moveY: number;
+  /**
+   * Which send delivered it, or null for a monster the wave brought (§11.5).
+   *
+   * Kept so the send's own abilities can be found: a paid husk arrives braced
+   * and a wave's husk does not, and that difference lives on the send rather
+   * than on a second husk definition.
+   */
+  sendId: string | null;
+  /**
+   * Abilities, running (§7, §18, extended). One block of fields on both kinds
+   * of body, because a burn on a monster and a ward on a unit are the same
+   * machinery (status.ts).
+   *
+   *   statuses  - every effect currently on it, with its own clock and source.
+   *   energy    - the resource an expensive ability spends (abilities.json).
+   *   clocks    - ticks until each ability may fire again, by ability id.
+   *   latched   - threshold abilities that have fired and not yet rearmed.
+   *   control*  - §18's diminishing returns: how many control effects have
+   *               landed inside the current window, and how long this body is
+   *               immune for once that ladder is spent.
+   */
+  statuses: Status[];
+  energy: number;
+  clocks: Record<string, number>;
+  latched: string[];
+  controlUses: number;
+  controlWindowLeft: number;
+  controlImmuneLeft: number;
+  /**
+   * Whether this body has had its `onSpawn` abilities fired yet.
+   *
+   * Fired on a body's FIRST TICK rather than by whoever created it, because
+   * there are five ways onto the field - a wave spawning, the reserve admitting
+   * one as a slot opens, a unit being built, a unit respawning at a build
+   * phase, and the showdown transplant - and a rule with five call sites has
+   * five places to be forgotten (abilityRuntime.ts).
+   */
+  spawnFired: boolean;
+  /**
+   * Maximum HP before any ability touched it. `maxHp` is the effective figure
+   * and is recomputed from this whenever a `maxHealth` modifier changes, which
+   * is the only way to raise a ceiling without either healing the body or
+   * quietly wounding it (abilityRuntime.ts).
+   */
+  baseMaxHp: number;
   alive: boolean;
 }
 
@@ -346,7 +429,7 @@ export interface Lane {
    */
   reserve: { defId: string; waveNumber: number }[];
   /** Extra monsters sent by opponents, merged into the next wave (§11.5). */
-  incomingSends: { defId: string; fromTeamId: TeamId }[];
+  incomingSends: { defId: string; fromTeamId: TeamId; sendId: string }[];
   /**
    * Sends this lane has received, newest last, for the "you are being attacked
    * by X" notice. Cleared when the wave they joined spawns.

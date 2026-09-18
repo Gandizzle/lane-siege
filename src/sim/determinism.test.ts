@@ -29,9 +29,9 @@ function runMatch(seed: number, ticks: number, players = 2): MatchState {
     if (t === 0) {
       for (const team of teams) {
         commands.push(
-          { kind: 'placeUnit', teamId: team.id, unitDefId: 'hammer', tileX: 3, tileY: 3 },
-          { kind: 'placeUnit', teamId: team.id, unitDefId: 'spike', tileX: 4, tileY: 5 },
-          { kind: 'placeUnit', teamId: team.id, unitDefId: 'mortar', tileX: 3, tileY: 7 },
+          { kind: 'placeUnit', teamId: team.id, unitDefId: 'pledge', tileX: 3, tileY: 3 },
+          { kind: 'placeUnit', teamId: team.id, unitDefId: 'sentinel', tileX: 4, tileY: 5 },
+          { kind: 'placeUnit', teamId: team.id, unitDefId: 'sanction', tileX: 3, tileY: 7 },
         );
       }
     }

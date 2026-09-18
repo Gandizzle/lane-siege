@@ -350,7 +350,7 @@ function send(
   lane.economy.passiveIncome += stat(def.incomeGranted);
 
   for (const monsterId of def.monsters) {
-    targetLane.incomingSends.push({ defId: monsterId, fromTeamId: lane.teamId });
+    targetLane.incomingSends.push({ defId: monsterId, fromTeamId: lane.teamId, sendId: def.id });
   }
   targetLane.sendLog.push({ sendId: def.id, fromTeamId: lane.teamId });
 
@@ -409,8 +409,15 @@ function upgradeUnit(
 
   // In place: same id, same tile. Only the definition and the stats change.
   unit.defId = next.id;
-  unit.maxHp = stat(next.hp);
+  unit.baseMaxHp = stat(next.hp);
+  unit.maxHp = unit.baseMaxHp;
   unit.hp = unit.maxHp;
+  // A tier is a different unit with different abilities, so the clocks and the
+  // threshold latches of the old one mean nothing (abilityRuntime.ts). The
+  // statuses on it are left alone: a slow cast on this body is still on this
+  // body, and buying an upgrade should not be a way to shrug one off.
+  unit.clocks = {};
+  unit.latched = [];
   unit.armour = next.armour;
   unit.damageType = next.damageType;
   unit.moveSpeed = stat(next.moveSpeed);

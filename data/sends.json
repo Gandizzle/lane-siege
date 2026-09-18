@@ -28,7 +28,8 @@
       "monsters": ["husk", "husk", "husk"],
       "incomeGranted": 12,
       "grantsVision": false,
-      "visionDurationSeconds": 0
+      "visionDurationSeconds": 0,
+      "abilities": ["siegework"]
     },
     {
       "id": "ward_raid",
@@ -37,7 +38,8 @@
       "monsters": ["revenant", "revenant"],
       "incomeGranted": 10,
       "grantsVision": true,
-      "visionDurationSeconds": 15
+      "visionDurationSeconds": 15,
+      "abilities": ["raiders_haste"]
     },
     {
       "id": "bloat_drop",
@@ -46,7 +48,9 @@
       "monsters": ["bloater", "bloater"],
       "incomeGranted": 6,
       "grantsVision": false,
-      "visionDurationSeconds": 0
+      "visionDurationSeconds": 0,
+      "abilities": ["volatile_cargo"]
     }
-  ]
+  ],
+  "_abilities": "§11.5, extended. Three of the five sends hand an ability to every monster they deliver (abilities.json), which is what makes a send a THING rather than a quantity of monsters: the same husk that walks in with a wave arrives braced when it is paid for. Putting the difference on the send rather than on a duplicate monster definition means one entry to tune and no second husk to keep in step with the first. The probe and the grub pack carry nothing - they are economy, not attacks."
 }

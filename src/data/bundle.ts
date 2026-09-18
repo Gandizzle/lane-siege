@@ -13,6 +13,7 @@ import waves from '../../data/waves.json' with { type: 'json' };
 import fortress from '../../data/fortress.json' with { type: 'json' };
 import sends from '../../data/sends.json' with { type: 'json' };
 import economy from '../../data/economy.json' with { type: 'json' };
+import abilities from '../../data/abilities.json' with { type: 'json' };
 
 import { validateData } from './validate.ts';
 
@@ -25,8 +26,19 @@ export const DATA_FILE_NAMES = [
   'fortress',
   'sends',
   'economy',
+  'abilities',
 ] as const;
 
 export function loadBundledData() {
-  return validateData({ matrix, lane, units, monsters, waves, fortress, sends, economy });
+  return validateData({
+    matrix,
+    lane,
+    units,
+    monsters,
+    waves,
+    fortress,
+    sends,
+    economy,
+    abilities,
+  });
 }

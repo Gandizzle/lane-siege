@@ -20,7 +20,7 @@ function freshMatch(): { state: MatchState; ctx: SimContext } {
   };
 }
 
-const hammer = data.units.units.find((u) => u.id === 'hammer')!;
+const hammer = data.units.units.find((u) => u.id === 'pledge')!;
 
 /** Step until the given phase. A function call, so TS does not narrow `phase`. */
 function runToPhase(ctx: SimContext, state: MatchState, phase: 'build' | 'combat'): void {
@@ -42,7 +42,7 @@ describe('placing units (§11.4)', () => {
     const result = applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 3,
     });
@@ -58,7 +58,7 @@ describe('placing units (§11.4)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'lane1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 3,
         tileY: 3,
       });
@@ -72,7 +72,7 @@ describe('placing units (§11.4)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'lane1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 99,
         tileY: 3,
       }),
@@ -85,7 +85,7 @@ describe('placing units (§11.4)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'lane1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 1,
         tileY: 1,
       }),
@@ -102,7 +102,7 @@ describe('placing units (§11.4)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'lane1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 1,
         tileY: 1,
       }),
@@ -115,7 +115,7 @@ describe('placing units (§11.4)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'lane1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 1,
         tileY: 1,
       }),
@@ -129,7 +129,7 @@ describe('placing units (§11.4)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'lane1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 1,
         tileY: 1,
       }),
@@ -140,7 +140,7 @@ describe('placing units (§11.4)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 3,
     });
@@ -157,7 +157,7 @@ describe('tier upgrades (§7.3)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 2,
       tileY: 2,
     });
@@ -174,14 +174,14 @@ describe('tier upgrades (§7.3)', () => {
     expect(unit.id).toBe(id);
     expect(Math.floor(unit.pos.x)).toBe(tileX);
     expect(Math.floor(unit.pos.y)).toBe(tileY);
-    expect(unit.defId).toBe('hammer_2');
+    expect(unit.defId).toBe('pledge_2');
     expect(state.lanes.lane1!.units).toHaveLength(1);
   });
 
   it('is more gold-efficient than building new', () => {
     // §7.3 target: about 1.6x cost for about 2.2x value.
-    const t1 = data.units.units.find((u) => u.id === 'hammer')!;
-    const t2 = data.units.units.find((u) => u.id === 'hammer_2')!;
+    const t1 = data.units.units.find((u) => u.id === 'pledge')!;
+    const t2 = data.units.units.find((u) => u.id === 'pledge_2')!;
     const costRatio = t2.goldCost! / t1.goldCost!;
     const valueRatio = t2.hp! / t1.hp!;
     expect(valueRatio).toBeGreaterThan(costRatio);
@@ -196,7 +196,7 @@ describe('tier upgrades (§7.3)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'bulwark',
+      unitDefId: 'oathwall',
       tileX: 2,
       tileY: 2,
     });
@@ -219,7 +219,7 @@ describe('tier upgrades (§7.3)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 2,
       tileY: 2,
     });
@@ -227,7 +227,7 @@ describe('tier upgrades (§7.3)', () => {
 
     applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: unit.id });
     applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: unit.id });
-    expect(unit.defId).toBe('hammer_3');
+    expect(unit.defId).toBe('pledge_3');
   });
 });
 

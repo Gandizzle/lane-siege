@@ -24,7 +24,7 @@ const ALL_AURAS: AuraType[] = ['damage', 'attackSpeed', 'armour', 'regeneration'
 function lane(aura: string | null, radius: number, strength: number): LaneView {
   return {
     teamId: 'lane1',
-    builderId: 'bastion',
+    builderId: 'ironvow',
     units: [],
     monsters: [],
     fortress: {

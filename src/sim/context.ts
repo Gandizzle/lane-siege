@@ -9,6 +9,7 @@
 
 import type { GameData } from '../data/schema.ts';
 import { arenaCentre, arenaShape, type ArenaShape } from './arena.ts';
+import { buildAbilityIndex, type AbilityIndex } from './abilityRuntime.ts';
 import { buildDefIndex, type DefIndex } from './defs.ts';
 import type { FlowField } from './flowfield.ts';
 import type { Body, Bounds } from './motion.ts';
@@ -47,6 +48,14 @@ export interface World {
 export interface SimContext {
   data: GameData;
   defs: DefIndex;
+  /**
+   * Every ability in the data, resolved to numbers once (abilityRuntime.ts).
+   *
+   * Beside `defs` because it is the same kind of thing: a lookup built when
+   * the match starts so that a tick never resolves a `"@name"` reference or
+   * walks an ability list to find a rank (§15.3).
+   */
+  abilities: AbilityIndex;
   /** Where monsters go once the lane is clear. Constant for a match (§5.5). */
   fortressPosition: Vec2;
   /** The fortress as a body, for what counts as being in range of it. */
@@ -144,6 +153,7 @@ export function createContext(data: GameData): SimContext {
   return {
     data,
     defs: buildDefIndex(data),
+    abilities: buildAbilityIndex(data),
     fortressPosition,
     fortress,
     fortressBodies: [fortress],

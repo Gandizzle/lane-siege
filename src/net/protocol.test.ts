@@ -59,7 +59,7 @@ describe('a frame survives the round trip', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'a',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: x,
         tileY: 5,
       });
@@ -93,7 +93,7 @@ describe('a frame survives the round trip', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'a',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: x,
         tileY: 5,
       });
@@ -143,14 +143,14 @@ describe('a frame survives the round trip', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'a',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 1,
       tileY: 1,
     });
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'a',
-      unitDefId: 'bulwark',
+      unitDefId: 'oathwall',
       tileX: 2,
       tileY: 1,
     });
@@ -169,14 +169,14 @@ describe('a frame survives the round trip', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'a',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 1,
       tileY: 1,
     });
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'a',
-      unitDefId: 'bulwark',
+      unitDefId: 'oathwall',
       tileX: 2,
       tileY: 1,
     });
@@ -223,7 +223,7 @@ describe('a frame survives the round trip', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'b',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 4,
       tileY: 7,
     });
@@ -272,7 +272,7 @@ describe('a frame cannot leak what the view withheld', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'b',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 1,
       tileY: 1,
     });
@@ -295,7 +295,7 @@ describe('a frame cannot leak what the view withheld', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'c',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 2,
       tileY: 2,
     });
@@ -317,7 +317,7 @@ describe('the Final Showdown on the wire (§3.3, replaced)', () => {
         applyCommand(ctx, state, {
           kind: 'placeUnit',
           teamId: id,
-          unitDefId: 'hammer',
+          unitDefId: 'pledge',
           tileX: x,
           tileY: 2,
         });

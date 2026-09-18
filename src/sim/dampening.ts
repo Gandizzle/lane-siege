@@ -28,19 +28,22 @@
  *   - `summonHealthMultiplier` - the HP a summoned defender spawns with.
  *   - `crowdControlMultiplier` - how long a stun, root or slow lasts.
  *
- * Only the first has anything to multiply right now: there are no summons and
- * no crowd control in the game yet, and the only healing in it is §10.1's
- * regeneration aura, which comes from a fortress and no fortress comes to the
- * showdown. They are three named functions rather than one number used three
- * times so that the day the effects arrive, the call site is a lookup rather
- * than a decision - and so that the day they need different curves, this file
- * is the only one that changes.
+ * Two of the three are load-bearing now. Abilities brought healing that is not
+ * the fortress's - Heartwood mends its own body, Underweb mends the line round
+ * it, Absolution closes wounds, Grave Tithe drinks - and they brought crowd
+ * control, so both multipliers are applied by the arena's environment every
+ * tick (abilityRuntime.ts, `buildArenaAbilityEnv`). `summonHealthMultiplier`
+ * is still waiting: nothing summons, and `summon` is vocabulary rather than a
+ * rule (abilities.ts). Three named functions rather than one number used three
+ * times, so that the day they need different curves this file is the only one
+ * that changes.
  *
- * `applyHealing` is the other half of that: every point of HP a body regains
- * anywhere in the simulation is added by this function, so there is exactly
- * one place for a multiplier to bite. A healing effect added without going
- * through it is a healing effect dampening does not reach, and that is the
- * failure mode this is shaped to make obvious.
+ * `applyHealing` and `healBy` are the other half of that: every point of HP a
+ * body regains anywhere in the simulation is added by one of these two, so
+ * there is exactly one place for a multiplier to bite. A healing effect added
+ * without going through them is a healing effect dampening does not reach, and
+ * that is the failure mode this is shaped to make obvious. `strike.ts` is the
+ * mirror image - the one place HP goes down.
  */
 
 import type { DampeningConfig } from '../data/schema.ts';
@@ -80,9 +83,10 @@ export function summonHealthMultiplier(config: DampeningConfig, ticks: number): 
 /**
  * What a crowd-control duration is worth (§3.3, replaced).
  *
- * No stuns, roots or slows yet. When there are, the duration is multiplied
- * here at the moment the effect is applied rather than counted down faster,
- * so an effect already running is not retroactively shortened by the clock.
+ * Multiplied at the moment the effect is applied and never afterwards, so an
+ * effect already running is not retroactively shortened by the clock. This is
+ * on top of §18's own diminishing returns, which are about one body being held
+ * repeatedly; this is about the fight as a whole having to end.
  */
 export function crowdControlMultiplier(config: DampeningConfig, ticks: number): number {
   return dampeningRemaining(config, ticks);
@@ -102,8 +106,21 @@ export function crowdControlMultiplier(config: DampeningConfig, ticks: number): 
  *     the showdown, where nothing is being dampened.
  */
 export function applyHealing(hp: number, maxHp: number, perSecond: number, multiplier = 1): number {
+  return healBy(hp, maxHp, perSecond * SECONDS_PER_TICK, multiplier);
+}
+
+/**
+ * The same three rules for healing that arrives as an AMOUNT rather than a
+ * rate: a heal, or lifesteal off a blow that has just landed.
+ *
+ * Two entry points rather than one because a caller with an amount and only a
+ * per-second door to go through has to multiply by the tick rate to cancel it
+ * out again, and that expression is exactly the sort of thing somebody later
+ * simplifies into a bug.
+ */
+export function healBy(hp: number, maxHp: number, amount: number, multiplier = 1): number {
   if (hp <= 0 || hp >= maxHp) return hp;
-  const healed = perSecond * multiplier * SECONDS_PER_TICK;
+  const healed = amount * multiplier;
   if (healed <= 0) return hp;
   return Math.min(maxHp, hp + healed);
 }

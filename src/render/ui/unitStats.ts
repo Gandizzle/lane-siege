@@ -6,7 +6,8 @@
  * measure text against, and this is the part with decisions in it.
  */
 
-import type { UnitDef } from '../../data/schema.ts';
+import type { GameData, UnitDef } from '../../data/schema.ts';
+import { refId, refRank } from '../../data/schema.ts';
 import { RANGED_MIN_TILES } from '../attackStyle.ts';
 
 /**
@@ -90,4 +91,46 @@ function trim(value: number, places = 1): string {
   const scale = 10 ** places;
   const rounded = Math.round(value * scale) / scale;
   return Number.isInteger(rounded) ? String(rounded) : String(rounded);
+}
+
+/**
+ * The ability lines for the panel: what this unit does, and what the next tier
+ * would add.
+ *
+ * Every unit has an ability (units.json), so this block is never empty and the
+ * panel can rely on it. It is also the one place a player reads what they are
+ * buying, which is why the wording comes from `abilities.json` rather than from
+ * here: the ability's own `text` is authored beside its numbers, and
+ * `validate.ts` refuses an ability whose effects the simulation does not
+ * honour - so a line here always describes a rule the unit actually has.
+ *
+ * The next tier is summarised rather than restated. A tier usually keeps its
+ * signature and raises one figure, which reads as "improved"; when it unlocks
+ * something new, the new thing is worth the whole line.
+ */
+export function abilityLines(data: GameData, current: UnitDef, next: UnitDef | null): string[] {
+  const lines: string[] = [];
+  const held = new Map<string, number>();
+
+  for (const ref of current.abilities ?? []) {
+    const ability = data.abilities.abilities.find((a) => a.id === refId(ref));
+    if (!ability) continue;
+    held.set(ability.id, refRank(ref));
+    lines.push(`${ability.name} — ${ability.text}`);
+  }
+
+  if (!next) return lines;
+
+  for (const ref of next.abilities ?? []) {
+    const id = refId(ref);
+    const ability = data.abilities.abilities.find((a) => a.id === id);
+    if (!ability) continue;
+    const before = held.get(id);
+    if (before === undefined) {
+      lines.push(`Next tier · ${ability.name} — ${ability.text}`);
+    } else if (refRank(ref) > before) {
+      lines.push(`Next tier · ${ability.name}, improved`);
+    }
+  }
+  return lines;
 }

@@ -104,7 +104,7 @@ describe('an engaged body never moves', () => {
     const d = passiveData();
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'hammer', 3, 5);
+    place(ctx, state, 'pledge', 3, 5);
     startCombat(ctx, state);
     const target = lane.monsters.find((m) => m.alive)!;
     for (const m of lane.monsters) if (m !== target) m.alive = false;
@@ -131,7 +131,7 @@ describe('an engaged body never moves', () => {
     const d = passiveData();
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'bulwark', 3, 5);
+    place(ctx, state, 'oathwall', 3, 5);
     startCombat(ctx, state);
     run(ctx, state, 300);
 
@@ -157,7 +157,7 @@ describe('bodies do not overlap', () => {
     const d = passiveData();
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    for (let x = 1; x < 7; x++) place(ctx, state, 'hammer', x, 5);
+    for (let x = 1; x < 7; x++) place(ctx, state, 'pledge', x, 5);
     startCombat(ctx, state);
 
     let worst = 0;
@@ -172,7 +172,7 @@ describe('bodies do not overlap', () => {
     const d = passiveData();
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    for (let x = 1; x < 7; x++) place(ctx, state, 'hammer', x, 5);
+    for (let x = 1; x < 7; x++) place(ctx, state, 'pledge', x, 5);
     startCombat(ctx, state);
 
     let worst = 0;
@@ -220,7 +220,7 @@ describe('thirty melee monsters against one tank', () => {
     d.waves.maxConcurrentMonsters = 40;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'bulwark', 3, 6);
+    place(ctx, state, 'oathwall', 3, 6);
     startCombat(ctx, state);
     return { state, ctx, lane, tank: lane.units[0]! };
   }
@@ -306,7 +306,7 @@ describe('defensive units advance when nothing is in range (§5.2, amended)', ()
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'hammer', 3, 8);
+    place(ctx, state, 'pledge', 3, 8);
     startCombat(ctx, state);
 
     const unit = lane.units[0]!;
@@ -321,7 +321,7 @@ describe('defensive units advance when nothing is in range (§5.2, amended)', ()
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'lance', 3, 8);
+    place(ctx, state, 'judgement', 3, 8);
     startCombat(ctx, state);
 
     const unit = lane.units[0]!;
@@ -343,7 +343,7 @@ describe('defensive units advance when nothing is in range (§5.2, amended)', ()
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'hammer', 3, 3);
+    place(ctx, state, 'pledge', 3, 3);
     startCombat(ctx, state);
 
     run(ctx, state, 400);
@@ -362,7 +362,7 @@ describe('defensive units advance when nothing is in range (§5.2, amended)', ()
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'lance', 3, 3);
+    place(ctx, state, 'judgement', 3, 3);
     startCombat(ctx, state);
 
     run(ctx, state, 400);
@@ -377,8 +377,8 @@ describe('defensive units advance when nothing is in range (§5.2, amended)', ()
     const d = passiveData();
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'hammer', 2, 7);
-    place(ctx, state, 'hammer', 5, 7);
+    place(ctx, state, 'pledge', 2, 7);
+    place(ctx, state, 'pledge', 5, 7);
     startCombat(ctx, state);
     run(ctx, state, 100);
     expect(lane.units.some((u) => Math.floor(u.pos.y) !== 7)).toBe(true);
@@ -403,7 +403,7 @@ describe('monsters route rather than press', () => {
     const d = passiveData();
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    for (let x = 0; x < 7; x++) place(ctx, state, 'bulwark', x, 4);
+    for (let x = 0; x < 7; x++) place(ctx, state, 'oathwall', x, 4);
     startCombat(ctx, state);
     run(ctx, state, 600);
 
@@ -419,7 +419,7 @@ describe('monsters route rather than press', () => {
     const d = passiveData();
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    for (let x = 0; x < 8; x++) place(ctx, state, 'bulwark', x, 3);
+    for (let x = 0; x < 8; x++) place(ctx, state, 'oathwall', x, 3);
     startCombat(ctx, state);
     run(ctx, state, 600);
 
@@ -464,7 +464,7 @@ describe('a monster walks at the fortress until something is worth fighting (§5
     for (const u of d.units.units) u.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'hammer', unitTileX, unitTileY);
+    place(ctx, state, 'pledge', unitTileX, unitTileY);
     startCombat(ctx, state);
 
     const monster = lane.monsters.find((m) => m.alive)!;
@@ -505,8 +505,8 @@ describe('a monster walks at the fortress until something is worth fighting (§5
     for (const u of d.units.units) u.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    place(ctx, state, 'hammer', 3, 5);
-    place(ctx, state, 'hammer', 4, 5);
+    place(ctx, state, 'pledge', 3, 5);
+    place(ctx, state, 'pledge', 4, 5);
     startCombat(ctx, state);
 
     const monster = lane.monsters.find((m) => m.alive)!;
@@ -546,13 +546,13 @@ describe('units route around allies', () => {
     // A line of immobile allies across the lane with one gap. Local steering
     // pressed flat against it; the field finds the gap.
     const d = passiveData();
-    for (const u of d.units.units) if (u.id === 'mortar') u.moveSpeed = 0;
+    for (const u of d.units.units) if (u.id === 'sanction') u.moveSpeed = 0;
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
 
-    for (let x = 0; x < 7; x++) place(ctx, state, 'mortar', x, 5);
-    for (let x = 2; x < 6; x++) for (const y of [8, 9]) place(ctx, state, 'hammer', x, y);
+    for (let x = 0; x < 7; x++) place(ctx, state, 'sanction', x, 5);
+    for (let x = 2; x < 6; x++) for (const y of [8, 9]) place(ctx, state, 'pledge', x, y);
     startCombat(ctx, state);
 
     const target = lane.monsters.find((m) => m.alive)!;
@@ -561,7 +561,7 @@ describe('units route around allies', () => {
     target.pos.y = 1.5;
 
     run(ctx, state, 1200);
-    const movers = lane.units.filter((u) => u.defId === 'hammer');
+    const movers = lane.units.filter((u) => u.defId === 'pledge');
     const through = movers.filter((u) => u.pos.y < 4.5).length;
     expect(through).toBe(8);
   });
@@ -571,7 +571,7 @@ describe('units route around allies', () => {
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    for (const y of [7, 8]) for (let x = 2; x < 6; x++) place(ctx, state, 'hammer', x, y);
+    for (const y of [7, 8]) for (let x = 2; x < 6; x++) place(ctx, state, 'pledge', x, y);
     startCombat(ctx, state);
 
     const target = lane.monsters.find((m) => m.alive)!;
@@ -647,7 +647,7 @@ describe("the lane's own walls are terrain", () => {
     // it marks attack positions there - goals a crowd walks at forever without
     // ever taking, which is what a lane-wide fortress produces a queue of.
     const { state, ctx } = setup(data);
-    place(ctx, state, 'hammer', 3, 4);
+    place(ctx, state, 'pledge', 3, 4);
     startCombat(ctx, state);
     run(ctx, state, 200);
 
@@ -666,7 +666,7 @@ describe('the crowd comes to rest', () => {
     for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.moveSpeed = 0;
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    for (let x = 2; x < 7; x++) for (let y = 6; y < 10; y++) place(ctx, state, 'hammer', x, y);
+    for (let x = 2; x < 7; x++) for (let y = 6; y < 10; y++) place(ctx, state, 'pledge', x, y);
     startCombat(ctx, state);
     run(ctx, state, 1400);
 
@@ -709,7 +709,7 @@ describe('a boss passes through its own escort (§3.4)', () => {
 
     const { state, ctx } = setup(d);
     const lane = state.lanes.l1!;
-    for (let x = 0; x < 8; x++) place(ctx, state, 'bulwark', x, 6);
+    for (let x = 0; x < 8; x++) place(ctx, state, 'oathwall', x, 6);
     startCombat(ctx, state);
 
     const boss = lane.monsters.find((m) => m.defId === 'brood_sire')!;
@@ -809,7 +809,7 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
         applyCommand(ctx, state, {
           kind: 'placeUnit',
           teamId: 'l1',
-          unitDefId: 'hammer',
+          unitDefId: 'pledge',
           tileX: x,
           tileY: y,
         });
@@ -895,7 +895,15 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
     // behind it matters. Before the rule this scenario put monsters in only 4
     // of the lane's 14 rows for the whole fight: the wave was ground down on
     // the spawn point and never got past the door.
-    const { state, ctx } = underSiege(40);
+    //
+    // Sixty rather than the forty this used to need. A block of thirty-two
+    // Pledges all grant each other Shoulder to Shoulder (abilities.json), so
+    // the same wall of bodies is about a quarter stronger than it was and forty
+    // sends no longer break it - at forty the line finishes the fight intact
+    // and the wave never leaves the doorway, which measures the ABILITY rather
+    // than the rule under test. At sixty the line gives way and thirteen of the
+    // fourteen rows see a monster.
+    const { state, ctx } = underSiege(60);
     const lane = state.lanes.l1!;
     const rows = new Set<number>();
 

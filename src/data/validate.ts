@@ -6,8 +6,27 @@
  * set fails with a to-do list instead of a stack trace ten frames into a tick.
  */
 
-import type { ArmourType, GameData } from './schema.ts';
-import { SHAPE_FAMILY } from './schema.ts';
+import type {
+  AbilityDef,
+  AbilityEffect,
+  AbilityRef,
+  ArmourType,
+  GameData,
+  Tunable,
+} from './schema.ts';
+import {
+  CONTROL_KINDS,
+  EFFECT_KINDS,
+  IMPLEMENTED_EFFECTS,
+  PERCENT_ONLY_STATS,
+  SHAPE_FAMILY,
+  STAT_KEYS,
+  TARGETS,
+  TRIGGERS,
+  rankNumbers,
+  refId,
+  refRank,
+} from './schema.ts';
 
 export interface DataReport {
   /** Dotted paths whose value is still `null`, e.g. `economy.startingGold`. */
@@ -21,6 +40,11 @@ export interface DataReport {
 // Keys that carry prose for whoever edits the JSON, not data for the sim.
 const IGNORED_KEYS = new Set([
   '_comment',
+  '_tags',
+  '_planned',
+  '_abilities',
+  '_tuning',
+  '_vision',
   '_open',
   '_clockNote',
   '_decided',
@@ -187,6 +211,247 @@ function checkShapes(data: GameData, errors: string[]): void {
   for (const monster of monsters) claim(monster.shape, monster.id);
 }
 
+/**
+ * Which fields each effect kind actually reads, so an entry with a number in
+ * the wrong field fails loudly instead of quietly doing nothing.
+ *
+ * This table is also the documentation: `modify` needs a stat, `control` needs
+ * a flavour, a `damage` effect needs at least one of the five ways of saying
+ * how much. A kind with an empty list needs nothing beyond being named.
+ */
+const REQUIRED_FIELDS: Partial<Record<(typeof EFFECT_KINDS)[number], (keyof AbilityEffect)[]>> = {
+  modify: ['stat'],
+  control: ['control'],
+  shield: ['blocks'],
+  execute: ['belowFraction'],
+  immunity: ['immuneTo'],
+  energy: ['energy'],
+};
+
+/** The five ways a `damage` effect can say how much, any one of which will do. */
+const DAMAGE_FIELDS: (keyof AbilityEffect)[] = [
+  'flat',
+  'ofMaxHealth',
+  'ofCurrentHealth',
+  'ofMissingHealth',
+  'ofAttack',
+];
+
+/** Targets that are meaningless without a distance. */
+const NEEDS_RADIUS = new Set([
+  'enemiesInRadius',
+  'alliesInRadius',
+  'nearestAllies',
+  'lowestHealthAlly',
+  'randomEnemy',
+  'chain',
+  'deadAllyNearby',
+  'bondedAlly',
+]);
+
+/** Every `"@name"` in this value, or nothing if it is a plain number. */
+function refsIn(value: unknown): string[] {
+  if (typeof value === 'string' && value.startsWith('@')) return [value.slice(1)];
+  if (Array.isArray(value)) return value.flatMap(refsIn);
+  if (value !== null && typeof value === 'object') {
+    return Object.values(value as Record<string, unknown>).flatMap(refsIn);
+  }
+  return [];
+}
+
+/**
+ * DESIGN.md §7 and §18, extended: the ability catalogue.
+ *
+ * The rule worth having a validator for at all is the last one. `traits` are
+ * prose and can describe a rule the game does not have; an ability's `text` is
+ * shown to the player in the same panel and must NOT be able to, so an ability
+ * that a unit, monster or send references may only be built out of effect kinds
+ * the simulation honours (`IMPLEMENTED_EFFECTS`). The rest of the vocabulary
+ * lives in `planned`, where it is a design rather than a promise, and referring
+ * to one of those is an error.
+ */
+function checkAbilities(data: GameData, errors: string[], notes: string[]): void {
+  const file = data.abilities;
+  if (!file || !Array.isArray(file.abilities)) {
+    errors.push('abilities.json has no `abilities` list');
+    return;
+  }
+
+  const live = new Map<string, AbilityDef>();
+  const planned = new Map<string, AbilityDef>();
+  const implemented = new Set<string>(IMPLEMENTED_EFFECTS);
+
+  for (const [name, list] of [
+    ['abilities', file.abilities],
+    ['planned', file.planned ?? []],
+  ] as const) {
+    const into = name === 'abilities' ? live : planned;
+    for (const ability of list) {
+      if (live.has(ability.id) || planned.has(ability.id)) {
+        errors.push(`two abilities share the id ${ability.id}`);
+        continue;
+      }
+      into.set(ability.id, ability);
+      checkOneAbility(ability, `abilities.${name}`, errors);
+    }
+  }
+
+  // Which words anything actually applies, so a synergy that can never fire is
+  // reported rather than silently never firing.
+  const applied = new Set<string>();
+  for (const ability of [...live.values(), ...planned.values()]) {
+    for (const effect of ability.effects) if (effect.appliesTag) applied.add(effect.appliesTag);
+  }
+  for (const ability of live.values()) {
+    const wanted = [
+      ability.target.requiresTag,
+      ...ability.effects.map((e) => e.bonusIfTag?.tag),
+    ].filter((tag): tag is string => typeof tag === 'string');
+    for (const tag of wanted) {
+      if (!applied.has(tag)) {
+        notes.push(`${ability.id} pays off the tag "${tag}", which nothing applies`);
+      }
+    }
+  }
+
+  const referenced = new Set<string>();
+  const check = (refs: AbilityRef[] | undefined, owner: string): void => {
+    for (const ref of refs ?? []) {
+      const id = refId(ref);
+      const rank = refRank(ref);
+      referenced.add(id);
+
+      if (planned.has(id)) {
+        errors.push(
+          `${owner} references ${id}, which is in \`planned\` - it uses effect kinds the ` +
+            `simulation does not honour yet, so the panel would describe a rule the game has not got`,
+        );
+        continue;
+      }
+      const ability = live.get(id);
+      if (!ability) {
+        errors.push(`${owner} references ability ${id}, which does not exist`);
+        continue;
+      }
+      if (rank < 1) errors.push(`${owner} asks for rank ${rank} of ${id}`);
+      if (ability.ranks && rank > ability.ranks.length) {
+        errors.push(`${owner} asks for rank ${rank} of ${id}, which has ${ability.ranks.length}`);
+      }
+      for (const effect of ability.effects) {
+        if (!implemented.has(effect.kind)) {
+          errors.push(
+            `${owner} references ${id}, whose \`${effect.kind}\` effect is vocabulary rather ` +
+              `than a rule (IMPLEMENTED_EFFECTS in abilities.ts)`,
+          );
+        }
+      }
+    }
+  };
+
+  for (const unit of data.units.units) {
+    check(unit.abilities, `unit ${unit.id}`);
+    // The roster's whole premise (units.json): a unit that differs from the
+    // next one only in armour type and damage type is not a unit anybody
+    // remembers. Enforced rather than intended.
+    if (!unit.abilities || unit.abilities.length === 0) {
+      errors.push(`unit ${unit.id} has no ability`);
+    }
+  }
+  for (const monster of [...data.monsters.monsters, ...data.monsters.bosses]) {
+    check(monster.abilities, `monster ${monster.id}`);
+  }
+  for (const send of data.sends.sends) {
+    check(send.abilities, `send ${send.id}`);
+  }
+
+  for (const id of live.keys()) {
+    if (!referenced.has(id)) notes.push(`ability ${id} is in the catalogue but nothing has it`);
+  }
+}
+
+/** One entry's own shape: its numbers resolve, and each effect has its fields. */
+function checkOneAbility(ability: AbilityDef, where: string, errors: string[]): void {
+  const at = `${where} ${ability.id}`;
+  if (!TRIGGERS.includes(ability.trigger.when)) {
+    errors.push(`${at} has trigger "${ability.trigger.when}", which is not a trigger`);
+  }
+  if (!TARGETS.includes(ability.target.what)) {
+    errors.push(`${at} targets "${ability.target.what}", which is not a target`);
+  }
+  if (ability.trigger.when === 'interval' && !ability.trigger.everySeconds) {
+    errors.push(`${at} fires on an interval but does not say how often`);
+  }
+  if (NEEDS_RADIUS.has(ability.target.what) && ability.target.radius === undefined) {
+    errors.push(`${at} targets "${ability.target.what}" without a radius`);
+  }
+
+  // Every `"@name"` has to exist in `numbers` AT EVERY RANK, which is the whole
+  // safety of the rank mechanism: a rank row that renames a key silently
+  // zeroes the effect that referred to the old one.
+  const ranks = ability.ranks?.length ?? 1;
+  for (let rank = 1; rank <= ranks; rank++) {
+    const numbers = rankNumbers(ability, rank);
+    for (const name of refsIn([
+      ability.trigger,
+      ability.target,
+      ability.effects,
+      ability.cooldownSeconds,
+      ability.energyCost,
+      ability.healthCost,
+    ] as Tunable[])) {
+      if (!(name in numbers)) {
+        errors.push(`${at} refers to "@${name}" at rank ${rank}, which its numbers do not define`);
+      }
+    }
+  }
+  for (const [key, value] of Object.entries(ability.numbers ?? {})) {
+    if (value === null) errors.push(`${at} leaves the number "${key}" unfilled`);
+  }
+
+  if (ability.effects.length === 0) errors.push(`${at} has no effects`);
+  for (const effect of ability.effects) {
+    if (!EFFECT_KINDS.includes(effect.kind)) {
+      errors.push(`${at} has an effect of kind "${effect.kind}", which is not a kind`);
+      continue;
+    }
+    for (const field of REQUIRED_FIELDS[effect.kind] ?? []) {
+      if (effect[field] === undefined) {
+        errors.push(`${at}'s ${effect.kind} effect needs a ${String(field)}`);
+      }
+    }
+    if (effect.kind === 'damage' && !DAMAGE_FIELDS.some((f) => effect[f] !== undefined)) {
+      errors.push(`${at}'s damage effect never says how much`);
+    }
+    if (
+      (effect.kind === 'damageOverTime' || effect.kind === 'regen') &&
+      effect.perSecond === undefined &&
+      effect.ofMaxHealth === undefined
+    ) {
+      errors.push(`${at}'s ${effect.kind} effect has no rate`);
+    }
+    if (effect.kind === 'modify') {
+      if (effect.stat !== undefined && !STAT_KEYS.includes(effect.stat)) {
+        errors.push(`${at} modifies "${effect.stat}", which is not a stat`);
+      }
+      if (effect.mode === 'flat' && effect.stat && PERCENT_ONLY_STATS.includes(effect.stat)) {
+        errors.push(`${at} gives ${effect.stat} a flat amount; it is a fraction`);
+      }
+    }
+    if (effect.kind === 'control' && effect.control && !CONTROL_KINDS.includes(effect.control)) {
+      errors.push(`${at} applies "${effect.control}", which is not a control effect`);
+    }
+    if (effect.kind === 'control' && !effect.durationSeconds) {
+      errors.push(`${at} applies control with no duration`);
+    }
+    if (effect.stacks !== undefined) {
+      const max = effect.stacks.max;
+      if (max === null || (typeof max === 'number' && max < 1)) {
+        errors.push(`${at} has a stack rule with a maximum below one`);
+      }
+    }
+  }
+}
+
 /** Assembles the bundle and reports its gaps. Never throws. */
 export function validateData(raw: Record<string, unknown>): {
   data: GameData;
@@ -203,6 +468,7 @@ export function validateData(raw: Record<string, unknown>): {
   checkWaveReferences(data, errors);
   checkUpgradeChain(data, errors);
   checkShapes(data, errors);
+  checkAbilities(data, errors, notes);
 
   return { data, report: { missing, errors, notes } };
 }

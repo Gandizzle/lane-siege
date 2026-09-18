@@ -37,7 +37,7 @@ for (const id of teamIds) {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: id,
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: x,
         tileY: y,
       });
@@ -136,7 +136,7 @@ console.log(
         applyCommand(arenaCtx, arena, {
           kind: 'placeUnit',
           teamId: id,
-          unitDefId: 'hammer',
+          unitDefId: 'pledge',
           tileX: x,
           tileY: y,
         });

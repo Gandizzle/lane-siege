@@ -82,7 +82,6 @@ class OpponentTab extends Container {
     this.detail.y = detailTop(this.caption.y, height);
   }
 
-
   /** `null` for the viewer's own lane, which is always shown first. */
   update(
     opponent: OpponentView | null,

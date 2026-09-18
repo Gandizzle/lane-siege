@@ -49,9 +49,9 @@ function nextBuildPhase(ctx: SimContext, state: MatchState): void {
   expect(state.phase).toBe('build');
 }
 
-const HAMMER_GOLD = data.units.units.find((u) => u.id === 'hammer')!.goldCost!;
-const HAMMER_SUPPLY = data.units.units.find((u) => u.id === 'hammer')!.supplyCost!;
-const HAMMER_2_GOLD = data.units.units.find((u) => u.id === 'hammer_2')!.goldCost!;
+const HAMMER_GOLD = data.units.units.find((u) => u.id === 'pledge')!.goldCost!;
+const HAMMER_SUPPLY = data.units.units.find((u) => u.id === 'pledge')!.supplyCost!;
+const HAMMER_2_GOLD = data.units.units.find((u) => u.id === 'pledge_2')!.goldCost!;
 
 describe('selling in the phase that bought it is an undo (§11)', () => {
   it('returns every gold piece the unit cost', () => {
@@ -59,7 +59,7 @@ describe('selling in the phase that bought it is an undo (§11)', () => {
     const lane = state.lanes.l1!;
     const before = lane.economy.gold;
 
-    const unit = place(ctx, state, 'hammer');
+    const unit = place(ctx, state, 'pledge');
     expect(lane.economy.gold).toBe(before - HAMMER_GOLD);
 
     expect(applyCommand(ctx, state, { kind: 'sellUnit', teamId: 'l1', unitId: unit.id }).ok).toBe(
@@ -73,7 +73,7 @@ describe('selling in the phase that bought it is an undo (§11)', () => {
     const lane = state.lanes.l1!;
     const before = lane.economy.gold;
 
-    const unit = place(ctx, state, 'hammer');
+    const unit = place(ctx, state, 'pledge');
     expect(
       applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'l1', unitId: unit.id }).ok,
     ).toBe(true);
@@ -88,7 +88,7 @@ describe('selling in the phase that bought it is an undo (§11)', () => {
     const lane = state.lanes.l1!;
     const before = lane.economy.supplyUsed;
 
-    const unit = place(ctx, state, 'hammer');
+    const unit = place(ctx, state, 'pledge');
     expect(lane.economy.supplyUsed).toBe(before + HAMMER_SUPPLY);
 
     applyCommand(ctx, state, { kind: 'sellUnit', teamId: 'l1', unitId: unit.id });
@@ -99,12 +99,12 @@ describe('selling in the phase that bought it is an undo (§11)', () => {
     const { state, ctx } = rich();
     const lane = state.lanes.l1!;
 
-    const unit = place(ctx, state, 'hammer', 3, 3);
+    const unit = place(ctx, state, 'pledge', 3, 3);
     expect(
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'l1',
-        unitDefId: 'bulwark',
+        unitDefId: 'oathwall',
         tileX: 3,
         tileY: 3,
       }).ok,
@@ -116,7 +116,7 @@ describe('selling in the phase that bought it is an undo (§11)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'l1',
-        unitDefId: 'bulwark',
+        unitDefId: 'oathwall',
         tileX: 3,
         tileY: 3,
       }).ok,
@@ -129,7 +129,7 @@ describe('selling later costs something (§11)', () => {
     const { state, ctx } = rich();
     const lane = state.lanes.l1!;
 
-    const unit = place(ctx, state, 'hammer', 4, 4);
+    const unit = place(ctx, state, 'pledge', 4, 4);
     nextBuildPhase(ctx, state);
 
     const before = lane.economy.gold;
@@ -147,7 +147,7 @@ describe('selling later costs something (§11)', () => {
     const { state, ctx } = rich();
     const lane = state.lanes.l1!;
 
-    const unit = place(ctx, state, 'hammer', 5, 5);
+    const unit = place(ctx, state, 'pledge', 5, 5);
     nextBuildPhase(ctx, state);
     applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'l1', unitId: unit.id });
 
@@ -160,7 +160,7 @@ describe('selling later costs something (§11)', () => {
 
   it('rolls this phase into earlier once, not on every tick', () => {
     const { state, ctx } = rich();
-    const unit = place(ctx, state, 'hammer', 6, 2);
+    const unit = place(ctx, state, 'pledge', 6, 2);
     expect(unit.spend).toEqual({ thisPhase: HAMMER_GOLD, earlier: 0 });
 
     nextBuildPhase(ctx, state);
@@ -178,7 +178,7 @@ describe('a sold unit is gone, not dead', () => {
     const { state, ctx } = rich();
     const lane = state.lanes.l1!;
 
-    const unit = place(ctx, state, 'hammer', 2, 6);
+    const unit = place(ctx, state, 'pledge', 2, 6);
     applyCommand(ctx, state, { kind: 'sellUnit', teamId: 'l1', unitId: unit.id });
     expect(lane.units).toHaveLength(0);
 
@@ -190,7 +190,7 @@ describe('a sold unit is gone, not dead', () => {
 describe('when selling is closed', () => {
   it('refuses during combat', () => {
     const { state, ctx } = rich();
-    const unit = place(ctx, state, 'hammer', 2, 2);
+    const unit = place(ctx, state, 'pledge', 2, 2);
 
     let guard = 0;
     while (state.phase !== 'combat' && guard++ < 20_000) step(ctx, state);
@@ -203,7 +203,7 @@ describe('when selling is closed', () => {
 
   it('refuses once the showdown begins, like every other transaction (§3.3, replaced)', () => {
     const { state, ctx } = rich();
-    const unit = place(ctx, state, 'hammer', 2, 3);
+    const unit = place(ctx, state, 'pledge', 2, 3);
     state.phase = 'showdown';
 
     expect(applyCommand(ctx, state, { kind: 'sellUnit', teamId: 'l1', unitId: unit.id })).toEqual({
@@ -228,7 +228,7 @@ describe('the price on the button is the price the command pays', () => {
     const { state, ctx } = rich();
     const lane = state.lanes.l1!;
 
-    const unit = place(ctx, state, 'hammer', 1, 5);
+    const unit = place(ctx, state, 'pledge', 1, 5);
     nextBuildPhase(ctx, state);
     applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'l1', unitId: unit.id });
 

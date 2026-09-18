@@ -58,7 +58,7 @@ describe('the local transport', () => {
     transport.submit({
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 6,
     });
@@ -68,7 +68,7 @@ describe('the local transport', () => {
     transport.submit({
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 6,
     });

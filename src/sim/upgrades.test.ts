@@ -30,14 +30,14 @@ describe('global tech (§7.4)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'spike',
+      unitDefId: 'sentinel',
       tileX: 1,
       tileY: 1,
     });
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'mortar',
+      unitDefId: 'sanction',
       tileX: 2,
       tileY: 1,
     });
@@ -46,8 +46,8 @@ describe('global tech (§7.4)', () => {
       applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_pierce' }).ok,
     ).toBe(true);
 
-    const spike = lane.units.find((u) => u.defId === 'spike')!;
-    const mortar = lane.units.find((u) => u.defId === 'mortar')!;
+    const spike = lane.units.find((u) => u.defId === 'sentinel')!;
+    const mortar = lane.units.find((u) => u.defId === 'sanction')!;
 
     expect(spike.techDamage).toBeGreaterThan(1);
     expect(mortar.techDamage).toBe(1);
@@ -61,7 +61,7 @@ describe('global tech (§7.4)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 1,
       tileY: 1,
     });
@@ -76,7 +76,7 @@ describe('global tech (§7.4)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 1,
       tileY: 1,
     });
@@ -85,7 +85,7 @@ describe('global tech (§7.4)', () => {
 
     applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'def_hp' });
 
-    expect(unit.maxHp).toBeGreaterThan(stat(data.units.units.find((u) => u.id === 'hammer')!.hp));
+    expect(unit.maxHp).toBeGreaterThan(stat(data.units.units.find((u) => u.id === 'pledge')!.hp));
     expect(unit.hp / unit.maxHp).toBeCloseTo(0.5, 4);
   });
 
@@ -387,14 +387,14 @@ describe('auras (§10.1)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 4,
       tileY: 9,
     });
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 4,
       tileY: 0,
     });
@@ -428,7 +428,7 @@ describe('the shop stays open in combat; the board does not (§3.1, amended)', (
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 1,
       tileY: 1,
     });
@@ -475,7 +475,7 @@ describe('the shop stays open in combat; the board does not (§3.1, amended)', (
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'l1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 3,
         tileY: 3,
       }),
@@ -494,7 +494,7 @@ describe('the Final Showdown closes the shop (§3.3, replaced)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'l1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 1,
         tileY: 1,
       }),
@@ -509,7 +509,7 @@ describe('the Final Showdown closes the shop (§3.3, replaced)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 1,
       tileY: 1,
     });
@@ -542,7 +542,7 @@ describe('the Final Showdown closes the shop (§3.3, replaced)', () => {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: 'l1',
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: 1,
         tileY: 1,
       }).ok,
@@ -554,7 +554,7 @@ describe('the Final Showdown closes the shop (§3.3, replaced)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 4,
       tileY: 4,
     });

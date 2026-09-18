@@ -1,38 +1,38 @@
 {
-  "_comment": "DESIGN.md \u00a77. Builder A complete: six units covering all four damage types (\u00a76.1). Tier 2 on every unit, tier 3 on three of them (\u00a77.3). Pricing aims at ~1.6x cost for ~2.2x value so going tall beats going wide, but needs board presence you already paid for. DESIGN CHANGE from \u00a75.2: moveSpeed is how fast a unit advances when nothing is in range; 0 pins it in place. `range` is reach measured EDGE TO EDGE, so a melee value near zero means walking up and touching rather than stopping a body-width short. `bodyRadius` is both collision and drawn size. All placeholders.",
+  "_comment": "DESIGN.md §7. Four complete rosters, six units each, every one of them covering all four damage types (§6.1). Tier 2 on every unit, tier 3 on ten of them (§7.3). EVERY UNIT HAS AN ABILITY: the signature one from tier 1, its numbers rising with the tier (`rank`), and a second one unlocked by the top of its ladder - which for a three-tier unit is an ability that spends energy. `abilities.json` holds all of them; a builder is its six units plus what those abilities do together. Pricing aims at ~1.6x cost for ~2.2x value so going tall beats going wide, but needs board presence you already paid for. DESIGN CHANGE from §5.2: moveSpeed is how fast a unit advances when nothing is in range; 0 pins it in place. `range` is reach measured EDGE TO EDGE, so a melee value near zero means walking up and touching rather than stopping a body-width short. `bodyRadius` is both collision and drawn size. All placeholders.",
   "builders": [
     {
-      "id": "bastion",
-      "name": "Bastion",
+      "id": "ironvow",
+      "name": "Ironvow",
       "complete": true,
-      "_roster": "Six units, all four damage types. complete=true arms the \u00a76.1 coverage check."
+      "_roster": "Ironvow: an order under oath, and the roster that reads most like a LINE. Shields, taunts and answered blows - Oathwall makes itself the target, Pledge is worth more with a Pledge beside it, Vigil hands out wards, and Judgement and Sanction are what the line is protecting. Defence and support first; its damage comes from being allowed to stand still."
     },
     {
-      "id": "ashfall",
-      "name": "Ashfall",
+      "id": "pyre",
+      "name": "Pyre",
       "complete": true,
-      "_roster": "Blast and Impact. Hits hardest and dies fastest: flesh bodies, high damage, high prices."
+      "_roster": "Pyre: heat that builds. Almost everything it owns applies `burning` or is paid extra for hitting something already alight, and the longer a Pyre unit fires the faster it fires. It dies quickly and does not care - Slagmaw burns whatever kills it and Wickling and Scoria are gone before the wave is. Offence first, with no answer to being outlasted."
     },
     {
-      "id": "verdance",
-      "name": "Verdance",
+      "id": "thornweald",
+      "name": "Thornweald",
       "complete": true,
-      "_roster": "Arcane and Pierce. Cheap, quick and numerous - ward bodies that fold to an Impact wave."
+      "_roster": "Thornweald: slow strangulation. Roots and rot rather than damage - Rootbite grinds a wave to a walk, Bloomspread and Wilt leave it blighted and unable to heal, and Heartwood and Underweb mean its own line is still standing when the wave is not. Control and support, and the only roster that repairs itself."
     },
     {
-      "id": "tidemark",
-      "name": "Tidemark",
+      "id": "gloomtide",
+      "name": "Gloomtide",
       "complete": true,
-      "_roster": "Blast and Arcane. Long range, slow swings, heavy supply: few units, each one expensive."
+      "_roster": "Gloomtide: pressure and cold. It soaks a wave and then charges it for being wet - Snarekelp and Sleetfall apply `soaked`, and Torrential, Undertow, Hailburst and Drownward all pay extra for it. Long reach, slow swings, and Murmur keeping time. Control and artillery, weak to anything that reaches it."
     }
   ],
   "units": [
     {
-      "id": "hammer",
-      "builderId": "bastion",
-      "name": "Hammer",
+      "id": "pledge",
+      "builderId": "ironvow",
+      "name": "Pledge",
       "tier": 1,
-      "upgradesTo": "hammer_2",
+      "upgradesTo": "pledge_2",
       "goldCost": 40,
       "supplyCost": 2,
       "hp": 260,
@@ -42,15 +42,16 @@
       "damageType": "impact",
       "attackSpeed": 1.0,
       "range": 0.1,
-      "moveSpeed": 0.55,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": ["shoulder_to_shoulder"],
+      "moveSpeed": 0.55
     },
     {
-      "id": "hammer_2",
-      "builderId": "bastion",
-      "name": "Hammer II",
+      "id": "pledge_2",
+      "builderId": "ironvow",
+      "name": "Pledge II",
       "tier": 2,
-      "upgradesTo": "hammer_3",
+      "upgradesTo": "pledge_3",
       "goldCost": 64,
       "supplyCost": 0,
       "hp": 570,
@@ -60,13 +61,19 @@
       "damageType": "impact",
       "attackSpeed": 1.0,
       "range": 0.1,
-      "moveSpeed": 0.55,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "shoulder_to_shoulder",
+          "rank": 2
+        }
+      ],
+      "moveSpeed": 0.55
     },
     {
-      "id": "hammer_3",
-      "builderId": "bastion",
-      "name": "Hammer III",
+      "id": "pledge_3",
+      "builderId": "ironvow",
+      "name": "Pledge III",
       "tier": 3,
       "goldCost": 105,
       "supplyCost": 1,
@@ -77,15 +84,22 @@
       "damageType": "impact",
       "attackSpeed": 1.05,
       "range": 0.15,
-      "moveSpeed": 0.55,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "shoulder_to_shoulder",
+          "rank": 3
+        },
+        "closing_ranks"
+      ],
+      "moveSpeed": 0.55
     },
     {
-      "id": "bulwark",
-      "builderId": "bastion",
-      "name": "Bulwark",
+      "id": "oathwall",
+      "builderId": "ironvow",
+      "name": "Oathwall",
       "tier": 1,
-      "upgradesTo": "bulwark_2",
+      "upgradesTo": "oathwall_2",
       "goldCost": 70,
       "supplyCost": 3,
       "hp": 620,
@@ -95,13 +109,14 @@
       "damageType": "impact",
       "attackSpeed": 0.6,
       "range": 0.1,
-      "moveSpeed": 0.35,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": ["hold_the_line"],
+      "moveSpeed": 0.35
     },
     {
-      "id": "bulwark_2",
-      "builderId": "bastion",
-      "name": "Bulwark II",
+      "id": "oathwall_2",
+      "builderId": "ironvow",
+      "name": "Oathwall II",
       "tier": 2,
       "goldCost": 112,
       "supplyCost": 1,
@@ -112,15 +127,22 @@
       "damageType": "impact",
       "attackSpeed": 0.6,
       "range": 0.1,
-      "moveSpeed": 0.35,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "hold_the_line",
+          "rank": 2
+        },
+        "unbroken"
+      ],
+      "moveSpeed": 0.35
     },
     {
-      "id": "spike",
-      "builderId": "bastion",
-      "name": "Spike",
+      "id": "sentinel",
+      "builderId": "ironvow",
+      "name": "Sentinel",
       "tier": 1,
-      "upgradesTo": "spike_2",
+      "upgradesTo": "sentinel_2",
       "goldCost": 55,
       "supplyCost": 2,
       "hp": 140,
@@ -130,13 +152,14 @@
       "damageType": "pierce",
       "attackSpeed": 1.4,
       "range": 2.4,
-      "moveSpeed": 0.45,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": ["parry"],
+      "moveSpeed": 0.45
     },
     {
-      "id": "spike_2",
-      "builderId": "bastion",
-      "name": "Spike II",
+      "id": "sentinel_2",
+      "builderId": "ironvow",
+      "name": "Sentinel II",
       "tier": 2,
       "goldCost": 88,
       "supplyCost": 0,
@@ -147,15 +170,22 @@
       "damageType": "pierce",
       "attackSpeed": 1.4,
       "range": 2.6,
-      "moveSpeed": 0.45,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "parry",
+          "rank": 2
+        },
+        "riposte"
+      ],
+      "moveSpeed": 0.45
     },
     {
-      "id": "lance",
-      "builderId": "bastion",
-      "name": "Lance",
+      "id": "judgement",
+      "builderId": "ironvow",
+      "name": "Judgement",
       "tier": 1,
-      "upgradesTo": "lance_2",
+      "upgradesTo": "judgement_2",
       "goldCost": 95,
       "supplyCost": 3,
       "hp": 130,
@@ -165,13 +195,14 @@
       "damageType": "pierce",
       "attackSpeed": 0.35,
       "range": 4.9,
-      "moveSpeed": 0.25,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": ["verdict"],
+      "moveSpeed": 0.25
     },
     {
-      "id": "lance_2",
-      "builderId": "bastion",
-      "name": "Lance II",
+      "id": "judgement_2",
+      "builderId": "ironvow",
+      "name": "Judgement II",
       "tier": 2,
       "goldCost": 152,
       "supplyCost": 1,
@@ -182,15 +213,22 @@
       "damageType": "pierce",
       "attackSpeed": 0.35,
       "range": 5.2,
-      "moveSpeed": 0.25,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "verdict",
+          "rank": 2
+        },
+        "final_sentence"
+      ],
+      "moveSpeed": 0.25
     },
     {
-      "id": "mortar",
-      "builderId": "bastion",
-      "name": "Mortar",
+      "id": "sanction",
+      "builderId": "ironvow",
+      "name": "Sanction",
       "tier": 1,
-      "upgradesTo": "mortar_2",
+      "upgradesTo": "sanction_2",
       "goldCost": 75,
       "supplyCost": 3,
       "hp": 110,
@@ -200,15 +238,16 @@
       "damageType": "blast",
       "attackSpeed": 0.5,
       "range": 3.9,
-      "moveSpeed": 0.3,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": ["censure"],
+      "moveSpeed": 0.3
     },
     {
-      "id": "mortar_2",
-      "builderId": "bastion",
-      "name": "Mortar II",
+      "id": "sanction_2",
+      "builderId": "ironvow",
+      "name": "Sanction II",
       "tier": 2,
-      "upgradesTo": "mortar_3",
+      "upgradesTo": "sanction_3",
       "goldCost": 120,
       "supplyCost": 1,
       "hp": 240,
@@ -218,13 +257,19 @@
       "damageType": "blast",
       "attackSpeed": 0.5,
       "range": 4.2,
-      "moveSpeed": 0.3,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "censure",
+          "rank": 2
+        }
+      ],
+      "moveSpeed": 0.3
     },
     {
-      "id": "mortar_3",
-      "builderId": "bastion",
-      "name": "Mortar III",
+      "id": "sanction_3",
+      "builderId": "ironvow",
+      "name": "Sanction III",
       "tier": 3,
       "goldCost": 196,
       "supplyCost": 1,
@@ -235,15 +280,22 @@
       "damageType": "blast",
       "attackSpeed": 0.55,
       "range": 4.4,
-      "moveSpeed": 0.3,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "censure",
+          "rank": 3
+        },
+        "interdict"
+      ],
+      "moveSpeed": 0.3
     },
     {
-      "id": "prism",
-      "builderId": "bastion",
-      "name": "Prism",
+      "id": "vigil",
+      "builderId": "ironvow",
+      "name": "Vigil",
       "tier": 1,
-      "upgradesTo": "prism_2",
+      "upgradesTo": "vigil_2",
       "goldCost": 65,
       "supplyCost": 2,
       "hp": 150,
@@ -253,15 +305,16 @@
       "damageType": "arcane",
       "attackSpeed": 1.8,
       "range": 2.9,
-      "moveSpeed": 0.5,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": ["warding_light"],
+      "moveSpeed": 0.5
     },
     {
-      "id": "prism_2",
-      "builderId": "bastion",
-      "name": "Prism II",
+      "id": "vigil_2",
+      "builderId": "ironvow",
+      "name": "Vigil II",
       "tier": 2,
-      "upgradesTo": "prism_3",
+      "upgradesTo": "vigil_3",
       "goldCost": 104,
       "supplyCost": 0,
       "hp": 325,
@@ -271,13 +324,19 @@
       "damageType": "arcane",
       "attackSpeed": 1.8,
       "range": 3.0,
-      "moveSpeed": 0.5,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "warding_light",
+          "rank": 2
+        }
+      ],
+      "moveSpeed": 0.5
     },
     {
-      "id": "prism_3",
-      "builderId": "bastion",
-      "name": "Prism III",
+      "id": "vigil_3",
+      "builderId": "ironvow",
+      "name": "Vigil III",
       "tier": 3,
       "goldCost": 170,
       "supplyCost": 1,
@@ -288,15 +347,22 @@
       "damageType": "arcane",
       "attackSpeed": 1.9,
       "range": 3.2,
-      "moveSpeed": 0.5,
-      "bodyRadius": 0.26
+      "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "warding_light",
+          "rank": 3
+        },
+        "absolution"
+      ],
+      "moveSpeed": 0.5
     },
     {
-      "id": "cinder",
-      "builderId": "ashfall",
-      "name": "Cinder",
+      "id": "ember",
+      "builderId": "pyre",
+      "name": "Ember",
       "tier": 1,
-      "upgradesTo": "cinder_2",
+      "upgradesTo": "ember_2",
       "goldCost": 48,
       "supplyCost": 2,
       "hp": 230,
@@ -307,14 +373,15 @@
       "attackSpeed": 1.0,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": ["kindle"],
       "moveSpeed": 0.6
     },
     {
-      "id": "cinder_2",
-      "builderId": "ashfall",
-      "name": "Cinder II",
+      "id": "ember_2",
+      "builderId": "pyre",
+      "name": "Ember II",
       "tier": 2,
-      "upgradesTo": "cinder_3",
+      "upgradesTo": "ember_3",
       "goldCost": 77,
       "supplyCost": 0,
       "hp": 500,
@@ -325,12 +392,18 @@
       "attackSpeed": 1.0,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "kindle",
+          "rank": 2
+        }
+      ],
       "moveSpeed": 0.6
     },
     {
-      "id": "cinder_3",
-      "builderId": "ashfall",
-      "name": "Cinder III",
+      "id": "ember_3",
+      "builderId": "pyre",
+      "name": "Ember III",
       "tier": 3,
       "goldCost": 126,
       "supplyCost": 1,
@@ -342,14 +415,21 @@
       "attackSpeed": 1.05,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "kindle",
+          "rank": 3
+        },
+        "conflagration"
+      ],
       "moveSpeed": 0.6
     },
     {
-      "id": "slagback",
-      "builderId": "ashfall",
-      "name": "Slagback",
+      "id": "slagmaw",
+      "builderId": "pyre",
+      "name": "Slagmaw",
       "tier": 1,
-      "upgradesTo": "slagback_2",
+      "upgradesTo": "slagmaw_2",
       "goldCost": 68,
       "supplyCost": 3,
       "hp": 540,
@@ -360,12 +440,13 @@
       "attackSpeed": 0.55,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": ["molten_hide"],
       "moveSpeed": 0.35
     },
     {
-      "id": "slagback_2",
-      "builderId": "ashfall",
-      "name": "Slagback II",
+      "id": "slagmaw_2",
+      "builderId": "pyre",
+      "name": "Slagmaw II",
       "tier": 2,
       "goldCost": 109,
       "supplyCost": 1,
@@ -377,14 +458,21 @@
       "attackSpeed": 0.55,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "molten_hide",
+          "rank": 2
+        },
+        "cinderburst"
+      ],
       "moveSpeed": 0.35
     },
     {
-      "id": "emberthrow",
-      "builderId": "ashfall",
-      "name": "Emberthrow",
+      "id": "firebrand",
+      "builderId": "pyre",
+      "name": "Firebrand",
       "tier": 1,
-      "upgradesTo": "emberthrow_2",
+      "upgradesTo": "firebrand_2",
       "goldCost": 88,
       "supplyCost": 3,
       "hp": 105,
@@ -395,14 +483,15 @@
       "attackSpeed": 0.55,
       "range": 3.6,
       "bodyRadius": 0.26,
+      "abilities": ["firestorm"],
       "moveSpeed": 0.3
     },
     {
-      "id": "emberthrow_2",
-      "builderId": "ashfall",
-      "name": "Emberthrow II",
+      "id": "firebrand_2",
+      "builderId": "pyre",
+      "name": "Firebrand II",
       "tier": 2,
-      "upgradesTo": "emberthrow_3",
+      "upgradesTo": "firebrand_3",
       "goldCost": 141,
       "supplyCost": 1,
       "hp": 230,
@@ -413,12 +502,18 @@
       "attackSpeed": 0.55,
       "range": 3.85,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "firestorm",
+          "rank": 2
+        }
+      ],
       "moveSpeed": 0.3
     },
     {
-      "id": "emberthrow_3",
-      "builderId": "ashfall",
-      "name": "Emberthrow III",
+      "id": "firebrand_3",
+      "builderId": "pyre",
+      "name": "Firebrand III",
       "tier": 3,
       "goldCost": 230,
       "supplyCost": 1,
@@ -430,14 +525,21 @@
       "attackSpeed": 0.6,
       "range": 4.1,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "firestorm",
+          "rank": 3
+        },
+        "pyroclasm"
+      ],
       "moveSpeed": 0.3
     },
     {
-      "id": "firepot",
-      "builderId": "ashfall",
-      "name": "Firepot",
+      "id": "wickling",
+      "builderId": "pyre",
+      "name": "Wickling",
       "tier": 1,
-      "upgradesTo": "firepot_2",
+      "upgradesTo": "wickling_2",
       "goldCost": 58,
       "supplyCost": 2,
       "hp": 120,
@@ -448,12 +550,13 @@
       "attackSpeed": 1.3,
       "range": 2.2,
       "bodyRadius": 0.26,
+      "abilities": ["spitfire"],
       "moveSpeed": 0.45
     },
     {
-      "id": "firepot_2",
-      "builderId": "ashfall",
-      "name": "Firepot II",
+      "id": "wickling_2",
+      "builderId": "pyre",
+      "name": "Wickling II",
       "tier": 2,
       "goldCost": 93,
       "supplyCost": 0,
@@ -465,14 +568,21 @@
       "attackSpeed": 1.3,
       "range": 2.4,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "spitfire",
+          "rank": 2
+        },
+        "emberdust"
+      ],
       "moveSpeed": 0.45
     },
     {
-      "id": "barbcaster",
-      "builderId": "ashfall",
-      "name": "Barbcaster",
+      "id": "scoria",
+      "builderId": "pyre",
+      "name": "Scoria",
       "tier": 1,
-      "upgradesTo": "barbcaster_2",
+      "upgradesTo": "scoria_2",
       "goldCost": 98,
       "supplyCost": 3,
       "hp": 120,
@@ -483,12 +593,13 @@
       "attackSpeed": 0.35,
       "range": 4.6,
       "bodyRadius": 0.26,
+      "abilities": ["stoke"],
       "moveSpeed": 0.25
     },
     {
-      "id": "barbcaster_2",
-      "builderId": "ashfall",
-      "name": "Barbcaster II",
+      "id": "scoria_2",
+      "builderId": "pyre",
+      "name": "Scoria II",
       "tier": 2,
       "goldCost": 157,
       "supplyCost": 1,
@@ -500,14 +611,21 @@
       "attackSpeed": 0.35,
       "range": 4.9,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "stoke",
+          "rank": 2
+        },
+        "slagshot"
+      ],
       "moveSpeed": 0.25
     },
     {
-      "id": "wispflame",
-      "builderId": "ashfall",
-      "name": "Wispflame",
+      "id": "foxfire",
+      "builderId": "pyre",
+      "name": "Foxfire",
       "tier": 1,
-      "upgradesTo": "wispflame_2",
+      "upgradesTo": "foxfire_2",
       "goldCost": 68,
       "supplyCost": 2,
       "hp": 130,
@@ -518,12 +636,13 @@
       "attackSpeed": 1.7,
       "range": 2.8,
       "bodyRadius": 0.26,
+      "abilities": ["wildfire"],
       "moveSpeed": 0.5
     },
     {
-      "id": "wispflame_2",
-      "builderId": "ashfall",
-      "name": "Wispflame II",
+      "id": "foxfire_2",
+      "builderId": "pyre",
+      "name": "Foxfire II",
       "tier": 2,
       "goldCost": 109,
       "supplyCost": 0,
@@ -535,11 +654,18 @@
       "attackSpeed": 1.7,
       "range": 2.95,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "wildfire",
+          "rank": 2
+        },
+        "emberwind"
+      ],
       "moveSpeed": 0.5
     },
     {
       "id": "thornling",
-      "builderId": "verdance",
+      "builderId": "thornweald",
       "name": "Thornling",
       "tier": 1,
       "upgradesTo": "thornling_2",
@@ -553,11 +679,12 @@
       "attackSpeed": 1.6,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": ["rootbite"],
       "moveSpeed": 0.65
     },
     {
       "id": "thornling_2",
-      "builderId": "verdance",
+      "builderId": "thornweald",
       "name": "Thornling II",
       "tier": 2,
       "upgradesTo": "thornling_3",
@@ -571,11 +698,17 @@
       "attackSpeed": 1.6,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "rootbite",
+          "rank": 2
+        }
+      ],
       "moveSpeed": 0.65
     },
     {
       "id": "thornling_3",
-      "builderId": "verdance",
+      "builderId": "thornweald",
       "name": "Thornling III",
       "tier": 3,
       "goldCost": 88,
@@ -588,14 +721,21 @@
       "attackSpeed": 1.7,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "rootbite",
+          "rank": 3
+        },
+        "bindroot"
+      ],
       "moveSpeed": 0.65
     },
     {
-      "id": "bramblewall",
-      "builderId": "verdance",
-      "name": "Bramblewall",
+      "id": "hollowbark",
+      "builderId": "thornweald",
+      "name": "Hollowbark",
       "tier": 1,
-      "upgradesTo": "bramblewall_2",
+      "upgradesTo": "hollowbark_2",
       "goldCost": 62,
       "supplyCost": 2,
       "hp": 460,
@@ -606,12 +746,13 @@
       "attackSpeed": 0.55,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": ["heartwood"],
       "moveSpeed": 0.35
     },
     {
-      "id": "bramblewall_2",
-      "builderId": "verdance",
-      "name": "Bramblewall II",
+      "id": "hollowbark_2",
+      "builderId": "thornweald",
+      "name": "Hollowbark II",
       "tier": 2,
       "goldCost": 99,
       "supplyCost": 1,
@@ -623,14 +764,21 @@
       "attackSpeed": 0.55,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "heartwood",
+          "rank": 2
+        },
+        "thicket"
+      ],
       "moveSpeed": 0.35
     },
     {
-      "id": "sporecaster",
-      "builderId": "verdance",
-      "name": "Sporecaster",
+      "id": "sporecrown",
+      "builderId": "thornweald",
+      "name": "Sporecrown",
       "tier": 1,
-      "upgradesTo": "sporecaster_2",
+      "upgradesTo": "sporecrown_2",
       "goldCost": 62,
       "supplyCost": 2,
       "hp": 115,
@@ -641,14 +789,15 @@
       "attackSpeed": 1.9,
       "range": 3.0,
       "bodyRadius": 0.26,
+      "abilities": ["bloomspread"],
       "moveSpeed": 0.5
     },
     {
-      "id": "sporecaster_2",
-      "builderId": "verdance",
-      "name": "Sporecaster II",
+      "id": "sporecrown_2",
+      "builderId": "thornweald",
+      "name": "Sporecrown II",
       "tier": 2,
-      "upgradesTo": "sporecaster_3",
+      "upgradesTo": "sporecrown_3",
       "goldCost": 99,
       "supplyCost": 0,
       "hp": 250,
@@ -659,12 +808,18 @@
       "attackSpeed": 1.9,
       "range": 3.15,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "bloomspread",
+          "rank": 2
+        }
+      ],
       "moveSpeed": 0.5
     },
     {
-      "id": "sporecaster_3",
-      "builderId": "verdance",
-      "name": "Sporecaster III",
+      "id": "sporecrown_3",
+      "builderId": "thornweald",
+      "name": "Sporecrown III",
       "tier": 3,
       "goldCost": 161,
       "supplyCost": 1,
@@ -676,14 +831,21 @@
       "attackSpeed": 2.0,
       "range": 3.3,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "bloomspread",
+          "rank": 3
+        },
+        "blightbloom"
+      ],
       "moveSpeed": 0.5
     },
     {
-      "id": "mycel",
-      "builderId": "verdance",
-      "name": "Mycel",
+      "id": "mycelia",
+      "builderId": "thornweald",
+      "name": "Mycelia",
       "tier": 1,
-      "upgradesTo": "mycel_2",
+      "upgradesTo": "mycelia_2",
       "goldCost": 40,
       "supplyCost": 1,
       "hp": 95,
@@ -694,12 +856,13 @@
       "attackSpeed": 2.1,
       "range": 1.9,
       "bodyRadius": 0.26,
+      "abilities": ["underweb"],
       "moveSpeed": 0.55
     },
     {
-      "id": "mycel_2",
-      "builderId": "verdance",
-      "name": "Mycel II",
+      "id": "mycelia_2",
+      "builderId": "thornweald",
+      "name": "Mycelia II",
       "tier": 2,
       "goldCost": 64,
       "supplyCost": 0,
@@ -711,14 +874,21 @@
       "attackSpeed": 2.1,
       "range": 2.05,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "underweb",
+          "rank": 2
+        },
+        "sporebloom"
+      ],
       "moveSpeed": 0.55
     },
     {
-      "id": "needlevine",
-      "builderId": "verdance",
-      "name": "Needlevine",
+      "id": "nettlespire",
+      "builderId": "thornweald",
+      "name": "Nettlespire",
       "tier": 1,
-      "upgradesTo": "needlevine_2",
+      "upgradesTo": "nettlespire_2",
       "goldCost": 84,
       "supplyCost": 2,
       "hp": 100,
@@ -729,14 +899,15 @@
       "attackSpeed": 0.45,
       "range": 4.7,
       "bodyRadius": 0.26,
+      "abilities": ["impale"],
       "moveSpeed": 0.25
     },
     {
-      "id": "needlevine_2",
-      "builderId": "verdance",
-      "name": "Needlevine II",
+      "id": "nettlespire_2",
+      "builderId": "thornweald",
+      "name": "Nettlespire II",
       "tier": 2,
-      "upgradesTo": "needlevine_3",
+      "upgradesTo": "nettlespire_3",
       "goldCost": 134,
       "supplyCost": 1,
       "hp": 220,
@@ -747,12 +918,18 @@
       "attackSpeed": 0.45,
       "range": 5.0,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "impale",
+          "rank": 2
+        }
+      ],
       "moveSpeed": 0.25
     },
     {
-      "id": "needlevine_3",
-      "builderId": "verdance",
-      "name": "Needlevine III",
+      "id": "nettlespire_3",
+      "builderId": "thornweald",
+      "name": "Nettlespire III",
       "tier": 3,
       "goldCost": 218,
       "supplyCost": 1,
@@ -764,14 +941,21 @@
       "attackSpeed": 0.45,
       "range": 5.3,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "impale",
+          "rank": 3
+        },
+        "heartpiercer"
+      ],
       "moveSpeed": 0.25
     },
     {
-      "id": "blightpod",
-      "builderId": "verdance",
-      "name": "Blightpod",
+      "id": "rotgourd",
+      "builderId": "thornweald",
+      "name": "Rotgourd",
       "tier": 1,
-      "upgradesTo": "blightpod_2",
+      "upgradesTo": "rotgourd_2",
       "goldCost": 60,
       "supplyCost": 2,
       "hp": 125,
@@ -782,12 +966,13 @@
       "attackSpeed": 0.7,
       "range": 2.3,
       "bodyRadius": 0.26,
+      "abilities": ["wilt"],
       "moveSpeed": 0.4
     },
     {
-      "id": "blightpod_2",
-      "builderId": "verdance",
-      "name": "Blightpod II",
+      "id": "rotgourd_2",
+      "builderId": "thornweald",
+      "name": "Rotgourd II",
       "tier": 2,
       "goldCost": 96,
       "supplyCost": 0,
@@ -799,14 +984,21 @@
       "attackSpeed": 0.7,
       "range": 2.5,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "wilt",
+          "rank": 2
+        },
+        "burstspore"
+      ],
       "moveSpeed": 0.4
     },
     {
-      "id": "bulkhead",
-      "builderId": "tidemark",
-      "name": "Bulkhead",
+      "id": "fathomhold",
+      "builderId": "gloomtide",
+      "name": "Fathomhold",
       "tier": 1,
-      "upgradesTo": "bulkhead_2",
+      "upgradesTo": "fathomhold_2",
       "goldCost": 78,
       "supplyCost": 3,
       "hp": 700,
@@ -817,12 +1009,13 @@
       "attackSpeed": 0.5,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": ["anchorline"],
       "moveSpeed": 0.3
     },
     {
-      "id": "bulkhead_2",
-      "builderId": "tidemark",
-      "name": "Bulkhead II",
+      "id": "fathomhold_2",
+      "builderId": "gloomtide",
+      "name": "Fathomhold II",
       "tier": 2,
       "goldCost": 125,
       "supplyCost": 1,
@@ -834,14 +1027,21 @@
       "attackSpeed": 0.5,
       "range": 0.1,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "anchorline",
+          "rank": 2
+        },
+        "deadweight"
+      ],
       "moveSpeed": 0.3
     },
     {
-      "id": "undertow",
-      "builderId": "tidemark",
-      "name": "Undertow",
+      "id": "kelpsnare",
+      "builderId": "gloomtide",
+      "name": "Kelpsnare",
       "tier": 1,
-      "upgradesTo": "undertow_2",
+      "upgradesTo": "kelpsnare_2",
       "goldCost": 62,
       "supplyCost": 2,
       "hp": 160,
@@ -852,12 +1052,13 @@
       "attackSpeed": 0.8,
       "range": 2.0,
       "bodyRadius": 0.26,
+      "abilities": ["snarekelp"],
       "moveSpeed": 0.4
     },
     {
-      "id": "undertow_2",
-      "builderId": "tidemark",
-      "name": "Undertow II",
+      "id": "kelpsnare_2",
+      "builderId": "gloomtide",
+      "name": "Kelpsnare II",
       "tier": 2,
       "goldCost": 99,
       "supplyCost": 1,
@@ -869,14 +1070,21 @@
       "attackSpeed": 0.8,
       "range": 2.2,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "snarekelp",
+          "rank": 2
+        },
+        "weedbind"
+      ],
       "moveSpeed": 0.4
     },
     {
-      "id": "deluge",
-      "builderId": "tidemark",
-      "name": "Deluge",
+      "id": "torrent",
+      "builderId": "gloomtide",
+      "name": "Torrent",
       "tier": 1,
-      "upgradesTo": "deluge_2",
+      "upgradesTo": "torrent_2",
       "goldCost": 105,
       "supplyCost": 3,
       "hp": 95,
@@ -887,14 +1095,15 @@
       "attackSpeed": 0.3,
       "range": 5.4,
       "bodyRadius": 0.26,
+      "abilities": ["torrential"],
       "moveSpeed": 0.2
     },
     {
-      "id": "deluge_2",
-      "builderId": "tidemark",
-      "name": "Deluge II",
+      "id": "torrent_2",
+      "builderId": "gloomtide",
+      "name": "Torrent II",
       "tier": 2,
-      "upgradesTo": "deluge_3",
+      "upgradesTo": "torrent_3",
       "goldCost": 168,
       "supplyCost": 1,
       "hp": 205,
@@ -905,12 +1114,18 @@
       "attackSpeed": 0.3,
       "range": 5.7,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "torrential",
+          "rank": 2
+        }
+      ],
       "moveSpeed": 0.2
     },
     {
-      "id": "deluge_3",
-      "builderId": "tidemark",
-      "name": "Deluge III",
+      "id": "torrent_3",
+      "builderId": "gloomtide",
+      "name": "Torrent III",
       "tier": 3,
       "goldCost": 274,
       "supplyCost": 1,
@@ -922,14 +1137,21 @@
       "attackSpeed": 0.35,
       "range": 6.0,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "torrential",
+          "rank": 3
+        },
+        "cloudburst"
+      ],
       "moveSpeed": 0.2
     },
     {
-      "id": "squall",
-      "builderId": "tidemark",
-      "name": "Squall",
+      "id": "sleet",
+      "builderId": "gloomtide",
+      "name": "Sleet",
       "tier": 1,
-      "upgradesTo": "squall_2",
+      "upgradesTo": "sleet_2",
       "goldCost": 82,
       "supplyCost": 2,
       "hp": 130,
@@ -940,12 +1162,13 @@
       "attackSpeed": 0.7,
       "range": 3.3,
       "bodyRadius": 0.26,
+      "abilities": ["sleetfall"],
       "moveSpeed": 0.35
     },
     {
-      "id": "squall_2",
-      "builderId": "tidemark",
-      "name": "Squall II",
+      "id": "sleet_2",
+      "builderId": "gloomtide",
+      "name": "Sleet II",
       "tier": 2,
       "goldCost": 131,
       "supplyCost": 1,
@@ -957,14 +1180,21 @@
       "attackSpeed": 0.7,
       "range": 3.55,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "sleetfall",
+          "rank": 2
+        },
+        "hailburst"
+      ],
       "moveSpeed": 0.35
     },
     {
-      "id": "riptide",
-      "builderId": "tidemark",
-      "name": "Riptide",
+      "id": "maelstrom",
+      "builderId": "gloomtide",
+      "name": "Maelstrom",
       "tier": 1,
-      "upgradesTo": "riptide_2",
+      "upgradesTo": "maelstrom_2",
       "goldCost": 98,
       "supplyCost": 3,
       "hp": 110,
@@ -975,14 +1205,15 @@
       "attackSpeed": 0.35,
       "range": 5.0,
       "bodyRadius": 0.26,
+      "abilities": ["undertow"],
       "moveSpeed": 0.2
     },
     {
-      "id": "riptide_2",
-      "builderId": "tidemark",
-      "name": "Riptide II",
+      "id": "maelstrom_2",
+      "builderId": "gloomtide",
+      "name": "Maelstrom II",
       "tier": 2,
-      "upgradesTo": "riptide_3",
+      "upgradesTo": "maelstrom_3",
       "goldCost": 157,
       "supplyCost": 1,
       "hp": 240,
@@ -993,12 +1224,18 @@
       "attackSpeed": 0.35,
       "range": 5.3,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "undertow",
+          "rank": 2
+        }
+      ],
       "moveSpeed": 0.2
     },
     {
-      "id": "riptide_3",
-      "builderId": "tidemark",
-      "name": "Riptide III",
+      "id": "maelstrom_3",
+      "builderId": "gloomtide",
+      "name": "Maelstrom III",
       "tier": 3,
       "goldCost": 256,
       "supplyCost": 1,
@@ -1010,14 +1247,21 @@
       "attackSpeed": 0.4,
       "range": 5.6,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "undertow",
+          "rank": 3
+        },
+        "drownward"
+      ],
       "moveSpeed": 0.2
     },
     {
-      "id": "chorus",
-      "builderId": "tidemark",
-      "name": "Chorus",
+      "id": "murmur",
+      "builderId": "gloomtide",
+      "name": "Murmur",
       "tier": 1,
-      "upgradesTo": "chorus_2",
+      "upgradesTo": "murmur_2",
       "goldCost": 76,
       "supplyCost": 2,
       "hp": 120,
@@ -1028,12 +1272,13 @@
       "attackSpeed": 1.5,
       "range": 3.1,
       "bodyRadius": 0.26,
+      "abilities": ["tidesong"],
       "moveSpeed": 0.4
     },
     {
-      "id": "chorus_2",
-      "builderId": "tidemark",
-      "name": "Chorus II",
+      "id": "murmur_2",
+      "builderId": "gloomtide",
+      "name": "Murmur II",
       "tier": 2,
       "goldCost": 122,
       "supplyCost": 1,
@@ -1045,6 +1290,13 @@
       "attackSpeed": 1.5,
       "range": 3.3,
       "bodyRadius": 0.26,
+      "abilities": [
+        {
+          "id": "tidesong",
+          "rank": 2
+        },
+        "deepcall"
+      ],
       "moveSpeed": 0.4
     }
   ]

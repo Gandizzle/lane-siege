@@ -57,9 +57,16 @@ export function recomputeUnitBuffs(data: GameData, defs: DefIndex, lane: Lane): 
 
     // Raising max HP must not silently heal or harm: keep the damage taken so
     // far proportional.
+    //
+    // Written to `baseMaxHp`, which is the ceiling BEFORE any ability touches
+    // it. `maxHp` is then re-derived from it each tick by whatever `maxHealth`
+    // statuses the unit is carrying (abilityRuntime.ts) - two layers, because
+    // tech is a purchase that lasts the match and an aura is a status that
+    // lasts three seconds, and one field cannot be owned by both.
     const newMax = stat(def.hp) * (1 + hpBonus);
-    if (newMax !== unit.maxHp) {
-      const fraction = unit.maxHp > 0 ? unit.hp / unit.maxHp : 1;
+    if (newMax !== unit.baseMaxHp) {
+      const fraction = unit.baseMaxHp > 0 ? unit.hp / unit.baseMaxHp : 1;
+      unit.baseMaxHp = newMax;
       unit.maxHp = newMax;
       unit.hp = Math.min(newMax, newMax * fraction);
     }

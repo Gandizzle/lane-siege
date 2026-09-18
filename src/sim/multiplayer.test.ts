@@ -214,7 +214,7 @@ describe('fog of war (§12)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'b',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 2,
       tileY: 5,
     });
@@ -244,7 +244,7 @@ describe('fog of war (§12)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'b',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 6,
     });
@@ -280,7 +280,7 @@ describe('fog of war (§12)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'b',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 2,
       tileY: 5,
     });

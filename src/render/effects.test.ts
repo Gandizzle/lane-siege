@@ -25,8 +25,8 @@ function layerFor(): EffectsLayer {
 }
 
 /** A unit definition that is definitely melee, and one that is definitely not. */
-const MELEE_UNIT = 'hammer';
-const RANGED_UNIT = 'mortar';
+const MELEE_UNIT = 'pledge';
+const RANGED_UNIT = 'sanction';
 
 function body(id: number, defId: string, x: number, y: number) {
   const def = defs.units.get(defId) ?? defs.monsters.get(defId);
@@ -45,7 +45,7 @@ function body(id: number, defId: string, x: number, y: number) {
 function lane(overrides: Partial<LaneView> = {}): LaneView {
   return {
     teamId: 'lane1',
-    builderId: 'bastion',
+    builderId: 'ironvow',
     units: [],
     monsters: [],
     fortress: {

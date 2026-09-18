@@ -68,6 +68,7 @@ import {
   STAT_COLUMNS,
   STAT_ROW_HEIGHT,
   STAT_VALUE_INSET,
+  abilityLines,
   statText,
 } from './unitStats.ts';
 
@@ -961,9 +962,13 @@ export class BuildBar extends Container {
       ? `Tier ${current.tier} → ${next.tier} · ${current.damageType} · ${current.armour}`
       : `Tier ${current.tier} · max · ${current.damageType} · ${current.armour}`;
     this.showStats(current, next ?? null);
-    // §7.1: authored per unit, and usually absent. An empty area is better than
-    // a placeholder, so the block simply collapses when there is nothing to say.
-    this.traitText.text = (current.traits ?? []).join('\n');
+    // What it DOES, which is most of why one unit is not another (§7, §18).
+    // `traits` are the older, purely descriptive lines and are usually absent;
+    // the ability lines are never absent, because every unit has an ability.
+    this.traitText.text = [
+      ...(current.traits ?? []),
+      ...abilityLines(this.data, current, next ?? null),
+    ].join('\n');
 
     this.renderUpgradeButton(economy, next, canAct);
     this.renderSellButton(lane, index, canAct);

@@ -9,6 +9,7 @@ describe('data/', () => {
 
   it('parses every file', () => {
     expect(Object.keys(data).sort()).toEqual([
+      'abilities',
       'economy',
       'fortress',
       'lane',

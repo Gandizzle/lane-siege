@@ -37,12 +37,15 @@
  */
 
 import { cooldownTicks, secondsToTicks } from './constants.ts';
+import { buildArenaAbilityEnv, fire, tickBody, type AbilityEnv } from './abilityRuntime.ts';
 import { legForSeat, legPosition } from './arena.ts';
 import type { SimContext } from './context.ts';
 import { applyHealing, healingMultiplier } from './dampening.ts';
-import { resolveDamage } from './damage.ts';
 import { stat } from './defs.ts';
 import type { Body } from './motion.ts';
+import type { Rng } from './rng.ts';
+import { canAttack, canMove, modifiersOf, tauntedBy } from './status.ts';
+import { dealDamage } from './strike.ts';
 import { moveSeekers, planMoves, type Walker } from './steering.ts';
 import { holdOrAcquire, withinRange } from './targeting.ts';
 import type { DefensiveUnit, MatchState, Showdown, ShowdownArmy, TeamId } from './types.ts';
@@ -132,7 +135,7 @@ function enemiesOf(showdown: Showdown, army: ShowdownArmy): readonly DefensiveUn
  * one for no reason anybody could see. So every seeker on the board is ordered
  * together by how near it is to a goal, exactly as the units in a lane are.
  */
-export function showdownTick(ctx: SimContext, state: MatchState): void {
+export function showdownTick(ctx: SimContext, state: MatchState, rng: Rng): void {
   const showdown = state.showdown;
   if (!showdown) return;
 
@@ -144,6 +147,18 @@ export function showdownTick(ctx: SimContext, state: MatchState): void {
 
   showdown.age += 1;
   showdown.attacks.length = 0;
+
+  const env = buildArenaAbilityEnv(ctx, showdown, rng);
+
+  // 0. Every clock a body carries, as in a lane (tick.ts): statuses expire,
+  // burns burn, energy fills, passives renew and the abilities that fire on
+  // their own initiative do. Dampening bites on the healing and the control
+  // durations inside `env`, which is the whole reason it exists (§3.3,
+  // replaced) - a free-for-all in which two armies can hold each other still
+  // or heal each other up is a free-for-all that does not end.
+  for (const army of showdown.armies) {
+    for (const unit of army.units) if (unit.alive) tickBody(env, unit);
+  }
 
   // 1. Who is fighting and who is walking, and 2. where the walkers are going.
   // Both per army, off the same enemy list, so the scratch array is filled
@@ -159,14 +174,14 @@ export function showdownTick(ctx: SimContext, state: MatchState): void {
   for (const army of showdown.armies) {
     for (const unit of army.units) everyone.push(unit);
   }
-  moveSeekers(ctx.arena, everyone, (unit) => unit.moveSpeed, [everyone]);
+  moveSeekers(ctx.arena, everyone, (unit) => walkSpeed(unit as DefensiveUnit), [everyone]);
 
   // 4. Everyone in range lands a hit if their cooldown allows.
   for (const army of showdown.armies) {
-    attack(ctx, showdown, army, enemiesOf(showdown, army));
+    attack(env, ctx, showdown, army, enemiesOf(showdown, army));
   }
 
-  reapArena(ctx, showdown);
+  reapArena(env, ctx, showdown);
 }
 
 /**
@@ -201,7 +216,12 @@ function classify(ctx: SimContext, army: ShowdownArmy, enemies: readonly Defensi
     if (!unit.alive) continue;
     if (unit.cooldown > 0) unit.cooldown -= 1;
 
-    const target = holdOrAcquire(enemies, unit, acquireRange(ctx, unit));
+    // A taunt overrides acquisition here exactly as it does in a lane, and
+    // matters more: the arena has no fortress to fall back to, so dragging a
+    // body off its chosen duel is the whole of what a tank does (§18).
+    const held = tauntedBy(unit);
+    const forced = held === null ? null : (enemies.find((e) => e.id === held && e.alive) ?? null);
+    const target = forced ?? holdOrAcquire(enemies, unit, acquireRange(ctx, unit));
     unit.targetId = target ? target.id : null;
     unit.engaged = target !== null && withinRange(unit, target, unit.range);
   }
@@ -292,6 +312,7 @@ function planArmyMoves(
  * the showdown.
  */
 function attack(
+  env: AbilityEnv,
   ctx: SimContext,
   showdown: Showdown,
   army: ShowdownArmy,
@@ -299,37 +320,58 @@ function attack(
 ): void {
   for (const unit of army.units) {
     if (!unit.alive || !unit.engaged || unit.cooldown > 0) continue;
+    if (!canAttack(unit)) continue;
 
     const def = ctx.defs.units.get(unit.defId);
     if (!def) continue;
     const target = enemies.find((e) => e.id === unit.targetId && e.alive);
     if (!target) continue;
 
-    const dealt = resolveDamage(
-      ctx.data.matrix.multipliers,
-      stat(def.damage) * unit.techDamage,
-      def.damageType,
-      target.armour,
+    // The same one place damage is dealt as in a lane (strike.ts), and the
+    // same §14.1 credit.
+    dealDamage(env.strike, unit, target, {
+      amount: stat(def.damage) * unit.techDamage,
+      damageType: def.damageType,
+      isAttack: true,
+    });
+    unit.cooldown = cooldownTicks(
+      stat(def.attackSpeed) * unit.techAttackSpeed * modifiersOf(unit).attackSpeedMul,
     );
-    // Credited with what the target actually lost, as in a lane (§14.1).
-    unit.damageDealt += target.hp > 0 ? Math.min(dealt, target.hp) : 0;
-    target.hp -= dealt;
-    unit.cooldown = cooldownTicks(stat(def.attackSpeed) * unit.techAttackSpeed);
     showdown.attacks.push({ attackerId: unit.id, targetId: target.id });
+
+    fire(env, unit, 'onAttack', { target });
+    if (target.hp <= 0) fire(env, unit, 'onKill', { target });
   }
 }
 
+/** A unit's speed in the arena this tick, after its statuses (status.ts). */
+function walkSpeed(unit: DefensiveUnit): number {
+  if (!canMove(unit)) return 0;
+  const m = modifiersOf(unit);
+  return Math.max(0, unit.moveSpeed * m.moveSpeedMul + m.moveSpeedAdd);
+}
+
 /**
- * Drop the dead, and heal whatever has healing - which is nothing yet.
+ * Deathrattles, then healing, then drop the dead.
  *
- * The healing loop is here rather than absent because it is the seam the
- * effect arrives through, and because it is where dampening has to bite when
- * it does (dampening.ts). §10.1's regeneration aura is the only healing in the
- * game and it comes from a fortress, so `regenPerSecond` is zero for every
- * body in the arena today.
+ * `regenPerSecond` below is still zero for everything - it was the seam a
+ * healing effect was expected to arrive through, and abilities arrived
+ * somewhere else instead: a `regen` status is carried on the body and is
+ * applied by `tickBody` at the top of the tick, where dampening reaches it
+ * through the same environment as everything else (abilityRuntime.ts). The
+ * loop stays because §10.1's aura would still report through it if a fortress
+ * ever came to the arena.
  */
-function reapArena(ctx: SimContext, showdown: Showdown): void {
+function reapArena(env: AbilityEnv, ctx: SimContext, showdown: Showdown): void {
   const healing = healingMultiplier(ctx.data.waves.showdown.dampening, showdown.age);
+
+  // Deathrattles first, while the body is still standing and still somewhere
+  // (tick.ts, `reapDead`, for why the order matters).
+  for (const army of showdown.armies) {
+    for (const unit of army.units) {
+      if (unit.alive && unit.hp <= 0) fire(env, unit, 'onDeath', {});
+    }
+  }
 
   for (const army of showdown.armies) {
     let died = false;

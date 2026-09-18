@@ -27,7 +27,7 @@ function runToPhase(ctx: SimContext, state: MatchState, phase: 'build' | 'combat
 }
 
 /** A line across the lane, so a wave cannot walk past without being hit. */
-function buildLine(ctx: SimContext, state: MatchState, defId = 'hammer'): void {
+function buildLine(ctx: SimContext, state: MatchState, defId = 'pledge'): void {
   state.lanes.lane1!.economy.gold = 99999;
   state.lanes.lane1!.economy.supplyCap = 999;
   for (let x = 0; x < data.lane.buildZone.width; x++) {
@@ -176,7 +176,7 @@ describe('who may see a scoreboard (§12)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane2',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 3,
     });

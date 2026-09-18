@@ -79,7 +79,7 @@ async function join(name: string, options: { code?: string; builderId?: string }
     code: options.code ?? '',
     playerId,
     name,
-    builderId: options.builderId ?? 'bastion',
+    builderId: options.builderId ?? 'ironvow',
   });
   const player: Player = {
     name,
@@ -159,14 +159,14 @@ async function main(): Promise<void> {
 
   // ------------------------------------------------------- roster and ready
   console.log('\n-- rosters and ready ticks --');
-  ann.room.send('builder', 'tidemark');
+  ann.room.send('builder', 'gloomtide');
   await wait(300);
-  check('a roster change reaches the other players', bo.lobby?.seats[0]?.builderId === 'tidemark');
+  check('a roster change reaches the other players', bo.lobby?.seats[0]?.builderId === 'gloomtide');
   ann.room.send('builder', 'not-a-builder');
   await wait(300);
   check(
     'an unknown roster is ignored rather than seated',
-    bo.lobby?.seats[0]?.builderId === 'tidemark',
+    bo.lobby?.seats[0]?.builderId === 'gloomtide',
   );
 
   ann.room.send('name', '  Ann\nLee  ');
@@ -194,7 +194,7 @@ async function main(): Promise<void> {
   );
   check(
     'the roster chosen in the lobby is the one seated',
-    ann.lobby?.seats[0]?.builderId === 'tidemark',
+    ann.lobby?.seats[0]?.builderId === 'gloomtide',
   );
 
   // ------------------------------------------------------------- reconnect

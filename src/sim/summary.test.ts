@@ -30,11 +30,11 @@ describe('wave summary (§9.3)', () => {
 
   it('rates Blast strong and Pierce weak against an all-Flesh wave', () => {
     // §6: Blast shreds Flesh (1.5); Pierce passes through it (0.6).
-    const summary = summariseWave(data, 1, 1, 'bastion');
+    const summary = summariseWave(data, 1, 1, 'ironvow');
 
-    const mortar = summary.units.find((u) => u.unitId === 'mortar')!;
-    const spike = summary.units.find((u) => u.unitId === 'spike')!;
-    const hammer = summary.units.find((u) => u.unitId === 'hammer')!;
+    const mortar = summary.units.find((u) => u.unitId === 'sanction')!;
+    const spike = summary.units.find((u) => u.unitId === 'sentinel')!;
+    const hammer = summary.units.find((u) => u.unitId === 'pledge')!;
 
     expect(mortar.verdict).toBe('strong');
     expect(mortar.effectiveness).toBeCloseTo(1.5, 6);
@@ -50,22 +50,22 @@ describe('wave summary (§9.3)', () => {
   it('weights effectiveness by how much of each armour is actually coming', () => {
     // Wave 3 mixes flesh, plate and swarm, so nothing should read as a pure
     // 1.5 or 0.6 - the average has to move off the single-armour values.
-    const summary = summariseWave(data, 1, 3, 'bastion');
-    const mortar = summary.units.find((u) => u.unitId === 'mortar')!;
+    const summary = summariseWave(data, 1, 3, 'ironvow');
+    const mortar = summary.units.find((u) => u.unitId === 'sanction')!;
     expect(mortar.effectiveness).toBeGreaterThan(0.6);
     expect(mortar.effectiveness).toBeLessThan(1.5);
   });
 
   it('can scope to one builder', () => {
     const all = summariseWave(data, 1, 1);
-    const scoped = summariseWave(data, 1, 1, 'bastion');
+    const scoped = summariseWave(data, 1, 1, 'ironvow');
     expect(scoped.units.length).toBeGreaterThan(0);
     expect(scoped.units.length).toBeLessThanOrEqual(all.units.length);
     expect(scoped.units.every((u) => u.unitId !== 'nonexistent')).toBe(true);
   });
 
   it('tags each rating with its tier, so the UI can show only buildables', () => {
-    const summary = summariseWave(data, 1, 1, 'bastion');
+    const summary = summariseWave(data, 1, 1, 'ironvow');
     // Builder A's full roster is six units (§7.1).
     expect(summary.units.filter((u) => u.tier === 1).length).toBe(6);
     expect(summary.units.some((u) => u.tier === 2)).toBe(true);

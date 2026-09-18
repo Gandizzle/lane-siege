@@ -146,7 +146,7 @@ describe('the arena (§3.3, replaced)', () => {
 describe('the transplant (§3.3, replaced)', () => {
   it('opens the showdown when the last wave is cleared, not a build phase', () => {
     const { state, ctx } = fourPlayers();
-    arm(ctx, state, 'a', 'hammer', 2);
+    arm(ctx, state, 'a', 'pledge', 2);
     reachShowdown(ctx, state);
 
     expect(state.phase).toBe('showdown');
@@ -160,7 +160,7 @@ describe('the transplant (§3.3, replaced)', () => {
 
   it('moves every army out of its lane and into its own spoke, whole', () => {
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 3);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 3);
     // Chewed up by the last wave. The arena opens with everyone at full HP.
     const hurt = state.lanes.a!.units[0]!;
     hurt.hp = 1;
@@ -184,7 +184,7 @@ describe('the transplant (§3.3, replaced)', () => {
 
   it('stands each unit on the tile it was built on, in its seat spoke', () => {
     const { state, ctx } = fourPlayers();
-    arm(ctx, state, 'c', 'hammer', 5);
+    arm(ctx, state, 'c', 'pledge', 5);
     reachShowdown(ctx, state);
 
     const army = state.showdown!.armies.find((a) => a.teamId === 'c')!;
@@ -198,7 +198,7 @@ describe('the transplant (§3.3, replaced)', () => {
 
   it('leaves an eliminated player’s spoke empty rather than reseating the table', () => {
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 2);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 2);
     state.teams[1]!.eliminated = true;
 
     reachShowdown(ctx, state);
@@ -212,7 +212,7 @@ describe('the transplant (§3.3, replaced)', () => {
 describe('the countdown (§3.3, replaced)', () => {
   it('holds every army still until it runs out', () => {
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 4);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 4);
     reachShowdown(ctx, state);
 
     const unit = state.showdown!.armies[0]!.units[0]!;
@@ -230,7 +230,7 @@ describe('the countdown (§3.3, replaced)', () => {
 
   it('starts the fight clock only once the card clears', () => {
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 4);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 4);
     reachShowdown(ctx, state);
 
     const card = state.phaseTicksLeft;
@@ -244,10 +244,10 @@ describe('the countdown (§3.3, replaced)', () => {
 describe('the free-for-all (§3.3, replaced)', () => {
   it('converges four armies on the centre and leaves one standing', () => {
     const { state, ctx } = fourPlayers();
-    arm(ctx, state, 'a', 'hammer', 6);
-    arm(ctx, state, 'b', 'hammer', 4);
-    arm(ctx, state, 'c', 'hammer', 3);
-    arm(ctx, state, 'd', 'hammer', 2);
+    arm(ctx, state, 'a', 'pledge', 6);
+    arm(ctx, state, 'b', 'pledge', 4);
+    arm(ctx, state, 'c', 'pledge', 3);
+    arm(ctx, state, 'd', 'pledge', 2);
     reachShowdown(ctx, state);
 
     let guard = 0;
@@ -263,7 +263,7 @@ describe('the free-for-all (§3.3, replaced)', () => {
 
   it('keeps every body inside the cross - never in a corner', () => {
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 8);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 8);
     reachShowdown(ctx, state);
 
     const band = shape.bounds.band!;
@@ -287,7 +287,7 @@ describe('the free-for-all (§3.3, replaced)', () => {
 
   it('is a free-for-all: a unit fights whichever army is nearest', () => {
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 4);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 4);
     reachShowdown(ctx, state);
 
     const attackers = new Set<string>();
@@ -308,7 +308,7 @@ describe('the free-for-all (§3.3, replaced)', () => {
 
   it('credits each unit with what it landed, so the panel still has rows', () => {
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 4);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 4);
     reachShowdown(ctx, state);
 
     let guard = 0;
@@ -354,31 +354,31 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
 
   it('sees a body just inside its reach plus the margin', () => {
     // A hammer's reach is a hair over nothing, so the floor is what applies.
-    const { mine, theirs } = duel('hammer', minimum - 0.05);
+    const { mine, theirs } = duel('pledge', minimum - 0.05);
     expect(mine.targetId).toBe(theirs.id);
   });
 
   it('does not see one just outside it', () => {
-    const { mine } = duel('hammer', minimum + 0.05);
+    const { mine } = duel('pledge', minimum + 0.05);
     expect(mine.targetId).toBeNull();
   });
 
   it('gives a long-reaching unit sight to match, not the floor', () => {
     // A lance outranges the floor several times over. Sight is its own reach
     // plus the margin, so it looks as far as it can actually shoot.
-    const lance = data.units.units.find((u) => u.id === 'lance')!;
+    const lance = data.units.units.find((u) => u.id === 'judgement')!;
     const reach = lance.range ?? 0;
     expect(reach + margin).toBeGreaterThan(minimum);
 
-    expect(duel('lance', reach + margin - 0.05).mine.targetId).not.toBeNull();
-    expect(duel('lance', reach + margin + 0.05).mine.targetId).toBeNull();
+    expect(duel('judgement', reach + margin - 0.05).mine.targetId).not.toBeNull();
+    expect(duel('judgement', reach + margin + 0.05).mine.targetId).toBeNull();
   });
 
   it('sees nothing at all across the board when the card lifts', () => {
     // The armies open in their own spokes, twenty-odd tiles apart. Under
     // global sight every one of them would already have picked a duel.
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 6);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 6);
     reachShowdown(ctx, state);
     startFighting(ctx, state);
     step(ctx, state);
@@ -390,7 +390,7 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
 
   it('walks at the middle of the map instead', () => {
     const { state, ctx } = fourPlayers();
-    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'hammer', 6);
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 6);
     reachShowdown(ctx, state);
     startFighting(ctx, state);
 
@@ -417,8 +417,8 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
     // units on the WEST side of the south spoke: the centre is up and to the
     // right of both of them, and the other army is up and to the left.
     const { state, ctx } = fourPlayers();
-    arm(ctx, state, 'a', 'hammer', 2);
-    arm(ctx, state, 'b', 'hammer', 4);
+    arm(ctx, state, 'a', 'pledge', 2);
+    arm(ctx, state, 'b', 'pledge', 4);
     reachShowdown(ctx, state);
     startFighting(ctx, state);
     step(ctx, state);
@@ -436,10 +436,10 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
 
   it('still finishes: converging is what makes the armies meet', () => {
     const { state, ctx } = fourPlayers();
-    arm(ctx, state, 'a', 'hammer', 6);
-    arm(ctx, state, 'b', 'hammer', 4);
-    arm(ctx, state, 'c', 'hammer', 3);
-    arm(ctx, state, 'd', 'hammer', 2);
+    arm(ctx, state, 'a', 'pledge', 6);
+    arm(ctx, state, 'b', 'pledge', 4);
+    arm(ctx, state, 'c', 'pledge', 3);
+    arm(ctx, state, 'd', 'pledge', 2);
     reachShowdown(ctx, state);
 
     let guard = 0;

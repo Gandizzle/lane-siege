@@ -156,22 +156,29 @@ four damage types, because every lane faces the same wave. So builders cannot be
 differentiated by what they can answer — only by _distribution and quality_.
 Four rosters, each excelling at a different **pair** of damage types:
 
-| builder  | strongest       | armour lean | costs               | shape                                              |
-| -------- | --------------- | ----------- | ------------------- | -------------------------------------------------- |
-| Bastion  | Impact + Pierce | plate       | 40–95g, 2–3 supply  | the reference: a melee wall with snipers behind it |
-| Ashfall  | Blast + Impact  | flesh       | 48–98g, 2–3 supply  | hits hardest, dies fastest, charges most           |
-| Verdance | Arcane + Pierce | ward        | 34–84g, 1–2 supply  | cheap, quick, numerous; folds to an Impact wave    |
-| Tidemark | Blast + Arcane  | swarm       | 62–105g, 2–3 supply | longest reach, fewest bodies, thinnest line        |
+| builder    | strongest       | armour lean | costs               | shape                                              | and what it does                                      |
+| ---------- | --------------- | ----------- | ------------------- | -------------------------------------------------- | ----------------------------------------------------- |
+| Ironvow    | Impact + Pierce | plate       | 40–95g, 2–3 supply  | the reference: a melee wall with snipers behind it | oaths: taunts, wards, answered blows, judgements      |
+| Pyre       | Blast + Impact  | flesh       | 48–98g, 2–3 supply  | hits hardest, dies fastest, charges most           | heat: `burning`, escalation, and dying loudly         |
+| Thornweald | Arcane + Pierce | ward        | 34–84g, 1–2 supply  | cheap, quick, numerous; folds to an Impact wave    | growth: roots, `blighted` rot, and a line that mends  |
+| Gloomtide  | Blast + Arcane  | swarm       | 62–105g, 2–3 supply | longest reach, fewest bodies, thinnest line        | pressure: `soaked`, chill, and chains through the wet |
 
-Two axes do the work, and both are consequences of rules that already existed:
+Three axes do the work, and all three are consequences of rules that already
+existed:
 
 - **Armour lean decides which wave punishes you.** The matrix runs in both
   directions (§6), so a roster built on ward bodies takes 1.5× from Impact —
   and Impact is what the early waves mostly deal. Verdance is therefore
   genuinely harder early and stronger later, without a single special case.
 - **Supply is the cap that binds** (§11.4), so a roster's character is its value
-  _per supply_, not per unit. Tidemark's identity is concentration: fewer, more
+  _per supply_, not per unit. Gloomtide's identity is concentration: fewer, more
   expensive bodies with the longest reach and the least health.
+- **Every unit has an ability, and three of the four rosters have a WORD.** See
+  [abilities](#abilities-a-trigger-a-target-some-effects-and-a-price). The
+  names are part of it: `Ironvow` fields Pledge, Oathwall, Sentinel, Judgement,
+  Sanction and Vigil, and the abilities are Hold the Line, Riposte, Verdict,
+  Censure. A player who has read one of those names has been told something
+  about the other five.
 
 Tier scaling is the same throughout, measured off builder A rather than
 invented: ×2.18 HP, ×2.21 damage, ×1.60 gold at tier 2; ×2.10, ×2.16, ×1.63 at
@@ -200,6 +207,134 @@ trusted with rules.
 `npm run builders` plays all four side by side against identical waves and
 reports where each one leaked. It is a sanity check, not a verdict: the scripted
 player is a poor one.
+
+### Abilities: a trigger, a target, some effects and a price
+
+Thirty-seven bodies that differ only in HP, damage, armour type and damage type
+is a spreadsheet. So every unit in the game has an ability — the signature one
+from tier 1, its numbers rising with the tier, and a second one unlocked at the
+top of its ladder — and every boss and five of the nine monsters have one too.
+None of them live in code. `src/data/abilities.ts` is the shape of an ability
+and `data/abilities.json` is the sixty of them.
+
+**Every ability is the same four fields.** When it happens, who it happens to,
+what happens, and what it costs:
+
+```json
+{
+  "id": "hold_the_line",
+  "name": "Hold the Line",
+  "text": "Roars every few seconds and drags the nearest attackers onto itself.",
+  "role": "control",
+  "numbers": { "period": 5.0, "radius": 2.2, "targets": 3, "hold": 2.0 },
+  "ranks": [{}, { "radius": 2.8, "targets": 4, "hold": 2.6 }],
+  "trigger": { "when": "interval", "everySeconds": "@period" },
+  "target": { "what": "enemiesInRadius", "radius": "@radius", "max": "@targets" },
+  "effects": [{ "kind": "control", "control": "taunt", "durationSeconds": "@hold" }]
+}
+```
+
+A stacking slow on hit and a shield for three allies every six seconds are the
+same four fields with different values, which is the point: a new ability is a
+JSON entry, and a new KIND of ability is one case in `applyEffect`.
+
+**`"@name"` and `ranks` are why the catalogue is sixty entries and not a
+hundred and forty.** A unit's tier 2 usually wants the same ability with one
+figure raised. Duplicating the entry per tier is how the stat blocks work, and
+it would have tripled this file for the sake of one number — so an ability
+names its numbers, refers to them as `"@period"`, and lists per-rank
+overrides. Rank 1 is the map as written; a unit asks for
+`{ "id": "hold_the_line", "rank": 2 }`. `resolveAbility` turns a definition
+into a struct in which every field is already a number, once, when the match's
+definition index is built — so a tick never resolves anything (§15.3).
+
+**What is live, and what is vocabulary.** `IMPLEMENTED_EFFECTS` is the set of
+effect kinds the simulation honours: `modify` (any of twelve stats, as a
+multiplier or a flat amount), `damage` (flat, a share of max, current or
+missing HP, or a multiple of the attacker's own swing, optionally bypassing
+armour entirely), `damageOverTime`, `heal`, `regen`, `shield`, `control`
+(stun, root, disarm, silence, taunt), `execute`, `immunity` and `energy`.
+`EFFECT_KINDS` is longer: summons, resurrection, knockback, pull, teleport,
+transformation, spirit link, amplify-and-detonate, path blocking, cost
+reduction, sell value and bonds are all typed, validated and inert. Those live
+in `abilities.json`'s `planned` list, and **`validate.ts` refuses to let a
+unit, monster or send reference one**. That rule is the whole reason the
+mechanism is trustworthy: the ability's own `text` is what the panel shows a
+player, and unlike a `traits` line it cannot describe a rule the game has not
+got.
+
+**Stacking is a rule, not a number.** `from: "any"` stacks on every
+application; `"perSource"` gives one body one stack, so a unit cannot stack its
+own debuff by attacking faster; `"perSourceType"` gives one UNIT TYPE one
+stack, so stacking it means fielding a mixed line rather than six of the same
+thing. Percentages compound rather than adding — two 20% slows leave 64% of the
+speed, and no number of them reaches zero, because a slow that reaches zero is
+a root and a root is a different effect with its own limits.
+
+**Crowd control cannot be held forever.** §18's diminishing returns, in
+`abilities.json`'s `control` block: the first control effect inside the window
+lasts its full duration, the second half of it, the third a quarter, and once
+the ladder is spent the body is immune for five seconds. Counted per body, and
+the Final Showdown dampens every duration on top of that (§3.3, replaced), so a
+table of stun units cannot hold a wave — or an enemy army — still.
+
+**A tag is the synergy channel.** Three of the four rosters apply a word and
+then charge for it. Pyre's Kindle, Emberdust and Slagshot leave `burning`;
+Firestorm and Conflagration do more damage to anything carrying it, and
+Wildfire spreads only to what is already alight. Thornweald applies `blighted`
+and Heartpiercer collects. Gloomtide applies `soaked` and Torrential, Hailburst,
+Undertow and Drownward all collect. A builder whose units want to be built
+together is the whole reason a roster is a roster and not six unrelated
+purchases.
+
+**Energy is what makes an expensive ability a rhythm rather than a cooldown.**
+Every body has the same pool, fills it passively, and tops it up on a kill, and
+the ability a three-tier unit unlocks at the top of its ladder spends it —
+Interdict's area stun, Absolution's cleanse, Conflagration, Pyroclasm,
+Blightbloom, Cloudburst. So the big ability fires on a rhythm set by the fight
+rather than by a bare timer, and a unit that is not killing anything fires it
+less often. Gloomtide's Murmur grants energy directly, which is what makes it
+worth its supply.
+
+**Two files hold the rules, and each is the only place its thing happens.**
+`strike.ts` is the one place a body's HP goes down, and `dampening.ts` the one
+place it goes up. Evasion, wards, criticals, the §6 matrix, vulnerability,
+lifesteal and reflection are all inside `dealDamage`, in that order, which is
+what makes the modifiers reliable — an ability that raises the damage a body
+takes raises _all_ of it, and a ward eats whatever arrives next. Damage applied
+anywhere else would quietly ignore both. Only an ATTACK can be evaded, warded
+or critical; a burn is a consequence of a hit that already happened, and letting
+it miss again would make one dodge worth two.
+
+**A passive is a status that keeps being renewed.** There are no permanent
+buffs. A `passive` ability fires every tick and applies statuses lasting two
+ticks, so an aura is self-cleaning: walking out of one lets it lapse a tick
+later with no bookkeeping. The alternative — adding and removing auras as
+bodies move — is a bug farm, and units advance now (§5.2, amended), so aura
+membership genuinely changes constantly.
+
+**Spell immunity is a filter, not a check.** A body immune to abilities is
+removed during target selection rather than tested inside each effect, which
+makes the rule total: nothing an ability does can reach a Revenant, damage
+included. That makes it a real answer to an ability-heavy line rather than a
+monster that shrugs off some of it.
+
+**Firing is re-entrant, so target lists are pooled by depth.** An ability's
+damage lands, that fires the target's `onHurt`, and that selects targets of its
+own — inside the loop still walking the first ability's list. One shared scratch
+array would be overwritten underneath it. A pool indexed by nesting depth keeps
+§15.3's no-allocation rule and is correct at any depth.
+
+**Every roll goes through the match's own generator.** One `Rng` is restored
+from `state.rngState` at the top of each tick and written back at the end, so a
+critical, an evade and a 35% proc are all part of the deterministic stream
+(§9.2, §15.1). A second generator, or `Math.random`, would make replays and
+desync detection lies.
+
+Cost: a lane tick went from 1.51ms to 2.51ms at §15.3's load (3.0% → 5.0% of
+budget) and the showdown from 4.84ms to 6.92ms (9.7% → 13.8%). `npm run
+routing` prints the same numbers to four decimal places as it did before, which
+is the check that mattered — the movement guarantees are untouched.
 
 ### Fog of war is a setting, not a law
 
@@ -507,7 +642,7 @@ and there is no question which way to face; an arena holds three, and "nearest
 enemy anywhere" is a global question that forty bodies re-answer every tick
 against three moving crowds, all changing their minds together — §5.1's
 argument for capping a monster's acquisition, arriving on the other side of the
-board. It is tied to the unit's own reach so a mortar looks as far as it can
+board. It is tied to the unit's own reach so a Sanction looks as far as it can
 actually shoot rather than as far as a melee body would have noticed.
 
 A unit with nothing inside that range walks at the **middle of the map**, which
@@ -672,7 +807,7 @@ attacker's own definition so there is nothing to author:
 | ---------- | ----------- | ---------------------------------------------- |
 | head shape | damage type | a dart, a slug, a shell or a mote              |
 | colour     | damage type | the same fill §14.2 draws the body in          |
-| size       | damage      | a mortar shell is not a thornling's dart       |
+| size       | damage      | a Sanction shell is not a Thornling's dart     |
 | speed      | range       | time in the air stays about 0.16s at any reach |
 | trail      | armour      | two guns of one damage type still differ       |
 
@@ -691,7 +826,7 @@ layer reads or writes a body. A test asserts that literally, by comparing the
 attacker and target before and after a frame.
 
 The flash is drawn at the attacker's damage-type colour mixed halfway to white.
-A hammer and a grub are both Impact, and an amber swing between two amber
+A Pledge and a grub are both Impact, and an amber swing between two amber
 bodies is invisible; lightening keeps §14.2's colour channel while making the
 blow readable against a body wearing the same hue.
 
@@ -1136,6 +1271,21 @@ Implemented and tested (388 tests):
 - An opponent tab's second line: clear of the HP bar on a tab with height to
   spare, using every pixel of one that has none, and never climbing into the
   name (§14.1, §12)
+- Abilities, three ways (§7, §18): the VOCABULARY holds together - every stat
+  an ability may modify is one the aggregation honours, every live effect kind
+  is exercised by an authored ability, and the planned list is exactly the
+  kinds that are not live; the RULES do what they say - a stack rule caps, a
+  percent slow compounds rather than adding, `perSourceType` rewards a mixed
+  line, control diminishes and then stops landing, a ward eats exactly one
+  attack, a rank lays over its base numbers and every `"@name"` resolves; and
+  the INTEGRATION happens - a real roster sets a wave alight, slows one down,
+  drags one onto its tank, spends and refills energy, fails entirely against
+  spell immunity, and a paid send arrives carrying the send's own ability
+- The roster design rules, asserted against the data rather than intended:
+  every unit has an ability, every tier carries its signature forward at that
+  tier's rank, every ladder ends in a second ability, a three-tier unit's
+  second ability costs energy, some monsters are left ordinary and no boss is,
+  and each of the three tagged builders both applies and exploits its own word
 - Global tech, tied to damage types and cached per unit (§7.4, §15.3)
 - Fortress, weapon, regen, aura and resource upgrades, bought with gems (§10)
 - The supply cap as a purchase (§11.4)

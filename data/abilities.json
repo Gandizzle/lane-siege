@@ -1,0 +1,2267 @@
+{
+  "_comment": "DESIGN.md §7 and §18, extended. Every ability in the game. The shape of an entry is in src/data/abilities.ts: a trigger (WHEN), a target (WHO), effects (WHAT) and a price. Numbers are named in `numbers` and referred to as \"@name\", so `ranks` can raise one figure per tier without restating the ability - rank 1 is `numbers` as written, rank 2 is `numbers` with ranks[1] laid over it. All placeholders, like every number in data/.",
+  "_tags": "Tags are the synergy channel. `burning` is Pyre's, applied by Kindle, Emberdust and Slagshot and paid off by Firestorm and Conflagration (more damage) and Wildfire (spreads only to what already burns). `blighted` is Thornweald's, from Bloomspread and Wilt, paid off by Heartpiercer. `soaked` is Gloomtide's, from Snarekelp and Sleetfall, paid off by Torrential, Hailburst, Undertow and Drownward. A builder that applies its own tag and then exploits it is a builder whose units want to be built together, which is the point.",
+  "_planned": "The `planned` list at the bottom uses effect kinds the simulation does not honour yet (IMPLEMENTED_EFFECTS in abilities.ts is the live set). They are designs kept where the thinking is, and validate.ts refuses to let a unit, monster or send reference one - so nothing the panel shows a player is a promise rather than a rule.",
+  "control": {
+    "_comment": "§18's diminishing returns, so a table of stun units cannot hold a wave still forever. The first control effect inside `windowSeconds` lasts its full duration, the second half of it, and so on down `scale`; once the list is spent the body cannot be controlled at all for `immuneSeconds`. Counted per body, and the showdown dampens the durations on top of this (§3.3, replaced).",
+    "scale": [1, 0.5, 0.25],
+    "windowSeconds": 8,
+    "immuneSeconds": 5
+  },
+  "energy": {
+    "_comment": "The resource the expensive abilities spend (§18). Every body has the same pool, fills it passively, and tops it up on a kill - so an active ability fires on a rhythm set by the fight rather than by a bare cooldown, and a unit that is not killing anything fires it less often. Gloomtide's Deepcall grants energy directly, which is what makes Murmur worth its supply.",
+    "max": 100,
+    "regenPerSecond": 6,
+    "perKill": 8
+  },
+  "abilities": [
+    {
+      "id": "shoulder_to_shoulder",
+      "name": "Shoulder to Shoulder",
+      "text": "Every nearby Ironvow unit hits harder. Three Pledges in a row are three times braced.",
+      "role": "support",
+      "numbers": {
+        "radius": 1.6,
+        "allies": 3,
+        "damage": 0.08
+      },
+      "ranks": [
+        {},
+        {
+          "damage": 0.14
+        },
+        {
+          "damage": 0.2,
+          "radius": 1.9
+        }
+      ],
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@damage",
+          "stacks": {
+            "max": 3,
+            "from": "perSource"
+          }
+        }
+      ]
+    },
+    {
+      "id": "hold_the_line",
+      "name": "Hold the Line",
+      "text": "Roars every few seconds and drags the nearest attackers onto itself.",
+      "role": "control",
+      "numbers": {
+        "period": 5.0,
+        "radius": 2.2,
+        "targets": 3,
+        "hold": 2.0
+      },
+      "ranks": [
+        {},
+        {
+          "radius": 2.8,
+          "targets": 4,
+          "hold": 2.6
+        }
+      ],
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "control",
+          "control": "taunt",
+          "durationSeconds": "@hold"
+        }
+      ]
+    },
+    {
+      "id": "unbroken",
+      "name": "Unbroken",
+      "text": "Below half health nothing holds it, blows start glancing off, and it takes less of what lands.",
+      "role": "defence",
+      "numbers": {
+        "reduction": -0.25,
+        "evasion": 0.1,
+        "duration": 6.0
+      },
+      "ranks": [
+        {},
+        {
+          "reduction": -0.35,
+          "evasion": 0.15
+        }
+      ],
+      "trigger": {
+        "when": "healthBelow",
+        "fraction": 0.5
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@reduction",
+          "durationSeconds": "@duration"
+        },
+        {
+          "kind": "modify",
+          "stat": "evasion",
+          "mode": "percent",
+          "amount": "@evasion",
+          "durationSeconds": "@duration"
+        },
+        {
+          "kind": "immunity",
+          "immuneTo": "control",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "parry",
+      "name": "Parry",
+      "text": "Turns a share of what is swung at it aside entirely.",
+      "role": "defence",
+      "numbers": {
+        "chance": 0.18
+      },
+      "ranks": [
+        {},
+        {
+          "chance": 0.26
+        }
+      ],
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "evasion",
+          "mode": "percent",
+          "amount": "@chance"
+        }
+      ]
+    },
+    {
+      "id": "riposte",
+      "name": "Riposte",
+      "text": "A blow turned aside is a blow it gets to answer.",
+      "role": "defence",
+      "numbers": {
+        "share": 0.9
+      },
+      "trigger": {
+        "when": "onEvade"
+      },
+      "target": {
+        "what": "attacker"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share"
+        }
+      ]
+    },
+    {
+      "id": "verdict",
+      "name": "Verdict",
+      "text": "Each shot carries a share of whatever it is aimed at, however big.",
+      "role": "offence",
+      "numbers": {
+        "share": 0.02
+      },
+      "ranks": [
+        {},
+        {
+          "share": 0.035
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofMaxHealth": "@share"
+        }
+      ]
+    },
+    {
+      "id": "final_sentence",
+      "name": "Final Sentence",
+      "text": "Finishes anything already nearly finished.",
+      "role": "offence",
+      "numbers": {
+        "threshold": 0.1
+      },
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "execute",
+          "belowFraction": "@threshold"
+        }
+      ]
+    },
+    {
+      "id": "censure",
+      "name": "Censure",
+      "text": "The blast leaves everything around it hitting softer.",
+      "role": "control",
+      "numbers": {
+        "radius": 1.4,
+        "targets": 4,
+        "weaken": -0.2,
+        "duration": 3.0
+      },
+      "ranks": [
+        {},
+        {
+          "weaken": -0.28
+        },
+        {
+          "weaken": -0.35,
+          "radius": 1.7
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@weaken",
+          "durationSeconds": "@duration",
+          "stacks": {
+            "max": 1,
+            "from": "any"
+          }
+        }
+      ]
+    },
+    {
+      "id": "interdict",
+      "name": "Interdict",
+      "text": "Calls a halt. Everything in the circle stops where it stands.",
+      "role": "control",
+      "numbers": {
+        "period": 8.0,
+        "radius": 1.8,
+        "targets": 5,
+        "hold": 1.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "control",
+          "control": "stun",
+          "durationSeconds": "@hold"
+        }
+      ],
+      "energyCost": 60
+    },
+    {
+      "id": "warding_light",
+      "name": "Warding Light",
+      "text": "Lays a ward on nearby allies that eats the next blow entirely.",
+      "role": "support",
+      "numbers": {
+        "period": 6.0,
+        "radius": 2.4,
+        "allies": 2,
+        "blocks": 1,
+        "duration": 8.0
+      },
+      "ranks": [
+        {},
+        {
+          "allies": 3
+        },
+        {
+          "allies": 4,
+          "radius": 2.9
+        }
+      ],
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "nearestAllies",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "shield",
+          "blocks": "@blocks",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "absolution",
+      "name": "Absolution",
+      "text": "Nothing holds an absolved ally, and what is left of their wounds closes.",
+      "role": "support",
+      "numbers": {
+        "period": 10.0,
+        "radius": 2.6,
+        "allies": 3,
+        "duration": 4.0,
+        "heal": 0.15
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "nearestAllies",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "immunity",
+          "immuneTo": "control",
+          "durationSeconds": "@duration"
+        },
+        {
+          "kind": "heal",
+          "ofMaxHealth": "@heal"
+        }
+      ],
+      "energyCost": 70
+    },
+    {
+      "id": "closing_ranks",
+      "name": "Closing Ranks",
+      "text": "The line tightens: everyone beside it hits harder and bleeds slower.",
+      "role": "support",
+      "numbers": {
+        "period": 9.0,
+        "radius": 2.0,
+        "allies": 4,
+        "damage": 0.2,
+        "reduction": -0.15,
+        "duration": 4.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@damage",
+          "durationSeconds": "@duration"
+        },
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@reduction",
+          "durationSeconds": "@duration"
+        }
+      ],
+      "energyCost": 55
+    },
+    {
+      "id": "kindle",
+      "name": "Kindle",
+      "text": "Sets what it touches burning. Burns stack.",
+      "role": "offence",
+      "numbers": {
+        "burn": 4.0,
+        "duration": 4.0
+      },
+      "ranks": [
+        {},
+        {
+          "burn": 9.0
+        },
+        {
+          "burn": 19.0,
+          "duration": 5.0
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "damageOverTime",
+          "perSecond": "@burn",
+          "durationSeconds": "@duration",
+          "appliesTag": "burning",
+          "stacks": {
+            "max": 3,
+            "from": "any"
+          },
+          "damageType": "blast"
+        }
+      ]
+    },
+    {
+      "id": "molten_hide",
+      "name": "Molten Hide",
+      "text": "Hitting it costs something. Its hide gives back a share of every blow.",
+      "role": "defence",
+      "numbers": {
+        "share": 0.15
+      },
+      "ranks": [
+        {},
+        {
+          "share": 0.25
+        }
+      ],
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "reflect",
+          "mode": "percent",
+          "amount": "@share"
+        }
+      ]
+    },
+    {
+      "id": "cinderburst",
+      "name": "Cinderburst",
+      "text": "Goes out loudly, and takes the crowd around it with it.",
+      "role": "offence",
+      "numbers": {
+        "radius": 1.6,
+        "targets": 6,
+        "damage": 80,
+        "burn": 8.0
+      },
+      "trigger": {
+        "when": "onDeath"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "flat": "@damage",
+          "damageType": "blast"
+        },
+        {
+          "kind": "damageOverTime",
+          "perSecond": "@burn",
+          "durationSeconds": 3.0,
+          "appliesTag": "burning",
+          "damageType": "blast"
+        }
+      ]
+    },
+    {
+      "id": "firestorm",
+      "name": "Firestorm",
+      "text": "Its shells scatter fire, and fire falls hardest on what is already alight.",
+      "role": "offence",
+      "numbers": {
+        "radius": 1.3,
+        "targets": 4,
+        "falloff": 0.7,
+        "share": 0.5,
+        "bonus": 1.6
+      },
+      "ranks": [
+        {},
+        {
+          "share": 0.65
+        },
+        {
+          "share": 0.8,
+          "radius": 1.6
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets",
+        "falloff": "@falloff"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "blast",
+          "bonusIfTag": {
+            "tag": "burning",
+            "multiplier": "@bonus"
+          }
+        }
+      ]
+    },
+    {
+      "id": "spitfire",
+      "name": "Spitfire",
+      "text": "One shot, two mouths to feed.",
+      "role": "offence",
+      "numbers": {
+        "jumps": 1,
+        "radius": 1.8,
+        "falloff": 0.75,
+        "share": 0.55
+      },
+      "ranks": [
+        {},
+        {
+          "jumps": 2
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "chain",
+        "jumps": "@jumps",
+        "radius": "@radius",
+        "falloff": "@falloff"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "blast"
+        }
+      ]
+    },
+    {
+      "id": "emberdust",
+      "name": "Emberdust",
+      "text": "Leaves embers in the wound often enough to matter.",
+      "role": "offence",
+      "numbers": {
+        "chance": 0.35,
+        "burn": 7.0
+      },
+      "trigger": {
+        "when": "onAttack",
+        "chance": "@chance"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "damageOverTime",
+          "perSecond": "@burn",
+          "durationSeconds": 3.0,
+          "appliesTag": "burning",
+          "damageType": "blast",
+          "stacks": {
+            "max": 2,
+            "from": "any"
+          }
+        }
+      ]
+    },
+    {
+      "id": "stoke",
+      "name": "Stoke",
+      "text": "The longer it fires the faster and sharper it fires. Stop, and it cools.",
+      "role": "offence",
+      "numbers": {
+        "step": 0.08,
+        "crit": 0.04,
+        "window": 3.0,
+        "max": 5
+      },
+      "ranks": [
+        {},
+        {
+          "step": 0.11,
+          "crit": 0.055,
+          "max": 6
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "attackSpeed",
+          "mode": "percent",
+          "amount": "@step",
+          "durationSeconds": "@window",
+          "stacks": {
+            "max": "@max",
+            "from": "any"
+          }
+        },
+        {
+          "kind": "modify",
+          "stat": "critChance",
+          "mode": "percent",
+          "amount": "@crit",
+          "durationSeconds": "@window",
+          "stacks": {
+            "max": "@max",
+            "from": "any"
+          }
+        }
+      ]
+    },
+    {
+      "id": "slagshot",
+      "name": "Slagshot",
+      "text": "A round of molten slag, heavy in proportion to what it hits.",
+      "role": "offence",
+      "numbers": {
+        "chance": 0.25,
+        "share": 0.03
+      },
+      "trigger": {
+        "when": "onAttack",
+        "chance": "@chance"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofMaxHealth": "@share",
+          "damageType": "blast",
+          "appliesTag": "burning"
+        }
+      ]
+    },
+    {
+      "id": "wildfire",
+      "name": "Wildfire",
+      "text": "Carries a fire from one body to the next. Only spreads to what is already burning.",
+      "role": "offence",
+      "numbers": {
+        "jumps": 2,
+        "radius": 2.2,
+        "burn": 6.0,
+        "duration": 4.0
+      },
+      "ranks": [
+        {},
+        {
+          "jumps": 3,
+          "burn": 11.0
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "chain",
+        "jumps": "@jumps",
+        "radius": "@radius",
+        "requiresTag": "burning"
+      },
+      "effects": [
+        {
+          "kind": "damageOverTime",
+          "perSecond": "@burn",
+          "durationSeconds": "@duration",
+          "appliesTag": "burning",
+          "damageType": "blast",
+          "stacks": {
+            "max": 3,
+            "from": "any"
+          }
+        }
+      ]
+    },
+    {
+      "id": "emberwind",
+      "name": "Emberwind",
+      "text": "The heat it throws off lifts everything fighting beside it.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.2,
+        "allies": 4,
+        "damage": 0.12
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@damage"
+        }
+      ]
+    },
+    {
+      "id": "conflagration",
+      "name": "Conflagration",
+      "text": "Everything near it catches at once, and what was burning catches worse.",
+      "role": "offence",
+      "numbers": {
+        "period": 8.0,
+        "radius": 2.4,
+        "targets": 8,
+        "share": 1.2,
+        "bonus": 1.5,
+        "burn": 12.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "blast",
+          "bonusIfTag": {
+            "tag": "burning",
+            "multiplier": "@bonus"
+          }
+        },
+        {
+          "kind": "damageOverTime",
+          "perSecond": "@burn",
+          "durationSeconds": 4.0,
+          "appliesTag": "burning",
+          "damageType": "blast"
+        }
+      ],
+      "energyCost": 60
+    },
+    {
+      "id": "pyroclasm",
+      "name": "Pyroclasm",
+      "text": "Empties its throat in a cone and leaves the ground alight.",
+      "role": "offence",
+      "numbers": {
+        "period": 9.0,
+        "length": 4.5,
+        "degrees": 70,
+        "targets": 8,
+        "falloff": 0.85,
+        "share": 1.4,
+        "burn": 10.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInCone",
+        "length": "@length",
+        "degrees": "@degrees",
+        "max": "@targets",
+        "falloff": "@falloff"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "blast"
+        },
+        {
+          "kind": "damageOverTime",
+          "perSecond": "@burn",
+          "durationSeconds": 4.0,
+          "appliesTag": "burning",
+          "damageType": "blast"
+        }
+      ],
+      "energyCost": 65
+    },
+    {
+      "id": "rootbite",
+      "name": "Rootbite",
+      "text": "Its bite leaves roots behind. Different thorns root deeper.",
+      "role": "control",
+      "numbers": {
+        "slow": -0.15,
+        "duration": 2.5
+      },
+      "ranks": [
+        {},
+        {
+          "slow": -0.22
+        },
+        {
+          "slow": -0.3,
+          "duration": 3.0
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "moveSpeed",
+          "mode": "percent",
+          "amount": "@slow",
+          "durationSeconds": "@duration",
+          "stacks": {
+            "max": 3,
+            "from": "perSourceType"
+          }
+        }
+      ]
+    },
+    {
+      "id": "heartwood",
+      "name": "Heartwood",
+      "text": "Closes its own wounds, slowly and without being asked.",
+      "role": "defence",
+      "numbers": {
+        "rate": 0.012
+      },
+      "ranks": [
+        {},
+        {
+          "rate": 0.02
+        }
+      ],
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "regen",
+          "ofMaxHealth": "@rate"
+        }
+      ]
+    },
+    {
+      "id": "thicket",
+      "name": "Thicket",
+      "text": "Whatever is hitting it gets tangled in it.",
+      "role": "control",
+      "numbers": {
+        "slow": -0.2,
+        "duration": 2.0
+      },
+      "trigger": {
+        "when": "onHurt"
+      },
+      "target": {
+        "what": "attacker"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "attackSpeed",
+          "mode": "percent",
+          "amount": "@slow",
+          "durationSeconds": "@duration",
+          "stacks": {
+            "max": 1,
+            "from": "any"
+          }
+        }
+      ]
+    },
+    {
+      "id": "bloomspread",
+      "name": "Bloomspread",
+      "text": "Blights the crowd around what it hits. Blighted flesh takes everything harder.",
+      "role": "control",
+      "numbers": {
+        "radius": 1.5,
+        "targets": 4,
+        "vulnerable": 0.12,
+        "duration": 4.0
+      },
+      "ranks": [
+        {},
+        {
+          "vulnerable": 0.18
+        },
+        {
+          "vulnerable": 0.24,
+          "radius": 1.8
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@vulnerable",
+          "durationSeconds": "@duration",
+          "appliesTag": "blighted",
+          "stacks": {
+            "max": 2,
+            "from": "perSourceType"
+          }
+        }
+      ]
+    },
+    {
+      "id": "underweb",
+      "name": "Underweb",
+      "text": "Threads the ground under the line: whatever stands on it is bigger, and mending.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.0,
+        "allies": 4,
+        "rate": 0.008,
+        "bulk": 60
+      },
+      "ranks": [
+        {},
+        {
+          "rate": 0.013,
+          "radius": 2.3,
+          "bulk": 110
+        }
+      ],
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "regen",
+          "ofMaxHealth": "@rate"
+        },
+        {
+          "kind": "modify",
+          "stat": "maxHealth",
+          "mode": "flat",
+          "amount": "@bulk"
+        }
+      ]
+    },
+    {
+      "id": "sporebloom",
+      "name": "Sporebloom",
+      "text": "Dying, it opens, and the line around it closes up.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.2,
+        "allies": 5,
+        "heal": 0.12
+      },
+      "trigger": {
+        "when": "onDeath"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "max": "@allies",
+        "includeSelf": false
+      },
+      "effects": [
+        {
+          "kind": "heal",
+          "ofMaxHealth": "@heal"
+        }
+      ]
+    },
+    {
+      "id": "impale",
+      "name": "Impale",
+      "text": "Each shot drives deeper than the last, while it keeps firing.",
+      "role": "offence",
+      "numbers": {
+        "step": 0.1,
+        "window": 5.0,
+        "max": 4
+      },
+      "ranks": [
+        {},
+        {
+          "step": 0.14
+        },
+        {
+          "step": 0.18,
+          "max": 5
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@step",
+          "durationSeconds": "@window",
+          "stacks": {
+            "max": "@max",
+            "from": "any"
+          }
+        }
+      ]
+    },
+    {
+      "id": "wilt",
+      "name": "Wilt",
+      "text": "Nothing it has touched heals properly again for a while.",
+      "role": "control",
+      "numbers": {
+        "antiheal": -0.6,
+        "duration": 4.0
+      },
+      "ranks": [
+        {},
+        {
+          "antiheal": -1.0,
+          "duration": 5.0
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "healingTaken",
+          "mode": "percent",
+          "amount": "@antiheal",
+          "durationSeconds": "@duration",
+          "appliesTag": "blighted"
+        }
+      ]
+    },
+    {
+      "id": "burstspore",
+      "name": "Burstspore",
+      "text": "Bursts when killed, and the spores keep working.",
+      "role": "offence",
+      "numbers": {
+        "radius": 1.7,
+        "targets": 6,
+        "damage": 55,
+        "rot": 9.0
+      },
+      "trigger": {
+        "when": "onDeath"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "flat": "@damage",
+          "damageType": "arcane"
+        },
+        {
+          "kind": "damageOverTime",
+          "perSecond": "@rot",
+          "durationSeconds": 4.0,
+          "appliesTag": "blighted",
+          "damageType": "arcane"
+        }
+      ]
+    },
+    {
+      "id": "heartpiercer",
+      "name": "Heartpiercer",
+      "text": "One shot straight through the armour, worth a slice of whatever it went through.",
+      "role": "offence",
+      "numbers": {
+        "period": 7.0,
+        "share": 0.06,
+        "bonus": 1.5
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofMaxHealth": "@share",
+          "bypassArmour": true,
+          "bonusIfTag": {
+            "tag": "blighted",
+            "multiplier": "@bonus"
+          }
+        }
+      ],
+      "energyCost": 55
+    },
+    {
+      "id": "bindroot",
+      "name": "Bindroot",
+      "text": "The ground closes round their feet.",
+      "role": "control",
+      "numbers": {
+        "period": 7.0,
+        "radius": 2.0,
+        "targets": 5,
+        "hold": 1.8
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "control",
+          "control": "root",
+          "durationSeconds": "@hold"
+        }
+      ],
+      "energyCost": 50
+    },
+    {
+      "id": "blightbloom",
+      "name": "Blightbloom",
+      "text": "Opens every bloom at once. The rot spreads and holds.",
+      "role": "control",
+      "numbers": {
+        "period": 9.0,
+        "radius": 2.6,
+        "targets": 8,
+        "rot": 11.0,
+        "duration": 5.0,
+        "vulnerable": 0.2,
+        "antiheal": -0.8
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "damageOverTime",
+          "perSecond": "@rot",
+          "durationSeconds": "@duration",
+          "appliesTag": "blighted",
+          "damageType": "arcane"
+        },
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@vulnerable",
+          "durationSeconds": "@duration"
+        },
+        {
+          "kind": "modify",
+          "stat": "healingTaken",
+          "mode": "percent",
+          "amount": "@antiheal",
+          "durationSeconds": "@duration"
+        }
+      ],
+      "energyCost": 60
+    },
+    {
+      "id": "anchorline",
+      "name": "Anchorline",
+      "text": "Throws its chain and holds what it catches in place.",
+      "role": "control",
+      "numbers": {
+        "period": 6.0,
+        "radius": 2.0,
+        "targets": 3,
+        "hold": 1.5
+      },
+      "ranks": [
+        {},
+        {
+          "radius": 2.4,
+          "targets": 4,
+          "hold": 2.0
+        }
+      ],
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "control",
+          "control": "root",
+          "durationSeconds": "@hold"
+        }
+      ]
+    },
+    {
+      "id": "deadweight",
+      "name": "Deadweight",
+      "text": "Too heavy to shift and too cold to hurt quickly.",
+      "role": "defence",
+      "numbers": {
+        "reduction": -0.15
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@reduction"
+        },
+        {
+          "kind": "immunity",
+          "immuneTo": "control"
+        }
+      ]
+    },
+    {
+      "id": "snarekelp",
+      "name": "Snarekelp",
+      "text": "Leaves everything it hits waterlogged: slower, and easier for the tide to find.",
+      "role": "control",
+      "numbers": {
+        "slow": -0.18,
+        "duration": 3.0
+      },
+      "ranks": [
+        {},
+        {
+          "slow": -0.25,
+          "duration": 3.5
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "moveSpeed",
+          "mode": "percent",
+          "amount": "@slow",
+          "durationSeconds": "@duration",
+          "appliesTag": "soaked",
+          "stacks": {
+            "max": 2,
+            "from": "perSourceType"
+          }
+        }
+      ]
+    },
+    {
+      "id": "weedbind",
+      "name": "Weedbind",
+      "text": "Now and then the kelp holds outright.",
+      "role": "control",
+      "numbers": {
+        "chance": 0.2,
+        "hold": 0.9
+      },
+      "trigger": {
+        "when": "onAttack",
+        "chance": "@chance"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "control",
+          "control": "root",
+          "durationSeconds": "@hold"
+        }
+      ]
+    },
+    {
+      "id": "torrential",
+      "name": "Torrential",
+      "text": "The fall lands in a line behind its mark, and soaked ground carries it.",
+      "role": "offence",
+      "numbers": {
+        "length": 3.0,
+        "width": 1.2,
+        "targets": 4,
+        "falloff": 0.8,
+        "share": 0.45,
+        "bonus": 1.5
+      },
+      "ranks": [
+        {},
+        {
+          "share": 0.6
+        },
+        {
+          "share": 0.75,
+          "length": 3.6
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "enemiesInLine",
+        "length": "@length",
+        "width": "@width",
+        "max": "@targets",
+        "falloff": "@falloff"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "blast",
+          "bonusIfTag": {
+            "tag": "soaked",
+            "multiplier": "@bonus"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sleetfall",
+      "name": "Sleetfall",
+      "text": "Cold enough to slow a swing, and it soaks everything under it.",
+      "role": "control",
+      "numbers": {
+        "radius": 1.5,
+        "targets": 4,
+        "chill": -0.14,
+        "duration": 3.0
+      },
+      "ranks": [
+        {},
+        {
+          "chill": -0.2,
+          "radius": 1.8
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "attackSpeed",
+          "mode": "percent",
+          "amount": "@chill",
+          "durationSeconds": "@duration",
+          "appliesTag": "soaked",
+          "stacks": {
+            "max": 2,
+            "from": "perSourceType"
+          }
+        }
+      ]
+    },
+    {
+      "id": "hailburst",
+      "name": "Hailburst",
+      "text": "Hail on soaked bodies is worth twice the hail.",
+      "role": "offence",
+      "numbers": {
+        "radius": 1.4,
+        "targets": 3,
+        "share": 0.4,
+        "bonus": 2.0
+      },
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "blast",
+          "bonusIfTag": {
+            "tag": "soaked",
+            "multiplier": "@bonus"
+          }
+        }
+      ]
+    },
+    {
+      "id": "undertow",
+      "name": "Undertow",
+      "text": "Runs from one soaked body to the next and pulls the strength out of each.",
+      "role": "offence",
+      "numbers": {
+        "jumps": 2,
+        "radius": 2.4,
+        "falloff": 0.8,
+        "share": 0.6
+      },
+      "ranks": [
+        {},
+        {
+          "jumps": 3
+        },
+        {
+          "jumps": 4,
+          "share": 0.75
+        }
+      ],
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "chain",
+        "jumps": "@jumps",
+        "radius": "@radius",
+        "requiresTag": "soaked",
+        "falloff": "@falloff"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "arcane"
+        }
+      ]
+    },
+    {
+      "id": "drownward",
+      "name": "Drownward",
+      "text": "Pressure, not injury. It takes a share of whatever is left.",
+      "role": "offence",
+      "numbers": {
+        "period": 6.0,
+        "share": 0.08,
+        "bonus": 1.5
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofCurrentHealth": "@share",
+          "damageType": "arcane",
+          "bonusIfTag": {
+            "tag": "soaked",
+            "multiplier": "@bonus"
+          }
+        }
+      ],
+      "energyCost": 50
+    },
+    {
+      "id": "cloudburst",
+      "name": "Cloudburst",
+      "text": "Opens the whole sky along one line and leaves it soaked.",
+      "role": "offence",
+      "numbers": {
+        "period": 8.0,
+        "length": 5.0,
+        "width": 1.6,
+        "targets": 6,
+        "falloff": 0.9,
+        "share": 1.1,
+        "slow": -0.2,
+        "duration": 3.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInLine",
+        "length": "@length",
+        "width": "@width",
+        "max": "@targets",
+        "falloff": "@falloff"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "blast",
+          "appliesTag": "soaked"
+        },
+        {
+          "kind": "modify",
+          "stat": "moveSpeed",
+          "mode": "percent",
+          "amount": "@slow",
+          "durationSeconds": "@duration",
+          "appliesTag": "soaked"
+        }
+      ],
+      "energyCost": 55
+    },
+    {
+      "id": "tidesong",
+      "name": "Tidesong",
+      "text": "Keeps time for the line. Everything near it swings faster.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.2,
+        "allies": 4,
+        "haste": 0.12
+      },
+      "ranks": [
+        {},
+        {
+          "haste": 0.18,
+          "radius": 2.5
+        }
+      ],
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "attackSpeed",
+          "mode": "percent",
+          "amount": "@haste"
+        }
+      ]
+    },
+    {
+      "id": "deepcall",
+      "name": "Deepcall",
+      "text": "Calls something up from below, and the line finds its second wind sooner.",
+      "role": "support",
+      "numbers": {
+        "period": 5.0,
+        "radius": 2.6,
+        "allies": 3,
+        "energy": 25
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "nearestAllies",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "energy",
+          "energy": "@energy"
+        }
+      ]
+    },
+    {
+      "id": "rupture",
+      "name": "Rupture",
+      "text": "Bursts on death and sprays everything close.",
+      "role": "offence",
+      "numbers": {
+        "radius": 1.5,
+        "targets": 5,
+        "damage": 60
+      },
+      "trigger": {
+        "when": "onDeath"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "flat": "@damage",
+          "damageType": "blast"
+        }
+      ]
+    },
+    {
+      "id": "unhallowed",
+      "name": "Unhallowed",
+      "text": "Abilities slide off it. Only damage works.",
+      "role": "defence",
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "immunity",
+          "immuneTo": "abilities"
+        }
+      ]
+    },
+    {
+      "id": "plated_shell",
+      "name": "Plated Shell",
+      "text": "Everything lands a little softer on that shell.",
+      "role": "defence",
+      "numbers": {
+        "reduction": -0.2
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@reduction"
+        }
+      ]
+    },
+    {
+      "id": "dampening_field",
+      "name": "Dampening Field",
+      "text": "The defence around it swings noticeably slower.",
+      "role": "control",
+      "numbers": {
+        "radius": 2.0,
+        "targets": 4,
+        "slow": -0.15
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "attackSpeed",
+          "mode": "percent",
+          "amount": "@slow"
+        }
+      ]
+    },
+    {
+      "id": "ambush",
+      "name": "Ambush",
+      "text": "Arrives at a sprint and keeps it up for a while.",
+      "role": "offence",
+      "numbers": {
+        "haste": 0.5,
+        "duration": 8.0
+      },
+      "trigger": {
+        "when": "onSpawn"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "moveSpeed",
+          "mode": "percent",
+          "amount": "@haste",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "brood_surge",
+      "name": "Brood Surge",
+      "text": "Wounding it makes it worse.",
+      "role": "offence",
+      "numbers": {
+        "haste": 0.4,
+        "damage": 0.3,
+        "duration": 60.0
+      },
+      "trigger": {
+        "when": "healthBelow",
+        "fraction": 0.5
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "attackSpeed",
+          "mode": "percent",
+          "amount": "@haste",
+          "durationSeconds": "@duration"
+        },
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@damage",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "hollow_cry",
+      "name": "Hollow Cry",
+      "text": "Screams, and the line in front of it stops dead for a moment.",
+      "role": "control",
+      "numbers": {
+        "period": 9.0,
+        "radius": 2.2,
+        "targets": 4,
+        "hold": 1.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "control",
+          "control": "stun",
+          "durationSeconds": "@hold"
+        }
+      ]
+    },
+    {
+      "id": "grave_tithe",
+      "name": "Grave Tithe",
+      "text": "Takes a tithe of every wound it deals and keeps it.",
+      "role": "defence",
+      "numbers": {
+        "share": 0.3
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "lifesteal",
+          "mode": "percent",
+          "amount": "@share"
+        }
+      ]
+    },
+    {
+      "id": "chitin_ward",
+      "name": "Chitin Ward",
+      "text": "Once it is hurt badly enough, nothing holds it any more.",
+      "role": "defence",
+      "numbers": {
+        "duration": 60.0,
+        "reduction": -0.2
+      },
+      "trigger": {
+        "when": "healthBelow",
+        "fraction": 0.5
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "immunity",
+          "immuneTo": "control",
+          "durationSeconds": "@duration"
+        },
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@reduction",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "siegework",
+      "name": "Siegework",
+      "text": "Sent braced for a wall. Harder to shift than the ones that walked in.",
+      "role": "defence",
+      "numbers": {
+        "reduction": -0.15
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@reduction"
+        }
+      ]
+    },
+    {
+      "id": "raiders_haste",
+      "name": "Raider's Haste",
+      "text": "Paid to be somewhere quickly.",
+      "role": "offence",
+      "numbers": {
+        "haste": 0.35,
+        "duration": 12.0
+      },
+      "trigger": {
+        "when": "onSpawn"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "moveSpeed",
+          "mode": "percent",
+          "amount": "@haste",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "volatile_cargo",
+      "name": "Volatile Cargo",
+      "text": "Packed with whatever was cheapest. It does not land quietly.",
+      "role": "offence",
+      "numbers": {
+        "radius": 2.0,
+        "targets": 8,
+        "damage": 110
+      },
+      "trigger": {
+        "when": "onDeath"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "flat": "@damage",
+          "damageType": "blast"
+        }
+      ]
+    }
+  ],
+  "planned": [
+    {
+      "id": "reclaim",
+      "name": "Reclaim",
+      "text": "Raises a fallen ally as a sapling that fights until it withers.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.0,
+        "health": 0.35,
+        "duration": 20.0
+      },
+      "trigger": {
+        "when": "onDeath"
+      },
+      "target": {
+        "what": "deadAllyNearby",
+        "radius": "@radius"
+      },
+      "effects": [
+        {
+          "kind": "resurrect",
+          "defId": "sapling",
+          "fraction": "@health",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "sapling_bloom",
+      "name": "Sapling Bloom",
+      "text": "Puts up saplings of its own while it has the energy for it.",
+      "role": "support",
+      "numbers": {
+        "period": 10.0,
+        "count": 1,
+        "max": 3,
+        "duration": 25.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "summon",
+          "defId": "sapling",
+          "count": "@count",
+          "max": "@max",
+          "durationSeconds": "@duration"
+        }
+      ],
+      "energyCost": 45
+    },
+    {
+      "id": "undertide",
+      "name": "Undertide",
+      "text": "Drags everything in front of it back down the lane.",
+      "role": "control",
+      "numbers": {
+        "period": 7.0,
+        "radius": 2.4,
+        "targets": 5,
+        "tiles": 1.5
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "pull",
+          "tiles": "@tiles"
+        }
+      ],
+      "energyCost": 50
+    },
+    {
+      "id": "breakwater",
+      "name": "Breakwater",
+      "text": "Throws up a wall of ice that has to be broken before anything gets past.",
+      "role": "defence",
+      "numbers": {
+        "period": 15.0,
+        "duration": 8.0,
+        "hp": 400
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "pathBlock",
+          "durationSeconds": "@duration",
+          "flat": "@hp"
+        }
+      ],
+      "energyCost": 70
+    },
+    {
+      "id": "heat_death",
+      "name": "Heat Death",
+      "text": "Burns through its own body and comes back as something worse.",
+      "role": "offence",
+      "trigger": {
+        "when": "healthBelow",
+        "fraction": 0.25
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "transform",
+          "defId": "ember_3"
+        }
+      ]
+    },
+    {
+      "id": "tidebond",
+      "name": "Tidebond",
+      "text": "Ties itself to an ally: what one of them takes, both of them share.",
+      "role": "defence",
+      "numbers": {
+        "radius": 2.0,
+        "share": 0.35
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "nearestAllies",
+        "radius": "@radius",
+        "max": 1
+      },
+      "effects": [
+        {
+          "kind": "bond",
+          "durationSeconds": 0
+        },
+        {
+          "kind": "spiritLink",
+          "fraction": "@share",
+          "max": 2
+        }
+      ]
+    },
+    {
+      "id": "detonate",
+      "name": "Detonate",
+      "text": "Marks a body, counts what it takes, and gives it all back at once.",
+      "role": "offence",
+      "numbers": {
+        "chance": 0.2,
+        "window": 3.0,
+        "share": 0.4
+      },
+      "trigger": {
+        "when": "onAttack",
+        "chance": "@chance"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "amplify",
+          "durationSeconds": "@window",
+          "fraction": "@share"
+        }
+      ]
+    },
+    {
+      "id": "quartermaster",
+      "name": "Quartermaster",
+      "text": "Building near it is cheaper, and selling it back costs less than it should.",
+      "role": "economy",
+      "numbers": {
+        "radius": 2.5,
+        "allies": 6,
+        "discount": 0.1,
+        "refund": 0.75
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "max": "@allies"
+      },
+      "effects": [
+        {
+          "kind": "costReduction",
+          "fraction": "@discount"
+        },
+        {
+          "kind": "sellValue",
+          "fraction": "@refund"
+        }
+      ]
+    },
+    {
+      "id": "devour",
+      "name": "Devour",
+      "text": "Swallows something small whole, then spends a while digesting it.",
+      "role": "offence",
+      "numbers": {
+        "period": 12.0,
+        "radius": 1.2,
+        "ceiling": 0.05
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "randomEnemy",
+        "radius": "@radius"
+      },
+      "effects": [
+        {
+          "kind": "consume",
+          "ofMaxHealth": "@ceiling"
+        }
+      ]
+    },
+    {
+      "id": "recall_tide",
+      "name": "Recall Tide",
+      "text": "Sends one body back to the mouth of the lane to walk it again.",
+      "role": "control",
+      "numbers": {
+        "period": 20.0,
+        "radius": 3.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "randomEnemy",
+        "radius": "@radius"
+      },
+      "effects": [
+        {
+          "kind": "teleport",
+          "fraction": 1.0
+        }
+      ],
+      "energyCost": 80
+    }
+  ]
+}

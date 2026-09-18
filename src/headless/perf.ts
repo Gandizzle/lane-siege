@@ -30,7 +30,7 @@ for (const team of state.teams) {
       applyCommand(ctx, state, {
         kind: 'placeUnit',
         teamId: team.id,
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: x,
         tileY: y,
       });
@@ -81,7 +81,7 @@ for (const team of arena.teams) {
       applyCommand(arenaCtx, arena, {
         kind: 'placeUnit',
         teamId: team.id,
-        unitDefId: 'hammer',
+        unitDefId: 'pledge',
         tileX: x,
         tileY: y,
       });

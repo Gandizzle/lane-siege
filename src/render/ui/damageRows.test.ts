@@ -11,8 +11,8 @@ import { computeLayout } from '../layout.ts';
 import { damageTable, fitRows, formatDamage, MAX_DAMAGE_ROWS } from './damageRows.ts';
 
 const { data } = loadDataFromDisk();
-const hammer = data.units.units.find((u) => u.id === 'hammer')!;
-const hammer2 = data.units.units.find((u) => u.id === 'hammer_2')!;
+const hammer = data.units.units.find((u) => u.id === 'pledge')!;
+const hammer2 = data.units.units.find((u) => u.id === 'pledge_2')!;
 
 function row(unitId: number, defId: string, damage: number) {
   return { unitId, defId, damage };
@@ -22,31 +22,31 @@ describe('ranking the round (§14.1, added)', () => {
   it('puts the biggest number first', () => {
     const table = damageTable(
       data,
-      [row(1, 'hammer', 120), row(2, 'hammer', 900), row(3, 'hammer', 400)],
+      [row(1, 'pledge', 120), row(2, 'pledge', 900), row(3, 'pledge', 400)],
       10,
     );
     expect(table.rows.map((r) => r.unitId)).toEqual([2, 3, 1]);
   });
 
   it('breaks a tie on id, so a row does not swap places every frame', () => {
-    const table = damageTable(data, [row(9, 'hammer', 0), row(4, 'hammer', 0)], 10);
+    const table = damageTable(data, [row(9, 'pledge', 0), row(4, 'pledge', 0)], 10);
     expect(table.rows.map((r) => r.unitId)).toEqual([4, 9]);
   });
 
   it('measures each bar against the best row, not against the total', () => {
-    const table = damageTable(data, [row(1, 'hammer', 1000), row(2, 'hammer', 250)], 10);
+    const table = damageTable(data, [row(1, 'pledge', 1000), row(2, 'pledge', 250)], 10);
     expect(table.rows[0]!.share).toBe(1);
     expect(table.rows[1]!.share).toBe(0.25);
   });
 
   it('draws no bar at all when nothing has been landed', () => {
-    const table = damageTable(data, [row(1, 'hammer', 0), row(2, 'hammer', 0)], 10);
+    const table = damageTable(data, [row(1, 'pledge', 0), row(2, 'pledge', 0)], 10);
     expect(table.total).toBe(0);
     expect(table.rows.every((r) => r.share === 0)).toBe(true);
   });
 
   it('totals every unit, including the ones that did not fit', () => {
-    const rows = [row(1, 'hammer', 500), row(2, 'hammer', 300), row(3, 'hammer', 200)];
+    const rows = [row(1, 'pledge', 500), row(2, 'pledge', 300), row(3, 'pledge', 200)];
     const table = damageTable(data, rows, 2);
 
     // A total that shrank on a smaller screen would be a different number on a
@@ -57,13 +57,13 @@ describe('ranking the round (§14.1, added)', () => {
   });
 
   it('carries the definition, so a row can draw its tier', () => {
-    const table = damageTable(data, [row(1, 'hammer_2', 10), row(2, 'hammer', 5)], 10);
+    const table = damageTable(data, [row(1, 'pledge_2', 10), row(2, 'pledge', 5)], 10);
     expect(table.rows[0]!.def.tier).toBe(hammer2.tier);
     expect(table.rows[1]!.def.tier).toBe(hammer.tier);
   });
 
   it('drops a row it has no definition for rather than drawing a blank', () => {
-    const table = damageTable(data, [row(1, 'no_such_unit', 999), row(2, 'hammer', 10)], 10);
+    const table = damageTable(data, [row(1, 'no_such_unit', 999), row(2, 'pledge', 10)], 10);
     expect(table.rows.map((r) => r.unitId)).toEqual([2]);
     expect(table.total).toBe(10);
   });

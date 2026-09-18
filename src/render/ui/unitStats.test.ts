@@ -32,7 +32,7 @@ describe('a stat says what it is now, and what the tier would make it', () => {
   });
 
   it('shows the arrow only where the tier actually moves the number', () => {
-    const hammer = def('hammer');
+    const hammer = def('pledge');
     const hammer2 = next(hammer)!;
 
     // A tier raises HP and damage, so those carry an arrow...
@@ -64,17 +64,17 @@ describe('numbers a player cannot act on are not shown as numbers', () => {
   it('calls a melee reach melee, rather than 0.1', () => {
     // §5.2: reach is edge to edge, so a melee unit's is a hair over zero. The
     // digits are true and useless; the word is what the player is deciding on.
-    const hammer = def('hammer');
+    const hammer = def('pledge');
     expect(hammer.range).toBeLessThan(0.6);
     expect(statText('range', hammer, null)).toBe('melee');
   });
 
   it('gives a real gun its reach in tiles', () => {
-    expect(statText('range', def('mortar'), null)).toBe('3.9 tiles');
+    expect(statText('range', def('sanction'), null)).toBe('3.9 tiles');
   });
 
   it('says what a reading is measured in once, not on both sides of an arrow', () => {
-    const spike = def('spike');
+    const spike = def('sentinel');
     const spike2 = def(spike.upgradesTo!);
     expect(spike.range).not.toBe(spike2.range);
     expect(statText('range', spike, spike2)).toBe(`${spike.range} → ${spike2.range} tiles`);
@@ -83,7 +83,7 @@ describe('numbers a player cannot act on are not shown as numbers', () => {
   it('multiplies damage by attack speed, because neither means much alone', () => {
     // Bulwark hits hard and slowly, Thornling the other way round. The per-hit
     // numbers say the opposite of what the sustained ones do.
-    const bulwark = def('bulwark');
+    const bulwark = def('oathwall');
     const thornling = def('thornling');
     expect(bulwark.damage!).toBeGreaterThan(thornling.damage!);
 
@@ -94,7 +94,7 @@ describe('numbers a player cannot act on are not shown as numbers', () => {
   });
 
   it('trims a whole number rather than writing 1.0', () => {
-    const hammer = def('hammer');
+    const hammer = def('pledge');
     expect(hammer.attackSpeed).toBe(1);
     expect(statText('attackSpeed', hammer, null)).toBe('1/s');
   });

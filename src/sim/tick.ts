@@ -25,6 +25,16 @@
  */
 
 import { NO_ACQUIRE_LIMIT, cooldownTicks, secondsToTicks } from './constants.ts';
+import {
+  buildLaneAbilityEnv,
+  fire,
+  tickBody,
+  type AbilityBody,
+  type AbilityEnv,
+} from './abilityRuntime.ts';
+import { Rng } from './rng.ts';
+import { dealDamage } from './strike.ts';
+import { canAttack, canMove, freshAbilityState, modifiersOf, tauntedBy } from './status.ts';
 import type { Command } from './commands.ts';
 import { applyCommands } from './apply.ts';
 import { resolveDamage } from './damage.ts';
@@ -38,7 +48,13 @@ import { moveSeekers, planMoves, type Walker } from './steering.ts';
 import { beginShowdown, showdownEliminations, showdownTick } from './showdown.ts';
 import { admitFromReserve, countLiving, createMonster, placeWave } from './spawn.ts';
 import { holdOrAcquire, nearestInRange, withinRange } from './targeting.ts';
-import { FORTRESS_ID, type Lane, type MatchState, type Monster } from './types.ts';
+import {
+  FORTRESS_ID,
+  type DefensiveUnit,
+  type Lane,
+  type MatchState,
+  type Monster,
+} from './types.ts';
 import { generateWave, resolveMonsterStats, type SpawnSpec } from './waves.ts';
 
 export { createContext } from './context.ts';
@@ -96,10 +112,29 @@ function classifyUnits(lane: Lane): void {
     if (!unit.alive) continue;
     if (unit.cooldown > 0) unit.cooldown -= 1;
 
-    const target = holdOrAcquire(lane.monsters, unit, NO_ACQUIRE_LIMIT);
+    const target =
+      forcedTarget(lane.monsters, unit) ?? holdOrAcquire(lane.monsters, unit, NO_ACQUIRE_LIMIT);
     unit.targetId = target ? target.id : null;
     unit.engaged = target !== null && withinRange(unit, target, unit.range);
   }
+}
+
+/**
+ * Who a taunt is making this body fight, or null (§18).
+ *
+ * Overriding the target rather than adding a rule to acquisition is what makes
+ * a taunt work at any distance: a body whose target is out of reach becomes a
+ * CHASER and walks to it (see `planMonsterMoves`), which is exactly what being
+ * dragged onto a tank should look like. The taunter dying ends it immediately,
+ * because a target that is not in the list is not a target.
+ */
+function forcedTarget<T extends { id: number; alive: boolean }>(
+  candidates: readonly T[],
+  body: AbilityBody,
+): T | null {
+  const holder = tauntedBy(body);
+  if (holder === null) return null;
+  return candidates.find((c) => c.id === holder && c.alive) ?? null;
 }
 
 /**
@@ -127,7 +162,8 @@ function classifyMonsters(ctx: SimContext, lane: Lane): void {
     if (!monster.alive) continue;
     if (monster.cooldown > 0) monster.cooldown -= 1;
 
-    const unit = holdOrAcquire(lane.units, monster, acquireRange);
+    const unit =
+      forcedTarget(lane.units, monster) ?? holdOrAcquire(lane.units, monster, acquireRange);
     monster.targetId = unit ? unit.id : FORTRESS_ID;
     monster.engaged = withinRange(monster, unit ?? ctx.fortress, monster.range);
   }
@@ -219,9 +255,12 @@ function planMonsterMoves(ctx: SimContext, lane: Lane, unitsBlock: boolean): voi
 
 // ----------------------------------------------------------------- fighting
 
-function unitsAttack(ctx: SimContext, lane: Lane): void {
+function unitsAttack(env: AbilityEnv, ctx: SimContext, lane: Lane): void {
   for (const unit of lane.units) {
     if (!unit.alive || !unit.engaged || unit.cooldown > 0) continue;
+    // A stunned or disarmed unit keeps its target and its cooldown and simply
+    // does not swing (status.ts).
+    if (!canAttack(unit)) continue;
 
     const def = ctx.defs.units.get(unit.defId);
     if (!def) continue;
@@ -232,26 +271,36 @@ function unitsAttack(ctx: SimContext, lane: Lane): void {
     // standing right now, so it is evaluated here (see buffs.ts on why).
     const aura = auraFor(lane, unit, ctx.fortressPosition);
 
-    const dealt = resolveDamage(
-      ctx.data.matrix.multipliers,
-      stat(def.damage) * unit.techDamage * aura.damage,
-      def.damageType,
-      target.armour,
+    // Through `dealDamage`, which is the one place HP goes down: evasion,
+    // wards, criticals, the §6 matrix, the target's vulnerability, lifesteal
+    // and reflection all live there (strike.ts), and the §14.1 credit is what
+    // the monster actually lost.
+    dealDamage(env.strike, unit, target, {
+      amount: stat(def.damage) * unit.techDamage * aura.damage,
+      damageType: def.damageType,
+      isAttack: true,
+    });
+    unit.cooldown = cooldownTicks(
+      stat(def.attackSpeed) *
+        unit.techAttackSpeed *
+        aura.attackSpeed *
+        modifiersOf(unit).attackSpeedMul,
     );
-    // Credited with what the monster actually lost. A killing blow worth three
-    // times the HP left is worth the HP left: see `damageDealt` in types.ts.
-    unit.damageDealt += target.hp > 0 ? Math.min(dealt, target.hp) : 0;
-    target.hp -= dealt;
-    unit.cooldown = cooldownTicks(stat(def.attackSpeed) * unit.techAttackSpeed * aura.attackSpeed);
     lane.attacks.push({ attackerId: unit.id, targetId: target.id });
+
+    // §7: the blow has landed, so whatever the unit does on landing one now
+    // happens - and if it killed, that too.
+    fire(env, unit, 'onAttack', { target });
+    if (target.hp <= 0) fire(env, unit, 'onKill', { target });
   }
 }
 
-function monstersAttack(ctx: SimContext, lane: Lane, state: MatchState): void {
+function monstersAttack(env: AbilityEnv, ctx: SimContext, lane: Lane, state: MatchState): void {
   const enrageConfig = ctx.data.waves.enrage;
 
   for (const monster of lane.monsters) {
     if (!monster.alive || !monster.engaged || monster.cooldown > 0) continue;
+    if (!canAttack(monster)) continue;
 
     // §8: enrage raises damage and attack speed. Never HP - a stalling player
     // should face deadlier monsters, not unkillable ones.
@@ -261,10 +310,17 @@ function monstersAttack(ctx: SimContext, lane: Lane, state: MatchState): void {
     if (monster.targetId !== FORTRESS_ID) {
       const target = lane.units.find((u) => u.id === monster.targetId && u.alive);
       if (!target) continue;
-      target.hp -=
-        resolveDamage(ctx.data.matrix.multipliers, damage, monster.damageType, target.armour) *
-        auraFor(lane, target, ctx.fortressPosition).damageTaken;
+      // §10.1's armour aura is a property of where the unit is standing and
+      // not of any ability, so it multiplies the swing on the way in; every
+      // other mitigation is inside `dealDamage` (strike.ts).
+      dealDamage(env.strike, monster, target, {
+        amount: damage * auraFor(lane, target, ctx.fortressPosition).damageTaken,
+        damageType: monster.damageType,
+        isAttack: true,
+      });
       lane.attacks.push({ attackerId: monster.id, targetId: target.id });
+      fire(env, monster, 'onAttack', { target });
+      if (target.hp <= 0) fire(env, monster, 'onKill', { target });
     } else {
       // Sieging the fortress (§5.5).
       lane.fortress.hp -= resolveDamage(
@@ -276,18 +332,29 @@ function monstersAttack(ctx: SimContext, lane: Lane, state: MatchState): void {
       lane.attacks.push({ attackerId: monster.id, targetId: FORTRESS_ID });
     }
 
-    monster.cooldown = cooldownTicks(monster.attackSpeed * multiplier);
+    monster.cooldown = cooldownTicks(
+      monster.attackSpeed * multiplier * modifiersOf(monster).attackSpeedMul,
+    );
   }
 }
 
 /** The whole movement-and-combat pipeline for one lane, in order. */
-function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
+function laneTick(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): void {
   const enrageConfig = ctx.data.waves.enrage;
   const unitsBlock = ctx.data.lane.unitsBlockMovement !== false;
 
   // Last tick's blows are last tick's news. Emptied in place rather than
   // replaced, so the common tick allocates nothing (§15.3).
   lane.attacks.length = 0;
+
+  const env = buildLaneAbilityEnv(ctx, lane, rng);
+
+  // 0. Every clock a body carries: statuses expire, burns burn, wounds close,
+  // energy fills, and the abilities that fire on their own initiative do
+  // (abilityRuntime.ts). BEFORE classification, so a slow applied last tick is
+  // in force for the walking that happens this one.
+  for (const unit of lane.units) if (unit.alive) tickBody(env, unit);
+  for (const monster of lane.monsters) if (monster.alive) tickBody(env, monster);
 
   // 1. Who is fighting and who is walking, from where everyone is now.
   classifyUnits(lane);
@@ -324,22 +391,36 @@ function laneTick(ctx: SimContext, lane: Lane, state: MatchState): void {
   // it is the wedge `SLIDE_PASSES` exists for, and it measurably cost the
   // no-overlap guarantee (0.0147 tiles against a 0.01 tolerance). Shoved a
   // hair past the line by a crowd, a unit simply walks back out.
-  moveSeekers(ctx.lane, lane.units, (u) => u.moveSpeed, [
+  // Slows, roots and stuns arrive here: a status that scales `moveSpeed` and
+  // one that forbids moving outright are the same rule read twice (status.ts).
+  moveSeekers(
+    ctx.lane,
     lane.units,
-    lane.monsters,
-    ctx.fortressBodies,
-  ]);
+    (u) => walkSpeed(u as AbilityBody, (u as DefensiveUnit).moveSpeed),
+    [lane.units, lane.monsters, ctx.fortressBodies],
+  );
   for (const unit of lane.units) unit.settled = true;
   moveSeekers(
     ctx.lane,
     lane.monsters,
-    (m) => (m as Monster).moveSpeed * monsterEnrage(state, m as Monster, enrageConfig),
+    (m) =>
+      walkSpeed(
+        m as AbilityBody,
+        (m as Monster).moveSpeed * monsterEnrage(state, m as Monster, enrageConfig),
+      ),
     obstacles,
   );
 
   // 4. Everyone who was fighting lands a hit if their cooldown allows.
-  unitsAttack(ctx, lane);
-  monstersAttack(ctx, lane, state);
+  unitsAttack(env, ctx, lane);
+  monstersAttack(env, ctx, lane, state);
+}
+
+/** A body's speed this tick, after its statuses. Rooted or stunned is zero. */
+function walkSpeed(body: AbilityBody, base: number): number {
+  if (!canMove(body)) return 0;
+  const m = modifiersOf(body);
+  return Math.max(0, base * m.moveSpeedMul + m.moveSpeedAdd);
 }
 
 /**
@@ -415,8 +496,19 @@ function payTheTable(ctx: SimContext, state: MatchState, killedIn: Lane): void {
  * is not permanent. That lever plus the fortress weapon is the primary control
  * over when the first player is eliminated - target wave 13-15, not wave 8.
  */
-function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
+function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): void {
   let anyMonsterDied = false;
+  const env = buildLaneAbilityEnv(ctx, lane, rng);
+
+  // Deathrattles first, while the body is still standing and still has a
+  // position to explode at. Firing after `alive = false` would be firing from
+  // a corpse that target selection has already stopped being able to see.
+  for (const monster of lane.monsters) {
+    if (monster.alive && monster.hp <= 0) fire(env, monster, 'onDeath', {});
+  }
+  for (const unit of lane.units) {
+    if (unit.alive && unit.hp <= 0) fire(env, unit, 'onDeath', {});
+  }
 
   for (const monster of lane.monsters) {
     if (!monster.alive || monster.hp > 0) continue;
@@ -438,7 +530,12 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
     const regen = auraFor(lane, unit, ctx.fortressPosition).regenPerSecond;
     unit.hp = applyHealing(unit.hp, unit.maxHp, unit.maxHp * regen);
 
-    if (unit.hp <= 0) unit.alive = false;
+    if (unit.hp <= 0) {
+      unit.alive = false;
+      // A dead body carries nothing: leaving statuses on it would have them
+      // waiting on the tile when it respawns next build phase (§5.4).
+      unit.statuses.length = 0;
+    }
   }
 
   if (anyMonsterDied) {
@@ -459,10 +556,14 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState): void {
  * so its attrition endgame was fought with what survived; the Final Showdown (§3.3, replaced)
  * replaces that, and it opens with every army whole (showdown.ts).
  */
-function respawnUnits(lane: Lane): void {
+function respawnUnits(lane: Lane, energyMax: number): void {
   for (const unit of lane.units) {
     unit.alive = true;
+    unit.maxHp = unit.baseMaxHp;
     unit.hp = unit.maxHp;
+    // A fresh body, which is what §5.4 says respawning is: no burns carried
+    // over from the wave that killed it, no cooldowns part-spent, full energy.
+    Object.assign(unit, freshAbilityState(energyMax));
     unit.targetId = null;
     unit.cooldown = 0;
     // Units advance during combat (§5.2, amended), so put the line back on the
@@ -508,6 +609,7 @@ function spawnWave(ctx: SimContext, state: MatchState): void {
     const incoming = lane.incomingSends.map((s) => ({
       defId: s.defId,
       waveNumber: state.wave,
+      sendId: s.sendId,
     }));
     lane.incomingSends.length = 0;
     // The "you are being attacked by X" notice belongs to the wave that is
@@ -622,7 +724,7 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
     const lane = state.lanes[team.id];
     if (!lane) continue;
 
-    respawnUnits(lane);
+    respawnUnits(lane, stat(ctx.data.abilities.energy.max));
     // §11.6: passive income is paid each wave and compounds over the match.
     // Gems are not: the resource building pays them out on its own clock
     // (§10.2, amended) - see `produceGems`.
@@ -704,23 +806,30 @@ export function step(
   advanceVision(state);
   advancePhase(ctx, state);
 
+  // One generator for the whole tick, restored from the state and written back
+  // to it, so every roll an ability makes - a critical, an evade, a 35% proc -
+  // is part of the match's own deterministic stream (§9.2, §15.1). A second
+  // generator, or `Math.random`, would make replays and desync detection lies.
+  const rng = new Rng(state.rngState);
+
   if (state.phase === 'showdown') {
     // No lanes, no fortresses, no economy: one arena and whoever is left in it.
-    showdownTick(ctx, state);
+    showdownTick(ctx, state, rng);
   } else {
     for (const team of state.teams) {
       if (team.eliminated) continue;
       const lane = state.lanes[team.id];
       if (!lane) continue;
 
-      laneTick(ctx, lane, state);
+      laneTick(ctx, lane, state, rng);
       fortressActs(ctx, lane);
       produceGems(lane);
       regenerateFortress(lane);
-      reapDead(ctx, lane, state);
+      reapDead(ctx, lane, state, rng);
     }
   }
 
+  state.rngState = rng.state;
   checkEliminations(state);
   return state;
 }

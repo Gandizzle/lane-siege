@@ -1,5 +1,5 @@
 {
-  "_comment": "DESIGN.md \u00a79. Nine normal monsters spanning all four armour types, plus four bosses - one per armour type, drawn at random on boss waves (\u00a73.4). `range` is reach measured EDGE TO EDGE, so a melee value near zero means walking up and touching. `bodyRadius` is both the collision size and the drawn size. All placeholders.",
+  "_comment": "DESIGN.md §9. Nine normal monsters spanning all four armour types, plus four bosses - one per armour type, drawn at random on boss waves (§3.4). FIVE of the nine carry an ability and four do not: a wave whose every member is special is a wave with nothing special in it, so the cheap bodies stay cheap and the ones worth recognising are the ones a defence has to answer differently. Every boss has one, and three of the four are thresholds - wounding it is what sets it off. `range` is reach measured EDGE TO EDGE, so a melee value near zero means walking up and touching. `bodyRadius` is both the collision size and the drawn size. All placeholders.",
   "monsters": [
     {
       "id": "grub",
@@ -55,7 +55,8 @@
       "range": 0.9,
       "moveSpeed": 0.9,
       "bounty": 8,
-      "bodyRadius": 0.22
+      "bodyRadius": 0.22,
+      "abilities": ["dampening_field"]
     },
     {
       "id": "carapace",
@@ -69,7 +70,8 @@
       "range": 0.08,
       "moveSpeed": 0.5,
       "bounty": 17,
-      "bodyRadius": 0.22
+      "bodyRadius": 0.22,
+      "abilities": ["plated_shell"]
     },
     {
       "id": "swarmling",
@@ -97,7 +99,8 @@
       "range": 0.5,
       "moveSpeed": 0.8,
       "bounty": 15,
-      "bodyRadius": 0.22
+      "bodyRadius": 0.22,
+      "abilities": ["unhallowed"]
     },
     {
       "id": "bloater",
@@ -111,7 +114,8 @@
       "range": 0.25,
       "moveSpeed": 0.45,
       "bounty": 22,
-      "bodyRadius": 0.22
+      "bodyRadius": 0.22,
+      "abilities": ["rupture"]
     },
     {
       "id": "stalker",
@@ -125,7 +129,8 @@
       "range": 0.25,
       "moveSpeed": 1.6,
       "bounty": 7,
-      "bodyRadius": 0.22
+      "bodyRadius": 0.22,
+      "abilities": ["ambush"]
     }
   ],
   "bosses": [
@@ -141,8 +146,9 @@
       "range": 0.15,
       "moveSpeed": 0.5,
       "bounty": 90,
+      "abilities": ["brood_surge"],
       "isBoss": true,
-      "_note": "\u00a73.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap.",
+      "_note": "§3.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap.",
       "bodyRadius": 0.44
     },
     {
@@ -157,8 +163,9 @@
       "range": 0.15,
       "moveSpeed": 0.45,
       "bounty": 120,
+      "abilities": ["hollow_cry"],
       "isBoss": true,
-      "_note": "\u00a73.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap.",
+      "_note": "§3.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap.",
       "bodyRadius": 0.44
     },
     {
@@ -173,8 +180,9 @@
       "range": 0.15,
       "moveSpeed": 0.55,
       "bounty": 150,
+      "abilities": ["grave_tithe"],
       "isBoss": true,
-      "_note": "\u00a73.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap.",
+      "_note": "§3.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap.",
       "bodyRadius": 0.44
     },
     {
@@ -189,8 +197,9 @@
       "range": 0.15,
       "moveSpeed": 0.5,
       "bounty": 190,
+      "abilities": ["chitin_ward"],
       "isBoss": true,
-      "_note": "\u00a73.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap.",
+      "_note": "§3.4 wants a boss to carry a MIX of armour types across its parts or spawns so no single damage type hard-counters it. This one is single-armour - that needs a multi-part boss model which does not exist yet. The bank spreads the four armour types across four bosses as a stopgap.",
       "bodyRadius": 0.44
     }
   ]

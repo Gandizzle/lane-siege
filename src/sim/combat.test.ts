@@ -29,7 +29,7 @@ describe('unit respawn (§5.4)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 3,
     });
@@ -54,7 +54,7 @@ describe('unit respawn (§5.4)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 3,
     });
@@ -74,7 +74,7 @@ describe('unit respawn (§5.4)', () => {
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'lane1',
-      unitDefId: 'hammer',
+      unitDefId: 'pledge',
       tileX: 3,
       tileY: 3,
     });

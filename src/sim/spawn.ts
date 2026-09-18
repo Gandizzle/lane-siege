@@ -26,6 +26,7 @@
 import type { GameData, UnitDef } from '../data/schema.ts';
 import type { DefIndex } from './defs.ts';
 import { stat } from './defs.ts';
+import { freshAbilityState } from './status.ts';
 import { resolveMonsterStats, type SpawnSpec } from './waves.ts';
 import type { DefensiveUnit, EntityId, Lane, MatchState, Monster, Vec2 } from './types.ts';
 
@@ -225,6 +226,9 @@ export function createMonster(
     fieldCell: -1,
     moveX: 0,
     moveY: 0,
+    sendId: spec.sendId ?? null,
+    ...freshAbilityState(stat(data.abilities.energy.max)),
+    baseMaxHp: stats.hp,
     alive: true,
   };
 }
@@ -234,6 +238,8 @@ export function createUnit(
   def: UnitDef,
   tileX: number,
   tileY: number,
+  /** The energy ceiling from `abilities.json`; a fresh body starts full. */
+  energyMax = 0,
 ): DefensiveUnit {
   const pos = { x: tileX + 0.5, y: tileY + 0.5 };
 
@@ -268,6 +274,8 @@ export function createUnit(
     cooldown: 0,
     targetId: null,
     damageDealt: 0,
+    ...freshAbilityState(energyMax),
+    baseMaxHp: stat(def.hp),
     alive: true,
   };
 }

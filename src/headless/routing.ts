@@ -115,8 +115,17 @@ const results: string[] = [];
   const d = passive();
   d.waves.composition = [{ wave: 1, entries: [{ monsterId: 'grub', count: 30 }] }];
   d.waves.maxConcurrentMonsters = 40;
+  // Oathwall with its ability taken off, deliberately. This scenario measures
+  // GEOMETRY - whether a ring re-forms round a hole - and Hold the Line taunts
+  // three bodies onto itself every five seconds (abilities.json), which packs
+  // the ring with chasers that cannot fit and measures the ability instead.
+  // Stripped here rather than swapped for another roster's tank, because no
+  // other tank survives thirty grubs and a tank that dies measures nothing.
+  const wall = d.units.units.find((u) => u.id === 'oathwall');
+  if (wall) wall.abilities = [];
+
   const { state, ctx, lane } = setup(d);
-  place(ctx, state, 'bulwark', 3, 6);
+  place(ctx, state, 'oathwall', 3, 6);
   startCombat(ctx, state);
   run(ctx, state, 500);
   const tank = lane.units[0]!;
@@ -173,7 +182,7 @@ const results: string[] = [];
 // Face to face: two bodies in contact, and whether either moves at all.
 {
   const { state, ctx, lane } = setup(passive());
-  place(ctx, state, 'hammer', 3, 5);
+  place(ctx, state, 'pledge', 3, 5);
   startCombat(ctx, state);
   const target = lane.monsters.find((m) => m.alive)!;
   for (const m of lane.monsters) if (m !== target) m.alive = false;
@@ -196,7 +205,7 @@ const results: string[] = [];
 // belong on a second layer by construction.
 {
   const { state, ctx, lane } = setup(passive({ monsterSpeed: 0 }));
-  for (const y of [7, 8]) for (let x = 2; x < 6; x++) place(ctx, state, 'hammer', x, y);
+  for (const y of [7, 8]) for (let x = 2; x < 6; x++) place(ctx, state, 'pledge', x, y);
   startCombat(ctx, state);
   loneTarget(state, 1.5, 2.5);
   run(ctx, state, 1200);
@@ -208,11 +217,11 @@ const results: string[] = [];
 // A wall of immobile allies with a gap at one end: the local minimum that
 // local steering cannot solve, and the case the distance field exists for.
 {
-  const { state, ctx, lane } = setup(passive({ immobileUnit: 'mortar', monsterSpeed: 0 }));
-  for (let x = 0; x < 7; x++) place(ctx, state, 'mortar', x, 5);
-  for (let x = 2; x < 6; x++) for (const y of [8, 9]) place(ctx, state, 'hammer', x, y);
+  const { state, ctx, lane } = setup(passive({ immobileUnit: 'sanction', monsterSpeed: 0 }));
+  for (let x = 0; x < 7; x++) place(ctx, state, 'sanction', x, 5);
+  for (let x = 2; x < 6; x++) for (const y of [8, 9]) place(ctx, state, 'pledge', x, y);
   startCombat(ctx, state);
-  const movers = lane.units.filter((u) => u.defId === 'hammer');
+  const movers = lane.units.filter((u) => u.defId === 'pledge');
   const target = loneTarget(state, 3.5, 1.5);
   run(ctx, state, 1200);
 
@@ -253,7 +262,7 @@ const results: string[] = [];
   const lane = data.lane.buildZone.width;
   const walkedTo = (tileX: number, seed: number): number => {
     const { state, ctx, lane: l } = setup(passive(), seed);
-    place(ctx, state, 'hammer', tileX, 5);
+    place(ctx, state, 'pledge', tileX, 5);
     startCombat(ctx, state);
     let total = 0;
     const previous = l.monsters.map((m) => ({ x: m.pos.x, y: m.pos.y }));
@@ -293,7 +302,7 @@ const results: string[] = [];
 // should have settled.
 {
   const { state, ctx, lane } = setup(passive());
-  for (let y = 5; y < 8; y++) for (let x = 1; x < 7; x++) place(ctx, state, 'hammer', x, y);
+  for (let y = 5; y < 8; y++) for (let x = 1; x < 7; x++) place(ctx, state, 'pledge', x, y);
   startCombat(ctx, state);
   run(ctx, state, 600);
 

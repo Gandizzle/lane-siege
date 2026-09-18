@@ -17,6 +17,14 @@ import { waveRng } from './rng.ts';
 export interface SpawnSpec {
   defId: string;
   waveNumber: number;
+  /**
+   * The send that bought this body, or absent for one the wave brought (§11.5).
+   *
+   * Carried all the way from the purchase to the spawn - through the reserve,
+   * which can hold a body for several waves - because a send's abilities are
+   * the send's, not the monster's (abilities.json).
+   */
+  sendId?: string;
 }
 
 /** Stats after wave scaling, resolved once at spawn rather than per tick. */
