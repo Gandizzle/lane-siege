@@ -50,6 +50,7 @@ import type { AuraType, DamageType, GameData, MonsterDef, UnitDef } from '../../
 import { sellValue, ticksToSeconds } from '../../sim/index.ts';
 import type {
   EconomyView,
+  EntityView,
   LaneView,
   MatchView,
   OpponentView,
@@ -76,6 +77,8 @@ import {
   monsterStatText,
   MIN_ROW_HEIGHT,
   columnsThatFit,
+  energyCost,
+  energyMeter,
   panelRegions,
   statDirection,
   statText,
@@ -312,6 +315,9 @@ export class BuildBar extends Container {
   private panelHasButtons = true;
   /** Clips the ability chips to their box, so they can never reach the buttons. */
   private readonly textMask = new Graphics();
+  /** The selected body's energy, for the few bodies that can spend any. */
+  private readonly energyBar = new Graphics();
+  private readonly energyLabel: Text;
   /** What the selected body does, one tappable name each (abilityChips.ts). */
   private readonly abilityChips: AbilityChips;
   private readonly upgradeTitle: Text;
@@ -423,6 +429,7 @@ export class BuildBar extends Container {
     this.sellButton = new GridButton(() => {
       if (this.selectedUnitId !== null) this.handlers.onSell(this.selectedUnitId);
     });
+    this.energyLabel = label('', 8, UI.textMuted, '600');
     this.abilityChips = new AbilityChips((chip) =>
       this.handlers.onShowAbility(chip.abilityId, chip.rank),
     );
@@ -431,6 +438,8 @@ export class BuildBar extends Container {
     this.upgradePanel.addChild(
       this.upgradeTitle,
       this.upgradeSubtitle,
+      this.energyBar,
+      this.energyLabel,
       this.textMask,
       this.traitText,
       this.abilityChips,
@@ -1076,7 +1085,7 @@ export class BuildBar extends Container {
     // → 2" - which spent two of the panel's lines telling a player that the
     // next Vigil is called Vigil II. The Upgrade button's pips say the tier
     // and the stat block says what the tier buys.
-    this.setHeader(current.name, typeLine(current.damageType, current.armour));
+    this.setHeader(current.name, typeLine(current.damageType, current.armour), unit, current.id);
     this.showStats(current, next ?? null, mods);
     // What it DOES, which is most of why one unit is not another (§7, §18).
     // `traits` are the older, purely descriptive lines and are usually absent;
@@ -1123,7 +1132,7 @@ export class BuildBar extends Container {
       return;
     }
 
-    this.setHeader(def.name, typeLine(def.damageType, def.armour));
+    this.setHeader(def.name, typeLine(def.damageType, def.armour), body, def.id);
     this.showMonsterStats(def, body?.mods ?? null);
     // A monster with nothing special says so in the trait line rather than
     // showing an empty row of chips: a blank block reads as a panel that
@@ -1133,7 +1142,7 @@ export class BuildBar extends Container {
   }
 
   /** Name on the left, what it deals and is made of immediately after it. */
-  private setHeader(name: string, type: string): void {
+  private setHeader(name: string, type: string, body?: EntityView, defId?: string): void {
     this.upgradeTitle.text = name;
     this.upgradeSubtitle.text = type;
     // Beside the name rather than under it, so the panel spends one line where
@@ -1143,6 +1152,58 @@ export class BuildBar extends Container {
       this.regions.title.x + this.upgradeTitle.width + 8,
       this.regions.title.y + 5,
     );
+    this.drawEnergy(body, defId);
+  }
+
+  /**
+   * The energy meter, in the space to the right of the name.
+   *
+   * Only for a body that can SPEND energy, which is the ten units whose top
+   * tier unlocks an energy-costing ability. Everything else fills the same pool
+   * at the same rate and never draws on it, so its meter would read full
+   * forever (unitStats.ts, `energyMeter`).
+   *
+   * A bar over every body's head would have been the other place to put it,
+   * and would have turned a crowded fight into stripes on top of the health
+   * bars that are already there. Energy is a question about ONE unit - is that
+   * Sanction about to Interdict - which is what selecting one is for.
+   */
+  private drawEnergy(body?: EntityView, defId?: string): void {
+    this.energyBar.clear();
+    this.energyLabel.text = '';
+    if (!body || defId === undefined) return;
+
+    const meter = energyMeter(
+      this.regions.title,
+      body.energy,
+      this.data.abilities.energy.max ?? 0,
+      energyCost(this.data, defId),
+      // What the name and its type line have already spent of the row.
+      this.upgradeTitle.width + this.upgradeSubtitle.width + 12,
+    );
+    if (!meter) return;
+
+    const { track, fill, notch, ready } = meter;
+    this.energyBar
+      .roundRect(track.x, track.y, track.width, track.height, 3)
+      .fill({ color: UI.background })
+      .stroke({ width: 1, color: UI.panelEdge });
+    if (fill.width > 0) {
+      this.energyBar
+        .roundRect(fill.x, fill.y, Math.max(2, fill.width), fill.height, 3)
+        // Dim until it can actually do something with it: the interesting
+        // moment is crossing the notch, not filling up.
+        .fill({ color: ready ? UI.accent : UI.panelEdge });
+    }
+    if (notch !== null) {
+      this.energyBar
+        .rect(notch - 0.5, track.y - 2, 1, track.height + 4)
+        .fill({ color: ready ? UI.text : UI.textMuted });
+    }
+
+    this.energyLabel.text = meter.label;
+    this.energyLabel.style.fill = ready ? UI.accent : UI.textMuted;
+    this.energyLabel.position.set(track.x + track.width - this.energyLabel.width, track.y + 9);
   }
 
   /**

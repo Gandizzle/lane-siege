@@ -155,6 +155,38 @@ describe('a frame survives the round trip', () => {
     }
   });
 
+  it('carries energy, and only for the bodies that can spend it', () => {
+    const { state, ctx } = match();
+    // Sanction III is one of the ten whose top tier unlocks an energy ability;
+    // a Pledge beside it never spends any.
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'a',
+      unitDefId: 'sanction_3',
+      tileX: 3,
+      tileY: 2,
+    });
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'a',
+      unitDefId: 'pledge',
+      tileX: 4,
+      tileY: 2,
+    });
+    for (let i = 0; i < 40; i++) step(ctx, state);
+
+    const { original, decoded } = roundTrip(state, ctx, 'a');
+    const spender = original.lane!.units.find((u) => u.defId === 'sanction_3')!;
+    const plain = original.lane!.units.find((u) => u.defId === 'pledge')!;
+
+    expect(spender.energy, 'a body that can spend it carries a number').not.toBeNull();
+    expect(plain.energy ?? null, 'and one that cannot carries nothing').toBeNull();
+
+    const after = decoded.lane!.units.find((u) => u.id === spender.id)!;
+    expect(after.energy).toBe(Math.round(spender.energy!));
+    expect(decoded.lane!.units.find((u) => u.id === plain.id)!.energy ?? null).toBeNull();
+  });
+
   it('carries your own wallet, including what you have bought', () => {
     const { state, ctx } = match();
     const trackId = data.economy.tech.tracks[0]!.id;

@@ -89,6 +89,14 @@ export interface WireLane {
    */
   md: number[];
   /**
+   * Energy in the pool, SPARSE and flat: id, energy, next id, ... Only for the
+   * bodies that can spend it, which is the ten units whose top tier unlocks an
+   * energy-costing ability (`EntityView.energy`). Everything else fills the
+   * same pool and never spends it, so a row for it would be a number nobody
+   * will ever look at.
+   */
+  en: number[];
+  /**
    * `[hp, maxHp, destroyed, weaponTypeIndex, auraIndex, auraRadius,
    * auraStrength]`. The last two are hundredths, like every other fraction
    * here.
@@ -308,6 +316,30 @@ function encodeMods(entities: readonly EntityView[]): number[] {
   return out;
 }
 
+/** The sparse energy rows for one list of bodies. See `WireLane.en`. */
+function encodeEnergy(entities: readonly EntityView[]): number[] {
+  const out: number[] = [];
+  for (const entity of entities) {
+    if (entity.energy === null || entity.energy === undefined) continue;
+    // Whole points. The pool is a hundred wide and fills at six a second, so a
+    // fraction of a point is below what a bar can draw or a player can use.
+    out.push(entity.id, Math.round(entity.energy));
+  }
+  return out;
+}
+
+/** Put the sparse energy rows back on the bodies they belong to. */
+function applyEnergy(entities: EntityView[], rows: readonly number[]): void {
+  if (rows.length === 0) return;
+  const byId = new Map<number, EntityView>();
+  for (const entity of entities) byId.set(entity.id, entity);
+
+  for (let i = 0; i + 1 < rows.length; i += 2) {
+    const entity = byId.get(rows[i]!);
+    if (entity) entity.energy = rows[i + 1]!;
+  }
+}
+
 /** Put the sparse rows back on the bodies they belong to. */
 function applyMods(entities: EntityView[], rows: readonly number[]): void {
   if (rows.length === 0) return;
@@ -357,9 +389,10 @@ function decodeEntity(
     armour: trait ? trait.armour : ('flesh' as ArmourType),
     damageType: trait ? trait.damageType : ('impact' as DamageType),
     hpFraction: hp / HEALTH_SCALE,
-    // Filled in by `applyMods` from the lane's sparse rows, for the few bodies
-    // that have any.
+    // Both filled in from the lane's sparse rows, for the few bodies that have
+    // any (`applyMods`, `applyEnergy`).
     mods: null,
+    energy: null,
   };
 }
 
@@ -417,6 +450,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
     u: lane.units.map((u) => encodeEntity(u, tables.unitIndex)),
     m: lane.monsters.map((m) => encodeEntity(m, tables.monsterIndex)),
     md: [...encodeMods(lane.units), ...encodeMods(lane.monsters)],
+    en: [...encodeEnergy(lane.units), ...encodeEnergy(lane.monsters)],
     f: [
       Math.round(lane.fortress.hp),
       Math.round(lane.fortress.maxHp),
@@ -488,6 +522,8 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
   // splitting the rows would be two arrays where one does.
   applyMods(units, wire.md ?? []);
   applyMods(monsters, wire.md ?? []);
+  applyEnergy(units, wire.en ?? []);
+  applyEnergy(monsters, wire.en ?? []);
 
   return {
     teamId: tables.teamIds[wire.t] ?? '',

@@ -307,6 +307,96 @@ export function columnsThatFit(
 }
 
 /**
+ * The energy meter that sits at the right-hand end of the panel's title row.
+ *
+ * WHY HERE AND NOT OVER THE BODY
+ *
+ * Health bars already float over every body in the lane, and a second bar on
+ * each of them turns a crowded fight into stripes. Energy is also not
+ * something a player reads at a glance across a wave - it is something they
+ * ask about one unit at a time ("is that Sanction about to Interdict?"), which
+ * is exactly what selecting a body is for. So it goes in the panel, in the
+ * space to the right of the name that the one-line header freed up.
+ *
+ * WHY THE NOTCH
+ *
+ * A bar on its own says how full the pool is, which is not the question. The
+ * question is whether the next ability is about to fire, so the meter marks
+ * the cheapest energy cost the body has: past the notch it can act.
+ *
+ * Only for a body that can SPEND energy (`EntityView.energy`). Everything else
+ * fills the same pool at the same rate and never draws on it, so its bar would
+ * read full forever.
+ */
+export interface EnergyMeter {
+  track: Rect;
+  /** The filled part, from the left. */
+  fill: Rect;
+  /** Where the cheapest ability becomes affordable, or null if it always is. */
+  notch: number | null;
+  /** True once the body can afford to act. */
+  ready: boolean;
+  label: string;
+}
+
+/** How wide the meter is, and how tall its track. */
+const METER_WIDTH = 74;
+const METER_HEIGHT = 7;
+
+/**
+ * Lay the meter out inside `title`, right-aligned, or null when there is
+ * nothing to show or no room to show it in.
+ */
+export function energyMeter(
+  title: Rect,
+  energy: number | null | undefined,
+  max: number,
+  cost: number,
+  /** How much of the row the name and its types have already taken. */
+  usedWidth: number,
+): EnergyMeter | null {
+  if (energy === null || energy === undefined || max <= 0) return null;
+  // The name comes first: a meter that overlaps it is worse than no meter.
+  const room = title.width - usedWidth - 10;
+  if (room < METER_WIDTH) return null;
+
+  const x = title.x + title.width - METER_WIDTH;
+  const y = title.y + 5;
+  const filled = Math.max(0, Math.min(1, energy / max));
+
+  return {
+    track: { x, y, width: METER_WIDTH, height: METER_HEIGHT },
+    fill: { x, y, width: METER_WIDTH * filled, height: METER_HEIGHT },
+    notch: cost > 0 && cost < max ? x + METER_WIDTH * (cost / max) : null,
+    ready: cost <= 0 || energy >= cost,
+    label: `${Math.floor(energy)}/${Math.round(max)}`,
+  };
+}
+
+/**
+ * The cheapest energy an ability of this unit or monster spends, or 0.
+ *
+ * Read from the data on the client rather than sent: it is a property of the
+ * definition and every viewer has the same `data/`, so the wire carries only
+ * the number that actually changes (protocol.ts).
+ */
+export function energyCost(data: GameData, defId: string): number {
+  const refs =
+    data.units.units.find((u) => u.id === defId)?.abilities ??
+    [...data.monsters.monsters, ...data.monsters.bosses].find((m) => m.id === defId)?.abilities ??
+    [];
+
+  let cheapest = 0;
+  for (const ref of refs) {
+    const ability = data.abilities.abilities.find((a) => a.id === refId(ref));
+    const cost = ability?.energyCost;
+    if (typeof cost !== 'number' || cost <= 0) continue;
+    if (cheapest === 0 || cost < cheapest) cheapest = cost;
+  }
+  return cheapest;
+}
+
+/**
  * The type line beside a body's name: what it deals and what it is made of.
  *
  * Beside rather than under, because the tier it is about to become was the

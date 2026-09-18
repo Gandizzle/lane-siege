@@ -140,6 +140,25 @@ export function abilitiesFor(index: AbilityIndex, defId: string): ResolvedAbilit
 }
 
 /**
+ * The cheapest energy an ability of this definition spends, or 0 for a body
+ * with nothing to spend it on.
+ *
+ * "Cheapest" because the question it answers is when the body can next do
+ * SOMETHING - and it is the threshold the panel's energy bar marks. Every body
+ * fills the same pool at the same rate (abilities.json), so a pool on a body
+ * that will never spend it is a bar that only ever reads full, which is why
+ * the panel shows one only where this is non-zero.
+ */
+export function energyCostOf(index: AbilityIndex, defId: string): number {
+  let cheapest = 0;
+  for (const ability of abilitiesFor(index, defId)) {
+    if (ability.energyCost <= 0) continue;
+    if (cheapest === 0 || ability.energyCost < cheapest) cheapest = ability.energyCost;
+  }
+  return cheapest;
+}
+
+/**
  * Everything the runtime needs that it cannot work out for itself.
  *
  * `sides` is the interesting one. In a lane a unit's allies are the lane's

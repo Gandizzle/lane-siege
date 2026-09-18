@@ -52,6 +52,7 @@
  */
 
 import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
+import { energyCostOf, type AbilityIndex } from './abilityRuntime.ts';
 import { auraFor } from './buffs.ts';
 import type { SimContext } from './context.ts';
 import { modifiersOf } from './status.ts';
@@ -107,6 +108,16 @@ export interface EntityView {
    * null does.
    */
   mods?: StatMods | null;
+  /**
+   * Energy in the pool, or null for a body with nothing to spend it on.
+   *
+   * Null for almost everything: every body fills the same pool at the same
+   * rate (abilities.json), but only the ten units whose top tier unlocks an
+   * energy-costing ability can ever spend it, and a bar that only ever reads
+   * full is a bar worth nobody's pixels or bytes. The panel shows one exactly
+   * where this is a number (§14.1).
+   */
+  energy?: number | null;
 }
 
 /** How far a body's four changeable numbers are from its definition's. */
@@ -315,7 +326,12 @@ function livingUnits(lane: Lane) {
   return lane.units.filter((unit) => unit.alive);
 }
 
-function unitViews(data: GameData, lane: Lane, fortressPos: Vec2): EntityView[] {
+function unitViews(
+  data: GameData,
+  abilities: AbilityIndex,
+  lane: Lane,
+  fortressPos: Vec2,
+): EntityView[] {
   const out: EntityView[] = [];
   for (const unit of livingUnits(lane)) {
     const def = data.units.units.find((u) => u.id === unit.defId);
@@ -329,6 +345,7 @@ function unitViews(data: GameData, lane: Lane, fortressPos: Vec2): EntityView[] 
       damageType: unit.damageType,
       hpFraction: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
       mods: def ? unitMods(lane, unit, def, fortressPos) : null,
+      energy: energyCostOf(abilities, unit.defId) > 0 ? unit.energy : null,
     });
   }
   return out;
@@ -365,7 +382,7 @@ function unitMods(
   return isUnmodified(mods) ? null : mods;
 }
 
-function monsterViews(lane: Lane): EntityView[] {
+function monsterViews(abilities: AbilityIndex, lane: Lane): EntityView[] {
   const out: EntityView[] = [];
   for (const monster of lane.monsters) {
     if (!monster.alive) continue;
@@ -390,6 +407,7 @@ function monsterViews(lane: Lane): EntityView[] {
       damageType: monster.damageType,
       hpFraction: monster.maxHp > 0 ? monster.hp / monster.maxHp : 0,
       mods: isUnmodified(mods) ? null : mods,
+      energy: energyCostOf(abilities, monster.defId) > 0 ? monster.energy : null,
     });
   }
   return out;
@@ -399,8 +417,8 @@ function laneView(ctx: SimContext, lane: Lane, own: boolean): LaneView {
   return {
     teamId: lane.teamId,
     builderId: lane.builderId,
-    units: unitViews(ctx.data, lane, ctx.fortressPosition),
-    monsters: monsterViews(lane),
+    units: unitViews(ctx.data, ctx.abilities, lane, ctx.fortressPosition),
+    monsters: monsterViews(ctx.abilities, lane),
     fortress: {
       hp: lane.fortress.hp,
       maxHp: lane.fortress.maxHp,

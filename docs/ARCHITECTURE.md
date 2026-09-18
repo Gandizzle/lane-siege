@@ -1141,6 +1141,23 @@ decide about.
 **Back is gone.** Tapping empty ground already puts the body down, which is
 what Back did, so the two remaining buttons take the full width.
 
+**The energy meter lives in the space the one-line header freed**, at the right
+of the title row — and only for a body that can SPEND energy, which is the ten
+units whose top tier unlocks an energy-costing ability. Every body fills the
+same pool at the same rate, so a meter on the rest would read full forever. It
+is here rather than floating over the body because health bars already float
+over every body in the lane and a second stripe on each turns a crowded fight
+into wallpaper; energy is a question about ONE unit — is that Sanction about to
+Interdict — which is exactly what selecting a body is for.
+
+The meter marks **where the cheapest ability becomes affordable**. A bar on its
+own says how full the pool is, which is not the question; the question is
+whether the next ability is about to fire, so a notch sits at the cost and the
+fill goes from grey to accent as it crosses. The cost is read from `data/` on
+the client, so the wire carries only the number that actually moves: a sparse
+`[id, energy]` row per body that can spend it, which is a handful per lane and
+took the player frame from 2.48 to 2.49 KiB.
+
 **The boxes are a subtraction, not a guess** (`panelRegions` in
 `unitStats.ts`). The buttons are pinned to the bottom of the panel and the
 ability text above them grows with what it has to say, so on a short screen the
@@ -1417,6 +1434,15 @@ Implemented and tested (388 tests):
   unreadable button (§14.1)
 - A frame carrying live stat modifiers, sparse: every modified body's four
   numbers survive the round trip, and an unmodified one carries nothing at all
+  (§15.2)
+- The energy meter: nothing at all for a body that can never spend any, one for
+  the tier that unlocks an energy ability, the CHEAPEST of two costs rather
+  than the last (given to a unit for the test, since the roster has one each),
+  a fill in proportion and clamped at both ends, a notch that says when the
+  ability becomes affordable, and the whole thing given up rather than drawn
+  over a long name (§14.1)
+- A frame carrying energy, sparse: the body that can spend it carries a number
+  through the round trip and the one beside it that cannot carries nothing
   (§15.2)
 - The roster design rules, asserted against the data rather than intended:
   every unit has an ability, every tier carries its signature forward at that

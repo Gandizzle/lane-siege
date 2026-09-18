@@ -16,6 +16,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../../data/loadNode.ts';
 import type { UnitDef } from '../../data/schema.ts';
+import { refId } from '../../data/schema.ts';
 import { computeLayout } from '../layout.ts';
 import type { StatMods } from '../../sim/index.ts';
 import { layOutChips } from './abilityChips.ts';
@@ -24,6 +25,8 @@ import {
   NOTHING_SPECIAL,
   STAT_CELLS,
   columnsThatFit,
+  energyCost,
+  energyMeter,
   isPlain,
   monsterChips,
   monsterStatText,
@@ -469,5 +472,74 @@ describe('a grid of buttons fits the box it is given', () => {
     // columns of 34-pixel rows are still tappable and still readable.
     const box = sendBox(360, 640);
     expect(columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6)).toBe(3);
+  });
+});
+
+describe('the energy meter in the panel header', () => {
+  const title = { x: 18, y: 10, width: 376, height: 24 };
+  const max = data.abilities.energy.max ?? 0;
+
+  it('shows nothing for a body that can never spend any', () => {
+    // Every body fills the same pool; only the ten that unlock an
+    // energy-costing ability can draw on it, and a bar that reads full forever
+    // is a bar worth nobody's pixels.
+    expect(energyCost(data, 'pledge')).toBe(0);
+    expect(energyCost(data, 'grub')).toBe(0);
+    expect(energyMeter(title, null, max, 0, 100)).toBeNull();
+  });
+
+  it('shows one for the tier that unlocks an energy ability', () => {
+    expect(energyCost(data, 'sanction_3')).toBeGreaterThan(0);
+    expect(energyMeter(title, 30, max, energyCost(data, 'sanction_3'), 100)).not.toBeNull();
+  });
+
+  it('takes the CHEAPEST cost, which is when the body can next do something', () => {
+    // One energy ability each today, so this is also the only one - but the
+    // question the notch answers is "can it act", not "can it cast that".
+    for (const unit of data.units.units) {
+      const costs = (unit.abilities ?? [])
+        .map((ref) => data.abilities.abilities.find((a) => a.id === refId(ref))?.energyCost ?? 0)
+        .filter((cost): cost is number => typeof cost === 'number' && cost > 0);
+      if (costs.length === 0) continue;
+      expect(energyCost(data, unit.id), unit.id).toBe(Math.min(...costs));
+    }
+  });
+
+  it('fills in proportion, and never past either end', () => {
+    const empty = energyMeter(title, 0, max, 50, 100)!;
+    const half = energyMeter(title, max / 2, max, 50, 100)!;
+    const full = energyMeter(title, max, max, 50, 100)!;
+    expect(empty.fill.width).toBe(0);
+    expect(half.fill.width).toBeCloseTo(full.fill.width / 2, 6);
+    expect(full.fill.width).toBe(full.track.width);
+    // An overfull pool cannot happen, but a bar that would draw past its track
+    // if it did is a bar drawn over the name beside it.
+    expect(energyMeter(title, max * 3, max, 50, 100)!.fill.width).toBe(full.track.width);
+  });
+
+  it('marks where the ability becomes affordable, and says when it is', () => {
+    const cost = 60;
+    const below = energyMeter(title, cost - 1, max, cost, 100)!;
+    const at = energyMeter(title, cost, max, cost, 100)!;
+    expect(below.ready).toBe(false);
+    expect(at.ready).toBe(true);
+    // The notch sits at the cost's share of the track, inside it.
+    expect(at.notch).toBeGreaterThan(at.track.x);
+    expect(at.notch).toBeLessThan(at.track.x + at.track.width);
+  });
+
+  it('gives up the space rather than sitting on the name', () => {
+    // A long name leaves no room, and no meter is better than one drawn over
+    // the word it is beside.
+    expect(energyMeter(title, 50, max, 60, 20)).not.toBeNull();
+    expect(energyMeter(title, 50, max, 60, title.width - 20)).toBeNull();
+  });
+
+  it('stays inside the title row it was given', () => {
+    const meter = energyMeter(title, 50, max, 60, 100)!;
+    expect(meter.track.x).toBeGreaterThanOrEqual(title.x);
+    expect(meter.track.x + meter.track.width).toBeLessThanOrEqual(title.x + title.width + 0.001);
+    expect(meter.track.y).toBeGreaterThanOrEqual(title.y);
+    expect(meter.track.y + meter.track.height).toBeLessThanOrEqual(title.y + title.height + 0.001);
   });
 });
