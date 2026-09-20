@@ -565,12 +565,44 @@ describe('the roster design rules, in the data', () => {
     }
   });
 
-  it("gates a three-mark unit's second ability behind energy", () => {
+  /**
+   * Energy gates the abilities that nothing else gates.
+   *
+   * An ability on an INTERVAL fires on its own clock and would otherwise fire
+   * for ever, so it spends a pool that has to refill. A reactive one - a
+   * deathrattle, a riposte, a passive, a thing that happens when the body drops
+   * below half - is already limited by the event that sets it off, and charging
+   * it energy would mean a deathrattle that fizzles when the corpse is poor.
+   *
+   * A SIGNATURE is exempt whichever way it fires: it is what the unit is, it is
+   * there from Mark I, and a taunt the Oathwall can only afford sometimes is
+   * not an Oathwall. The gate is on the SECOND ability, the one the top of the
+   * ladder unlocks.
+   *
+   * The rule used to be stated as "a three-mark unit's second ability", which
+   * was true only because the ten lines that reached Mark III happened to be
+   * the ten whose second ability is on a clock. Completing the ladder made all
+   * twenty-four reach it and showed that the shape of the trigger was the
+   * actual rule - and that `deepcall` had been summoning on a timer for free.
+   */
+  it('makes a second ability that fires on its own clock spend energy', () => {
     const byId = new Map<string, AbilityDef>(data.abilities.abilities.map((a) => [a.id, a]));
-    for (const top of data.units.units.filter((u) => u.mark === 3)) {
+    const tops = data.units.units.filter((u) => !u.upgradesTo);
+    expect(tops).toHaveLength(24);
+
+    for (const top of tops) {
       const second = (top.abilities ?? [])[1]!;
       const ability = byId.get(refId(second))!;
-      expect(ability.energyCost ?? 0, `${top.id} → ${ability.id}`).toBeGreaterThan(0);
+      const onAClock = ability.trigger?.when === 'interval';
+      const cost = ability.energyCost ?? 0;
+      if (onAClock) {
+        expect(
+          cost,
+          `${top.id} → ${ability.id} fires on a clock, so it costs energy`,
+        ).toBeGreaterThan(0);
+      } else {
+        expect(cost, `${top.id} → ${ability.id} is reactive, so it costs none`).toBe(0);
+      }
     }
   });
 

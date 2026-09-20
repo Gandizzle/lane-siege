@@ -187,8 +187,9 @@ describe('mark upgrades (§7.3)', () => {
     expect(valueRatio).toBeGreaterThan(costRatio);
   });
 
-  it('refuses at max mark', () => {
-    // Bulwark tops out at mark 2; Hammer goes to 3 (§7.3 - only some units do).
+  it('refuses past the top of a ladder', () => {
+    // Every line is three marks now (§7.3), so the refusal is on the fourth
+    // upgrade rather than on a particular unit that happened to stop early.
     const { state, ctx } = freshMatch();
     state.lanes.lane1!.economy.gold = 99999;
     state.lanes.lane1!.economy.supplyCap = 999;
@@ -200,15 +201,18 @@ describe('mark upgrades (§7.3)', () => {
       tileX: 2,
       tileY: 2,
     });
-    const id = state.lanes.lane1!.units[0]!.id;
+    const unit = state.lanes.lane1!.units[0]!;
 
-    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: id }).ok).toBe(
-      true,
-    );
-    expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: id })).toEqual({
-      ok: false,
-      rejection: 'max-level',
-    });
+    for (let mark = 2; mark <= 3; mark++) {
+      expect(
+        applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: unit.id }).ok,
+        `to mark ${mark}`,
+      ).toBe(true);
+    }
+    expect(unit.defId).toBe('oathwall_3');
+    expect(
+      applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: unit.id }),
+    ).toEqual({ ok: false, rejection: 'max-level' });
   });
 
   it('allows a third mark where the unit has one (§7.3)', () => {

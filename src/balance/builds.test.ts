@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { computeBudget } from './budget.ts';
+import { totalCost } from './pricing.ts';
 import { BUILD_SPECS, lineNames, lines, placementOrder, realise, sharesLabel } from './builds.ts';
 import { runArena, seatsForArmies } from './arena.ts';
 import { planFights, runFights, standardError, summarise, type FightRecord } from './tournament.ts';
@@ -67,12 +68,26 @@ describe('realising a build', () => {
   });
 
   it('reports a build that ran out of tiles rather than silently shrinking it', () => {
-    // Rung 1 costs one supply a body, so 95 supply wants 95 bodies and the grid
-    // holds 80. That is a real constraint on going wide and the report has to
-    // be able to say so.
-    const wide = realise(data, 'ironvow', BUILD_SPECS[0]!, budget.armyGold, budget.armySupply);
+    // A rung 1 body at Mark I costs one supply, so 95 supply wants 95 of them
+    // and the grid holds 80. The board is the second cap on going wide, and
+    // the report has to be able to say the build hit it.
+    //
+    // Only at Mark I: a Mark III rung 1 body costs two supply, so the same
+    // build upgraded is 48 bodies and fits. That upgrading RELIEVES the board
+    // constraint is another reason going tall wins, and it is why this asks
+    // for the Mark I version by name rather than taking the first spec.
+    const wide = realise(
+      data,
+      'ironvow',
+      { id: 'wideMk1', name: 'rung 1, Mark I', shares: [1, 0, 0, 0, 0, 0], mark: 1 },
+      budget.armyGold,
+      budget.armySupply,
+    );
     expect(wide.tilesShort).toBeGreaterThan(0);
     expect(wide.units.length).toBe(data.lane.buildZone.width * data.lane.buildZone.depth);
+
+    const tall = realise(data, 'ironvow', BUILD_SPECS[0]!, budget.armyGold, budget.armySupply);
+    expect(tall.tilesShort, 'the same build upgraded fits on the board').toBe(0);
   });
 
   it('never comes back empty, however small the budget', () => {
@@ -88,21 +103,31 @@ describe('realising a build', () => {
     }
   });
 
-  it('spends the supply down to what one more body would cost', () => {
+  it('stops only when something has actually run out', () => {
+    // Three things can stop a build: supply, gold, or the board. Whichever it
+    // was, one of them has to be too empty to buy the cheapest body the spec
+    // is allowed. A build that stops with all three in hand is a bug in the
+    // spender, and it was one - the proportional pass used to leave supply on
+    // the table for any rung whose share rounded below a body.
     for (const builder of data.units.builders) {
       for (const spec of BUILD_SPECS) {
         const army = realise(data, builder.id, spec, budget.armyGold, budget.armySupply);
-        // Whatever is left has to be less than the cheapest thing the build is
-        // allowed to buy, or the leftover pass stopped early.
-        const cheapest = Math.min(
-          ...spec.shares
-            .map((share, i) => ({ share, rung: i + 1 }))
-            .filter((r) => r.share > 0)
-            .map((r) => lines(data, builder.id).get(r.rung)?.[0]?.supplyCost ?? Infinity),
+        if (army.tilesShort > 0) continue;
+
+        const rungs = spec.shares
+          .map((share, i) => ({ share, rung: i + 1 }))
+          .filter((r) => r.share > 0);
+        const cheapestSupply = Math.min(
+          ...rungs.map((r) => totalCost(r.rung, spec.mark ?? 3).supply),
         );
-        const left = army.supplyBudget - army.supplyUsed;
-        if (army.tilesShort > 0) continue; // out of board, not out of budget
-        expect(left, `${builder.id}/${spec.id} left ${left}`).toBeLessThan(cheapest);
+        const cheapestGold = Math.min(...rungs.map((r) => totalCost(r.rung, 1).gold));
+
+        const supplyLeft = army.supplyBudget - army.supplyUsed;
+        const goldLeft = army.goldBudget - army.goldSpent;
+        expect(
+          supplyLeft < cheapestSupply || goldLeft < cheapestGold,
+          `${builder.id}/${spec.id} stopped with ${supplyLeft} supply and ${Math.round(goldLeft)} gold in hand`,
+        ).toBe(true);
       }
     }
   });

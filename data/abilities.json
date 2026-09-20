@@ -73,6 +73,11 @@
           "radius": 2.8,
           "targets": 4,
           "hold": 2.6
+        },
+        {
+          "radius": 3.4,
+          "targets": 5,
+          "hold": 3.2
         }
       ],
       "trigger": {
@@ -150,6 +155,9 @@
         {},
         {
           "chance": 0.26
+        },
+        {
+          "chance": 0.34
         }
       ],
       "trigger": {
@@ -200,6 +208,9 @@
         {},
         {
           "share": 0.035
+        },
+        {
+          "share": 0.05
         }
       ],
       "trigger": {
@@ -472,6 +483,9 @@
         {},
         {
           "share": 0.25
+        },
+        {
+          "share": 0.35
         }
       ],
       "trigger": {
@@ -581,6 +595,10 @@
         {},
         {
           "jumps": 2
+        },
+        {
+          "jumps": 3,
+          "radius": 2.16
         }
       ],
       "trigger": {
@@ -647,6 +665,11 @@
           "step": 0.11,
           "crit": 0.055,
           "max": 6
+        },
+        {
+          "step": 0.14,
+          "crit": 0.07,
+          "max": 7
         }
       ],
       "trigger": {
@@ -721,6 +744,11 @@
         {
           "jumps": 3,
           "burn": 11.0
+        },
+        {
+          "jumps": 4,
+          "burn": 16.0,
+          "radius": 2.64
         }
       ],
       "trigger": {
@@ -907,6 +935,9 @@
         {},
         {
           "rate": 0.02
+        },
+        {
+          "rate": 0.028
         }
       ],
       "trigger": {
@@ -1012,6 +1043,11 @@
           "rate": 0.013,
           "radius": 2.3,
           "bulk": 110
+        },
+        {
+          "rate": 0.018,
+          "radius": 2.6,
+          "bulk": 160
         }
       ],
       "trigger": {
@@ -1115,6 +1151,10 @@
         {
           "antiheal": -1.0,
           "duration": 5.0
+        },
+        {
+          "antiheal": -1,
+          "duration": 6.0
         }
       ],
       "trigger": {
@@ -1292,6 +1332,11 @@
           "radius": 2.4,
           "targets": 4,
           "hold": 2.0
+        },
+        {
+          "radius": 2.8,
+          "targets": 5,
+          "hold": 2.5
         }
       ],
       "trigger": {
@@ -1352,6 +1397,10 @@
         {
           "slow": -0.25,
           "duration": 3.5
+        },
+        {
+          "slow": -0.32,
+          "duration": 4.0
         }
       ],
       "trigger": {
@@ -1460,6 +1509,10 @@
         {
           "chill": -0.2,
           "radius": 1.8
+        },
+        {
+          "chill": -0.26,
+          "radius": 2.1
         }
       ],
       "trigger": {
@@ -1644,6 +1697,10 @@
         {
           "haste": 0.18,
           "radius": 2.5
+        },
+        {
+          "haste": 0.24,
+          "radius": 2.8
         }
       ],
       "trigger": {
@@ -1688,7 +1745,8 @@
           "kind": "energy",
           "energy": "@energy"
         }
-      ]
+      ],
+      "energyCost": 55
     },
     {
       "id": "rupture",

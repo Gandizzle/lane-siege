@@ -223,8 +223,8 @@ export interface UnitDef {
    */
   rung: number;
   /**
-   * How far up its own upgrade chain this is: 1, 2 or 3. Every line has a
-   * Mark II; ten of the twenty-four have a Mark III (§7.3).
+   * How far up its own upgrade chain this is: 1, 2 or 3. Every one of the
+   * twenty-four lines has all three (§7.3).
    *
    * Was called `tier`, which also had to mean `rung` and so meant neither.
    */
@@ -233,6 +233,23 @@ export interface UnitDef {
   upgradesTo?: string;
   goldCost: Unfilled<number>;
   supplyCost: Unfilled<number>;
+  /**
+   * What this unit is worth BEYOND its raw numbers, as a multiple.
+   *
+   * The price ladder values a body as `sqrt(offence x defence)`, which is blind
+   * to everything a unit does that is not damage, reach or hit points: a taunt,
+   * a shield, a slow, an execute, a roster that happens to fight well together.
+   * This is where a measurement of that goes.
+   *
+   * Above 1 means the unit is worth more than it looks, so `npm run reprice`
+   * gives it FEWER raw stats for the same price. Below 1 is the reverse.
+   * Absent is 1, which is "nothing measured yet" rather than "nothing there".
+   *
+   * It is the one balance knob that is meant to be set from evidence rather
+   * than from a ladder - `npm run showdown` is where the evidence comes from -
+   * so every value here should be able to name the run that justified it.
+   */
+  valueWeight?: Unfilled<number>;
   hp: Unfilled<number>;
   armour: ArmourType;
   /** Its own silhouette, in `armour`'s family. Shared along the upgrade chain. */

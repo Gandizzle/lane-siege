@@ -83,12 +83,19 @@ export const RUNG_ONE_COST = 45;
  * Cost: each upgrade is 1.5x the one before it, so a Mark II has cost 2.5x the
  * base body in total and a Mark III 4.75x.
  *
- * Value: 2.65x and 5.2x, which is 6% and 9.5% ahead of the cost. A mark is
- * therefore slightly better gold than a fresh body AND enormously better
- * supply, which together are why a supply-capped player upgrades.
+ * Value: 2.85x and 5.9x, which is 14% and 24% ahead of the cost. An upgraded
+ * body is meant to be what a player brings to the endgame - the Mark I is the
+ * thing you could afford in wave three - so a mark is clearly better gold as
+ * well as enormously better supply. It was 6% and 9.5%, which was not enough
+ * to be a reason for anything.
+ *
+ * This only works because every line goes to Mark III now. While ten of the
+ * twenty-four stopped at Mark II, rewarding marks this heavily would have
+ * handed a large free advantage to the two builders whose expensive lines
+ * happened to have one.
  */
 export const MARK_COST = [1, 2.5, 4.75] as const;
-export const MARK_VALUE = [1, 2.65, 5.2] as const;
+export const MARK_VALUE = [1, 2.85, 5.9] as const;
 
 /**
  * Supply an upgrade costs, as a multiple of the supply its body already costs.
@@ -238,7 +245,7 @@ export function priceRoster(
     abilityWeights?: Record<string, number>;
   } = {},
 ): PricedUnit[] {
-  const weights = options.abilityWeights ?? {};
+  const weights = { ...weightsFromData(data), ...(options.abilityWeights ?? {}) };
   const scale = options.scale ?? rosterScale(data, options.anchor ?? 'rung1', weights);
 
   return data.units.units.map((unit) => {
@@ -284,13 +291,27 @@ export function priceRoster(
  */
 export type ScaleAnchor = 'rung1' | 'median';
 
+/**
+ * The weights the roster carries in `data/`, so a reprice reads them without
+ * being told. An override passed in wins, which is how a candidate weight is
+ * tried before it is written down.
+ */
+export function weightsFromData(data: GameData): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const unit of data.units.units) {
+    const weight = unit.valueWeight;
+    if (weight !== null && weight !== undefined && weight !== 1) out[unit.id] = weight;
+  }
+  return out;
+}
+
 export function rosterScale(
   data: GameData,
   anchor: ScaleAnchor = 'rung1',
   abilityWeights: Record<string, number> = {},
 ): number {
   const ratioOf = (unit: UnitDef): number => {
-    const current = unitValue(unit, abilityWeights[unit.id] ?? 1);
+    const current = unitValue(unit, weights[unit.id] ?? 1);
     const target = targetValue(unit.rung, unit.mark, 1);
     return target > 0 ? current / target : 0;
   };
@@ -299,6 +320,7 @@ export function rosterScale(
     anchor === 'rung1'
       ? data.units.units.filter((u) => u.rung === 1 && u.mark === 1)
       : data.units.units;
+  const weights = { ...weightsFromData(data), ...abilityWeights };
 
   const ratios = pool
     .map(ratioOf)

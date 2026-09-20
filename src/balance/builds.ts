@@ -23,7 +23,7 @@
  */
 
 import type { GameData, UnitDef } from '../data/schema.ts';
-import { markStepCost, markStepSupply } from './pricing.ts';
+import { totalCost } from './pricing.ts';
 
 /** A share of the supply budget per rung, rung 1 first. Need not sum to 1. */
 export type RungShares = readonly [number, number, number, number, number, number];
@@ -32,7 +32,19 @@ export interface BuildSpec {
   id: string;
   name: string;
   shares: RungShares;
+  /**
+   * How far up its chain every body in this build is bought, 1 to 3.
+   *
+   * Defaults to {@link DEFAULT_MARK}, which is the top, because an upgraded
+   * body is what a player actually brings to the arena: a Mark I is the thing
+   * you could afford in wave three, not the thing you finish on. A build that
+   * runs out of gold takes lower marks rather than stopping.
+   */
+  mark?: number;
 }
+
+/** What a build is bought at unless it says otherwise: as tall as it goes. */
+export const DEFAULT_MARK = 3;
 
 /** One body in a realised army: which line, how far up it, and where it stands. */
 export interface PlacedUnit {
@@ -93,6 +105,25 @@ export const BUILD_SPECS: readonly BuildSpec[] = [
   { id: 'nolow', name: 'Nothing under rung 3', shares: [0, 0, 0.25, 0.25, 0.25, 0.25] },
   { id: 'nohigh', name: 'Nothing over rung 4', shares: [0.25, 0.25, 0.25, 0.25, 0, 0] },
   { id: 'skip', name: 'Every other rung', shares: [0.33, 0, 0.33, 0, 0.34, 0] },
+
+  // The TALLNESS axis, held against one fixed shape. Everything above is bought
+  // at the top of its chain, which is what a player brings; these two buy the
+  // same army cheap and wide instead, so the report can say whether that is
+  // ever right. Without them the whole run would only ever measure one answer
+  // to "how tall", which is the second half of every build decision.
+  {
+    id: 'designMk1',
+    name: 'Designed spread, Mark I',
+    shares: [0.1, 0.1, 0.15, 0.15, 0.25, 0.25],
+    mark: 1,
+  },
+  {
+    id: 'designMk2',
+    name: 'Designed spread, Mark II',
+    shares: [0.1, 0.1, 0.15, 0.15, 0.25, 0.25],
+    mark: 2,
+  },
+  { id: 'high2Mk1', name: 'Rungs 5 and 6, Mark I', shares: [0, 0, 0, 0, 0.5, 0.5], mark: 1 },
 ];
 
 function num(value: number | null | undefined, fallback = 0): number {
@@ -163,10 +194,10 @@ export function realise(
 ): Army {
   const chains = lines(data, builderId);
   const total = spec.shares.reduce((a, b) => a + b, 0);
+  const wanted = Math.min(Math.max(spec.mark ?? DEFAULT_MARK, 1), 3);
   let gold = goldBudget;
   let supply = supplyBudget;
 
-  // rung -> how many bodies of it are standing, and at what mark.
   const bought: { rung: number; mark: number; def: UnitDef }[] = [];
 
   const order = [...spec.shares.entries()]
@@ -181,25 +212,50 @@ export function realise(
     spent.set(rung, 0);
   }
 
-  const buy = (rung: number): boolean => {
-    const base = chains.get(rung)?.[0];
-    if (!base) return false;
-    const cost = num(base.goldCost);
-    const supplyCost = num(base.supplyCost);
-    if (cost > gold || supplyCost > supply || supplyCost <= 0) return false;
-    gold -= cost;
-    supply -= supplyCost;
-    spent.set(rung, (spent.get(rung) ?? 0) + supplyCost);
-    bought.push({ rung, mark: 1, def: base });
+  /**
+   * A body of this rung at this mark, bought outright.
+   *
+   * Outright rather than built and then upgraded, because what a player brings
+   * to the arena is a finished unit: nobody arrives at wave 25 with a Mark I
+   * they never got round to. The cost is the whole chain - `totalCost` - so a
+   * Mark III body costs what its Mark I, its Mark II and its Mark III cost
+   * together, and the supply likewise.
+   */
+  const buy = (rung: number, mark: number): boolean => {
+    const chain = chains.get(rung);
+    const def = chain?.[Math.min(mark, chain.length) - 1];
+    if (!def) return false;
+    const cost = totalCost(rung, mark);
+    if (cost.gold > gold || cost.supply > supply || cost.supply <= 0) return false;
+    gold -= cost.gold;
+    supply -= cost.supply;
+    spent.set(rung, (spent.get(rung) ?? 0) + cost.supply);
+    bought.push({ rung, mark, def });
     return true;
+  };
+
+  /**
+   * The best mark of this rung that the remaining budget can still afford.
+   *
+   * A build that asks for Mark III and runs out of gold takes Mark IIs rather
+   * than stopping, which is what a player short of gold does. Returning 0 means
+   * even a Mark I will not fit.
+   */
+  const affordable = (rung: number): number => {
+    for (let mark = wanted; mark >= 1; mark--) {
+      const cost = totalCost(rung, mark);
+      if (cost.gold <= gold && cost.supply <= supply && cost.supply > 0) return mark;
+    }
+    return 0;
   };
 
   for (const { rung } of order) {
     const want = target.get(rung) ?? 0;
-    const base = chains.get(rung)?.[0];
-    if (!base) continue;
-    while ((spent.get(rung) ?? 0) + num(base.supplyCost) <= want && buy(rung)) {
-      // Bought; `buy` has already charged it.
+    for (;;) {
+      const mark = affordable(rung);
+      if (mark === 0) break;
+      if ((spent.get(rung) ?? 0) + totalCost(rung, mark).supply > want) break;
+      if (!buy(rung, mark)) break;
     }
   }
 
@@ -210,36 +266,19 @@ export function realise(
   // whichever rung is furthest below its target, until nothing else fits.
   for (;;) {
     let best: number | null = null;
+    let bestMark = 0;
     let worst = -Infinity;
     for (const { rung } of order) {
-      const base = chains.get(rung)?.[0];
-      if (!base) continue;
-      if (num(base.goldCost) > gold || num(base.supplyCost) > supply) continue;
+      const mark = affordable(rung);
+      if (mark === 0) continue;
       const behind = (target.get(rung) ?? 0) - (spent.get(rung) ?? 0);
       if (behind > worst) {
         worst = behind;
         best = rung;
+        bestMark = mark;
       }
     }
-    if (best === null || !buy(best)) break;
-  }
-
-  // Marks, dearest rung first. A body already at the top of its chain is
-  // skipped; a chain with only two marks simply stops sooner.
-  for (let mark = 2; mark <= 3; mark++) {
-    const candidates = bought.filter((b) => b.mark === mark - 1).sort((a, b) => b.rung - a.rung);
-    for (const body of candidates) {
-      const chain = chains.get(body.rung)!;
-      const next = chain[mark - 1];
-      if (!next) continue;
-      const cost = markStepCost(body.rung, mark);
-      const supplyCost = markStepSupply(body.rung, mark);
-      if (cost > gold || supplyCost > supply) continue;
-      gold -= cost;
-      supply -= supplyCost;
-      body.mark = mark;
-      body.def = next;
-    }
+    if (best === null || !buy(best, bestMark)) break;
   }
 
   // Shortest reach at the front. A stable sort keeps same-range bodies in the
