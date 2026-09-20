@@ -81,6 +81,26 @@ export const MAX_SHOWDOWN_TICKS = 20 * 60 * 6;
 /** Tech levels the budget pays for. Discrete, so the model's 3.5 rounds down. */
 export const TECH_LEVEL = 3;
 
+/**
+ * Which seats at the table a fight of this many armies uses.
+ *
+ * Two armies sit OPPOSITE each other - south and north - rather than in the
+ * first two seats, which are south and west and therefore a quarter turn apart.
+ * Adjacent spokes make a duel an L-shaped fight that meets at an angle; opposite
+ * ones make it the head-on clash a duel is supposed to be, and the two are
+ * different enough that measuring one and calling it the other would be a
+ * mistake with no symptom.
+ *
+ * Three is left as the first three seats and is KNOWN TO BE UNFAIR: the arena is
+ * a cross, and three armies in it means two are adjacent and one is opposite
+ * both. It needs its own shape (docs/OPEN-QUESTIONS.md) and nothing here should
+ * be read as balancing for it.
+ */
+export function seatsForArmies(count: number): number[] {
+  if (count === 2) return [0, 2];
+  return Array.from({ length: count }, (_, i) => i);
+}
+
 function num(value: number | null | undefined, fallback = 0): number {
   return value ?? fallback;
 }
@@ -118,11 +138,20 @@ export function dominantDamageTrack(data: GameData, army: Army): string {
  * tournament rotates.
  */
 export function runArena(data: GameData, armies: readonly Army[], seed: number): ArenaResult {
-  const teams = armies.map((army, seat) => ({
-    id: `seat${seat}`,
-    playerIds: [`p${seat}`],
-    builderId: army.builderId,
-  }));
+  // Always four seats at the table, so a duel can take opposite spokes rather
+  // than the first two. The empty ones are eliminated before anything starts,
+  // which is exactly the state a player who lost during the waves leaves
+  // behind, and `beginShowdown` already skips them.
+  const seats = seatsForArmies(armies.length);
+  const total = Math.max(armies.length, seats.length > 0 ? Math.max(...seats) + 1 : 0);
+  const teams = Array.from({ length: total }, (_, seat) => {
+    const army = armies[seats.indexOf(seat)];
+    return {
+      id: `seat${seat}`,
+      playerIds: [`p${seat}`],
+      ...(army ? { builderId: army.builderId } : {}),
+    };
+  });
 
   const state = createMatch(data, { seed, teams });
   const ctx = createContext(data);
@@ -130,7 +159,15 @@ export function runArena(data: GameData, armies: readonly Army[], seed: number):
   const byId = new Map(data.units.units.map((u) => [u.id, u]));
   const energyMax = stat(data.abilities.energy.max);
 
-  armies.forEach((army, seat) => {
+  for (const team of state.teams) {
+    if (seats.some((seat) => `seat${seat}` === team.id)) continue;
+    team.eliminated = true;
+    // Counted, or the placements handed out below start from the wrong end.
+    state.eliminatedCount += 1;
+  }
+
+  armies.forEach((army, index) => {
+    const seat = seats[index]!;
     const lane = state.lanes[`seat${seat}`]!;
 
     // The tech the budget bought. Set directly rather than purchased: the
@@ -148,7 +185,7 @@ export function runArena(data: GameData, armies: readonly Army[], seed: number):
     recomputeUnitBuffs(data, defs, lane);
   });
 
-  const built = armies.map((_, seat) => state.lanes[`seat${seat}`]!.units.length);
+  const built = armies.map((_, index) => state.lanes[`seat${seats[index]!}`]!.units.length);
   const supplyIn = armies.map((army) => army.supplyUsed);
 
   // Hand the match to the showdown the way a cleared wave 25 does, so the
@@ -166,7 +203,8 @@ export function runArena(data: GameData, armies: readonly Army[], seed: number):
   return {
     ticks,
     timedOut: !state.finished,
-    seats: armies.map((army, seat) => {
+    seats: armies.map((army, index) => {
+      const seat = seats[index]!;
       const team = state.teams.find((t) => t.id === `seat${seat}`)!;
       const alive = survivors(state, seat, byId);
       return {
@@ -176,8 +214,8 @@ export function runArena(data: GameData, armies: readonly Army[], seed: number):
         specId: army.spec.id,
         placement: team.placement,
         won: team.placement === 1,
-        survivingSupply: supplyIn[seat]! > 0 ? alive.supply / supplyIn[seat]! : 0,
-        unitsBuilt: built[seat]!,
+        survivingSupply: supplyIn[index]! > 0 ? alive.supply / supplyIn[index]! : 0,
+        unitsBuilt: built[index]!,
         unitsLeft: alive.count,
         goldSpent: army.goldSpent,
         supplyUsed: army.supplyUsed,

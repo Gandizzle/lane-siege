@@ -270,6 +270,29 @@ is single-armour, where §3.4 wants bosses to carry a **mix** of armour types
 across their parts or spawns so no single damage type hard-counters them. That
 needs a multi-part boss model that does not exist yet.
 
+### 13. The arena is a cross, and a cross is only fair to four (§3.3, replaced) [balance]
+
+The Final Showdown seats each surviving army on the spoke its seat at the table
+owns, and an eliminated player's spoke is left empty rather than handed to
+somebody else. That is the right rule for identity and the wrong one for
+geometry as soon as fewer than four armies arrive.
+
+**Two survivors** may end up on ADJACENT spokes or OPPOSITE ones depending on
+which two players died, and those are materially different fights: opposite is a
+head-on clash, adjacent is an L-shaped one that meets at an angle. Two duels
+decided by different geometry is a fairness problem with no symptom - nothing
+crashes, one player simply had a different game. The balance harness and the
+Final Showdown mode already seat a duel opposite (`seatsForArmies` in
+src/balance/arena.ts); the live rule is unchanged and needs a decision.
+
+**Three survivors** cannot be made fair on this shape at all: two of them are
+adjacent and one is opposite both, whatever the seating. It wants its own arena
+shape - a Y rather than a cross - and nothing measured on the current one should
+be read as balancing for it.
+
+Neither blocks the first phase of balancing, which is four-way and duel only.
+See [BALANCE.md](BALANCE.md).
+
 ### 11. Monetisation and audio (§18) [post-ship]
 
 ## Answered by transcription, not by invention

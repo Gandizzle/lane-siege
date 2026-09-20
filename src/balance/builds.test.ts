@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { computeBudget } from './budget.ts';
 import { BUILD_SPECS, lineNames, lines, placementOrder, realise, sharesLabel } from './builds.ts';
-import { runArena } from './arena.ts';
+import { runArena, seatsForArmies } from './arena.ts';
 import { planFights, runFights, standardError, summarise, type FightRecord } from './tournament.ts';
 
 const { data } = loadDataFromDisk();
@@ -129,6 +129,23 @@ describe('the arena', () => {
     expect(result.timedOut, 'a fight that will not end is not a result').toBe(false);
     expect(result.seats.filter((s) => s.won)).toHaveLength(1);
     expect(new Set(result.seats.map((s) => s.placement)).size).toBe(4);
+  });
+
+  it('seats a duel on opposite spokes, not the first two', () => {
+    // The first two seats are south and west - a quarter turn apart - which
+    // makes a duel an L-shaped fight that meets at an angle rather than the
+    // head-on clash it is supposed to be.
+    expect(seatsForArmies(2)).toEqual([0, 2]);
+    expect(seatsForArmies(4)).toEqual([0, 1, 2, 3]);
+
+    const armies = ['ironvow', 'pyre'].map((id) =>
+      realise(data, id, design, SMALL_GOLD, SMALL_SUPPLY),
+    );
+    const result = runArena(data, armies, 1);
+    expect(result.seats.map((s) => s.seat)).toEqual([0, 2]);
+    // And the loser still places second, not fourth: the two empty seats were
+    // counted out before the fight started.
+    expect(result.seats.map((s) => s.placement).sort()).toEqual([1, 2]);
   });
 
   it('gives the winner survivors and the losers none', () => {

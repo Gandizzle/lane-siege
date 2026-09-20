@@ -44,6 +44,7 @@ import {
   type SimContext,
   type TeamSetup,
 } from '../sim/index.ts';
+import { seatsForArmies } from '../balance/arena.ts';
 import type { Army } from '../balance/builds.ts';
 import { FixedTimestep } from '../util/loop.ts';
 import type { Transport, TransportStatus } from './transport.ts';
@@ -192,8 +193,18 @@ export class LocalTransport implements Transport {
     const byId = new Map(data.units.units.map((u) => [u.id, u]));
     const energyMax = stat(data.abilities.energy.max);
 
-    armies.forEach((army, seat) => {
-      const lane = Object.values(this.state.lanes)[seat];
+    // Two armies take opposite spokes rather than the first two seats, which
+    // are a quarter turn apart (src/balance/arena.ts, `seatsForArmies`).
+    const seats = seatsForArmies(armies.length);
+    const lanes = Object.values(this.state.lanes);
+    for (const team of this.state.teams) {
+      if (seats.some((seat) => lanes[seat]?.teamId === team.id)) continue;
+      team.eliminated = true;
+      this.state.eliminatedCount += 1;
+    }
+
+    armies.forEach((army, index) => {
+      const lane = lanes[seats[index]!];
       if (!lane) return;
       for (const placed of army.units) {
         const def = byId.get(placed.defId);

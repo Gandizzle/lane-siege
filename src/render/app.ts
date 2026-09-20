@@ -40,6 +40,7 @@ import type { MatchMode } from './ui/homeScreen.ts';
 import type { SeatSetup } from './ui/showdownSetup.ts';
 import { computeBudget } from '../balance/budget.ts';
 import { realise } from '../balance/builds.ts';
+import { seatsForArmies } from '../balance/arena.ts';
 import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
 
@@ -136,12 +137,18 @@ function newShowdown(
     ),
   );
 
-  const teams = armies.map((army, index) => ({
-    id: LANE_IDS[index]!,
-    playerIds: index === 0 ? ['you'] : [`seat${index}`],
-    name: index === 0 ? identity.name : `Seat ${index + 1}`,
-    builderId: army.builderId,
-  }));
+  // Four lanes whatever the count, so a duel can sit on opposite spokes; the
+  // two nobody is using are eliminated before the countdown (localTransport).
+  const spokes = seatsForArmies(armies.length);
+  const teams = LANE_IDS.map((id, seat) => {
+    const army = armies[spokes.indexOf(seat)];
+    return {
+      id,
+      playerIds: seat === 0 ? ['you'] : [`seat${seat}`],
+      name: seat === 0 ? identity.name : `Seat ${seat + 1}`,
+      ...(army ? { builderId: army.builderId } : {}),
+    };
+  });
 
   return new LocalTransport(
     data,
