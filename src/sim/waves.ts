@@ -25,6 +25,17 @@ export interface SpawnSpec {
    * the send's, not the monster's (abilities.json).
    */
   sendId?: string;
+  /**
+   * Gold this body pays the lane that kills it, decided when the wave was
+   * generated or the send was queued rather than read off the definition.
+   *
+   * A wave's monsters divide a FIXED pool (`shareOutTheWavePool`); a sent one is
+   * priced against what its sender spent (`sendBounty`). It rides on the spec
+   * because the reserve can hold a body for several waves (§8.1), and its
+   * bounty belongs to the wave that bought it, not the one it finally walks in
+   * with.
+   */
+  bounty?: number;
 }
 
 /** Stats after wave scaling, resolved once at spawn rather than per tick. */
@@ -132,7 +143,60 @@ export function generateWave(data: GameData, seed: number, waveNumber: number): 
     }
   }
 
+  shareOutTheWavePool(data, specs);
   return specs;
+}
+
+/**
+ * §11.1, REPLACED: a wave pays a FIXED pool, split between its monsters in
+ * proportion to the `bounty` weight on each definition.
+ *
+ * The bounty on a monster definition used to be the gold it paid, so a wave's
+ * payout was whatever its composition happened to add up to: wave 24 paid 545
+ * gold and wave 12 paid 101, and nobody decided either. Worse, it made clearing
+ * a wave fast a way to FARM it - the gold curve bent to whoever built the most
+ * damage, and the lead compounded.
+ *
+ * A fixed pool takes that out. The number on the definition is now a weight, so
+ * a carapace is still worth four grubs to kill and the wave still pays 200
+ * whatever walks in. What a player earns from a wave is now a constant, and the
+ * reward for building well is that they survive it - which is the pressure the
+ * game is supposed to be about.
+ *
+ * Sent monsters are NOT in this: they are priced against what their sender paid
+ * (`sendBountyPerTenGems`), so sending at somebody cannot dilute their pool.
+ */
+export function shareOutTheWavePool(data: GameData, specs: SpawnSpec[]): void {
+  const pool = num(data.economy.waveBounty);
+  if (pool <= 0 || specs.length === 0) return;
+
+  const byId = new Map([...data.monsters.monsters, ...data.monsters.bosses].map((m) => [m.id, m]));
+  const weightOf = (spec: SpawnSpec): number =>
+    Math.max(0, num(byId.get(spec.defId)?.bounty ?? null));
+
+  let total = 0;
+  for (const spec of specs) total += weightOf(spec);
+
+  // Every weight zero would divide by nothing. An even split is the honest
+  // reading of "no monster here is worth more than another".
+  for (const spec of specs) {
+    spec.bounty = total > 0 ? (pool * weightOf(spec)) / total : pool / specs.length;
+  }
+}
+
+/**
+ * §11.5: what a sent monster pays the lane that kills it.
+ *
+ * Priced against what the SENDER spent rather than against the body, so that a
+ * send is a straight trade - permanent income for them, gold now for you - and
+ * an expensive attack send funds its target's answer to it. Sends are bought
+ * with gems and the bounty is paid in gold, which is the one place in the game
+ * the two currencies touch; `sendBountyPerTenGems` is that exchange rate.
+ */
+export function sendBounty(data: GameData, sendId: string): number {
+  const send = data.sends.sends.find((s) => s.id === sendId);
+  if (!send) return 0;
+  return (num(send.gemCost) * num(data.economy.sendBountyPerTenGems)) / 10;
 }
 
 /**

@@ -495,6 +495,31 @@ export interface EconomyFile {
    * kills a monster. The lane it died in is paid nothing.
    */
   fortressKillBounty: Unfilled<number>;
+  /**
+   * §11.1, REPLACED: a wave pays this much gold in total, split evenly between
+   * the monsters in it, whatever they are and however many there are.
+   *
+   * Monster bounties used to be authored per monster, which made a wave's
+   * payout a consequence of its composition: wave 24 paid 545 gold and wave 12
+   * paid 101, for no reason anybody chose. A fixed pool makes the gold curve a
+   * decision rather than an accident, and it takes the snowball out of clearing
+   * fast - you cannot farm a wave, only survive it.
+   *
+   * `monsters.json` still carries a `bounty` per monster. It is now a WEIGHT
+   * within the pool rather than an amount: a monster worth twice another takes
+   * twice the share. Set every weight equal for a flat split.
+   */
+  waveBounty: Unfilled<number>;
+  /**
+   * §11.5, decided: gold the DEFENDER is paid for killing a sent monster, per
+   * ten gems its sender spent, on top of its share of the wave pool.
+   *
+   * A send buys its sender permanent income and hands its target gold now. That
+   * is the trade that makes being ganged up on survivable: three opponents
+   * piling on one lane fund that lane's rebuild, so the reward for surviving it
+   * is real rather than moral.
+   */
+  sendBountyPerTenGems: Unfilled<number>;
   supply: {
     capBase: Unfilled<number>;
     capUpgrades: UpgradeLevel[];

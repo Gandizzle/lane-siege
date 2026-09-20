@@ -187,13 +187,18 @@ describe('sends (§11.5)', () => {
 
   it('grants timed vision only for the sends that say so', () => {
     const { state, ctx } = fourPlayerMatch();
-    fund(state, 'a', 500);
+    fund(state, 'a', 5000);
+
+    // Read from data rather than named: which send carries sight is a pricing
+    // decision (sends.json `_vision`) and has moved once already.
+    const blind = data.sends.sends.find((s) => !s.grantsVision)!;
+    const seeing = data.sends.sends.find((s) => s.grantsVision)!;
 
     applyCommand(ctx, state, {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'grub',
+      sendId: blind.id,
     });
     expect(state.teams.find((t) => t.id === 'a')!.vision.b ?? 0).toBe(0);
 
@@ -201,7 +206,7 @@ describe('sends (§11.5)', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarmling',
+      sendId: seeing.id,
     });
     const granted = state.teams.find((t) => t.id === 'a')!.vision.b ?? 0;
     expect(granted).toBeGreaterThan(0);
@@ -256,7 +261,7 @@ describe('fog of war (§12)', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarmling',
+      sendId: data.sends.sends.find((s) => s.grantsVision)!.id,
     });
 
     const view = viewFor(ctx, state, 'a');

@@ -22,7 +22,8 @@
     "wire": "tsx src/headless/wire.ts",
     "server": "tsx server/index.ts",
     "netcheck": "tsx src/headless/netcheck.ts",
-    "lobby": "tsx src/headless/lobby.ts"
+    "lobby": "tsx src/headless/lobby.ts",
+    "budget": "tsx src/headless/budget.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

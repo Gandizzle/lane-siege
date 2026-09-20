@@ -55,7 +55,7 @@ import {
   type MatchState,
   type Monster,
 } from './types.ts';
-import { generateWave, resolveMonsterStats, type SpawnSpec } from './waves.ts';
+import { generateWave, resolveMonsterStats, sendBounty, type SpawnSpec } from './waves.ts';
 
 export { createContext } from './context.ts';
 export type { SimContext, World } from './context.ts';
@@ -611,11 +611,14 @@ function spawnWave(ctx: SimContext, state: MatchState): void {
     if (!lane) continue;
 
     // §11.5: monsters an opponent sent at this lane join its next wave. The
-    // defender still collects their bounty.
+    // defender still collects their bounty - priced against the gems the
+    // SENDER spent (`sendBounty`), and paid on top of the wave's own fixed
+    // pool, so being sent at is gold now in exchange for their income later.
     const incoming = lane.incomingSends.map((s) => ({
       defId: s.defId,
       waveNumber: state.wave,
       sendId: s.sendId,
+      bounty: sendBounty(ctx.data, s.sendId),
     }));
     lane.incomingSends.length = 0;
     // The "you are being attacked by X" notice belongs to the wave that is

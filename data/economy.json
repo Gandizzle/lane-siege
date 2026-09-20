@@ -1,11 +1,14 @@
 {
-  "_comment": "DESIGN.md \u00a711. Gold buys units, tiers and tech; gems buy fortress upgrades and sends. Supply is one shared budget across offence, defence and economy. All placeholders.",
-  "startingGold": 400,
+  "_comment": "DESIGN.md §11. Gold buys units, tiers and tech; gems buy fortress upgrades and sends. Supply is one shared budget across offence, defence and economy. All placeholders.",
+  "startingGold": 250,
   "startingGems": 0,
-  "_fortressKillNote": "\u00a711.1, amended: a monster the FORTRESS kills pays its bounty to nobody. Every other living lane gets this much gold instead, so leaning on the wall funds the table rather than you.",
+  "_fortressKillNote": "§11.1, amended: a monster the FORTRESS kills pays its bounty to nobody. Every other living lane gets this much gold instead, so leaning on the wall funds the table rather than you.",
   "fortressKillBounty": 1,
+  "_waveBountyNote": "§11.1, REPLACED. A wave pays waveBounty gold in total, split between its monsters in proportion to the `bounty` weight on each (monsters.json). Authored per-monster bounties made a wave’s payout a consequence of its composition - wave 24 paid 545 gold and wave 12 paid 101, chosen by nobody. A fixed pool makes the gold curve a decision, and removes the reward for farming a wave rather than surviving it. Sent monsters are NOT in the pool: they pay sendBountyPerTenGems separately, so sending at someone cannot starve them.",
+  "waveBounty": 200,
+  "sendBountyPerTenGems": 2,
   "supply": {
-    "_comment": "\u00a711.4: the cap does not grow on its own - it is an upgrade you choose to buy, which makes a large army a deliberate investment. A flat price and a flat +5, so the decision is always the same one: five more supply, or a unit now.",
+    "_comment": "§11.4: the cap does not grow on its own - it is an upgrade you choose to buy, which makes a large army a deliberate investment. A flat price and a flat +5, so the decision is always the same one: five more supply, or a unit now.",
     "capBase": 25,
     "capUpgrades": [
       {
@@ -186,12 +189,12 @@
     ]
   },
   "sell": {
-    "_comment": "DESIGN.md \u00a711, decided (not in the document). Selling returns this fraction of what was paid for a unit, including its upgrades. Full price within the build phase that bought it, so building by mistake is undoable; half afterwards, so rebuilding the board between waves costs something. Rates are per PURCHASE, not per unit: an upgrade bought this phase refunds in full even on an old body.",
+    "_comment": "DESIGN.md §11, decided (not in the document). Selling returns this fraction of what was paid for a unit, including its upgrades. Full price within the build phase that bought it, so building by mistake is undoable; half afterwards, so rebuilding the board between waves costs something. Rates are per PURCHASE, not per unit: an upgrade bought this phase refunds in full even on an old body.",
     "sameBuildPhase": 1,
     "later": 0.5
   },
   "tech": {
-    "_comment": "\u00a77.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
+    "_comment": "§7.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
     "tracks": [
       {
         "id": "dmg_impact",
@@ -444,5 +447,6 @@
         ]
       }
     ]
-  }
+  },
+  "_startingGoldNote": "Down from 400. Wave 1 should be a decision about what a small purse buys, not a shopping trip; 250 is a front line and one thing behind it, and the resource building has to be chosen over a body rather than bought alongside one."
 }

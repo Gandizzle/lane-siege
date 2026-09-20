@@ -205,7 +205,11 @@ export function createMonster(
     attackSpeed: stats.attackSpeed,
     moveSpeed: stats.moveSpeed,
     range: stats.range,
-    bounty: stats.bounty,
+    // §11.1, replaced: the spec carries the bounty, because a wave divides a
+    // fixed pool and a sent body is priced against what its sender paid
+    // (waves.ts). The definition's own number is only a weight now, and is the
+    // fallback for a spec made without one - tests, mostly.
+    bounty: spec.bounty ?? stats.bounty,
     killedByFortress: false,
     radius: stats.radius,
     halfWidth: 0,

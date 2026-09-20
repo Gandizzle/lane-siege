@@ -299,7 +299,9 @@ describe('a frame survives the round trip', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarmling',
+      // Whichever send carries sight: which one that is is a pricing decision
+      // (sends.json `_vision`) and has moved once already.
+      sendId: data.sends.sends.find((x) => x.grantsVision)!.id,
     });
 
     const { original, decoded } = roundTrip(state, ctx, 'a');
@@ -319,7 +321,9 @@ describe('a frame cannot leak what the view withheld', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarmling',
+      // Whichever send carries sight: which one that is is a pricing decision
+      // (sends.json `_vision`) and has moved once already.
+      sendId: data.sends.sends.find((x) => x.grantsVision)!.id,
     });
 
     const frame = encodeFrame(viewFor(ctx, state, 'a'), tables);
@@ -348,7 +352,9 @@ describe('a frame cannot leak what the view withheld', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: 'swarmling',
+      // Whichever send carries sight: which one that is is a pricing decision
+      // (sends.json `_vision`) and has moved once already.
+      sendId: data.sends.sends.find((x) => x.grantsVision)!.id,
     });
 
     const decoded = decodeFrame(encodeFrame(viewFor(ctx, state, 'a'), tables), tables);
