@@ -86,6 +86,22 @@ export function arenaCentre(shape: ArenaShape): Vec2 {
 }
 
 /**
+ * Whether a point is inside the centre square - the ground all four spokes
+ * meet on, and the hill somebody holds (§3.3, replaced).
+ *
+ * The square is the band on BOTH axes, which is the same band the corners are
+ * cut out with: inside it one way is a spoke, inside it both ways is the
+ * middle. Measured on the body's centre rather than its circle, so a body half
+ * in and half out is wherever its middle is and two players cannot both count
+ * the same body by standing it on the line.
+ */
+export function inCentre(shape: ArenaShape, pos: Vec2): boolean {
+  const band = shape.bounds.band;
+  if (!band) return false;
+  return pos.x >= band.min && pos.x <= band.max && pos.y >= band.min && pos.y <= band.max;
+}
+
+/**
  * Where a unit built on tile (tileX, tileY) of its lane stands in the arena.
  *
  * The south spoke is the layout written out: the player's grid at the bottom

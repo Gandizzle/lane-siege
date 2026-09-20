@@ -36,6 +36,12 @@ import { SEAT_COLOURS, UI } from './palette.ts';
 
 /** How strongly a spoke's floor carries its owner's colour. A tint, not a fill. */
 const SPOKE_TINT_ALPHA = 0.1;
+/**
+ * How strongly a held centre is tinted. Well above the spoke tint, because the
+ * hill is a thing being won rather than a thing being owned: at 0.1 it read as
+ * another piece of floor.
+ */
+const HELD_TINT_ALPHA = 0.3;
 
 /** A drag shorter than this is a tap that missed, not a scroll. */
 const DRAG_SLOP = 4;
@@ -105,6 +111,7 @@ export class ArenaStage extends Container {
   private screen: Rect;
   private dragging: { pointerX: number; pointerY: number; moved: number } | null = null;
   private seats = new Map<number, number>();
+  private readonly centre = new Graphics();
   /** Recentred once, when the arena first appears, and never again. */
   private framed = false;
 
@@ -121,7 +128,9 @@ export class ArenaStage extends Container {
     this.camera = arenaCamera(screen.width, screen.height, shape.size, laneTileSize, this.offset);
     this.entities = new EntityLayer(this.camera, defs);
     this.effectsLayer = new EffectsLayer(this.camera, data, defs);
-    this.addChild(this.ground, this.entities, this.effectsLayer, this.touch);
+    // The hill goes over the ground and under the bodies: it is painted
+    // ground, and it must never obscure the fight standing on it.
+    this.addChild(this.ground, this.centre, this.entities, this.effectsLayer, this.touch);
     this.installTouchArea();
     this.drawGround();
   }
@@ -168,6 +177,7 @@ export class ArenaStage extends Container {
     }
 
     this.seats = seatsById(view);
+    this.drawCentre(view);
     this.entities.render(lane, alpha, {
       ringOf: (unit) => {
         const seat = this.seats.get(unit.id);
@@ -241,6 +251,54 @@ export class ArenaStage extends Container {
     // than as where the paint happened to stop.
     at(spokeLength, 0, spokeWidth, size).stroke({ width: 1, color: UI.panelEdge });
     at(0, spokeLength, size, spokeWidth).stroke({ width: 1, color: UI.panelEdge });
+  }
+
+  /**
+   * Who holds the hill, painted on it (§3.3, replaced).
+   *
+   * A prize nobody can see is a prize nobody plays for, and the whole point of
+   * the centre buff is to pull armies into the middle - so the middle has to
+   * say who is winning it. The square takes the holder's seat colour, and a
+   * TIE splits it into a band each, which reads as contested rather than as
+   * somebody having quietly taken it.
+   *
+   * Redrawn every frame rather than on layout, unlike the rest of the ground:
+   * it is the one part of the floor that changes while nothing else does.
+   */
+  private drawCentre(view: MatchView): void {
+    const g = this.centre;
+    g.clear();
+
+    const holders = view.showdown?.centreHolders ?? [];
+    const { tileSize, gridOrigin } = this.camera;
+    const { spokeLength, spokeWidth } = this.shape;
+    const x = gridOrigin.x + spokeLength * tileSize;
+    const y = gridOrigin.y + spokeLength * tileSize;
+    const side = spokeWidth * tileSize;
+
+    if (holders.length === 0) {
+      // Nobody is standing there. An outline only, so the square still reads as
+      // somewhere worth being rather than as empty floor.
+      g.rect(x, y, side, side).stroke({ width: 1, color: UI.panelEdge });
+      return;
+    }
+
+    const seatOf = new Map(view.showdown?.armies.map((army) => [army.teamId, army.seat]) ?? []);
+    const band = side / holders.length;
+    holders.forEach((teamId, index) => {
+      const seat = seatOf.get(teamId);
+      if (seat === undefined) return;
+      g.rect(x + index * band, y, band, side).fill({
+        color: seatColour(seat),
+        alpha: HELD_TINT_ALPHA,
+      });
+    });
+
+    // One outline in the leader's colour when it is held outright, and in the
+    // neutral edge colour when it is shared - a contested hill should not look
+    // like a won one.
+    const outline = holders.length === 1 ? seatColour(seatOf.get(holders[0]!) ?? 0) : UI.outline;
+    g.rect(x, y, side, side).stroke({ width: 2, color: outline, alpha: 0.9 });
   }
 
   // ------------------------------------------------------------------- input

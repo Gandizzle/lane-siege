@@ -32,7 +32,7 @@ export type { SpawnSpec, WavePreviewEntry, WaveSummary, UnitRating } from './wav
 export { inBounds, tileOccupiedByUnit } from './grid.ts';
 export { gap, slideStep } from './motion.ts';
 export type { Body, Bounds } from './motion.ts';
-export { LEGS, arenaCentre, arenaShape, legForSeat, legPosition } from './arena.ts';
+export { LEGS, arenaCentre, arenaShape, inCentre, legForSeat, legPosition } from './arena.ts';
 export type { ArenaShape, Leg } from './arena.ts';
 export {
   applyHealing,
@@ -46,6 +46,7 @@ export { countLiving } from './spawn.ts';
 // For the balance harness, which stands armies up directly rather than buying
 // them one build phase at a time (src/balance/arena.ts).
 export { recomputeUnitBuffs } from './buffs.ts';
+export { modifiersOf } from './status.ts';
 export { stat } from './defs.ts';
 export { viewFor } from './view.ts';
 export type {

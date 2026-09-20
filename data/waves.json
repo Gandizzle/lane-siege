@@ -7,6 +7,11 @@
     "afterWave": 25,
     "countdownSeconds": 3,
     "approachDepth": 2,
+    "centre": {
+      "_comment": "KING OF THE HILL. Whichever army has the MOST living bodies inside the centre square holds it, and every one of that army’s bodies - wherever it is standing - deals damageDealt more damage and takes damageTaken less. A tie is held by everyone tied, so contesting it is never worse than conceding it. Without this the arena rewards exactly one strategy: mass the slowest, longest-ranged units you can afford, let the other three fight, and walk in to mop up. A reason to stand in the middle is a reason to own a front line. Percentages, in the same convention as an ability’s modify effect: 0.5 is +50%, -0.5 is -50%.",
+      "damageDealt": 0.5,
+      "damageTaken": -0.5
+    },
     "acquire": {
       "_comment": "How far a unit looks for something to fight in the arena, edge to edge in tiles: its own reach plus margin, never less than minimum. Nothing looks across the whole board - a unit with nothing inside this walks at the centre instead, which is what makes four armies converge rather than each pick a duel from thirty tiles away. The lane's equivalent is lane.monsterAcquireRange. Placeholders.",
       "margin": 2,
@@ -446,6 +451,11 @@
       ]
     }
   ],
-  "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"],
+  "bossBank": [
+    "brood_sire",
+    "hollow_king",
+    "gravemother",
+    "chitin_lord"
+  ],
   "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one."
 }

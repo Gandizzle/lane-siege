@@ -38,13 +38,13 @@
 
 import { cooldownTicks, secondsToTicks } from './constants.ts';
 import { buildArenaAbilityEnv, fire, tickBody, type AbilityEnv } from './abilityRuntime.ts';
-import { legForSeat, legPosition } from './arena.ts';
+import { inCentre, legForSeat, legPosition } from './arena.ts';
 import type { SimContext } from './context.ts';
 import { applyHealing, healingMultiplier } from './dampening.ts';
 import { stat } from './defs.ts';
 import type { Body } from './motion.ts';
 import type { Rng } from './rng.ts';
-import { canAttack, canMove, modifiersOf, tauntedBy } from './status.ts';
+import { applyStatus, canAttack, canMove, modifiersOf, tauntedBy, type Status } from './status.ts';
 import { dealDamage } from './strike.ts';
 import { moveSeekers, planMoves, type Walker } from './steering.ts';
 import { holdOrAcquire, withinRange } from './targeting.ts';
@@ -105,7 +105,7 @@ export function beginShowdown(ctx: SimContext, state: MatchState): void {
     lane.units = [];
   });
 
-  state.showdown = { age: 0, armies, attacks: [] };
+  state.showdown = { age: 0, armies, attacks: [], centreHolders: [] };
   state.phase = 'showdown';
   state.phaseTicksLeft = secondsToTicks(ctx.data.waves.showdown.countdownSeconds);
 }
@@ -165,6 +165,17 @@ export function showdownTick(ctx: SimContext, state: MatchState, rng: Rng): void
   for (const army of showdown.armies) {
     for (const unit of army.units) if (unit.alive) tickBody(env, unit);
   }
+
+  // 0b. Who owns the middle, which decides who hits harder and takes less for
+  // the rest of this tick (§3.3, replaced).
+  //
+  // AFTER the clocks and before anything swings, and both halves of that
+  // matter. The hill status is applied with a single tick of life so that
+  // losing the hill takes it away without anything having to remove it - which
+  // means applying it before `tickStatuses` would decrement it straight back
+  // off, and applying it after the attacks would buff next tick's blows using
+  // this tick's positions.
+  holdTheCentre(ctx, showdown);
 
   // 1. Who is fighting and who is walking, and 2. where the walkers are going.
   // Both per army, off the same enemy list, so the scratch array is filled
@@ -406,6 +417,98 @@ function reapArena(env: AbilityEnv, ctx: SimContext, showdown: Showdown): void {
  */
 function regenPerSecond(_unit: DefensiveUnit): number {
   return 0;
+}
+
+/**
+ * KING OF THE HILL (§3.3, replaced; `waves.showdown.centre`).
+ *
+ * The army with the most living bodies inside the centre square holds it, and
+ * every body that army owns - wherever it happens to be standing - hits harder
+ * and takes less. A tie is held by EVERYONE tied, so walking into a contested
+ * middle is never worse than staying out of it, and two armies grinding each
+ * other down there are both rewarded rather than neither.
+ *
+ * WHY IT EXISTS. Without it the arena has one correct strategy and it is not a
+ * fight: mass the slowest, longest-ranged bodies the budget affords, hold them
+ * at the back of the spoke, let the other three armies destroy each other in
+ * the middle, and walk in afterwards. The whole front half of every roster is
+ * dead weight under that plan. A prize for standing in the centre is what makes
+ * a front line worth paying for.
+ *
+ * WHY A STATUS rather than a multiplier the strike reads. Everything that
+ * changes what a body deals or takes already goes through `modifiersOf`, and
+ * putting this anywhere else would be a second mitigation path to keep in step
+ * with the first. It also means the player can SEE it: `EntityView.mods` is
+ * built from the same aggregate, so a selected body on the hill shows its
+ * damage in green without another wire field or another rule in the panel.
+ *
+ * Applied fresh every tick with a single tick of life, so losing the hill takes
+ * it away on the next tick without anything having to remove it.
+ */
+const CENTRE_ABILITY = '@centre';
+
+/** Reused, since `applyStatus` copies what it needs into the body's own list. */
+const centreStatus: Status = {
+  abilityId: CENTRE_ABILITY,
+  slot: 0,
+  kind: 'modify',
+  stat: 'damageDealt',
+  mode: 'percent',
+  amount: 0,
+  perSecond: 0,
+  ofMaxHealth: 0,
+  damageType: null,
+  blocks: 0,
+  control: null,
+  immuneTo: null,
+  tag: null,
+  ticksLeft: 1,
+  sourceId: 0,
+  sourceDefId: CENTRE_ABILITY,
+};
+
+/** One stack per source, so a re-application refreshes rather than piles up. */
+const CENTRE_STACKS = { from: 'perSource', max: 1, refresh: true } as const;
+
+export function holdTheCentre(ctx: SimContext, showdown: Showdown): void {
+  const rule = ctx.data.waves.showdown.centre;
+  const dealt = rule?.damageDealt ?? 0;
+  const taken = rule?.damageTaken ?? 0;
+
+  let best = 0;
+  const counts: number[] = [];
+  for (const army of showdown.armies) {
+    let inside = 0;
+    for (const unit of army.units) {
+      if (unit.alive && inCentre(ctx.arenaShape, unit.pos)) inside += 1;
+    }
+    counts.push(inside);
+    if (inside > best) best = inside;
+  }
+
+  // Nobody in the middle is nobody holding it. An empty hill is not a tie.
+  showdown.centreHolders.length = 0;
+  if (best <= 0 || (dealt === 0 && taken === 0)) return;
+
+  showdown.armies.forEach((army, index) => {
+    if (counts[index] !== best) return;
+    showdown.centreHolders.push(army.teamId);
+    for (const unit of army.units) {
+      if (!unit.alive) continue;
+      if (dealt !== 0) {
+        centreStatus.slot = 0;
+        centreStatus.stat = 'damageDealt';
+        centreStatus.amount = dealt;
+        applyStatus(unit, { ...centreStatus }, CENTRE_STACKS);
+      }
+      if (taken !== 0) {
+        centreStatus.slot = 1;
+        centreStatus.stat = 'damageTaken';
+        centreStatus.amount = taken;
+        applyStatus(unit, { ...centreStatus }, CENTRE_STACKS);
+      }
+    }
+  });
 }
 
 /**

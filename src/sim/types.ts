@@ -482,6 +482,15 @@ export interface Showdown {
   armies: ShowdownArmy[];
   /** Blows landed on this tick, as in a lane. See `Attack`. */
   attacks: Attack[];
+  /**
+   * Who holds the centre square this tick, and so who is hitting harder and
+   * taking less (`holdTheCentre` in showdown.ts). Everyone tied for the most
+   * bodies inside it; empty when nobody is standing there at all.
+   *
+   * Recomputed every tick rather than remembered, so it is a fact about where
+   * the bodies ARE rather than about who got there first.
+   */
+  centreHolders: TeamId[];
 }
 
 export interface MatchState {

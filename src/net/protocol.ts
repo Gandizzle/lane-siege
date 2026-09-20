@@ -162,8 +162,14 @@ export interface WireLane {
  */
 export type WireArmy = [number, number, WireEntity[]];
 
-/** `[countdownTicks, armies, flat attacks]`. See `WireLane.a` on the flattening. */
-export type WireShowdown = [number, WireArmy[], number[]];
+/**
+ * `[countdownTicks, armies, flat attacks, centre holders]`.
+ *
+ * The holders are team INDICES into the same table the armies use, and there
+ * are at most four of them, so who owns the hill costs a handful of bytes a
+ * frame. See `WireLane.a` on the flattening of the attacks.
+ */
+export type WireShowdown = [number, WireArmy[], number[], number[]];
 
 export interface WireFrame {
   tk: number;
@@ -567,13 +573,17 @@ function encodeShowdown(showdown: ShowdownView, tables: WireTables): WireShowdow
         ] as WireArmy,
     ),
     flattenAttacks(showdown.attacks),
+    showdown.centreHolders.map((id) => tables.teamIds.indexOf(id)).filter((i) => i >= 0),
   ];
 }
 
 function decodeShowdown(wire: WireShowdown, tables: WireTables): ShowdownView {
-  const [countdown, armies, attacks] = wire;
+  const [countdown, armies, attacks, holders] = wire;
   return {
     countdown,
+    // Absent on a frame from before the hill existed, which is what the `?? []`
+    // is for - a replay recorded then should decode rather than throw.
+    centreHolders: (holders ?? []).map((i) => tables.teamIds[i] ?? '').filter((id) => id !== ''),
     armies: armies.map(([teamIndex, seat, units]) => ({
       teamId: tables.teamIds[teamIndex] ?? '',
       seat,

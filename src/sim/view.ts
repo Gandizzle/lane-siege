@@ -296,6 +296,16 @@ export interface ShowdownView {
   countdown: number;
   armies: ShowdownArmyView[];
   attacks: AttackView[];
+  /**
+   * Who holds the centre square, and so whose bodies are hitting harder and
+   * taking less (§3.3, replaced). Everyone tied for the most bodies inside it;
+   * empty when nobody is standing there.
+   *
+   * Public to everybody, like the rest of the arena: four armies converging on
+   * one square are in public by construction, and a prize nobody can see is a
+   * prize nobody plays for.
+   */
+  centreHolders: TeamId[];
 }
 
 export interface MatchView {
@@ -461,6 +471,7 @@ function laneView(ctx: SimContext, lane: Lane, own: boolean): LaneView {
 function showdownView(showdown: Showdown, countdown: number): ShowdownView {
   return {
     countdown,
+    centreHolders: [...showdown.centreHolders],
     armies: showdown.armies.map((army) => ({
       teamId: army.teamId,
       seat: army.seat,

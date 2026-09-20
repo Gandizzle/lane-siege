@@ -374,6 +374,20 @@ export interface ShowdownFile {
   /** Rows of open ground between a player's build grid and the centre. */
   approachDepth: number;
   /**
+   * King of the hill: what holding the centre square is worth.
+   *
+   * The army with the most living bodies inside the centre holds it, and every
+   * body it owns - wherever that body is standing - gets both of these. A tie
+   * is held by everyone tied, so contesting is never worse than conceding.
+   *
+   * Without it the arena rewards exactly one strategy: mass the slowest,
+   * longest-ranged units affordable, let the other three fight, walk in and mop
+   * up. A reason to stand in the middle is a reason to own a front line.
+   *
+   * Fractions, in an ability's `modify` convention: 0.5 is +50%, -0.5 is -50%.
+   */
+  centre: { damageDealt: Unfilled<number>; damageTaken: Unfilled<number> };
+  /**
    * How far a unit looks for something to fight in the arena, edge to edge in
    * tiles: `max(minimum, its own range + margin)`. There is no global sight -
    * a unit with nothing inside this walks at the centre of the map instead.

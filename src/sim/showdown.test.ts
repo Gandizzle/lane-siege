@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { LEGS, arenaShape, legForSeat, legPosition } from './arena.ts';
+import { LEGS, arenaShape, inCentre, legForSeat, legPosition } from './arena.ts';
 import {
   applyHealing,
   crowdControlMultiplier,
@@ -19,11 +19,14 @@ import {
   applyCommand,
   createContext,
   createMatch,
+  modifiersOf,
   slideStep,
   step,
+  viewFor,
   TICKS_PER_SECOND,
 } from './index.ts';
 import type { Body, MatchState, SimContext } from './index.ts';
+import type { Afflicted } from './status.ts';
 
 const { data } = loadDataFromDisk();
 const shape = arenaShape(data);
@@ -558,5 +561,172 @@ describe('the cross has walls where a rectangle has none (§3.3, replaced)', () 
     }
 
     expect(walker.pos.x).toBeGreaterThanOrEqual(band.min + walker.radius - 1e-6);
+  });
+});
+
+/**
+ * KING OF THE HILL (§3.3, replaced). The centre square is worth holding, and
+ * the whole point of it is that an army which refuses to walk into the middle
+ * gives the prize away.
+ *
+ * Without it the arena has one correct strategy and it is not a fight: mass the
+ * slowest, longest-ranged bodies you can afford, hold them at the back of your
+ * spoke, and walk in once the other three have destroyed each other.
+ */
+describe('holding the centre (§3.3, replaced)', () => {
+  const centre = data.waves.showdown.centre;
+
+  /** Move an army's bodies onto the middle of the arena, `count` of them. */
+  function stand(state: MatchState, teamId: string, count: number): void {
+    const army = state.showdown!.armies.find((a) => a.teamId === teamId)!;
+    const middle = shape.size / 2;
+    army.units.forEach((unit, i) => {
+      if (i >= count) return;
+      // Spread along one row so nothing overlaps, and well inside the square.
+      unit.pos.x = middle - 2 + (i % 4);
+      unit.pos.y = middle - 1 + Math.floor(i / 4) * 0.6;
+    });
+  }
+
+  it('knows the centre square from the spokes', () => {
+    const mid = shape.size / 2;
+    expect(inCentre(shape, { x: mid, y: mid })).toBe(true);
+    // Down a spoke is not the middle, on either axis.
+    expect(inCentre(shape, { x: mid, y: 1 })).toBe(false);
+    expect(inCentre(shape, { x: 1, y: mid })).toBe(false);
+    // Nor is a corner, which is not even arena.
+    expect(inCentre(shape, { x: 1, y: 1 })).toBe(false);
+  });
+
+  it('is held by nobody while nobody is standing in it', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 3);
+    reachShowdown(ctx, state);
+    // Straight off the build grids, every body is down its own spoke.
+    expect(state.showdown!.centreHolders).toEqual([]);
+  });
+
+  it('is held by whoever has the most bodies in it', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 6);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    stand(state, 'a', 2);
+    stand(state, 'c', 5);
+    step(ctx, state);
+    expect(state.showdown!.centreHolders).toEqual(['c']);
+  });
+
+  it('is held by EVERYONE tied, so contesting is never worse than conceding', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 6);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    stand(state, 'a', 3);
+    stand(state, 'c', 3);
+    step(ctx, state);
+    expect(state.showdown!.centreHolders.sort()).toEqual(['a', 'c']);
+  });
+
+  /**
+   * Measured as a RATIO against the same body without the hill, never as an
+   * absolute. A Pledge carries Shoulder to Shoulder, which also moves
+   * `damageDealt` and `damageTaken`, so an absolute assertion here tests the
+   * unit's ability as much as the hill and breaks the first time either is
+   * tuned.
+   */
+  function centreFactor(unit: Afflicted): { dealt: number; taken: number } {
+    const withHill = modifiersOf(unit);
+    const without = modifiersOf({
+      ...unit,
+      statuses: unit.statuses.filter((x) => x.abilityId !== '@centre'),
+    });
+    return {
+      dealt: withHill.damageMul / without.damageMul,
+      taken: withHill.damageTakenMul / without.damageTakenMul,
+    };
+  }
+
+  it('buffs every body the holder owns, not only the ones standing there', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 6);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    stand(state, 'a', 4);
+    step(ctx, state);
+
+    const holder = state.showdown!.armies.find((x) => x.teamId === 'a')!;
+    const other = state.showdown!.armies.find((x) => x.teamId === 'c')!;
+
+    for (const unit of holder.units) {
+      const factor = centreFactor(unit);
+      expect(factor.dealt, `${unit.id} damage`).toBeCloseTo(1 + (centre.damageDealt ?? 0), 6);
+      expect(factor.taken, `${unit.id} taken`).toBeCloseTo(1 + (centre.damageTaken ?? 0), 6);
+    }
+    for (const unit of other.units) {
+      expect(
+        unit.statuses.some((x) => x.abilityId === '@centre'),
+        unit.defId,
+      ).toBe(false);
+      expect(centreFactor(unit).dealt).toBe(1);
+    }
+  });
+
+  it('takes the buff away the tick the hill is lost', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 6);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    stand(state, 'a', 4);
+    step(ctx, state);
+    const unit = state.showdown!.armies.find((x) => x.teamId === 'a')!.units[0]!;
+    expect(centreFactor(unit).dealt).toBeGreaterThan(1);
+
+    // Walk them all back out of the square, and hold them there.
+    const army = state.showdown!.armies.find((x) => x.teamId === 'a')!;
+    for (const body of army.units) {
+      body.pos.x = 1.5;
+      body.pos.y = shape.size / 2;
+      body.moveSpeed = 0;
+    }
+    step(ctx, state);
+    expect(state.showdown!.centreHolders).toEqual([]);
+    expect(unit.statuses.some((x) => x.abilityId === '@centre')).toBe(false);
+    expect(centreFactor(unit).dealt).toBe(1);
+  });
+
+  it('does not stack however many ticks it is held for', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 6);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    const army = state.showdown!.armies.find((x) => x.teamId === 'a')!;
+    for (let i = 0; i < 20; i++) {
+      stand(state, 'a', 4);
+      for (const body of army.units) body.moveSpeed = 0;
+      step(ctx, state);
+    }
+    const unit = army.units[0]!;
+    expect(unit.statuses.filter((x) => x.abilityId === '@centre')).toHaveLength(2);
+    expect(centreFactor(unit).dealt).toBeCloseTo(1 + (centre.damageDealt ?? 0), 6);
+  });
+
+  it('is in the view, so a player can see who is winning it', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 6);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+    stand(state, 'c', 4);
+    step(ctx, state);
+
+    // Public to everybody, eliminated or not: the arena has no fog.
+    for (const watcher of ['a', 'b', 'c', 'd']) {
+      expect(viewFor(ctx, state, watcher).showdown!.centreHolders, watcher).toEqual(['c']);
+    }
   });
 });
