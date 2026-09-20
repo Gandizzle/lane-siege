@@ -67,9 +67,9 @@ export function sendIcon(data: GameData, sendId: string): SendIcon | null {
   if (!monster) return null;
 
   return {
-    // Outlined, because it is a monster (§14.2), and tier 1 because monsters
-    // have no tiers.
-    style: { shape: monster.shape, damageType: monster.damageType, tier: 1, outlined: true },
+    // Outlined, because it is a monster (§14.2), and mark 1 because monsters
+    // have no marks.
+    style: { shape: monster.shape, damageType: monster.damageType, mark: 1, outlined: true },
     monsterName: monster.name,
     count: send.monsters.length,
     abilityName: sendAbilityName(data, send.abilities, monster.abilities),

@@ -151,7 +151,7 @@ describe('placing units (§11.4)', () => {
   });
 });
 
-describe('tier upgrades (§7.3)', () => {
+describe('mark upgrades (§7.3)', () => {
   it('upgrades in place, keeping the tile and the identity', () => {
     const { state, ctx } = freshMatch();
     applyCommand(ctx, state, {
@@ -187,8 +187,8 @@ describe('tier upgrades (§7.3)', () => {
     expect(valueRatio).toBeGreaterThan(costRatio);
   });
 
-  it('refuses at max tier', () => {
-    // Bulwark tops out at tier 2; Hammer goes to 3 (§7.3 - only some units do).
+  it('refuses at max mark', () => {
+    // Bulwark tops out at mark 2; Hammer goes to 3 (§7.3 - only some units do).
     const { state, ctx } = freshMatch();
     state.lanes.lane1!.economy.gold = 99999;
     state.lanes.lane1!.economy.supplyCap = 999;
@@ -207,11 +207,11 @@ describe('tier upgrades (§7.3)', () => {
     );
     expect(applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: 'lane1', unitId: id })).toEqual({
       ok: false,
-      rejection: 'max-tier',
+      rejection: 'max-level',
     });
   });
 
-  it('allows a third tier where the unit has one (§7.3)', () => {
+  it('allows a third mark where the unit has one (§7.3)', () => {
     const { state, ctx } = freshMatch();
     state.lanes.lane1!.economy.gold = 99999;
     state.lanes.lane1!.economy.supplyCap = 999;

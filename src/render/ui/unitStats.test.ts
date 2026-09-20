@@ -49,19 +49,19 @@ function next(current: UnitDef): UnitDef | null {
   return current.upgradesTo ? def(current.upgradesTo) : null;
 }
 
-describe('a stat says what it is now, and what the tier would make it', () => {
-  it('shows one value when there is no tier above', () => {
+describe('a stat says what it is now, and what the mark would make it', () => {
+  it('shows one value when there is no mark above', () => {
     const top = data.units.units.find((u) => !u.upgradesTo)!;
     for (const cell of STAT_CELLS) {
       expect(statText(cell.key, top, null)).not.toContain('→');
     }
   });
 
-  it('shows the arrow only where the tier actually moves the number', () => {
+  it('shows the arrow only where the mark actually moves the number', () => {
     const hammer = def('pledge');
     const hammer2 = next(hammer)!;
 
-    // A tier raises HP and damage, so those carry an arrow...
+    // A mark raises HP and damage, so those carry an arrow...
     expect(statText('hp', hammer, hammer2)).toBe(`${hammer.hp} → ${hammer2.hp}`);
     expect(statText('damage', hammer, hammer2)).toBe(`${hammer.damage} → ${hammer2.damage}`);
 
@@ -250,24 +250,24 @@ describe('the panel gives the buttons their space before anything else gets any'
 });
 
 describe('what a body panel says', () => {
-  it('puts the name and the types on one line, and no tier at all', () => {
+  it('puts the name and the types on one line, and no mark at all', () => {
     const vigil = def('vigil');
     expect(typeLine(vigil.damageType, vigil.armour)).toBe('arcane · ward');
-    // The thing this replaced: "Vigil → Vigil II" over "Tier 1 → 2 · arcane ·
+    // The thing this replaced: "Vigil → Vigil II" over "Mark 1 → 2 · arcane ·
     // ward", which spent two of the panel's lines on the next unit's suffix.
-    expect(typeLine(vigil.damageType, vigil.armour)).not.toContain('Tier');
+    expect(typeLine(vigil.damageType, vigil.armour)).not.toContain('Mark');
     expect(typeLine(vigil.damageType, vigil.armour)).not.toContain('II');
   });
 
-  it('offers a NEW ability the next tier brings, and says nothing about a rank', () => {
+  it('offers a NEW ability the next mark brings, and says nothing about a rank', () => {
     const ember = def('ember');
     const ember2 = def('ember_2');
     const ember3 = def('ember_3');
 
-    // Tier 2 is the same ability with bigger numbers, which the stat block
+    // Mark 2 is the same ability with bigger numbers, which the stat block
     // already shows. Nothing is added.
     expect(unitChips(data, ember, ember2).filter((c) => c.upcoming)).toEqual([]);
-    // Tier 3 unlocks Conflagration, which is worth a chip of its own.
+    // Mark 3 unlocks Conflagration, which is worth a chip of its own.
     const unlocks = unitChips(data, ember2, ember3).filter((c) => c.upcoming);
     expect(unlocks).toHaveLength(1);
     expect(unlocks[0]?.name).toBe('Conflagration');
@@ -336,7 +336,7 @@ describe('ability chips wrap and never leave their box', () => {
     }
   });
 
-  it("fits both of a tier-3 unit's abilities in the box the panel gives it", () => {
+  it("fits both of a mark-3 unit's abilities in the box the panel gives it", () => {
     // The case that mattered: a 360x640 phone, where the sentences did not fit
     // and the panel fell back to showing nothing at all.
     const regions = panelRegions(
@@ -390,8 +390,8 @@ describe('a stat cell shows what the body is actually fighting with', () => {
     expect(statDirection('range', mods({ damage: 2, attackSpeed: 2, moveSpeed: 2 }))).toBe('plain');
   });
 
-  it('applies the same multiplier to the tier it is being compared with', () => {
-    // Otherwise the arrow compares a buffed body against an unbuffed tier and
+  it('applies the same multiplier to the mark it is being compared with', () => {
+    // Otherwise the arrow compares a buffed body against an unbuffed mark and
     // an aura reads as an upgrade.
     const buffed = statText('damage', def('pledge'), def('pledge_2'), mods({ damage: 2 }));
     const [now, then] = buffed.split(' → ').map(Number);
@@ -488,7 +488,7 @@ describe('the energy meter in the panel header', () => {
     expect(energyMeter(title, null, max, 0, 100)).toBeNull();
   });
 
-  it('shows one for the tier that unlocks an energy ability', () => {
+  it('shows one for the mark that unlocks an energy ability', () => {
     expect(energyCost(data, 'sanction_3')).toBeGreaterThan(0);
     expect(energyMeter(title, 30, max, energyCost(data, 'sanction_3'), 100)).not.toBeNull();
   });

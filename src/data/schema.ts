@@ -214,9 +214,22 @@ export interface UnitDef {
   id: string;
   builderId: string;
   name: string;
-  /** 1, 2 or 3. Every unit has at least a tier 2 (§7.3). */
-  tier: number;
-  /** Tier upgrades happen in place: same tile, same identity (§7.3). */
+  /**
+   * Which of the builder's six lines this is: 1 (cheapest) to 6 (dearest).
+   *
+   * The power ladder, and what the price bands in docs/BALANCE.md are set
+   * against. Shared by every mark of a line, because upgrading a Pledge does
+   * not turn it into a different one of Ironvow's six.
+   */
+  rung: number;
+  /**
+   * How far up its own upgrade chain this is: 1, 2 or 3. Every line has a
+   * Mark II; ten of the twenty-four have a Mark III (§7.3).
+   *
+   * Was called `tier`, which also had to mean `rung` and so meant neither.
+   */
+  mark: number;
+  /** A mark is bought in place: same tile, same identity (§7.3). */
   upgradesTo?: string;
   goldCost: Unfilled<number>;
   supplyCost: Unfilled<number>;
@@ -252,9 +265,9 @@ export interface UnitDef {
    *
    * The theory the roster is built on: a unit that differs from the next one
    * only in armour type and damage type is not a unit anybody remembers, so
-   * every unit has an ability - some from tier 1, some earned by upgrading.
+   * every unit has an ability - some from Mark I, some earned by upgrading.
    * `"thorn_bite"` is rank 1; `{ "id": "thorn_bite", "rank": 2 }` is the same
-   * ability with the tier's numbers (abilities.ts).
+   * ability with the mark's numbers (abilities.ts).
    *
    * Unlike `traits` these are not decorative: `validate.ts` refuses a
    * reference to an ability the simulation does not honour, so what the panel

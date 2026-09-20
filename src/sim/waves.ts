@@ -196,8 +196,8 @@ export function previewWave(data: GameData, seed: number, waveNumber: number): W
 export interface UnitRating {
   unitId: string;
   name: string;
-  /** Tier 1 units are the buildable ones; higher tiers come from upgrading. */
-  tier: number;
+  /** Mark 1 units are the buildable ones; higher marks come from upgrading. */
+  mark: number;
   /** Average matrix multiplier of this unit's damage against the wave. */
   effectiveness: number;
   verdict: 'strong' | 'neutral' | 'weak';
@@ -268,7 +268,7 @@ export function summariseWave(
     units.push({
       unitId: unit.id,
       name: unit.name,
-      tier: unit.tier,
+      mark: unit.mark,
       effectiveness,
       verdict:
         effectiveness >= STRONG_THRESHOLD

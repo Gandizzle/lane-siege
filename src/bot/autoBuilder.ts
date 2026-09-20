@@ -70,7 +70,7 @@ function buildSlots(data: GameData): { tileX: number; tileY: number; row: number
  */
 function rangeClasses(data: GameData, builderId: string): UnitDef[][] {
   const roster = data.units.units
-    .filter((u) => u.tier === 1 && u.builderId === builderId)
+    .filter((u) => u.mark === 1 && u.builderId === builderId)
     .sort((a, b) => (a.range ?? 0) - (b.range ?? 0));
 
   const per = Math.max(1, Math.ceil(roster.length / 3));

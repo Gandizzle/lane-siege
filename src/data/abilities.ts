@@ -26,8 +26,8 @@
  *
  * NUMBERS AND RANKS
  *
- * A unit's tier 2 usually wants the same ability, harder. Duplicating the
- * entry per tier is how the stat blocks work (hammer, hammer_2, hammer_3), and
+ * A unit's mark 2 usually wants the same ability, harder. Duplicating the
+ * entry per mark is how the stat blocks work (hammer, hammer_2, hammer_3), and
  * it would triple this catalogue for the sake of one figure - so an ability
  * instead has a small named `numbers` map, refers to it as `"@reduction"`
  * wherever a number goes, and lists `ranks` that override those names:
@@ -36,7 +36,7 @@
  *     ranks:   [ {}, { reduction: 0.2 }, { reduction: 0.3, radius: 2.0 } ]
  *
  * Rank 1 is the map as authored, rank 2 is the map with `reduction` at 0.2.
- * A unit asks for `{ id: "shield_wall", rank: 2 }`. One row per tier, one
+ * A unit asks for `{ id: "shield_wall", rank: 2 }`. One row per mark, one
  * number per row, and `resolveAbility` hands the simulation a struct in which
  * every field is already a number - so a tick never resolves anything.
  *
@@ -305,7 +305,7 @@ export interface StackRule {
   /**
    * Never more than this many at once. 1 is the common case.
    *
-   * A `Tunable` rather than a plain number because a tier that raises the cap
+   * A `Tunable` rather than a plain number because a mark that raises the cap
    * is a real upgrade - Pyre's Stoke goes from five stacks of heat to six -
    * and `"@max"` with a `ranks` row is how that is said without a second
    * entry in the catalogue.

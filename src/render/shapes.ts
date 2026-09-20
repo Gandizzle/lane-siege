@@ -1,5 +1,5 @@
 /**
- * The silhouettes and the tier pips. DESIGN.md §14.2, amended.
+ * The silhouettes and the mark pips. DESIGN.md §14.2, amended.
  *
  * §14.2 gave one shape per armour type. That is four shapes for thirty-seven
  * bodies, and a crowd of identical hexagons tells you nothing about which of
@@ -36,7 +36,7 @@ export interface EntityStyle {
   shape: ShapeId;
   damageType: DamageType;
   /** 1..3. Drives size and the pip count (§7.3). */
-  tier: number;
+  mark: number;
   /** Monsters are outlines; defensive units are solid (§14.2). */
   outlined: boolean;
 }
@@ -308,7 +308,7 @@ export const SHAPE_IDS = Object.keys(CATALOGUE) as ShapeId[];
 // ---------------------------------------------------------------- drawing
 
 /**
- * Draws one entity into `g`. Radius is scaled by tier so a tier 3 unit reads as
+ * Draws one entity into `g`. Radius is scaled by mark so a mark 3 unit reads as
  * bigger even before you count its pips.
  */
 export function drawEntity(
@@ -318,7 +318,7 @@ export function drawEntity(
   cy: number,
   baseRadius: number,
 ): Graphics {
-  const radius = baseRadius * (1 + (style.tier - 1) * 0.15);
+  const radius = baseRadius * (1 + (style.mark - 1) * 0.15);
   const colour = DAMAGE_COLOURS[style.damageType];
 
   for (const piece of silhouette(style.shape)) {
@@ -341,31 +341,31 @@ export function drawEntity(
     g.fill({ color: colour });
   }
 
-  drawTierPips(g, style.tier, cx, cy + radius + baseRadius * 0.38, baseRadius * 0.13, colour);
+  drawMarkPips(g, style.mark, cx, cy + radius + baseRadius * 0.38, baseRadius * 0.13, colour);
   return g;
 }
 
 /**
- * How many pips a tier wears: one per UPGRADE BOUGHT, not one per tier owned.
+ * How many pips a mark wears: one per UPGRADE BOUGHT, not one per mark owned.
  *
- * A unit as built is tier 1 and wears none, so the pips read as a count of
- * what the player has spent on it rather than as an off-by-one of the tier
+ * A unit as built is mark 1 and wears none, so the pips read as a count of
+ * what the player has spent on it rather than as an off-by-one of the mark
  * number - upgrade once, one dot.
  */
-export function tierPipCount(tier: number): number {
-  return tier > 1 ? tier - 1 : 0;
+export function markPipCount(mark: number): number {
+  return mark > 1 ? mark - 1 : 0;
 }
 
 /** The pip row beneath the silhouette. An unupgraded unit draws none. */
-export function drawTierPips(
+export function drawMarkPips(
   g: Graphics,
-  tier: number,
+  mark: number,
   cx: number,
   cy: number,
   pipRadius: number,
   colour: number,
 ): void {
-  const pips = tierPipCount(tier);
+  const pips = markPipCount(mark);
   if (pips <= 0) return;
   const spacing = pipRadius * 3;
   const start = cx - (spacing * (pips - 1)) / 2;

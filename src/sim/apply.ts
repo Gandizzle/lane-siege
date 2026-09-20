@@ -174,7 +174,7 @@ function buyTech(
   if (!track) return fail('unknown-definition');
 
   const level = nextLevel(track.levels, lane.economy.tech[trackId] ?? 0);
-  if (!level) return fail('max-tier');
+  if (!level) return fail('max-level');
 
   const rejection = chargeUpgrade(lane, level);
   if (rejection) return fail(rejection);
@@ -195,7 +195,7 @@ function buySupply(
   const ladder = ctx.data.economy.supply.capUpgrades;
   const current = lane.fortress.upgrades.supply ?? 0;
   const level = nextLevel(ladder, current);
-  if (!level) return fail('max-tier');
+  if (!level) return fail('max-level');
 
   const rejection = chargeUpgrade(lane, level);
   if (rejection) return fail(rejection);
@@ -232,7 +232,7 @@ function buyFortressUpgrade(
   if (!ladder) return fail('unknown-definition');
 
   const level = nextLevel(ladder, lane.fortress.upgrades[upgradeId] ?? 0);
-  if (!level) return fail('max-tier');
+  if (!level) return fail('max-level');
 
   const rejection = chargeUpgrade(lane, level);
   if (rejection) return fail(rejection);
@@ -387,7 +387,7 @@ function upgradeUnit(
 
   const current = ctx.defs.units.get(unit.defId);
   if (!current) return fail('unknown-definition');
-  if (!current.upgradesTo) return fail('max-tier');
+  if (!current.upgradesTo) return fail('max-level');
 
   const next = ctx.defs.units.get(current.upgradesTo);
   if (!next) return fail('unknown-definition');
@@ -412,7 +412,7 @@ function upgradeUnit(
   unit.baseMaxHp = stat(next.hp);
   unit.maxHp = unit.baseMaxHp;
   unit.hp = unit.maxHp;
-  // A tier is a different unit with different abilities, so the clocks and the
+  // A mark is a different unit with different abilities, so the clocks and the
   // threshold latches of the old one mean nothing (abilityRuntime.ts). The
   // statuses on it are left alone: a slow cast on this body is still on this
   // body, and buying an upgrade should not be a way to shrug one off.

@@ -90,7 +90,7 @@ export interface WireLane {
   md: number[];
   /**
    * Energy in the pool, SPARSE and flat: id, energy, next id, ... Only for the
-   * bodies that can spend it, which is the ten units whose top tier unlocks an
+   * bodies that can spend it, which is the ten units whose top mark unlocks an
    * energy-costing ability (`EntityView.energy`). Everything else fills the
    * same pool and never spends it, so a row for it would be a number nobody
    * will ever look at.

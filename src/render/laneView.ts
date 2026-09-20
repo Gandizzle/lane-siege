@@ -228,10 +228,10 @@ export class LaneView extends Container {
     this.overlay.addChild(heading);
 
     // §9.3: highlight which of the player's units are strong or weak against
-    // this wave. Only tier 1 - higher tiers are reached by upgrading, not
+    // this wave. Only mark 1 - higher marks are reached by upgrading, not
     // building, so naming them here would be advice you cannot act on.
     if (summary) {
-      const buildable = summary.units.filter((u) => u.tier === 1);
+      const buildable = summary.units.filter((u) => u.mark === 1);
       const strong = buildable.filter((u) => u.verdict === 'strong').map((u) => u.name);
       const weak = buildable.filter((u) => u.verdict === 'weak').map((u) => u.name);
 
@@ -284,7 +284,7 @@ export class LaneView extends Container {
       const glyph = new Graphics();
       drawEntity(
         glyph,
-        { shape: entry.shape, damageType: entry.damageType, tier: 1, outlined: true },
+        { shape: entry.shape, damageType: entry.damageType, mark: 1, outlined: true },
         x + width / 2,
         rowThree,
         PREVIEW_GLYPH_RADIUS,

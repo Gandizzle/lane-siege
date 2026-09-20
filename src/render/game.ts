@@ -149,7 +149,7 @@ export class Game extends Container {
     this.laneLayer = new LaneViewLayer(this.layout, data, {
       onTap: (x, y) => this.tapLane(x, y),
     });
-    // §14.2 reads tier off the definition, and the definitions are the same
+    // §14.2 reads mark off the definition, and the definitions are the same
     // everywhere (§9.2) - so the renderer indexes them itself rather than being
     // sent them with every frame.
     const defs = buildDefIndex(data);

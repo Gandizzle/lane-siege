@@ -361,7 +361,7 @@ export interface Pickable {
  * shape, drawn size (§14.2) - so the circle is what a tap hits. Exactly the
  * circle turned out to be too small to aim at: a unit is about half a tile
  * wide, which is twenty-odd pixels on a phone, against the 44 a thumb wants.
- * So the tap circle is the body plus this, which takes a tier-1 unit's target
+ * So the tap circle is the body plus this, which takes a mark-1 unit's target
  * to roughly that 44 without letting go of the rule that you are aiming at
  * the body rather than at the tile it happens to be standing in.
  *

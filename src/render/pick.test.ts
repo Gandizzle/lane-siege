@@ -95,7 +95,7 @@ describe('the touch allowance', () => {
   });
 
   it('is big enough to be worth having, and smaller than a tile', () => {
-    // A tier-1 unit is about a quarter-tile radius, which is a ~22px target on
+    // A mark-1 unit is about a quarter-tile radius, which is a ~22px target on
     // a phone against the 44 a thumb wants. With the allowance it is near 44.
     const radius = 0.26 * layout.tileSize;
     expect((radius + TOUCH_SLACK_PX) * 2).toBeGreaterThan(38);

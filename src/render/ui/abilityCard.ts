@@ -7,7 +7,7 @@
  * of its ladder has two abilities with a sentence each plus the numbers behind
  * them. Fitting all of that into the panel meant shrinking it until it did -
  * and what actually happened is that it fell back to names with no
- * descriptions at all, which is how a tier-1 Oathwall came to say "Hold the
+ * descriptions at all, which is how a mark-1 Oathwall came to say "Hold the
  * Line" and nothing else.
  *
  * So the panel lists NAMES, which always fit, and each one is a button. This

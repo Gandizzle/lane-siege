@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { Graphics } from 'pixi.js';
 import { SHAPE_FAMILY } from '../data/schema.ts';
 import type { ShapeId } from '../data/schema.ts';
-import { drawEntity, drawTierPips, SHAPE_IDS, silhouette, tierPipCount } from './shapes.ts';
+import { drawEntity, drawMarkPips, SHAPE_IDS, silhouette, markPipCount } from './shapes.ts';
 import type { Piece } from './shapes.ts';
 
 /** The furthest any part of a silhouette gets from the body's centre. */
@@ -90,7 +90,7 @@ describe('every silhouette', () => {
       for (const outlined of [false, true]) {
         const g = drawEntity(
           new Graphics(),
-          { shape: id, damageType: 'impact', tier: outlined ? 1 : 3, outlined },
+          { shape: id, damageType: 'impact', mark: outlined ? 1 : 3, outlined },
           50,
           50,
           9,
@@ -100,18 +100,18 @@ describe('every silhouette', () => {
     }
   });
 
-  it('wears one pip per upgrade bought, not one per tier owned', () => {
+  it('wears one pip per upgrade bought, not one per mark owned', () => {
     // A unit as built wears none; upgrade it once and one dot appears. Read
     // the other way round the row is always one ahead of what was paid for.
-    expect(tierPipCount(1)).toBe(0);
-    expect(tierPipCount(2)).toBe(1);
-    expect(tierPipCount(3)).toBe(2);
+    expect(markPipCount(1)).toBe(0);
+    expect(markPipCount(2)).toBe(1);
+    expect(markPipCount(3)).toBe(2);
 
     // And the drawing agrees with the count: one pip is one circle wide, two
     // are a circle plus the gap between them.
-    const pips = (tier: number) => {
+    const pips = (mark: number) => {
       const g = new Graphics();
-      drawTierPips(g, tier, 0, 0, 2, 0xffffff);
+      drawMarkPips(g, mark, 0, 0, 2, 0xffffff);
       return g.bounds.maxX - g.bounds.minX;
     };
     expect(pips(1)).toBe(0);
@@ -121,10 +121,10 @@ describe('every silhouette', () => {
 
   it('keeps a shape the size the body is, whatever the family', () => {
     // The pips are the only thing that goes outside the silhouette, and only
-    // for a tier above one. Everything else is the body.
+    // for a mark above one. Everything else is the body.
     const g = drawEntity(
       new Graphics(),
-      { shape: 'hexagon', damageType: 'pierce', tier: 1, outlined: false },
+      { shape: 'hexagon', damageType: 'pierce', mark: 1, outlined: false },
       0,
       0,
       10,

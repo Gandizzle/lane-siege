@@ -148,7 +148,7 @@ function checkWaveReferences(data: GameData, errors: string[]): void {
   }
 }
 
-/** A tier upgrade must point at a unit that exists (§7.3). */
+/** A mark upgrade must point at a unit that exists (§7.3). */
 function checkUpgradeChain(data: GameData, errors: string[]): void {
   const known = new Set(data.units.units.map((u) => u.id));
   for (const unit of data.units.units) {
@@ -189,12 +189,12 @@ function checkShapes(data: GameData, errors: string[]): void {
     const next = unit.upgradesTo ? byId.get(unit.upgradesTo) : undefined;
     if (next && next.shape !== unit.shape) {
       errors.push(
-        `'${unit.id}' is '${unit.shape}' but upgrades to '${next.id}' which is '${next.shape}' - a tier keeps its shape (§7.3)`,
+        `'${unit.id}' is '${unit.shape}' but upgrades to '${next.id}' which is '${next.shape}' - a mark keeps its shape (§7.3)`,
       );
     }
   }
 
-  // One silhouette per body. Tiers of one unit share theirs on purpose, so only
+  // One silhouette per body. Marks of one unit share theirs on purpose, so only
   // the base of each chain counts; monsters and units share a field, so they
   // are checked against each other as well.
   const owners = new Map<string, string>();
@@ -208,8 +208,49 @@ function checkShapes(data: GameData, errors: string[]): void {
       owners.set(shape, owner);
     }
   };
-  for (const unit of data.units.units) if (unit.tier === 1) claim(unit.shape, unit.id);
+  for (const unit of data.units.units) if (unit.mark === 1) claim(unit.shape, unit.id);
   for (const monster of monsters) claim(monster.shape, monster.id);
+
+  checkRungs(data, errors);
+}
+
+/**
+ * Every builder fields six lines numbered 1 to 6, and a line keeps its rung all
+ * the way up its marks.
+ *
+ * Rung is the power ladder the price bands in docs/BALANCE.md are set against,
+ * and the showdown harness builds its rosters by asking for "40% rung 5". Both
+ * of those read a number that nothing else would notice was wrong: a roster
+ * with two rung 3s and no rung 4 would simply never build a rung 4, and the
+ * balance report would blame the numbers.
+ */
+function checkRungs(data: GameData, errors: string[]): void {
+  const byId = new Map(data.units.units.map((u) => [u.id, u]));
+
+  for (const builder of data.units.builders) {
+    if (!builder.complete) continue;
+    const mine = data.units.units.filter((u) => u.builderId === builder.id);
+    const rungs = [...new Set(mine.filter((u) => u.mark === 1).map((u) => u.rung))].sort(
+      (a, b) => a - b,
+    );
+    const wanted = [1, 2, 3, 4, 5, 6];
+    if (rungs.length !== 6 || wanted.some((r, i) => rungs[i] !== r)) {
+      errors.push(
+        `builder '${builder.id}' has rungs [${rungs.join(', ')}] - a complete roster is six lines numbered 1 to 6 (§7.1)`,
+      );
+    }
+  }
+
+  // A mark is the same unit further up its own chain (§7.3), so it is the same
+  // one of its builder's six.
+  for (const unit of data.units.units) {
+    const next = unit.upgradesTo ? byId.get(unit.upgradesTo) : undefined;
+    if (next && next.rung !== unit.rung) {
+      errors.push(
+        `'${unit.id}' is rung ${unit.rung} but upgrades to '${next.id}' at rung ${next.rung} - a mark keeps its rung (§7.3)`,
+      );
+    }
+  }
 }
 
 /**

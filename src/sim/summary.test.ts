@@ -64,11 +64,11 @@ describe('wave summary (§9.3)', () => {
     expect(scoped.units.every((u) => u.unitId !== 'nonexistent')).toBe(true);
   });
 
-  it('tags each rating with its tier, so the UI can show only buildables', () => {
+  it('tags each rating with its mark, so the UI can show only buildables', () => {
     const summary = summariseWave(data, 1, 1, 'ironvow');
     // Builder A's full roster is six units (§7.1).
-    expect(summary.units.filter((u) => u.tier === 1).length).toBe(6);
-    expect(summary.units.some((u) => u.tier === 2)).toBe(true);
+    expect(summary.units.filter((u) => u.mark === 1).length).toBe(6);
+    expect(summary.units.some((u) => u.mark === 2)).toBe(true);
   });
 
   it('is a pure function of (seed, wave) like the wave itself (§9.2)', () => {

@@ -101,7 +101,7 @@ describe('a shot looks like the thing that fired it', () => {
     expect(new Set(shapes).size).toBe(4);
   });
 
-  it('sizes the head by damage and scales it by tier, like a body', () => {
+  it('sizes the head by damage and scales it by mark, like a body', () => {
     const small = attackStyle({ damageType: 'impact', armour: 'flesh', range: 3, damage: 5 });
     const big = attackStyle({ damageType: 'impact', armour: 'flesh', range: 3, damage: 70 });
     expect(big.size).toBeGreaterThan(small.size);
@@ -111,7 +111,7 @@ describe('a shot looks like the thing that fired it', () => {
       armour: 'flesh',
       range: 3,
       damage: 5,
-      tier: 3,
+      mark: 3,
     });
     expect(tier3.size).toBeGreaterThan(small.size);
   });
@@ -135,14 +135,14 @@ function styleInput(def: {
   armour: 'flesh' | 'plate' | 'swarm' | 'ward';
   range: number | null;
   damage: number | null;
-  tier?: number;
+  mark?: number;
 }) {
   return {
     damageType: def.damageType,
     armour: def.armour,
     range: def.range ?? 0,
     damage: def.damage ?? 0,
-    ...(def.tier !== undefined && { tier: def.tier }),
+    ...(def.mark !== undefined && { mark: def.mark }),
   };
 }
 

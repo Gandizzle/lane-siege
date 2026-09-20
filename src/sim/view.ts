@@ -73,8 +73,8 @@ import type {
  * One drawable body. Everything §14.2 needs to pick a silhouette, a fill and a
  * size, and nothing else.
  *
- * `defId` stands in for the rest: tier, and therefore size and pips, is a
- * property of the definition, and tier upgrades swap the definition in place
+ * `defId` stands in for the rest: mark, and therefore size and pips, is a
+ * property of the definition, and mark upgrades swap the definition in place
  * (§7.3). Every viewer has the same `data/`, so sending the id is enough.
  */
 export interface EntityView {
@@ -112,7 +112,7 @@ export interface EntityView {
    * Energy in the pool, or null for a body with nothing to spend it on.
    *
    * Null for almost everything: every body fills the same pool at the same
-   * rate (abilities.json), but only the ten units whose top tier unlocks an
+   * rate (abilities.json), but only the ten units whose top mark unlocks an
    * energy-costing ability can ever spend it, and a bar that only ever reads
    * full is a bar worth nobody's pixels or bytes. The panel shows one exactly
    * where this is a number (§14.1).
@@ -182,7 +182,7 @@ export interface FortressView {
  */
 export interface UnitDamageView {
   unitId: EntityId;
-  /** Carries the tier, and so the pips the panel draws (§7.3, §14.2). */
+  /** Carries the mark, and so the pips the panel draws (§7.3, §14.2). */
   defId: string;
   damage: number;
 }

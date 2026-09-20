@@ -97,7 +97,7 @@ export type CommandRejection =
   | 'insufficient-supply'
   | 'unknown-definition'
   | 'no-such-unit'
-  | 'max-tier'
+  | 'max-level'
   | 'building-closed'
   | 'eliminated'
   | 'target-eliminated'

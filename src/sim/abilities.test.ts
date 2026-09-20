@@ -438,7 +438,7 @@ describe('a real roster applies its real abilities', () => {
   it('opens the Final Showdown with a full pool too', () => {
     // Same reason as the full HP the transplant already restores: the showdown
     // is the fight the whole match was for, and opening it with one army's
-    // tier-3 abilities half-charged decides it on how wave 25 happened to end.
+    // mark-3 abilities half-charged decides it on how wave 25 happened to end.
     const { state, ctx } = match('ironvow');
     place(ctx, state, 'sanction_3', 4, 2);
     const unit = state.lanes.lane1!.units[0]!;
@@ -546,15 +546,15 @@ describe('the roster design rules, in the data', () => {
     }
   });
 
-  it('raises the signature ability with the tier rather than restating it', () => {
+  it('raises the signature ability with the mark rather than restating it', () => {
     for (const unit of data.units.units) {
-      if (unit.tier === 1) continue;
+      if (unit.mark === 1) continue;
       const base = data.units.units.find((u) => u.upgradesTo === unit.id);
       if (!base) continue;
       const signature = refId((base.abilities ?? [])[0]!);
       const carried = (unit.abilities ?? []).find((ref) => refId(ref) === signature);
       expect(carried, `${unit.id} keeps ${signature}`).toBeDefined();
-      expect(refRank(carried!), `${unit.id} rank`).toBe(unit.tier);
+      expect(refRank(carried!), `${unit.id} rank`).toBe(unit.mark);
     }
   });
 
@@ -565,9 +565,9 @@ describe('the roster design rules, in the data', () => {
     }
   });
 
-  it("gates a three-tier unit's second ability behind energy", () => {
+  it("gates a three-mark unit's second ability behind energy", () => {
     const byId = new Map<string, AbilityDef>(data.abilities.abilities.map((a) => [a.id, a]));
-    for (const top of data.units.units.filter((u) => u.tier === 3)) {
+    for (const top of data.units.units.filter((u) => u.mark === 3)) {
       const second = (top.abilities ?? [])[1]!;
       const ability = byId.get(refId(second))!;
       expect(ability.energyCost ?? 0, `${top.id} → ${ability.id}`).toBeGreaterThan(0);

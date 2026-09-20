@@ -352,7 +352,7 @@ export class BuildBar extends Container {
       this.tabStrip.addChild(button);
     }
 
-    // Build tab: tier 1 only - higher tiers come from upgrading in place (§7.3).
+    // Build tab: mark 1 only - higher marks come from upgrading in place (§7.3).
     // Six slots, because §7.1 gives every builder exactly six units.
     for (let slot = 0; slot < UNITS_PER_BUILDER; slot++) {
       const button = new GridButton(() => {
@@ -924,7 +924,7 @@ export class BuildBar extends Container {
     summary: WaveSummary | null,
     canBuild: boolean,
   ): void {
-    this.unitSlots = this.data.units.units.filter((u) => u.tier === 1 && u.builderId === builderId);
+    this.unitSlots = this.data.units.units.filter((u) => u.mark === 1 && u.builderId === builderId);
 
     this.unitButtons.forEach((button, slot) => {
       const def = this.unitSlots[slot];
@@ -1080,11 +1080,11 @@ export class BuildBar extends Container {
       return;
     }
 
-    // The name, and what it deals and is made of, on ONE line. The tier it is
-    // about to become used to be here twice - "Vigil → Vigil II" over "Tier 1
+    // The name, and what it deals and is made of, on ONE line. The mark it is
+    // about to become used to be here twice - "Vigil → Vigil II" over "Mark 1
     // → 2" - which spent two of the panel's lines telling a player that the
-    // next Vigil is called Vigil II. The Upgrade button's pips say the tier
-    // and the stat block says what the tier buys.
+    // next Vigil is called Vigil II. The Upgrade button's pips say the mark
+    // and the stat block says what the mark buys.
     this.setHeader(current.name, typeLine(current.damageType, current.armour), unit, current.id);
     this.showStats(current, next ?? null, mods);
     // What it DOES, which is most of why one unit is not another (§7, §18).
@@ -1159,7 +1159,7 @@ export class BuildBar extends Container {
    * The energy meter, in the space to the right of the name.
    *
    * Only for a body that can SPEND energy, which is the ten units whose top
-   * tier unlocks an energy-costing ability. Everything else fills the same pool
+   * mark unlocks an energy-costing ability. Everything else fills the same pool
    * at the same rate and never draws on it, so its meter would read full
    * forever (unitStats.ts, `energyMeter`).
    *
@@ -1211,7 +1211,7 @@ export class BuildBar extends Container {
    * `traits` lines above them where a unit has any.
    *
    * Names rather than sentences, because a name always fits and a sentence has
-   * to be shrunk until it does - which is how a tier-1 Oathwall came to show
+   * to be shrunk until it does - which is how a mark-1 Oathwall came to show
    * "Hold the Line" and no description at all. Each name is a button and the
    * whole description is one tap away (abilityCard.ts).
    */
@@ -1244,7 +1244,7 @@ export class BuildBar extends Container {
   }
 
   /**
-   * Fills the stat block. `next` null means there is no tier to compare to.
+   * Fills the stat block. `next` null means there is no mark to compare to.
    *
    * `mods` is what is currently on the body (`EntityView.mods`), so a cell
    * shows the number the body is fighting with rather than the number its
@@ -1273,16 +1273,16 @@ export class BuildBar extends Container {
     if (!next) {
       // Shown but dead at the top of the ladder, rather than removed. A button
       // that vanishes leaves Sell sitting in a hole where it used to be, and
-      // "max tier" is worth saying anyway - §7.3 gives different units
+      // "max mark" is worth saying anyway - §7.3 gives different units
       // different ladder lengths, so where the top is is not obvious.
       this.upgradeButton.setSwatch(null);
-      this.upgradeButton.update({ title: 'Upgrade', detail: 'max tier', enabled: false });
+      this.upgradeButton.update({ title: 'Upgrade', detail: 'max mark', enabled: false });
       return;
     }
 
     const gold = next.goldCost ?? 0;
     const supply = next.supplyCost ?? 0;
-    // The body it becomes, not just its colour: the tier pips are the clearest
+    // The body it becomes, not just its colour: the mark pips are the clearest
     // statement of what the button buys.
     this.upgradeButton.setSwatch(glyphOf(next));
     this.upgradeButton.update({
@@ -1344,12 +1344,12 @@ function trim(value: number | null): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-/** A unit as §14.2 draws it: armour shape, damage colour, tier size and pips. */
+/** A unit as §14.2 draws it: armour shape, damage colour, mark size and pips. */
 function glyphOf(def: UnitDef): EntityStyle {
   return {
     shape: def.shape,
     damageType: def.damageType,
-    tier: def.tier,
+    mark: def.mark,
     // Solid, because it is one of yours (§14.2). Monsters are the outlines.
     outlined: false,
   };

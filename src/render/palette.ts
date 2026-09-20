@@ -5,7 +5,7 @@
  *
  *   Silhouette        one per body, in its armour type's family (shapes.ts)
  *   Fill colour       damage type
- *   Size + pips       tier
+ *   Size + pips       mark
  *   Outline vs solid  monster vs defensive unit
  *
  * SHAPE is the primary channel, because armour type is what you must read
@@ -31,7 +31,7 @@ export const DAMAGE_COLOURS: Record<DamageType, number> = {
  * Whose army is whose in the Final Showdown (§3.3, replaced), by seat.
  *
  * §14.2 spends every one of its channels on what a body IS - silhouette for
- * armour, fill for damage type, size and pips for tier - and a lane never
+ * armour, fill for damage type, size and pips for mark - and a lane never
  * needs a fifth, because everything solid in it is yours. Four armies in one
  * arena do need one, so ownership gets a colour of its own: the ground each
  * spoke is tinted with, and a ring behind each body standing on it.

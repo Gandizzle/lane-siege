@@ -2,7 +2,7 @@
  * What a given attacker's attack LOOKS like. DESIGN.md §14.2.
  *
  * §14.2 gives the visual language for bodies: silhouette is armour type, fill
- * colour is damage type, size and pips are tier. An attack is made by a body, so
+ * colour is damage type, size and pips are mark. An attack is made by a body, so
  * it is drawn in that same language rather than in a new one - a shot should be
  * recognisable as having come from the thing that fired it, without a legend.
  *
@@ -19,7 +19,7 @@
  *   trail        armour        the body's own silhouette family, in miniature
  *
  * So two units of the same damage type are still told apart by size and trail,
- * and a tier 3 shot is visibly the same shot as its tier 1 - scaled, like the
+ * and a mark 3 shot is visibly the same shot as its mark 1 - scaled, like the
  * body is.
  *
  * MELEE IS NOT A PROJECTILE
@@ -93,7 +93,7 @@ function clamp01(value: number): number {
 /**
  * The style for one attacker.
  *
- * `tier` scales the head the same way §14.2 scales a body, so an upgraded unit's
+ * `mark` scales the head the same way §14.2 scales a body, so an upgraded unit's
  * shot is recognisably the same shot. Everything else is read straight off the
  * definition's own numbers.
  */
@@ -104,10 +104,10 @@ export function attackStyle(input: {
   range: number;
   /** Damage per hit. Decides the size. */
   damage: number;
-  tier?: number;
+  mark?: number;
 }): AttackStyle {
-  const tier = input.tier ?? 1;
-  const tierScale = 1 + (tier - 1) * 0.15;
+  const mark = input.mark ?? 1;
+  const tierScale = 1 + (mark - 1) * 0.15;
   const size =
     (MIN_SIZE_TILES +
       (MAX_SIZE_TILES - MIN_SIZE_TILES) * clamp01(input.damage / DAMAGE_FOR_MAX_SIZE)) *

@@ -61,7 +61,7 @@ export function fitRows(width: number, height: number): RowFit {
 
 export interface DamageRow {
   unitId: number;
-  /** The definition as it stands now: its name, its silhouette, its tier. */
+  /** The definition as it stands now: its name, its silhouette, its mark. */
   def: UnitDef;
   damage: number;
   /** 0 to 1 of the best row, for the bar drawn behind it. */

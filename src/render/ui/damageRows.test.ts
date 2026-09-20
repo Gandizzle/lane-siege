@@ -56,10 +56,10 @@ describe('ranking the round (§14.1, added)', () => {
     expect(table.total).toBe(1000);
   });
 
-  it('carries the definition, so a row can draw its tier', () => {
+  it('carries the definition, so a row can draw its mark', () => {
     const table = damageTable(data, [row(1, 'pledge_2', 10), row(2, 'pledge', 5)], 10);
-    expect(table.rows[0]!.def.tier).toBe(hammer2.tier);
-    expect(table.rows[1]!.def.tier).toBe(hammer.tier);
+    expect(table.rows[0]!.def.mark).toBe(hammer2.mark);
+    expect(table.rows[1]!.def.mark).toBe(hammer.mark);
   });
 
   it('drops a row it has no definition for rather than drawing a blank', () => {

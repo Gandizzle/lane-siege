@@ -157,7 +157,7 @@ describe('a frame survives the round trip', () => {
 
   it('carries energy, and only for the bodies that can spend it', () => {
     const { state, ctx } = match();
-    // Sanction III is one of the ten whose top tier unlocks an energy ability;
+    // Sanction III is one of the ten whose top mark unlocks an energy ability;
     // a Pledge beside it never spends any.
     applyCommand(ctx, state, {
       kind: 'placeUnit',

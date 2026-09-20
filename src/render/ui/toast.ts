@@ -21,7 +21,7 @@ const MESSAGES: Record<CommandRejection, string> = {
   'insufficient-supply': 'Not enough supply',
   'unknown-definition': 'Not available yet',
   'no-such-unit': 'That unit is gone',
-  'max-tier': 'Already at max tier',
+  'max-level': 'Already fully upgraded',
   'building-closed': 'The Final Showdown has begun',
   eliminated: 'You are out',
   'target-eliminated': 'That player is out',

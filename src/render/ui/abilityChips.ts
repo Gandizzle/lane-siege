@@ -24,7 +24,7 @@ export interface Chip {
   abilityId: string;
   rank: number;
   name: string;
-  /** A tier this body does not have yet: drawn dimmer, still readable. */
+  /** A mark this body does not have yet: drawn dimmer, still readable. */
   upcoming: boolean;
 }
 

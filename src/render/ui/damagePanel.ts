@@ -102,7 +102,7 @@ class DamageRowView extends Container {
     this.icon.clear();
     drawEntity(
       this.icon,
-      { shape: row.def.shape, damageType: row.def.damageType, tier: row.def.tier, outlined: false },
+      { shape: row.def.shape, damageType: row.def.damageType, mark: row.def.mark, outlined: false },
       12 + radius,
       this.h / 2 - radius * 0.35,
       radius,

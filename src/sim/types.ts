@@ -78,7 +78,7 @@ export interface UnitSpend {
 
 export interface DefensiveUnit {
   id: EntityId;
-  /** Key into units.json. Tier upgrades swap this in place (§7.3). */
+  /** Key into units.json. Mark upgrades swap this in place (§7.3). */
   defId: string;
   /**
    * The tile it was built on. Kept so an upgrade stays "in place" (§7.3) and so

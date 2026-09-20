@@ -12,7 +12,7 @@
  * of it.
  *
  * DESIGN.md never says WHEN a builder is chosen. Before the match, because
- * §7.3's tier upgrades and §11.4's supply budget are both long-run commitments
+ * §7.3's mark upgrades and §11.4's supply budget are both long-run commitments
  * to a roster - and because choosing mid-match would mean either stranding the
  * units already placed or letting a player cherry-pick the best unit of each
  * roster, which deletes the §6.1 choice entirely.
@@ -54,7 +54,7 @@ interface Profile {
  * time somebody tunes a stat, so this is computed.
  */
 function profile(data: GameData, builderId: string): Profile {
-  const roster = data.units.units.filter((u) => u.tier === 1 && u.builderId === builderId);
+  const roster = data.units.units.filter((u) => u.mark === 1 && u.builderId === builderId);
 
   const byType = new Map<DamageType, number[]>();
   for (const unit of roster) {

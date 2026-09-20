@@ -158,7 +158,7 @@ export class GridButton extends Container {
    * itself for a unit.
    *
    * A unit button gets the real silhouette - the same armour shape, the same
-   * damage-type fill, the same tier pips that §14.2 draws on the board. A
+   * damage-type fill, the same mark pips that §14.2 draws on the board. A
    * player choosing what to build is choosing a shape they will have to read in
    * a crowd three seconds later, and a row of identical squares teaches them
    * nothing about which shape that is. Everything else here is genuinely a
@@ -173,7 +173,7 @@ export class GridButton extends Container {
       this.swatch.roundRect(this.w - size - 8, 7, size, size, 3).fill({ color: mark });
       return;
     }
-    // Centred in the same box the chip occupies, and sized so a tier 3 body -
+    // Centred in the same box the chip occupies, and sized so a mark 3 body -
     // which §14.2 draws larger - still lands inside it along with its pips.
     const radius = (size / 2) * 0.82;
     drawEntity(this.swatch, mark, this.w - size / 2 - 8, 7 + size / 2 - radius * 0.3, radius);

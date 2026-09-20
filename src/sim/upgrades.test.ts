@@ -108,7 +108,7 @@ describe('global tech (§7.4)', () => {
 
     expect(
       applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_blast' }),
-    ).toEqual({ ok: false, rejection: 'max-tier' });
+    ).toEqual({ ok: false, rejection: 'max-level' });
   });
 
   it('refuses when gold is short', () => {

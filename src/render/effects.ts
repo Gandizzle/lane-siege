@@ -524,7 +524,7 @@ export class EffectsLayer extends Container {
         armour: body.armour,
         range: stat(unit.range),
         damage: stat(unit.damage),
-        tier: unit.tier,
+        mark: unit.mark,
       });
     }
 

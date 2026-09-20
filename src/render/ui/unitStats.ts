@@ -19,13 +19,13 @@ import type { Chip } from './abilityChips.ts';
  * as no numbers at all.
  *
  * `Dmg/s` is derived rather than authored, because damage and attack speed are
- * only meaningful together - a tier that trades one for the other looks like an
+ * only meaningful together - a mark that trades one for the other looks like an
  * upgrade in one cell and a downgrade in the next until you multiply them.
  *
  * These are DEFINITION numbers. Tech (§7.4) and the fortress aura (§10.1)
  * multiply on top of them and are shown on their own tabs; folding them in here
- * would make the tier comparison - which is what the panel is for - move for
- * reasons that have nothing to do with the tier.
+ * would make the mark comparison - which is what the panel is for - move for
+ * reasons that have nothing to do with the mark.
  */
 export type StatKey = 'hp' | 'range' | 'damage' | 'attackSpeed' | 'dps' | 'moveSpeed';
 export const STAT_CELLS: { key: StatKey; name: string }[] = [
@@ -73,15 +73,15 @@ export function isPlain(scale: number): boolean {
 }
 
 /**
- * One stat, as `now` or `now → then` - the arrow only where the tier actually
+ * One stat, as `now` or `now → then` - the arrow only where the mark actually
  * changes it, so what an upgrade buys is what stands out.
  *
  * `mods` is what is on the body RIGHT NOW: an aura it is standing in, a slow
  * somebody put on it, the tech its owner bought (`EntityView.mods`). The cell
  * shows the number the body is actually fighting with, because that is the
  * question a player looking at a selected body is asking - and the SAME
- * multiplier is applied to the next tier's reading, so the comparison stays
- * between two tiers rather than between a buffed body and an unbuffed one.
+ * multiplier is applied to the next mark's reading, so the comparison stays
+ * between two marks rather than between a buffed body and an unbuffed one.
  */
 export function statText(
   key: StatKey,
@@ -124,7 +124,7 @@ function reading(key: StatKey, def: UnitDef, scale = 1): string {
       return trim((def.damage ?? 0) * attackSpeed * scale);
     case 'moveSpeed':
       // Two decimals: every unit in the game walks between 0.2 and 0.65 tiles a
-      // second, so one decimal rounds most of a tier's gain away.
+      // second, so one decimal rounds most of a mark's gain away.
       return trim((def.moveSpeed ?? 0) * scale, 2);
     case 'range':
       // A melee reach is a hair over zero (§5.2, edge to edge), so the number
@@ -399,9 +399,9 @@ export function energyCost(data: GameData, defId: string): number {
 /**
  * The type line beside a body's name: what it deals and what it is made of.
  *
- * Beside rather than under, because the tier it is about to become was the
+ * Beside rather than under, because the mark it is about to become was the
  * other half of that row and is gone - a player upgrading a Vigil does not
- * need to be told the next one is called "Vigil II", and the tier number is
+ * need to be told the next one is called "Vigil II", and the mark number is
  * already on the Upgrade button's pips.
  */
 export function typeLine(damageType: string, armour: string): string {
@@ -413,13 +413,13 @@ export function typeLine(damageType: string, armour: string): string {
  *
  * A chip is a NAME. The description and every number behind it are one tap
  * away on a card (abilityCard.ts), because a name always fits the panel's two
- * lines and a sentence has to be shrunk until it does - which is how a tier-1
+ * lines and a sentence has to be shrunk until it does - which is how a mark-1
  * Oathwall came to show "Hold the Line" and nothing else at all.
  *
- * The next tier's NEW abilities are chips too, marked `upcoming`: what an
+ * The next mark's NEW abilities are chips too, marked `upcoming`: what an
  * upgrade unlocks is exactly the sort of thing to read before buying it. An
- * ability the next tier merely improves is not a chip, because the stat block
- * above already shows what the tier moves.
+ * ability the next mark merely improves is not a chip, because the stat block
+ * above already shows what the mark moves.
  */
 export function unitChips(data: GameData, current: UnitDef, next: UnitDef | null): Chip[] {
   const chips: Chip[] = [];
@@ -442,7 +442,7 @@ export function unitChips(data: GameData, current: UnitDef, next: UnitDef | null
   return chips;
 }
 
-/** The same for a monster, which has no tiers and therefore nothing upcoming. */
+/** The same for a monster, which has no marks and therefore nothing upcoming. */
 export function monsterChips(data: GameData, def: MonsterDef): Chip[] {
   const chips: Chip[] = [];
   for (const ref of def.abilities ?? []) {
@@ -462,7 +462,7 @@ export function monsterChips(data: GameData, def: MonsterDef): Chip[] {
 export const NOTHING_SPECIAL = 'Nothing special. It walks at you and hits things.';
 
 /**
- * A monster's stat cells. The same six readings as a unit's, minus the tier
+ * A monster's stat cells. The same six readings as a unit's, minus the mark
  * comparison a monster has no use for.
  */
 export function monsterStatText(

@@ -29,7 +29,7 @@ interface PreviousPosition {
  * Only the Final Showdown uses it (§3.3, replaced): a lane has exactly one side on each
  * team, so solid-fill-means-defender already says whose a body is. Four armies
  * in one arena do not have that, and §14.2's channels are all spoken for -
- * silhouette is armour, fill is damage type, size and pips are tier - so
+ * silhouette is armour, fill is damage type, size and pips are mark - so
  * ownership gets a channel of its own rather than taking one of those over.
  */
 export type RingOf = (unit: EntityView) => number | null;
@@ -147,11 +147,11 @@ export class EntityLayer extends Container {
 
   private drawUnits(lane: LaneView, alpha: number, marks: EntityMarks): void {
     for (const unit of lane.units) {
-      // §14.2: tier drives size and pips, and the silhouette is the unit's
+      // §14.2: mark drives size and pips, and the silhouette is the unit's
       // own. Both are properties of the definition - which is also why the
       // wire format sends only the id.
       const def = this.defs.units.get(unit.defId);
-      const tier = def?.tier ?? 1;
+      const mark = def?.mark ?? 1;
       const shape = def?.shape ?? 'orb';
 
       const at = this.interpolate(unit, alpha);
@@ -178,7 +178,7 @@ export class EntityLayer extends Container {
       // Solid fill = a defensive unit (§14.2).
       drawEntity(
         this.unitGraphics,
-        { shape, damageType: unit.damageType, tier, outlined: false },
+        { shape, damageType: unit.damageType, mark, outlined: false },
         centre.x,
         centre.y,
         radius,
@@ -212,7 +212,7 @@ export class EntityLayer extends Container {
       const shape = this.defs.monsters.get(monster.defId)?.shape ?? 'orb';
       drawEntity(
         this.monsterGraphics,
-        { shape, damageType: monster.damageType, tier: 1, outlined: true },
+        { shape, damageType: monster.damageType, mark: 1, outlined: true },
         centre.x,
         centre.y,
         radius,

@@ -22,7 +22,7 @@ function unitsOf(builderId: string) {
 }
 
 function tierOne(builderId: string) {
-  return unitsOf(builderId).filter((u) => u.tier === 1);
+  return unitsOf(builderId).filter((u) => u.mark === 1);
 }
 
 describe('every builder is a complete package (§6.1, §7.1)', () => {
@@ -43,7 +43,7 @@ describe('every builder is a complete package (§6.1, §7.1)', () => {
         expect([...covered].sort()).toEqual([...data.matrix.damageTypes].sort());
       });
 
-      it('gives every unit at least a tier 2 (§7.3)', () => {
+      it('gives every unit at least a mark 2 (§7.3)', () => {
         for (const unit of tierOne(builder.id)) {
           expect(unit.upgradesTo).toBeDefined();
         }
@@ -56,7 +56,7 @@ describe('every builder is a complete package (§6.1, §7.1)', () => {
           const next = byId.get(unit.upgradesTo);
           expect(next, `${unit.id} upgrades to a missing ${unit.upgradesTo}`).toBeDefined();
           expect(next!.builderId).toBe(builder.id);
-          expect(next!.tier).toBe(unit.tier + 1);
+          expect(next!.mark).toBe(unit.mark + 1);
         }
       });
 
