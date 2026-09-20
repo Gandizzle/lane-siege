@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import {
   DEFAULTS,
+  evenness,
+  evennessVerdict,
   planFights,
   runFights,
   summarise,
@@ -58,6 +60,22 @@ const options: TournamentOptions = {
 };
 
 const plans = planFights(data, options);
+// Declared before the two early exits below, both of which report.
+const started = Date.now();
+
+// -------------------------------------------- re-reading a run already fought
+
+// `--from records.json` rebuilds the report from saved records without
+// re-fighting anything. Fights are the expensive part and the summary is the
+// part that gets changed, so a mistake in the reading of a run costs nothing to
+// correct - which it did: the matchup table came out empty once.
+const from = flag('from');
+if (from) {
+  const saved = JSON.parse(fs.readFileSync(from, 'utf8')) as FightRecord[];
+  console.log(`\n${saved.length} records from ${from}\n`);
+  report(summarise(data, saved, options), saved);
+  process.exit(0);
+}
 
 // ------------------------------------------------------------------- a shard
 
@@ -81,7 +99,6 @@ if (shard) {
 
 const jobs = Math.max(1, Math.min(numberFlag('jobs', os.cpus().length), plans.length));
 
-const started = Date.now();
 console.log(
   `\n${plans.length} fights: ${options.mirrors} mirrors a builder, ${options.duelsPerPair} duels a pair ` +
     `(both seatings), ${options.freeForAlls} four-ways. seed ${options.seed}.`,
@@ -90,7 +107,7 @@ console.log(`running on ${jobs} ${jobs === 1 ? 'process' : 'processes'}...\n`);
 
 const records = jobs === 1 ? runFights(data, plans, progress) : await runSharded(jobs);
 
-report(summarise(data, records, options));
+report(summarise(data, records, options), records);
 
 function progress(done: number, total: number): void {
   if (done % 10 !== 0 && done !== total) return;
@@ -190,7 +207,19 @@ function tallyRows(title: string, rows: Tally[], even: number): void {
   }
 }
 
-function report(r: TournamentReport): void {
+/**
+ * The four seats read together rather than one at a time.
+ *
+ * With four numbers and a 5% threshold, one of them looks significant one run
+ * in five whatever the arena is doing - so a per-seat error bar is exactly the
+ * wrong tool for "is this flat". The chi-square asks the question once.
+ */
+function verdict(rows: Tally[]): void {
+  const { chiSquare, df } = evenness(rows.map((row) => row.wins));
+  console.log(`  -> ${evennessVerdict(chiSquare, df)}`);
+}
+
+function report(r: TournamentReport, raw: readonly FightRecord[]): void {
   const seconds = Math.round((Date.now() - started) / 1000);
   console.log(
     `\n${r.fights} fights in ${seconds}s. ` +
@@ -209,7 +238,9 @@ function report(r: TournamentReport): void {
     r.mirror,
     0.25,
   );
+  verdict(r.mirror);
   tallyRows('SEATS: win rate by spoke across the four-ways, seating shuffled.', r.seats, 0.25);
+  verdict(r.seats);
 
   console.log('\n' + '='.repeat(78));
   console.log('DUELS - the primary signal for builder parity');
@@ -276,8 +307,8 @@ function report(r: TournamentReport): void {
   }
   const rawOut = flag('records');
   if (rawOut) {
-    fs.writeFileSync(rawOut, `${JSON.stringify(records)}\n`);
-    console.log(`  ${records.length} records written to ${rawOut}`);
+    fs.writeFileSync(rawOut, `${JSON.stringify(raw)}\n`);
+    console.log(`  ${raw.length} records written to ${rawOut}`);
   }
   if (out || rawOut) console.log();
 }

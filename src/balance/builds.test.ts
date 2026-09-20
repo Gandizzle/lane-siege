@@ -258,12 +258,16 @@ describe('the tournament', () => {
   });
 
   it('scores a duel to the builder that won it, whichever seat it sat in', () => {
+    // SEATS 0 AND 2, which is where `seatsForArmies` puts a duel - opposite
+    // spokes, not adjacent ones. This test used to say 0 and 1 and passed
+    // while the real thing matched nothing and printed an empty matchup table.
+    const [first, second] = seatsForArmies(2) as [number, number];
     const records: FightRecord[] = [
       // Two fights: the same pairing at both seatings, `a` winning both.
-      row({ pairKey: 'x|y', seat: 0, builderId: 'x', won: true, placement: 1 }),
-      row({ pairKey: 'x|y', seat: 1, builderId: 'y', won: false, placement: 2 }),
-      row({ pairKey: 'x|y', seat: 0, builderId: 'y', won: false, placement: 2 }),
-      row({ pairKey: 'x|y', seat: 1, builderId: 'x', won: true, placement: 1 }),
+      row({ pairKey: 'x|y', seat: first, builderId: 'x', won: true, placement: 1 }),
+      row({ pairKey: 'x|y', seat: second, builderId: 'y', won: false, placement: 2 }),
+      row({ pairKey: 'x|y', seat: first, builderId: 'y', won: false, placement: 2 }),
+      row({ pairKey: 'x|y', seat: second, builderId: 'x', won: true, placement: 1 }),
     ];
     const report = summarise(data, records);
     const duel = report.duels.find((d) => d.a === 'x')!;
@@ -271,6 +275,20 @@ describe('the tournament', () => {
     expect(duel.aWinRate).toBe(1);
     expect(report.duelBuilders.find((t) => t.key === 'x')!.winRate).toBe(1);
     expect(report.duelBuilders.find((t) => t.key === 'y')!.winRate).toBe(0);
+  });
+
+  it('pairs a duel by fight, not by seat number', () => {
+    // The pairing walks a fight at a time using the seat count each record
+    // carries. Seats it has never heard of - a future arena with six spokes,
+    // say - must still pair.
+    const records: FightRecord[] = [
+      row({ pairKey: 'x|y', seat: 4, builderId: 'x', won: true, placement: 1 }),
+      row({ pairKey: 'x|y', seat: 9, builderId: 'y', won: false, placement: 2 }),
+    ];
+    const report = summarise(data, records);
+    expect(report.duels).toHaveLength(1);
+    expect(report.duels[0]!.fights).toBe(1);
+    expect(report.duels[0]!.aWinRate).toBe(1);
   });
 
   it('counts a fight once, not once per seat', () => {

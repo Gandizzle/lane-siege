@@ -269,6 +269,38 @@ export function standardError(rate: number, fights: number): number {
   return Math.sqrt((rate * (1 - rate)) / fights);
 }
 
+/**
+ * Whether a set of counts is further from even than chance explains.
+ *
+ * Pearson's chi-square, returned as the statistic and its degrees of freedom.
+ * Reading four seat win rates one at a time invites exactly the mistake this
+ * exists to stop: with four numbers and a 5% threshold, one of them looks
+ * significant one run in five whatever the arena is doing. The first run of the
+ * mirror control had seats at 29/18/19/30 and looked damning; it scored 3.85 on
+ * 3 degrees of freedom, which is the middle of the distribution.
+ *
+ * Critical values for 3 df: 7.81 at 5%, 11.34 at 1%.
+ */
+export function evenness(counts: readonly number[]): { chiSquare: number; df: number } {
+  const total = counts.reduce((a, b) => a + b, 0);
+  if (counts.length < 2 || total <= 0) return { chiSquare: 0, df: 0 };
+  const expected = total / counts.length;
+  let chiSquare = 0;
+  for (const observed of counts) chiSquare += (observed - expected) ** 2 / expected;
+  return { chiSquare, df: counts.length - 1 };
+}
+
+/** Where a chi-square on 3 df falls, in words. Three buckets is all this needs. */
+export function evennessVerdict(chiSquare: number, df: number): string {
+  if (df !== 3)
+    return chiSquare === 0
+      ? 'nothing to compare'
+      : `chi-square ${chiSquare.toFixed(2)} on ${df} df`;
+  if (chiSquare < 7.81) return `chi-square ${chiSquare.toFixed(2)} on 3 df - even, within chance`;
+  if (chiSquare < 11.34) return `chi-square ${chiSquare.toFixed(2)} on 3 df - UNEVEN at 5%`;
+  return `chi-square ${chiSquare.toFixed(2)} on 3 df - UNEVEN at 1%`;
+}
+
 class Counter {
   private readonly rows = new Map<
     string,
@@ -341,12 +373,19 @@ export function summarise(
   }
 
   // Duels are scored as pairs: a record for `a` and a record for `b` in the
-  // same fight, joined by the seat order they were planned in.
-  for (let i = 0; i < records.length; i++) {
+  // same fight.
+  //
+  // Walked a FIGHT at a time, using the seat count each record carries, rather
+  // than by looking for seat 0 next to seat 1. The two are not the same thing
+  // and the difference was silent: `seatsForArmies` puts a duel on seats 0 and
+  // 2 - opposite spokes rather than adjacent ones - so pairing by seat number
+  // matched nothing at all and the matchup table came out empty while every
+  // other number in the report stayed correct.
+  for (let i = 0; i < records.length; i += records[i]!.seats) {
     const r = records[i]!;
-    if (r.kind !== 'duel' || r.seat !== 0 || !r.pairKey) continue;
+    if (r.kind !== 'duel' || !r.pairKey || r.seats !== 2) continue;
     const other = records[i + 1];
-    if (!other || other.kind !== 'duel' || other.seat !== 1) continue;
+    if (!other) continue;
 
     const [a] = r.pairKey.split('|') as [string, string];
     const forA = r.builderId === a ? r : other;
