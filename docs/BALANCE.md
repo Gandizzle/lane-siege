@@ -1,7 +1,9 @@
 # Balance: the budget, the ladders, and how we will know
 
-**Status: phase 1 of 4. The economy and the price ladders are in; the showdown
-round robin runs; nothing has been tuned on its results yet.**
+**Status: phase 1 of 4, one tuning round in. The economy and the price ladders
+are in, the round robin runs, and its first findings have been acted on — the
+centre square is now worth holding, every line goes to Mark III, and Gloomtide
+carries an 8% weight.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
@@ -27,6 +29,12 @@ place on the same tile.
 Both were called "tier" until they collided, which is why `UnitDef` now carries
 `rung` and `mark`, and why `validate.ts` refuses a complete roster that is not
 six lines numbered 1 to 6, or a mark that changes rung on the way up.
+
+**All 24 lines go to Mark III.** Ten of them used to stop at Mark II, and not
+evenly: Gloomtide and Thornweald could take both of their expensive lines to the
+top while Ironvow and Pyre could take neither. In an endgame fought with
+expensive units that is a large free advantage, and it is probably a good part
+of why the second run had Gloomtide at 73% and Pyre at 41%.
 
 | builder    | 1         | 2        | 3          | 4          | 5          | 6           |
 | ---------- | --------- | -------- | ---------- | ---------- | ---------- | ----------- |
@@ -151,8 +159,14 @@ Every Mark I price lands inside the band the design asked for (rung 1: 30–60,
 rung 6: 325–425) without a single number being typed in by hand.
 
 A mark costs 1.5× the step before it, so a Mark II has cost 2.5× the base body
-and a Mark III 4.75×. It is worth 2.65× and 5.2× — about 6% and 9.5% ahead of
-flat — so going tall is slightly better gold **and** enormously better supply.
+and a Mark III 4.75×. It is worth **2.85× and 5.9×** — 14% and 24% ahead of the
+cost — so going tall is clearly better gold **and** enormously better supply.
+An upgraded body is what a player brings to the arena; a Mark I is what they
+could afford in wave three. It was 6% and 9.5%, which was not a reason for
+anything.
+
+This only works because every line reaches Mark III. Rewarding marks this
+heavily while ten lines could not have handed two builders the game.
 
 **Upgrade supply is proportional, never flat.** A Mark II is free; a Mark III
 costs the body's supply over again, which is 1, 2 or 3 depending on rung. A flat
@@ -175,11 +189,16 @@ Restatting scales damage and hit points **together**, which holds each unit's
 role. Attack speed, range, move speed, armour, damage type and abilities are
 never touched by the ladder.
 
-**Abilities are not priced.** A taunt, a shield, a slow and an execute are not
-stats and a scalar that pretended to price them would be confidently wrong.
-Every unit carries an implicit ability weight of 1 until the round robin has
-measured what its ability is actually worth; `priceRoster`'s `abilityWeights` is
-where that measurement goes, and closing that gap is phase 2's main job.
+**Abilities are not priced by the formula.** A taunt, a shield, a slow and an
+execute are not stats and a scalar that pretended to price them would be
+confidently wrong. Instead each unit carries a **`valueWeight`** in
+`units.json`: above 1 means it is worth more than it looks, so `npm run reprice`
+gives it fewer raw stats for the same price.
+
+It is the one knob set from **evidence** rather than from a ladder, and every
+value in it should be able to name the run that justified it. Currently one
+entry: Gloomtide's roster at 1.08, after run 02. Closing the rest of this gap —
+a measured weight per ability — is phase 2.
 
 ### Two consequences worth knowing about
 
@@ -193,6 +212,25 @@ the gold unspent. That is not a bug — it is the ladder doing its job, and it
 means the budget picks out rung 4–5 fully upgraded as where a player should
 land — but any build that could not spend what it was given is flagged in the
 report, because a build losing on arithmetic is not a balance finding.
+
+---
+
+### King of the hill
+
+The centre square is a prize. Whichever army has the most living bodies inside
+it holds it, and every body that army owns — wherever it stands — deals 50% more
+damage and takes 50% less (`waves.showdown.centre`). A tie is held by everyone
+tied, so contesting is never worse than conceding.
+
+Without it the arena has one correct strategy and it is not a fight: mass the
+slowest, longest-ranged bodies the budget affords, hold them at the back of your
+spoke, let the other three destroy each other, walk in and mop up. Under that
+plan the front half of every roster is dead weight, and the first two runs said
+so — pure rung 6 won 77.6% and everything below rung 3 lost outright. A prize for
+standing in the middle is what makes a front line worth paying for.
+
+Held, not captured: recomputed from where the bodies are every tick, so it turns
+over on a walk and nobody owns it by having got there first.
 
 ---
 

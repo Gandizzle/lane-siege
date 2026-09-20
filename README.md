@@ -40,7 +40,7 @@ is money rather than code.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-615 tests, plus eight measurement harnesses that are part of how this is
+627 tests, plus eight measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
 sockets), `npm run lobby` (matchmaking, the lobby and reconnection, also over
 real sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`
@@ -54,13 +54,13 @@ last three are the instrument for balancing — see
 Two things are knowingly unfinished:
 
 - **Balance is a quarter done.** The economy and the unit price ladders are in
-  and computed rather than guessed ([docs/BALANCE.md](docs/BALANCE.md)), and the
-  Final Showdown round robin runs — but nothing has been tuned on its results
-  yet, and WAVES ARE CURRENTLY A NO-CONTEST: putting the roster on a ladder
-  lifted the top of it 12–20x, so all four rosters clear 25 waves with their
-  fortress untouched. That is the deferred half and the safe direction — monster
-  strength is one knob — but it is not a game until it is turned. Every number
-  lives in `data/`, so tuning is a JSON job.
+  and computed rather than guessed ([docs/BALANCE.md](docs/BALANCE.md)), the
+  Final Showdown round robin runs, and one round of tuning has been acted on.
+  But WAVES ARE CURRENTLY A NO-CONTEST: putting the roster on a ladder lifted
+  the top of it 12–20x, so all four rosters clear 25 waves with their fortress
+  untouched. That is the deferred half and the safe direction — monster strength
+  is one knob — but it is not a game until it is turned. Every number lives in
+  `data/`, so tuning is a JSON job.
 - **Nothing hosts the server.** Multiplayer works, over real sockets, between
   real browsers — but somebody has to run `npm run server` somewhere and hand
   out the address. That is the last item in §17's M6 and the only one that is

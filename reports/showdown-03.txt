@@ -1,0 +1,8 @@
+
+> lane-siege@0.0.1 showdown
+> tsx src/headless/showdown.ts --duels 40 --ffa 80 --mirrors 40 --out reports/showdown-03.json --records reports/records-03.json
+
+
+720 fights: 40 mirrors a builder, 40 duels a pair (both seatings), 80 four-ways. seed 20260920.
+running on 4 processes...
+
