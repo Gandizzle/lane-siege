@@ -40,21 +40,27 @@ is money rather than code.
 - `npm run sim` — the simulation headless, text output only, with a scripted
   player. `npm run sim -- --waves 25` plays a full match.
 
-569 tests, plus five measurement harnesses that are part of how this is
+615 tests, plus eight measurement harnesses that are part of how this is
 developed rather than extras: `npm run netcheck` (the networked path over real
 sockets), `npm run lobby` (matchmaking, the lobby and reconnection, also over
 real sockets), `npm run wire` (frame sizes at the §15.3 load), `npm run routing`
-(movement — see [docs/PATHING.md](docs/PATHING.md)) and `npm run builders`
-(all four rosters against identical waves).
+(movement — see [docs/PATHING.md](docs/PATHING.md)), `npm run builders` (all
+four rosters against identical waves), `npm run budget` (what a player can
+afford by the endgame), `npm run reprice` (the unit price ladder) and
+`npm run showdown` (the Final Showdown round robin, across every core). The
+last three are the instrument for balancing — see
+[docs/BALANCE.md](docs/BALANCE.md).
 
 Two things are knowingly unfinished:
 
-- **Balance is not playtested.** All four rosters now clear 25 waves without a
-  leak against the scripted player, which means the curve is too soft — §5.5
-  targets a first elimination around wave 13–15, and the movement rework made
-  the defence stronger by letting every unit reach the fight. Every number
-  lives in `data/`, so tuning is a JSON job: `npm run builders` is the
-  yardstick.
+- **Balance is a quarter done.** The economy and the unit price ladders are in
+  and computed rather than guessed ([docs/BALANCE.md](docs/BALANCE.md)), and the
+  Final Showdown round robin runs — but nothing has been tuned on its results
+  yet, and WAVES ARE CURRENTLY A NO-CONTEST: putting the roster on a ladder
+  lifted the top of it 12–20x, so all four rosters clear 25 waves with their
+  fortress untouched. That is the deferred half and the safe direction — monster
+  strength is one knob — but it is not a game until it is turned. Every number
+  lives in `data/`, so tuning is a JSON job.
 - **Nothing hosts the server.** Multiplayer works, over real sockets, between
   real browsers — but somebody has to run `npm run server` somewhere and hand
   out the address. That is the last item in §17's M6 and the only one that is
@@ -103,7 +109,8 @@ src/bot/       the scripted player: the headless harness, and practice opponents
 src/util/      the fixed-timestep accumulator, shared by client and server.
 server/        the authoritative Colyseus room. Imports src/sim unchanged.
 src/headless/  text-only runners and measurement harnesses.
-docs/          architecture notes and the open-questions register.
+src/balance/   the budget, the price ladders and the showdown round robin.
+docs/          architecture notes, the balance plan, the open-questions register.
 ```
 
 ## The two rules from DESIGN.md
