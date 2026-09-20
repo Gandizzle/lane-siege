@@ -1618,14 +1618,51 @@ with the widest blast radius are:
 
 ### A word on the balance numbers
 
-They are placeholders and **not playtested**. As it stands the lane falls around
-wave 4, where §5.5 targets wave 13–15 for the first elimination. That gap is a
-data problem, not a code one: §5.5 names the two levers as the fortress weapon
-and its regeneration, and both are fields in `fortress.json`. Supply cap,
-starting gold and the whole unit table are equally provisional.
+They are placeholders, and balancing them is now a build of its own rather than
+a JSON editing job done by eye. The plan, the arithmetic and the standard are in
+[BALANCE.md](BALANCE.md); this is what the code half looks like.
 
-The point of M1 is that the systems run and are provable, and that fixing the
-curve is now a JSON editing job.
+`src/balance/` is a fourth peer to `sim`, `render` and `net`. It imports the
+simulation and never the other way round, and nothing in it runs during a match
+except `builds.ts`, which the Final Showdown setup screen uses to spend a budget
+the same way the harness does.
+
+```
+budget.ts      what a medium player can afford by the arena. A closed-form
+               model of one line of play, read from data/ - not a simulation,
+               and it says so. `npm run budget`.
+pricing.ts     two growth rates, and every gold cost, supply cost, damage and
+               hit point figure in the roster falls out of them.
+               `npm run reprice` shows the diff, `--write` applies it.
+builds.ts      a build is a share of the supply budget per rung, not a list of
+               units, and `realise` spends a budget on one.
+arena.ts       one fight: armies in, placements and surviving supply out.
+tournament.ts  plan, run, summarise - in three pieces so a run is reproducible
+               and can be sharded across cores. `npm run showdown`.
+```
+
+The split that matters is **plan / run / summarise**. A tournament plan is a
+pure function of its options, so four processes each running every fourth fight
+produce the same records as one process running all of them. They have to: a
+fight between full-budget armies costs about fifteen seconds, because every
+distinct `(radius, range)` among the seekers needs its own flow field every tick
+and a six-rung army has six of them.
+
+Two things the harness does that are not obvious and are load-bearing:
+
+- **The controls gate the signal.** Four copies of one builder on one build must
+  win 25% a seat, and win rate by spoke across the four-ways must be flat,
+  before any builder number is worth reading. Either coming back skewed means
+  the arena is unfair and every result inherits it.
+- **A build that could not spend its budget is reported as such.** Rung 1 and 2
+  armies want more bodies than the 80-tile grid holds and cannot spend half
+  their gold; they lose partly on arithmetic, and a report that quietly scored
+  that as a balance finding would send the tuning in the wrong direction.
+
+Waves are the deferred half. Putting the roster on a price ladder lifted its
+middle about 4x and its top 12–20x, so `npm run builders` now clears all 25
+waves with four fortresses untouched, where §5.5 wants a first elimination
+around wave 13–15. Monster strength is one knob and turning it is phase 3.
 
 ### Not yet built
 
