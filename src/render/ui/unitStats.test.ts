@@ -107,16 +107,32 @@ describe('numbers a player cannot act on are not shown as numbers', () => {
   });
 
   it('multiplies damage by attack speed, because neither means much alone', () => {
-    // Bulwark hits hard and slowly, Thornling the other way round. The per-hit
-    // numbers say the opposite of what the sustained ones do.
-    const bulwark = def('oathwall');
-    const thornling = def('thornling');
-    expect(bulwark.damage!).toBeGreaterThan(thornling.damage!);
+    // Somewhere in the roster is a pair where the per-hit numbers say the
+    // opposite of what the sustained ones do - a slow heavy swing against a
+    // fast light one. WHICH pair is a pricing decision and has moved once
+    // already, so it is found rather than named.
+    const units = data.units.units;
+    const pair = units.flatMap((heavy) =>
+      units
+        .filter(
+          (quick) =>
+            (heavy.damage ?? 0) > (quick.damage ?? 0) &&
+            (heavy.damage ?? 0) * (heavy.attackSpeed ?? 0) <
+              (quick.damage ?? 0) * (quick.attackSpeed ?? 0),
+        )
+        .map((quick) => [heavy, quick] as const),
+    )[0];
 
-    const bulwarkDps = Number(statText('dps', bulwark, null));
-    const thornlingDps = Number(statText('dps', thornling, null));
-    expect(bulwarkDps).toBeCloseTo(bulwark.damage! * bulwark.attackSpeed!, 1);
-    expect(thornlingDps).toBeGreaterThan(bulwarkDps);
+    expect(pair, 'a roster with no slow heavy hitter says nothing here').toBeDefined();
+    const [heavy, quick] = pair!;
+
+    const heavyDps = Number(statText('dps', heavy, null));
+    const quickDps = Number(statText('dps', quick, null));
+    expect(heavyDps).toBeCloseTo((heavy.damage ?? 0) * (heavy.attackSpeed ?? 0), 1);
+    // The panel reports the sustained number, so it disagrees with the per-hit
+    // one - which is the entire reason it multiplies.
+    expect(quickDps).toBeGreaterThan(heavyDps);
+    expect(quick.damage!).toBeLessThan(heavy.damage!);
   });
 
   it('trims a whole number rather than writing 1.0', () => {

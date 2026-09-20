@@ -158,7 +158,11 @@ describe('a frame survives the round trip', () => {
   it('carries energy, and only for the bodies that can spend it', () => {
     const { state, ctx } = match();
     // Sanction III is one of the ten whose top mark unlocks an energy ability;
-    // a Pledge beside it never spends any.
+    // a Pledge beside it never spends any. A Mark III body is a rung 5 line
+    // fully upgraded and costs accordingly, so the lane is funded for it
+    // rather than left on its opening purse.
+    state.lanes.a!.economy.gold = 5000;
+    state.lanes.a!.economy.supplyCap = 50;
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'a',
