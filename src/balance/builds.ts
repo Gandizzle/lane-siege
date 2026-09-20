@@ -232,3 +232,30 @@ export function realise(
     tilesShort: Math.max(0, bought.length - tiles.length),
   };
 }
+
+/**
+ * "10/10/15/15/25/25": the shares as a player reads them off, normalised so
+ * they sum to a hundred however they were typed in.
+ */
+export function sharesLabel(shares: RungShares): string {
+  const total = shares.reduce((a, b) => a + b, 0);
+  if (total <= 0) return 'nothing';
+  return shares.map((s) => Math.round((s / total) * 100)).join('/');
+}
+
+/**
+ * Each rung's line name, so a row of an editor says "3. Vigil" rather than
+ * only "3". A builder with a gap in its ladder gets an empty string rather
+ * than a shifted list - `validate.ts` refuses that data, but a UI that
+ * silently renumbered would hide it if it ever got through.
+ */
+export function lineNames(data: GameData, builderId: string): string[] {
+  const out: string[] = [];
+  for (let rung = 1; rung <= 6; rung++) {
+    const def = data.units.units.find(
+      (u) => u.builderId === builderId && u.rung === rung && u.mark === 1,
+    );
+    out.push(def?.name ?? '');
+  }
+  return out;
+}

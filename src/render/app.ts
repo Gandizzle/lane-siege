@@ -37,6 +37,9 @@ import {
 import { CODE_LENGTH, PUBLIC_CODE, normaliseCode } from '../net/lobby.ts';
 import { Game } from './game.ts';
 import type { MatchMode } from './ui/homeScreen.ts';
+import type { SeatSetup } from './ui/showdownSetup.ts';
+import { computeBudget } from '../balance/budget.ts';
+import { realise } from '../balance/builds.ts';
 import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
 
@@ -108,6 +111,50 @@ function newTransport(
   );
 }
 
+/**
+ * §3.3, replaced: a local match that opens in the arena with armies set up by
+ * hand (ui/showdownSetup.ts).
+ *
+ * The budget and the placement come from src/balance, which is what `npm run
+ * showdown` runs too - so what is on screen is the same experiment as a row in
+ * the report, and not a second implementation of it that could drift.
+ */
+function newShowdown(
+  data: GameData,
+  options: AppOptions,
+  seats: readonly SeatSetup[],
+  identity: { playerId: string; name: string },
+): Transport {
+  const budget = computeBudget(data);
+  const armies = seats.map((seat) =>
+    realise(
+      data,
+      seat.builderId,
+      { id: seat.specId, name: seat.specId, shares: seat.shares },
+      budget.armyGold,
+      budget.armySupply,
+    ),
+  );
+
+  const teams = armies.map((army, index) => ({
+    id: LANE_IDS[index]!,
+    playerIds: index === 0 ? ['you'] : [`seat${index}`],
+    name: index === 0 ? identity.name : `Seat ${index + 1}`,
+    builderId: army.builderId,
+  }));
+
+  return new LocalTransport(
+    data,
+    options.seed ?? Math.floor(Math.random() * 0x7fffffff),
+    teams,
+    // Seat 0 is the one the camera is on. Nothing here is scripted: there is
+    // nothing to build and nothing to spend, so no lane needs a bot.
+    LANE_IDS[0]!,
+    [],
+    { armies },
+  );
+}
+
 export async function startApp(
   mount: HTMLElement,
   data: GameData,
@@ -139,6 +186,7 @@ export async function startApp(
     data,
     {
       createTransport: (mode, builderId) => newTransport(data, options, mode, builderId, identity),
+      createShowdown: (seats) => newShowdown(data, options, seats, identity),
       name: () => identity.name,
       online: Boolean(options.server),
       async editName() {

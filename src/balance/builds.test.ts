@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { computeBudget } from './budget.ts';
-import { BUILD_SPECS, lines, placementOrder, realise } from './builds.ts';
+import { BUILD_SPECS, lineNames, lines, placementOrder, realise, sharesLabel } from './builds.ts';
 import { runArena } from './arena.ts';
 import { planFights, runFights, standardError, summarise, type FightRecord } from './tournament.ts';
 
@@ -253,3 +253,32 @@ function row(over: Partial<FightRecord>): FightRecord {
     ...over,
   };
 }
+
+/**
+ * What the Final Showdown setup screen puts on a card. Here rather than beside
+ * the screen because neither needs Pixi, and a helper that decides what a
+ * number says is worth a test whichever file it lives next to.
+ */
+describe('reading a build back', () => {
+  it('normalises shares to a hundred, however they were typed', () => {
+    expect(sharesLabel([1, 1, 1, 1, 1, 1])).toBe('17/17/17/17/17/17');
+    expect(sharesLabel([0.1, 0.1, 0.15, 0.15, 0.25, 0.25])).toBe('10/10/15/15/25/25');
+    expect(sharesLabel([2, 0, 0, 0, 0, 0])).toBe('100/0/0/0/0/0');
+    expect(sharesLabel([0, 0, 0, 0, 0, 0])).toBe('nothing');
+  });
+
+  it('names the line at each rung', () => {
+    for (const builder of data.units.builders) {
+      const names = lineNames(data, builder.id);
+      expect(names, builder.id).toHaveLength(6);
+      expect(
+        names.every((n) => n.length > 0),
+        builder.id,
+      ).toBe(true);
+      expect(new Set(names).size, `${builder.id} has a repeated name`).toBe(6);
+    }
+    expect(lineNames(data, 'ironvow')[0]).toBe('Pledge');
+    // A builder that does not exist gets six blanks, not a shifted list.
+    expect(lineNames(data, 'nobody')).toEqual(['', '', '', '', '', '']);
+  });
+});

@@ -65,6 +65,7 @@ import { BuilderSelect } from './ui/builderSelect.ts';
 import { ShowdownCountdown } from './ui/countdown.ts';
 import { GameOver } from './ui/gameOver.ts';
 import { HomeScreen, type MatchMode } from './ui/homeScreen.ts';
+import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Hud } from './ui/hud.ts';
 import { OpponentTabs } from './ui/opponentTabs.ts';
@@ -78,6 +79,8 @@ import { WatchBanner } from './ui/watchBanner.ts';
 export interface GameServices {
   /** Makes a transport for a chosen roster: a local simulation, or a room. */
   createTransport(mode: MatchMode, builderId: string): Transport;
+  /** §3.3, replaced: a local match that opens in the arena (showdownSetup.ts). */
+  createShowdown(seats: SeatSetup[]): Transport;
   /** The player's display name right now (identity.ts). */
   name(): string;
   /** Ask for a new name and persist it. Null if the player backed out. */
@@ -89,7 +92,7 @@ export interface GameServices {
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
-type Screen = 'home' | 'builder' | 'lobby' | 'match';
+type Screen = 'home' | 'builder' | 'lobby' | 'showdownSetup' | 'match';
 
 export class Game extends Container {
   private layout: LaneLayout;
@@ -130,6 +133,7 @@ export class Game extends Container {
   private readonly builderSelect: BuilderSelect;
   private readonly home: HomeScreen;
   private readonly lobbyScreen: LobbyScreen;
+  private readonly showdownSetup: ShowdownSetup;
   /** §3.3, replaced: the cross the last fight happens on, and the card that opens it. */
   private readonly arena: ArenaStage;
   private readonly countdown: ShowdownCountdown;
@@ -208,6 +212,10 @@ export class Game extends Container {
       onChangeBuilder: () => this.showScreen('builder'),
       onLeave: () => this.goHome(),
     });
+    this.showdownSetup = new ShowdownSetup(this.layout, data, {
+      onPlay: (seats) => this.startShowdown(seats),
+      onBack: () => this.goHome(),
+    });
     this.arena = new ArenaStage(
       arenaShape(data),
       this.layout.screen,
@@ -242,6 +250,7 @@ export class Game extends Container {
       this.countdown,
       this.builderSelect,
       this.lobbyScreen,
+      this.showdownSetup,
       this.home,
     );
 
@@ -255,6 +264,7 @@ export class Game extends Container {
     this.screen = screen;
     this.home.visible = screen === 'home';
     this.builderSelect.visible = screen === 'builder';
+    this.showdownSetup.visible = screen === 'showdownSetup';
     if (screen === 'home') this.home.setState(this.services.name(), this.services.online);
     if (screen !== 'lobby') this.lobbyScreen.reset();
   }
@@ -275,7 +285,39 @@ export class Game extends Container {
 
   private chooseMode(mode: MatchMode): void {
     this.mode = mode;
+    // The Final Showdown skips the roster picker: every seat picks its own
+    // builder on the setup screen, including the one being watched.
+    if (mode.kind === 'showdown') {
+      this.showdownSetup.reset();
+      this.showScreen('showdownSetup');
+      return;
+    }
     this.showScreen('builder');
+  }
+
+  /**
+   * §3.3, replaced: straight into the arena with armies set up by hand.
+   *
+   * Seat 0 is the one whose lane the camera is on and whose units the panel
+   * reports, so the first card on the setup screen is "yours" in the only sense
+   * that means anything here - there is nothing to build and nothing to spend.
+   */
+  private startShowdown(seats: SeatSetup[]): void {
+    this.transport?.dispose();
+    this.mode = { kind: 'showdown' };
+    this.transport = this.services.createShowdown(seats);
+    this.view = this.transport.view();
+    this.watchingTeamId = null;
+    this.selection = null;
+    this.pendingUnitDefId = null;
+    this.summarisedWave = -1;
+    this.summarisedBuilder = '';
+    this.entities.reset();
+    this.effectsLayer.reset();
+    this.gameOver.reset();
+    this.buildBar.reset();
+    this.leaveShowdown();
+    this.showScreen('match');
   }
 
   /**
@@ -356,6 +398,7 @@ export class Game extends Container {
     this.builderSelect.setLayout(this.layout);
     this.home.setLayout(this.layout);
     this.lobbyScreen.setLayout(this.layout);
+    this.showdownSetup.setLayout(this.layout);
   }
 
   /** One animation frame. `deltaMs` is wall time; the simulation never sees it. */

@@ -29,8 +29,12 @@ import type { GameData } from '../data/schema.ts';
 import { AutoBuilder } from '../bot/autoBuilder.ts';
 import {
   applyCommand,
+  buildDefIndex,
   createContext,
   createMatch,
+  createUnit,
+  recomputeUnitBuffs,
+  stat,
   step,
   viewFor,
   type Command,
@@ -40,6 +44,7 @@ import {
   type SimContext,
   type TeamSetup,
 } from '../sim/index.ts';
+import type { Army } from '../balance/builds.ts';
 import { FixedTimestep } from '../util/loop.ts';
 import type { Transport, TransportStatus } from './transport.ts';
 
@@ -60,6 +65,15 @@ export interface LocalStart {
   wave?: number;
   /** Open in the Final Showdown's arena, with four scripted armies in it. */
   showdown?: boolean;
+  /**
+   * Open in the arena with these armies, exactly as set up (§3.3, replaced).
+   *
+   * Not a debugging affordance like the two above: this is the Final Showdown
+   * mode, and the armies come from `realise` against `computeBudget` - the same
+   * two functions `npm run showdown` uses - so what is watched here is the same
+   * experiment the report ran.
+   */
+  armies?: readonly Army[];
 }
 
 export class LocalTransport implements Transport {
@@ -100,7 +114,8 @@ export class LocalTransport implements Transport {
       .filter((id) => id !== teamId)
       .map((id) => new AutoBuilder(data, id, this.state.lanes[id]?.builderId ?? ''));
 
-    if (start.showdown) this.jumpToShowdown(data);
+    if (start.armies) this.standArmies(data, start.armies);
+    else if (start.showdown) this.jumpToShowdown(data);
     else if (start.wave !== undefined && start.wave > 1) this.jumpTo(data, start.wave);
     this.refresh();
   }
@@ -157,6 +172,39 @@ export class LocalTransport implements Transport {
     // The state the tick after the last wave's last monster dies. `step` does
     // the rest, because opening the showdown is the simulation's job (§3.3,
     // replaced).
+    this.state.wave = data.waves.showdown.afterWave;
+    this.state.phase = 'combat';
+    this.state.phaseTicksLeft = 0;
+    step(this.ctx, this.state);
+  }
+
+  /**
+   * Stand a set of armies in the arena and start the fight (§3.3, replaced).
+   *
+   * The bodies are placed rather than bought: `realise` has already spent the
+   * budget against the real prices, and replaying that as purchases would mean
+   * simulating build phases to afford a Mark III. The transition itself is the
+   * simulation's own - the match is handed to `step` at the moment a cleared
+   * wave 25 would hand it over, and `beginShowdown` does the rest.
+   */
+  private standArmies(data: GameData, armies: readonly Army[]): void {
+    const defs = buildDefIndex(data);
+    const byId = new Map(data.units.units.map((u) => [u.id, u]));
+    const energyMax = stat(data.abilities.energy.max);
+
+    armies.forEach((army, seat) => {
+      const lane = Object.values(this.state.lanes)[seat];
+      if (!lane) return;
+      for (const placed of army.units) {
+        const def = byId.get(placed.defId);
+        if (!def) continue;
+        lane.units.push(createUnit(this.state, def, placed.tileX, placed.tileY, energyMax));
+      }
+      recomputeUnitBuffs(data, defs, lane);
+    });
+
+    // Any lane with nobody in it is out before the countdown, which is what
+    // `showdownEliminations` would decide a tick later anyway.
     this.state.wave = data.waves.showdown.afterWave;
     this.state.phase = 'combat';
     this.state.phaseTicksLeft = 0;

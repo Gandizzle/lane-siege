@@ -31,7 +31,17 @@ import { centreOn, label } from './text.ts';
 
 /** How a match is found. Chosen here, carried through the builder picker. */
 export type MatchMode =
-  { kind: 'practice' } | { kind: 'quick' } | { kind: 'private'; code: string };
+  | { kind: 'practice' }
+  | { kind: 'quick' }
+  | { kind: 'private'; code: string }
+  /**
+   * §3.3, replaced: straight to the arena, with armies set up by hand.
+   *
+   * Not a way to play a match - there are no waves and no economy - but the
+   * only way to WATCH the fight the balance report is made of. It needs no
+   * server for the same reason Practice does not.
+   */
+  | { kind: 'showdown' };
 
 export interface HomeHandlers {
   onChoose(mode: MatchMode): void;
@@ -92,6 +102,9 @@ export class HomeScreen extends Container {
       ),
       this.makeButton('Private room', 'Share a four-letter code with friends', () =>
         this.handlers.onPrivateRoom(),
+      ),
+      this.makeButton('Final Showdown', 'Set up armies and watch them fight', () =>
+        this.handlers.onChoose({ kind: 'showdown' }),
       ),
     );
 
@@ -174,8 +187,9 @@ export class HomeScreen extends Container {
     let y = rowY + 48 + (compact ? 14 : 26);
 
     for (const [index, button] of this.buttons.entries()) {
-      // Practice is index 0 and always available; the rest need a server.
-      button.enabled = index === 0 || this.online;
+      // Practice and the Final Showdown run in this tab; the two in between
+      // need a server.
+      button.enabled = index === 0 || index === this.buttons.length - 1 || this.online;
 
       button.background.clear();
       button.background
