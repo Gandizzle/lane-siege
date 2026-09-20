@@ -10,3 +10,8 @@ coverage/
 .vscode/*
 !.vscode/extensions.json
 android/
+
+# Balance runs. The text report of a checkpoint run is committed; the raw
+# records and the JSON summary are hundreds of KB of machine output and are
+# reproducible from the seed in the report.
+reports/*.json
