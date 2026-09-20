@@ -102,9 +102,23 @@ export function planFights(data: GameData, options: Partial<TournamentOptions> =
 
   // Mirrors. Four copies of one builder on one build: the only thing that can
   // separate them is where they stand.
+  //
+  // WITHOUT REPLACEMENT, and that is the whole reason this is not a loop of
+  // random draws. An arena fight is very nearly a function of the armies in it
+  // - the seed perturbs how long it takes and almost never changes who wins -
+  // so running the same mirror twice is one observation written down twice.
+  // Sampling with replacement from 23 builds made 160 mirror "fights" out of
+  // about 73 distinct ones, and the chi-square on that read 21.0 where the
+  // honest figure was 7.7: the difference between "the arena is broken" and
+  // "the arena is fine". Each builder therefore mirrors up to `mirrors`
+  // DIFFERENT builds, and running out of builds is the cap.
   for (const builderId of builders) {
-    for (let i = 0; i < opts.mirrors; i++) {
-      const specId = specs[rng.int(specs.length)]!.id;
+    const pool = specs.map((spec) => spec.id);
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = rng.int(i + 1);
+      [pool[i], pool[j]] = [pool[j]!, pool[i]!];
+    }
+    for (const specId of pool.slice(0, Math.min(opts.mirrors, pool.length))) {
       plans.push({
         kind: 'mirror',
         seats: [0, 1, 2, 3].map(() => ({ builderId, specId })),
@@ -263,6 +277,14 @@ export interface TournamentReport {
  * available here is nerfing a builder over forty fights of noise. At an even
  * 50% and n fights it is sqrt(0.25 / n): plus or minus 3 points needs about
  * 280 fights, and plus or minus 1 needs 2,500.
+ *
+ * WHAT IT IS ACTUALLY MEASURING. A fight is very nearly a function of the two
+ * armies in it: the seed moves how long it takes and hardly ever moves who
+ * wins. So this is not the error on a coin flip repeated n times - it is the
+ * error on a sample of n DIFFERENT matchups drawn from the space of builds,
+ * and it is only honest while the draws are different. That is why the mirrors
+ * are drawn without replacement (`planFights`) and why more fights buys
+ * confidence only by covering more of the space.
  */
 export function standardError(rate: number, fights: number): number {
   if (fights <= 0) return 0;

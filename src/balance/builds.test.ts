@@ -252,6 +252,21 @@ describe('the tournament', () => {
     }
   });
 
+  /**
+   * An arena fight is very nearly a function of the armies in it, so the same
+   * mirror run twice is one observation written down twice. Sampling with
+   * replacement turned 73 distinct mirrors into 160 "fights" and inflated the
+   * control's chi-square from 7.7 to 21.0 - from "the arena is fine" to "the
+   * arena is broken".
+   */
+  it('never repeats a mirror, however many are asked for', () => {
+    const many = planFights(data, { ...options, mirrors: 1000 }).filter((p) => p.kind === 'mirror');
+    const keys = many.map((p) => `${p.seats[0]!.builderId}/${p.seats[0]!.specId}`);
+    expect(new Set(keys).size, 'a mirror was planned twice').toBe(keys.length);
+    // Asking for more than there are builds gets every build, not repeats.
+    expect(keys.length).toBe(BUILD_SPECS.length * data.units.builders.length);
+  });
+
   it('puts one of every builder in every four-way', () => {
     for (const plan of planFights(data, options).filter((p) => p.kind === 'ffa')) {
       expect(new Set(plan.seats.map((s) => s.builderId)).size).toBe(4);
