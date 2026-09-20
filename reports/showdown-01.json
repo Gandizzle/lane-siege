@@ -1,0 +1,1207 @@
+{
+  "options": {
+    "duelsPerPair": 40,
+    "freeForAlls": 80,
+    "mirrors": 20,
+    "seed": 20260920
+  },
+  "budget": {
+    "gold": 21390.904040404042,
+    "supply": 95
+  },
+  "mirror": [
+    {
+      "key": "seat 0",
+      "fights": 80,
+      "wins": 23,
+      "winRate": 0.2875,
+      "error": 0.050601846557215675,
+      "margin": 0.031090077760467776,
+      "placement": 2.4875
+    },
+    {
+      "key": "seat 1",
+      "fights": 80,
+      "wins": 14,
+      "winRate": 0.175,
+      "error": 0.04248161366991607,
+      "margin": 0.01885970385500783,
+      "placement": 2.825
+    },
+    {
+      "key": "seat 2",
+      "fights": 80,
+      "wins": 15,
+      "winRate": 0.1875,
+      "error": 0.04363825013677794,
+      "margin": 0.0177066734625921,
+      "placement": 2.575
+    },
+    {
+      "key": "seat 3",
+      "fights": 80,
+      "wins": 24,
+      "winRate": 0.3,
+      "error": 0.05123475382979799,
+      "margin": 0.017385370104332547,
+      "placement": 2.375
+    }
+  ],
+  "seats": [
+    {
+      "key": "seat 0",
+      "fights": 80,
+      "wins": 17,
+      "winRate": 0.2125,
+      "error": 0.045736165941189254,
+      "margin": 0.12198080701931639,
+      "placement": 2.7125
+    },
+    {
+      "key": "seat 1",
+      "fights": 80,
+      "wins": 22,
+      "winRate": 0.275,
+      "error": 0.04992181386928964,
+      "margin": 0.13366186647452488,
+      "placement": 2.325
+    },
+    {
+      "key": "seat 2",
+      "fights": 80,
+      "wins": 20,
+      "winRate": 0.25,
+      "error": 0.04841229182759271,
+      "margin": 0.13130788020950046,
+      "placement": 2.5875
+    },
+    {
+      "key": "seat 3",
+      "fights": 80,
+      "wins": 21,
+      "winRate": 0.2625,
+      "error": 0.049192701440355965,
+      "margin": 0.1191238546015235,
+      "placement": 2.375
+    }
+  ],
+  "duels": [
+    {
+      "a": "ironvow",
+      "b": "pyre",
+      "fights": 80,
+      "aWinRate": 0.625,
+      "error": 0.05412658773652741,
+      "aMargin": 0.42006472384838067,
+      "bMargin": 0.23818613670926153
+    },
+    {
+      "a": "ironvow",
+      "b": "thornweald",
+      "fights": 80,
+      "aWinRate": 0.6,
+      "error": 0.05477225575051661,
+      "aMargin": 0.43199206299797827,
+      "bMargin": 0.2849259550091164
+    },
+    {
+      "a": "ironvow",
+      "b": "gloomtide",
+      "fights": 80,
+      "aWinRate": 0.25,
+      "error": 0.04841229182759271,
+      "aMargin": 0.16503178518656242,
+      "bMargin": 0.5067155852908926
+    },
+    {
+      "a": "pyre",
+      "b": "thornweald",
+      "fights": 80,
+      "aWinRate": 0.45,
+      "error": 0.05562148865321748,
+      "aMargin": 0.3233170394970055,
+      "bMargin": 0.30721927846892627
+    },
+    {
+      "a": "pyre",
+      "b": "gloomtide",
+      "fights": 80,
+      "aWinRate": 0.3625,
+      "error": 0.053746366156234224,
+      "aMargin": 0.22518984873716436,
+      "bMargin": 0.39574916944685856
+    },
+    {
+      "a": "thornweald",
+      "b": "gloomtide",
+      "fights": 80,
+      "aWinRate": 0.3375,
+      "error": 0.052867020674518816,
+      "aMargin": 0.18625345572746663,
+      "bMargin": 0.4115228714518751
+    }
+  ],
+  "duelBuilders": [
+    {
+      "key": "gloomtide",
+      "fights": 240,
+      "wins": 164,
+      "winRate": 0.6833333333333333,
+      "error": 0.03002699402821352,
+      "margin": 0.43799587539654194,
+      "placement": 1.3166666666666667
+    },
+    {
+      "key": "ironvow",
+      "fights": 240,
+      "wins": 118,
+      "winRate": 0.49166666666666664,
+      "error": 0.0322703782874452,
+      "margin": 0.3390295240109739,
+      "placement": 1.5083333333333333
+    },
+    {
+      "key": "thornweald",
+      "fights": 240,
+      "wins": 103,
+      "winRate": 0.42916666666666664,
+      "error": 0.0319493504686773,
+      "margin": 0.25946622973516986,
+      "placement": 1.5708333333333333
+    },
+    {
+      "key": "pyre",
+      "fights": 240,
+      "wins": 95,
+      "winRate": 0.3958333333333333,
+      "error": 0.03156668243282488,
+      "margin": 0.26223100831447727,
+      "placement": 1.6041666666666667
+    }
+  ],
+  "ffaBuilders": [
+    {
+      "key": "gloomtide",
+      "fights": 80,
+      "wins": 49,
+      "winRate": 0.6125,
+      "error": 0.054468310741200704,
+      "margin": 0.3148870818343293,
+      "placement": 1.75
+    },
+    {
+      "key": "ironvow",
+      "fights": 80,
+      "wins": 12,
+      "winRate": 0.15,
+      "error": 0.03992179855667828,
+      "margin": 0.05957247636558629,
+      "placement": 2.6125
+    },
+    {
+      "key": "thornweald",
+      "fights": 80,
+      "wins": 10,
+      "winRate": 0.125,
+      "error": 0.0369754986443726,
+      "margin": 0.06411630036630037,
+      "placement": 2.775
+    },
+    {
+      "key": "pyre",
+      "fights": 80,
+      "wins": 9,
+      "winRate": 0.1125,
+      "error": 0.03532770690265645,
+      "margin": 0.06749854973864923,
+      "placement": 2.8625
+    }
+  ],
+  "builds": [
+    {
+      "key": "high2",
+      "fights": 73,
+      "wins": 58,
+      "winRate": 0.7945205479452054,
+      "error": 0.047290655747930364,
+      "margin": 0.5771689497716896,
+      "placement": 1.2328767123287672
+    },
+    {
+      "key": "anchor",
+      "fights": 60,
+      "wins": 47,
+      "winRate": 0.7833333333333333,
+      "error": 0.0531855591650939,
+      "margin": 0.44032258064516117,
+      "placement": 1.2666666666666666
+    },
+    {
+      "key": "barbell",
+      "fights": 76,
+      "wins": 55,
+      "winRate": 0.7236842105263158,
+      "error": 0.05129447671626044,
+      "margin": 0.3902544823597457,
+      "placement": 1.3026315789473684
+    },
+    {
+      "key": "wall",
+      "fights": 70,
+      "wins": 49,
+      "winRate": 0.7,
+      "error": 0.05477225575051661,
+      "margin": 0.3909370199692779,
+      "placement": 1.3285714285714285
+    },
+    {
+      "key": "topheavy",
+      "fights": 65,
+      "wins": 43,
+      "winRate": 0.6615384615384615,
+      "error": 0.05869154380760315,
+      "margin": 0.4383731211317418,
+      "placement": 1.4
+    },
+    {
+      "key": "nolow",
+      "fights": 78,
+      "wins": 50,
+      "winRate": 0.6410256410256411,
+      "error": 0.05431529139335406,
+      "margin": 0.4271019677996423,
+      "placement": 1.4615384615384615
+    },
+    {
+      "key": "pure6",
+      "fights": 55,
+      "wins": 34,
+      "winRate": 0.6181818181818182,
+      "error": 0.06550961870404844,
+      "margin": 0.5466275659824047,
+      "placement": 1.4181818181818182
+    },
+    {
+      "key": "even",
+      "fights": 53,
+      "wins": 31,
+      "winRate": 0.5849056603773585,
+      "error": 0.06768281028610025,
+      "margin": 0.26243318050244036,
+      "placement": 1.5849056603773586
+    },
+    {
+      "key": "pure5",
+      "fights": 72,
+      "wins": 42,
+      "winRate": 0.5833333333333334,
+      "error": 0.058101390731533024,
+      "margin": 0.43324372759856633,
+      "placement": 1.6111111111111112
+    },
+    {
+      "key": "design",
+      "fights": 74,
+      "wins": 35,
+      "winRate": 0.47297297297297297,
+      "error": 0.05803884298235808,
+      "margin": 0.2849598224598224,
+      "placement": 1.6081081081081081
+    },
+    {
+      "key": "middle",
+      "fights": 65,
+      "wins": 24,
+      "winRate": 0.36923076923076925,
+      "error": 0.05985873219300765,
+      "margin": 0.21004048582995957,
+      "placement": 1.7076923076923076
+    },
+    {
+      "key": "skip",
+      "fights": 59,
+      "wins": 21,
+      "winRate": 0.3559322033898305,
+      "error": 0.062333774883160976,
+      "margin": 0.1354603602406666,
+      "placement": 2.0338983050847457
+    },
+    {
+      "key": "bottomheavy",
+      "fights": 70,
+      "wins": 20,
+      "winRate": 0.2857142857142857,
+      "error": 0.05399492471560389,
+      "margin": 0.15624060150375943,
+      "placement": 1.9857142857142858
+    },
+    {
+      "key": "pure4",
+      "fights": 49,
+      "wins": 14,
+      "winRate": 0.2857142857142857,
+      "error": 0.06453627877894652,
+      "margin": 0.18541033434650453,
+      "placement": 1.9183673469387754
+    },
+    {
+      "key": "nohigh",
+      "fights": 47,
+      "wins": 9,
+      "winRate": 0.19148936170212766,
+      "error": 0.05739396996590885,
+      "margin": 0.14980714196839617,
+      "placement": 2.234042553191489
+    },
+    {
+      "key": "mid2",
+      "fights": 58,
+      "wins": 10,
+      "winRate": 0.1724137931034483,
+      "error": 0.04959965187779836,
+      "margin": 0.1317107403744936,
+      "placement": 2.1551724137931036
+    },
+    {
+      "key": "pure3",
+      "fights": 65,
+      "wins": 10,
+      "winRate": 0.15384615384615385,
+      "error": 0.04475188260636458,
+      "margin": 0.12765957446808512,
+      "placement": 2.1538461538461537
+    },
+    {
+      "key": "pure2",
+      "fights": 70,
+      "wins": 4,
+      "winRate": 0.05714285714285714,
+      "error": 0.027743094641577842,
+      "margin": 0.033684210526315796,
+      "placement": 2.242857142857143
+    },
+    {
+      "key": "low2",
+      "fights": 53,
+      "wins": 2,
+      "winRate": 0.03773584905660377,
+      "error": 0.02617497535728273,
+      "margin": 0.0021847070506454814,
+      "placement": 2.490566037735849
+    },
+    {
+      "key": "pure1",
+      "fights": 68,
+      "wins": 2,
+      "winRate": 0.029411764705882353,
+      "error": 0.020489133706448115,
+      "margin": 0.02089783281733746,
+      "placement": 2.3088235294117645
+    }
+  ],
+  "spend": [
+    {
+      "specId": "pure1",
+      "builderId": "ironvow",
+      "bodies": 80,
+      "goldSpent": 10687.5,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 15
+    },
+    {
+      "specId": "pure2",
+      "builderId": "ironvow",
+      "bodies": 80,
+      "goldSpent": 13364.772727272712,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 15
+    },
+    {
+      "specId": "pure3",
+      "builderId": "ironvow",
+      "bodies": 47,
+      "goldSpent": 16660.295867768604,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure4",
+      "builderId": "ironvow",
+      "bodies": 47,
+      "goldSpent": 20894.262088655127,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure5",
+      "builderId": "ironvow",
+      "bodies": 31,
+      "goldSpent": 21389.532988730276,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure6",
+      "builderId": "ironvow",
+      "bodies": 31,
+      "goldSpent": 21200.886851976076,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "design",
+      "builderId": "ironvow",
+      "bodies": 46,
+      "goldSpent": 21384.978841201846,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 90,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "even",
+      "builderId": "ironvow",
+      "bodies": 54,
+      "goldSpent": 20421.625338669106,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "topheavy",
+      "builderId": "ironvow",
+      "bodies": 37,
+      "goldSpent": 21379.190768355358,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 87,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "bottomheavy",
+      "builderId": "ironvow",
+      "bodies": 70,
+      "goldSpent": 15947.130725906693,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "barbell",
+      "builderId": "ironvow",
+      "bodies": 55,
+      "goldSpent": 21346.415042107154,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 91,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "middle",
+      "builderId": "ironvow",
+      "bodies": 51,
+      "goldSpent": 19502.614466244842,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "low2",
+      "builderId": "ironvow",
+      "bodies": 80,
+      "goldSpent": 12000.795454545452,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 14
+    },
+    {
+      "specId": "mid2",
+      "builderId": "ironvow",
+      "bodies": 46,
+      "goldSpent": 18696.473974455286,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "high2",
+      "builderId": "ironvow",
+      "bodies": 30,
+      "goldSpent": 21251.099965054542,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 90,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "anchor",
+      "builderId": "ironvow",
+      "bodies": 53,
+      "goldSpent": 21347.381795043795,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "wall",
+      "builderId": "ironvow",
+      "bodies": 38,
+      "goldSpent": 21245.03156676083,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "nolow",
+      "builderId": "ironvow",
+      "bodies": 36,
+      "goldSpent": 21346.340358857746,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 86,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "nohigh",
+      "builderId": "ironvow",
+      "bodies": 68,
+      "goldSpent": 15351.219586776851,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "skip",
+      "builderId": "ironvow",
+      "bodies": 56,
+      "goldSpent": 18014.439764770166,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure1",
+      "builderId": "pyre",
+      "bodies": 80,
+      "goldSpent": 10687.5,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 15
+    },
+    {
+      "specId": "pure2",
+      "builderId": "pyre",
+      "bodies": 80,
+      "goldSpent": 13364.772727272712,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 15
+    },
+    {
+      "specId": "pure3",
+      "builderId": "pyre",
+      "bodies": 47,
+      "goldSpent": 16660.295867768604,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure4",
+      "builderId": "pyre",
+      "bodies": 47,
+      "goldSpent": 20894.262088655127,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure5",
+      "builderId": "pyre",
+      "bodies": 31,
+      "goldSpent": 21389.532988730276,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure6",
+      "builderId": "pyre",
+      "bodies": 31,
+      "goldSpent": 21200.886851976076,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "design",
+      "builderId": "pyre",
+      "bodies": 46,
+      "goldSpent": 21370.01727095391,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 91,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "even",
+      "builderId": "pyre",
+      "bodies": 54,
+      "goldSpent": 20421.625338669106,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "topheavy",
+      "builderId": "pyre",
+      "bodies": 37,
+      "goldSpent": 21379.190768355358,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 87,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "bottomheavy",
+      "builderId": "pyre",
+      "bodies": 70,
+      "goldSpent": 15947.130725906693,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "barbell",
+      "builderId": "pyre",
+      "bodies": 55,
+      "goldSpent": 21346.415042107154,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 91,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "middle",
+      "builderId": "pyre",
+      "bodies": 51,
+      "goldSpent": 19502.614466244842,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "low2",
+      "builderId": "pyre",
+      "bodies": 80,
+      "goldSpent": 12000.795454545452,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 14
+    },
+    {
+      "specId": "mid2",
+      "builderId": "pyre",
+      "bodies": 46,
+      "goldSpent": 18377.76240420735,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 92,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "high2",
+      "builderId": "pyre",
+      "bodies": 30,
+      "goldSpent": 21251.099965054542,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 90,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "anchor",
+      "builderId": "pyre",
+      "bodies": 53,
+      "goldSpent": 21347.381795043795,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "wall",
+      "builderId": "pyre",
+      "bodies": 38,
+      "goldSpent": 21245.03156676083,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "nolow",
+      "builderId": "pyre",
+      "bodies": 36,
+      "goldSpent": 21346.340358857746,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 86,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "nohigh",
+      "builderId": "pyre",
+      "bodies": 68,
+      "goldSpent": 15118.796446280983,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "skip",
+      "builderId": "pyre",
+      "bodies": 56,
+      "goldSpent": 18014.439764770166,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure1",
+      "builderId": "thornweald",
+      "bodies": 80,
+      "goldSpent": 10687.5,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 15
+    },
+    {
+      "specId": "pure2",
+      "builderId": "thornweald",
+      "bodies": 80,
+      "goldSpent": 13364.772727272712,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 15
+    },
+    {
+      "specId": "pure3",
+      "builderId": "thornweald",
+      "bodies": 47,
+      "goldSpent": 16660.295867768604,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure4",
+      "builderId": "thornweald",
+      "bodies": 47,
+      "goldSpent": 20894.262088655127,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure5",
+      "builderId": "thornweald",
+      "bodies": 31,
+      "goldSpent": 21389.532988730276,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure6",
+      "builderId": "thornweald",
+      "bodies": 31,
+      "goldSpent": 21200.886851976076,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "design",
+      "builderId": "thornweald",
+      "bodies": 46,
+      "goldSpent": 21370.01727095391,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 91,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "even",
+      "builderId": "thornweald",
+      "bodies": 54,
+      "goldSpent": 20804.67689695561,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "topheavy",
+      "builderId": "thornweald",
+      "bodies": 37,
+      "goldSpent": 21379.190768355358,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 87,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "bottomheavy",
+      "builderId": "thornweald",
+      "bodies": 70,
+      "goldSpent": 15947.130725906693,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "barbell",
+      "builderId": "thornweald",
+      "bodies": 55,
+      "goldSpent": 21346.415042107154,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 91,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "middle",
+      "builderId": "thornweald",
+      "bodies": 51,
+      "goldSpent": 19694.140245388095,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "low2",
+      "builderId": "thornweald",
+      "bodies": 80,
+      "goldSpent": 12000.795454545452,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 14
+    },
+    {
+      "specId": "mid2",
+      "builderId": "thornweald",
+      "bodies": 46,
+      "goldSpent": 18377.76240420735,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 92,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "high2",
+      "builderId": "thornweald",
+      "bodies": 30,
+      "goldSpent": 21251.099965054542,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 90,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "anchor",
+      "builderId": "thornweald",
+      "bodies": 53,
+      "goldSpent": 21347.381795043795,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "wall",
+      "builderId": "thornweald",
+      "bodies": 38,
+      "goldSpent": 21245.03156676083,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "nolow",
+      "builderId": "thornweald",
+      "bodies": 36,
+      "goldSpent": 21346.340358857746,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 86,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "nohigh",
+      "builderId": "thornweald",
+      "bodies": 68,
+      "goldSpent": 15118.796446280983,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "skip",
+      "builderId": "thornweald",
+      "bodies": 56,
+      "goldSpent": 18014.439764770166,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure1",
+      "builderId": "gloomtide",
+      "bodies": 80,
+      "goldSpent": 10687.5,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 15
+    },
+    {
+      "specId": "pure2",
+      "builderId": "gloomtide",
+      "bodies": 80,
+      "goldSpent": 13364.772727272712,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 15
+    },
+    {
+      "specId": "pure3",
+      "builderId": "gloomtide",
+      "bodies": 47,
+      "goldSpent": 16660.295867768604,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure4",
+      "builderId": "gloomtide",
+      "bodies": 47,
+      "goldSpent": 20894.262088655127,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure5",
+      "builderId": "gloomtide",
+      "bodies": 31,
+      "goldSpent": 21389.532988730276,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "pure6",
+      "builderId": "gloomtide",
+      "bodies": 31,
+      "goldSpent": 21200.886851976076,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "design",
+      "builderId": "gloomtide",
+      "bodies": 46,
+      "goldSpent": 21066.26727095391,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 88,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "even",
+      "builderId": "gloomtide",
+      "bodies": 54,
+      "goldSpent": 20703.42689695561,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "topheavy",
+      "builderId": "gloomtide",
+      "bodies": 37,
+      "goldSpent": 21379.190768355358,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 87,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "bottomheavy",
+      "builderId": "gloomtide",
+      "bodies": 70,
+      "goldSpent": 15947.130725906693,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "barbell",
+      "builderId": "gloomtide",
+      "bodies": 55,
+      "goldSpent": 21346.415042107154,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 91,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "middle",
+      "builderId": "gloomtide",
+      "bodies": 51,
+      "goldSpent": 19694.140245388095,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 95,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "low2",
+      "builderId": "gloomtide",
+      "bodies": 80,
+      "goldSpent": 11899.545454545452,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 14
+    },
+    {
+      "specId": "mid2",
+      "builderId": "gloomtide",
+      "bodies": 46,
+      "goldSpent": 18377.76240420735,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 92,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "high2",
+      "builderId": "gloomtide",
+      "bodies": 30,
+      "goldSpent": 21251.099965054542,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 90,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "anchor",
+      "builderId": "gloomtide",
+      "bodies": 53,
+      "goldSpent": 21347.381795043795,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "wall",
+      "builderId": "gloomtide",
+      "bodies": 38,
+      "goldSpent": 21245.03156676083,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 93,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "nolow",
+      "builderId": "gloomtide",
+      "bodies": 36,
+      "goldSpent": 21346.340358857746,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 86,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "nohigh",
+      "builderId": "gloomtide",
+      "bodies": 68,
+      "goldSpent": 14612.546446280983,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 90,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    },
+    {
+      "specId": "skip",
+      "builderId": "gloomtide",
+      "bodies": 56,
+      "goldSpent": 17913.189764770166,
+      "goldBudget": 21390.904040404042,
+      "supplyUsed": 94,
+      "supplyBudget": 95,
+      "tilesShort": 0
+    }
+  ],
+  "fights": 640,
+  "timeouts": 4,
+  "meanSeconds": 47.177890624999996
+}

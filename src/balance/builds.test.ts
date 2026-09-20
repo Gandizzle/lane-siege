@@ -75,6 +75,38 @@ describe('realising a build', () => {
     expect(wide.units.length).toBe(data.lane.buildZone.width * data.lane.buildZone.depth);
   });
 
+  it('never comes back empty, however small the budget', () => {
+    // A rung whose share is worth less than one body gets nothing from the
+    // proportional pass, so a spread build on a small budget used to buy
+    // NOTHING - "a tenth of eight supply" rounds to zero six times - and lost
+    // a fight it never turned up to.
+    for (const spec of BUILD_SPECS) {
+      for (const supply of [4, 8, 10, 20]) {
+        const army = realise(data, 'ironvow', spec, 3000, supply);
+        expect(army.units.length, `${spec.id} on ${supply} supply`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('spends the supply down to what one more body would cost', () => {
+    for (const builder of data.units.builders) {
+      for (const spec of BUILD_SPECS) {
+        const army = realise(data, builder.id, spec, budget.armyGold, budget.armySupply);
+        // Whatever is left has to be less than the cheapest thing the build is
+        // allowed to buy, or the leftover pass stopped early.
+        const cheapest = Math.min(
+          ...spec.shares
+            .map((share, i) => ({ share, rung: i + 1 }))
+            .filter((r) => r.share > 0)
+            .map((r) => lines(data, builder.id).get(r.rung)?.[0]?.supplyCost ?? Infinity),
+        );
+        const left = army.supplyBudget - army.supplyUsed;
+        if (army.tilesShort > 0) continue; // out of board, not out of budget
+        expect(left, `${builder.id}/${spec.id} left ${left}`).toBeLessThan(cheapest);
+      }
+    }
+  });
+
   it('fills the tile order from the middle of each row outward', () => {
     const order = placementOrder(data);
     const width = data.lane.buildZone.width;
@@ -105,12 +137,19 @@ describe('realising a build', () => {
  * which is the round robin's business and not a test suite's. These run on a
  * pocket budget - a handful of bodies each - because what they check is that
  * the instrument behaves, not what it measures.
+ *
+ * They are still seconds rather than milliseconds, and cutting the armies
+ * further would not help: the cost of a tick is the flow field, and the field
+ * is sized by the ARENA (32 tiles a side at five cells a tile) rather than by
+ * how many bodies are walking on it. Two bodies a side costs most of what ten
+ * does. Hence the explicit timeouts.
  */
 describe('the arena', () => {
   const SMALL_GOLD = 1200;
   const SMALL_SUPPLY = 10;
+  const SLOW = { timeout: 60_000 };
 
-  it('is deterministic: one seed, one outcome', () => {
+  it('is deterministic: one seed, one outcome', SLOW, () => {
     const armies = ['ironvow', 'pyre'].map((id) =>
       realise(data, id, design, SMALL_GOLD, SMALL_SUPPLY),
     );
@@ -121,7 +160,7 @@ describe('the arena', () => {
     expect(a.seats.map((s) => s.survivingSupply)).toEqual(b.seats.map((s) => s.survivingSupply));
   });
 
-  it('produces exactly one winner, and ends', () => {
+  it('produces exactly one winner, and ends', SLOW, () => {
     const armies = data.units.builders.map((b) =>
       realise(data, b.id, design, SMALL_GOLD, SMALL_SUPPLY),
     );
@@ -131,7 +170,7 @@ describe('the arena', () => {
     expect(new Set(result.seats.map((s) => s.placement)).size).toBe(4);
   });
 
-  it('seats a duel on opposite spokes, not the first two', () => {
+  it('seats a duel on opposite spokes, not the first two', SLOW, () => {
     // The first two seats are south and west - a quarter turn apart - which
     // makes a duel an L-shaped fight that meets at an angle rather than the
     // head-on clash it is supposed to be.
@@ -148,7 +187,7 @@ describe('the arena', () => {
     expect(result.seats.map((s) => s.placement).sort()).toEqual([1, 2]);
   });
 
-  it('gives the winner survivors and the losers none', () => {
+  it('gives the winner survivors and the losers none', SLOW, () => {
     const armies = ['ironvow', 'thornweald'].map((id) =>
       realise(data, id, design, SMALL_GOLD, SMALL_SUPPLY),
     );

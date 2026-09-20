@@ -174,21 +174,54 @@ export function realise(
     .filter((r) => r.share > 0)
     .sort((a, b) => b.share - a.share);
 
+  const target = new Map<number, number>();
+  const spent = new Map<number, number>();
   for (const { rung, share } of order) {
-    const chain = chains.get(rung);
-    if (!chain || chain.length === 0) continue;
-    const base = chain[0]!;
+    target.set(rung, total > 0 ? (share / total) * supplyBudget : 0);
+    spent.set(rung, 0);
+  }
 
-    const want = total > 0 ? (share / total) * supplyBudget : 0;
-    let spent = 0;
-    while (spent + num(base.supplyCost) <= want) {
-      const cost = num(base.goldCost);
-      if (cost > gold || num(base.supplyCost) > supply) break;
-      gold -= cost;
-      supply -= num(base.supplyCost);
-      spent += num(base.supplyCost);
-      bought.push({ rung, mark: 1, def: base });
+  const buy = (rung: number): boolean => {
+    const base = chains.get(rung)?.[0];
+    if (!base) return false;
+    const cost = num(base.goldCost);
+    const supplyCost = num(base.supplyCost);
+    if (cost > gold || supplyCost > supply || supplyCost <= 0) return false;
+    gold -= cost;
+    supply -= supplyCost;
+    spent.set(rung, (spent.get(rung) ?? 0) + supplyCost);
+    bought.push({ rung, mark: 1, def: base });
+    return true;
+  };
+
+  for (const { rung } of order) {
+    const want = target.get(rung) ?? 0;
+    const base = chains.get(rung)?.[0];
+    if (!base) continue;
+    while ((spent.get(rung) ?? 0) + num(base.supplyCost) <= want && buy(rung)) {
+      // Bought; `buy` has already charged it.
     }
+  }
+
+  // LARGEST REMAINDER, and it is not a nicety. A rung whose share is worth less
+  // than one body gets nothing from the pass above, so a build whose every
+  // share rounds down - "a tenth of eight supply" - comes back as an empty
+  // army and loses a fight it never turned up to. This hands what is left to
+  // whichever rung is furthest below its target, until nothing else fits.
+  for (;;) {
+    let best: number | null = null;
+    let worst = -Infinity;
+    for (const { rung } of order) {
+      const base = chains.get(rung)?.[0];
+      if (!base) continue;
+      if (num(base.goldCost) > gold || num(base.supplyCost) > supply) continue;
+      const behind = (target.get(rung) ?? 0) - (spent.get(rung) ?? 0);
+      if (behind > worst) {
+        worst = behind;
+        best = rung;
+      }
+    }
+    if (best === null || !buy(best)) break;
   }
 
   // Marks, dearest rung first. A body already at the top of its chain is
