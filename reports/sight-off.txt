@@ -1,13 +1,13 @@
 
 > lane-siege@0.0.1 showdown
-> tsx src/headless/showdown.ts --duels 0 --ffa 120 --mirrors 0 --seed 4242 --sight off --out reports/sight-off.json
+> tsx src/headless/showdown.ts --duels 0 --ffa 120 --mirrors 0 --seed 4242 --sight off
 
 
 120 fights: 0 mirrors a builder, 0 duels a pair (both seatings), 120 four-ways. seed 4242.
 running on 4 processes...
 
 
-120 fights in 280s. Mean fight 43s of game time. 0 hit the tick cap.
+120 fights in 284s. Mean fight 44s of game time. 0 hit the tick cap.
 Every seat got 21,391 gold and 95 supply.
 Line of sight across the arena's corners: open.
 
@@ -21,11 +21,11 @@ MIRROR: four copies of one builder, one build. 25% a seat is correct.
 
 SEATS: win rate by spoke across the four-ways, seating shuffled.
                  fights   win rate        margin   mean place
-  seat 0            120    35.0% ± 4.4%   19.4%        2.30   <- +10.0% off 25.0%
-  seat 1            120    19.2% ± 3.6%   12.3%        2.67
-  seat 2            120    21.7% ± 3.8%   12.5%        2.50
-  seat 3            120    24.2% ± 3.9%   13.7%        2.52
-  -> chi-square 7.00 on 3 df - even, within chance
+  seat 0            120    33.3% ± 4.3%   19.7%        2.33
+  seat 1            120    20.8% ± 3.7%   13.0%        2.62
+  seat 2            120    24.2% ± 3.9%   13.8%        2.46
+  seat 3            120    21.7% ± 3.8%   13.1%        2.59
+  -> chi-square 4.73 on 3 df - even, within chance
 
 ==============================================================================
 DUELS - the primary signal for builder parity
@@ -43,38 +43,38 @@ FOUR-WAYS - a check on what only shows up with four
 
 By builder.
                  fights   win rate        margin   mean place
-  gloomtide         120    44.2% ± 4.5%   27.0%        2.13   <- +19.2% off 25.0%
-  ironvow           120    30.8% ± 4.2%   17.4%        2.28
-  pyre              120    19.2% ± 3.6%    9.9%        2.54
-  thornweald        120     5.8% ± 2.1%    3.6%        3.04   <- -19.2% off 25.0%
+  gloomtide         120    45.8% ± 4.5%   26.8%        2.06   <- +20.8% off 25.0%
+  ironvow           120    32.5% ± 4.3%   19.5%        2.23
+  pyre              120    15.0% ± 3.3%    8.5%        2.77   <- -10.0% off 25.0%
+  thornweald        120     6.7% ± 2.3%    4.7%        2.94   <- -18.3% off 25.0%
 
 ==============================================================================
 BUILDS - is one shape of army simply correct?
 ==============================================================================
                  fights   win rate        margin   mean place
-  pure6              21    57.1% ±10.8%   54.6%        1.71
-  wall               28    57.1% ± 9.4%   33.4%        1.64
-  barbell            28    57.1% ± 9.4%   23.6%        1.61
-  design             18    55.6% ±11.7%   27.4%        1.67
-  nolow              27    51.9% ± 9.6%   32.4%        1.89
-  topheavy           29    51.7% ± 9.3%   27.2%        1.69
-  anchor             17    41.2% ±11.9%   28.6%        2.29
-  high2              23    39.1% ±10.2%   27.2%        2.22
-  even               17    35.3% ±11.6%   11.0%        2.12
-  pure5              16    25.0% ±10.8%   10.9%        2.25
-  skip               14    21.4% ±11.0%   11.5%        2.43
-  middle             20    15.0% ± 8.0%    7.5%        2.25
-  designMk2          17    11.8% ± 7.8%    4.8%        2.29
-  high2Mk1           19     5.3% ± 5.1%    4.8%        2.84
-  mid2               22     4.5% ± 4.4%    3.6%        2.86
-  pure4              23     4.3% ± 4.3%    0.2%        2.83
+  barbell            28    64.3% ± 9.1%   29.9%        1.50
+  anchor             17    58.8% ±11.9%   39.6%        1.82
+  wall               28    57.1% ± 9.4%   32.6%        1.64
+  design             18    55.6% ±11.7%   29.6%        1.89
+  pure6              21    52.4% ±10.9%   49.7%        1.81
+  nolow              27    51.9% ± 9.6%   32.8%        1.74
+  topheavy           29    48.3% ± 9.3%   23.6%        1.66
+  high2              23    30.4% ± 9.6%   22.1%        2.30
+  even               17    29.4% ±11.1%   13.0%        2.18
+  skip               14    21.4% ±11.0%   12.6%        2.64
+  middle             20    20.0% ± 8.9%    9.7%        2.10
+  pure5              16    18.8% ± 9.8%   11.6%        2.56
+  designMk2          17    17.6% ± 9.2%    7.9%        2.12
+  high2Mk1           19     5.3% ± 5.1%    4.8%        2.74
+  mid2               22     4.5% ± 4.4%    3.0%        3.05
   designMk1          19     0.0% ± 0.0%    0.0%        2.89
-  bottomheavy        25     0.0% ± 0.0%    0.0%        3.08
-  pure3              18     0.0% ± 0.0%    0.0%        3.61
+  bottomheavy        25     0.0% ± 0.0%    0.0%        3.16
+  pure3              18     0.0% ± 0.0%    0.0%        3.44
+  pure4              23     0.0% ± 0.0%    0.0%        2.96
   low2               22     0.0% ± 0.0%    0.0%        3.41
-  pure2              18     0.0% ± 0.0%    0.0%        3.61
-  pure1              18     0.0% ± 0.0%    0.0%        3.94
-  nohigh             21     0.0% ± 0.0%    0.0%        3.48
+  pure2              18     0.0% ± 0.0%    0.0%        3.89
+  pure1              18     0.0% ± 0.0%    0.0%        3.89
+  nohigh             21     0.0% ± 0.0%    0.0%        3.33
 
 BUILDS THAT COULD NOT SPEND THEIR BUDGET
   these lose partly on arithmetic, not on merit
@@ -148,6 +148,4 @@ BUILDS THAT COULD NOT SPEND THEIR BUDGET
   skip           gloomtide        29      81%      100%         
   designMk1      gloomtide        49      43%      100%         
   high2Mk1       gloomtide        31      54%       98%         
-
-  report written to reports/sight-off.json
 
