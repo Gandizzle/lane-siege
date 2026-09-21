@@ -293,6 +293,38 @@ be read as balancing for it.
 Neither blocks the first phase of balancing, which is four-way and duel only.
 See [BALANCE.md](BALANCE.md).
 
+### 14. The arena is not rotationally symmetric, and one seat wins more (§3.3, replaced) [balance]
+
+Four IDENTICAL armies in the cross should win a quarter each. They do not. Over
+92 distinct mirrors (`npm run showdown`, run 04) the seats came out
+17 / 21 / 19 / 44 per cent, which is chi-square 16.96 on 3 degrees of freedom —
+past the 11.34 that 1% sits at. It is a real effect, not a sampling artefact:
+the mirrors are drawn without replacement and every one of the 92 is a different
+army.
+
+**It is not the king-of-the-hill rule.** Running the same mirrors with the
+centre buff set to zero does not remove the bias, it moves it — seat 0 goes to
+50%. Occupancy of the centre square is fairly even across seats (21–28% of
+body-ticks each), so no seat is simply camping the hill. The hill amplifies and
+redistributes something that was already there.
+
+**It is not placement.** Every build tile of every leg, rotated back into the
+south frame, is bit-identical to the south leg's: 240 of 240 exact. A body
+sitting on the centre boundary reads the same on all four legs.
+
+What is left is processing ORDER. The armies are walked, resolved and swung in
+seat order — `everyone` is filled army by army, `attack` runs per army in turn,
+and contacts resolve down one list — so the first and last armies in that list
+are not in the same position as the middle two. Symmetry survives about 70
+ticks and then breaks on a difference of thousandths of a tile, which the flow
+field's cell quantisation (five cells to a tile) turns into a different
+direction.
+
+**It does not invalidate the duel numbers.** Every duel is played at both
+seatings, so whatever the advantage is, both sides get it. It does mean a
+four-way result carries it, and it means a real player in one seat has an edge,
+which is a shipping bug rather than a balance one.
+
 ### 11. Monetisation and audio (§18) [post-ship]
 
 ## Answered by transcription, not by invention
