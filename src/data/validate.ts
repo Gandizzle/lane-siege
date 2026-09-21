@@ -14,6 +14,7 @@ import type {
   GameData,
   Tunable,
 } from './schema.ts';
+import { isRanged, isTank, rosterRows } from './roster.ts';
 import {
   CONTROL_KINDS,
   EFFECT_KINDS,
@@ -212,6 +213,38 @@ function checkShapes(data: GameData, errors: string[]): void {
   for (const monster of monsters) claim(monster.shape, monster.id);
 
   checkRungs(data, errors);
+  checkRows(data, errors);
+}
+
+/**
+ * Every row of the build bar holds a tank and a gun (data/roster.ts).
+ *
+ * The six lines are drawn as two rows of three - rungs 1 to 3 above, 4 to 6
+ * below - so each row is a half of the ladder a player might be buying from. A
+ * row that is all range is a row you cannot open with; a row that is all melee
+ * is a row that cannot reach anything. Either way half the roster stops being
+ * a roster, and the player finds out in the arena.
+ *
+ * Read off the numbers rather than off a label, so a unit cannot be restatted
+ * out of the job it was counted for and still be counted for it.
+ */
+function checkRows(data: GameData, errors: string[]): void {
+  for (const builder of data.units.builders) {
+    if (!builder.complete) continue;
+    for (const row of rosterRows(data, builder.id)) {
+      const rungs = row.map((u) => u.rung).join(', ');
+      if (!row.some(isTank)) {
+        errors.push(
+          `builder '${builder.id}' has no tank at rungs ${rungs} - every row of three needs a front line (data/roster.ts)`,
+        );
+      }
+      if (!row.some(isRanged)) {
+        errors.push(
+          `builder '${builder.id}' has nothing with reach at rungs ${rungs} - every row of three needs a gun (data/roster.ts)`,
+        );
+      }
+    }
+  }
 }
 
 /**

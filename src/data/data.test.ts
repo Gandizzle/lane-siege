@@ -3,6 +3,7 @@ import { loadDataFromDisk } from './loadNode.ts';
 import { SHAPE_FAMILY } from './schema.ts';
 import type { GameData } from './schema.ts';
 import { validateData } from './validate.ts';
+import { buildableUnits, isRanged, isTank, rosterRows } from './roster.ts';
 
 describe('data/', () => {
   const { data, report } = loadDataFromDisk();
@@ -139,5 +140,81 @@ describe('rungs and marks', () => {
     for (const u of copy.units.units) if (u.builderId === 'pyre' && u.rung === 4) u.rung = 3;
     const { report } = validateData(copy as unknown as Record<string, unknown>);
     expect(report.errors.some((e) => e.includes('pyre') && e.includes('rung'))).toBe(true);
+  });
+});
+
+/**
+ * The build bar draws a builder's six lines as two rows of three: rungs 1 to 3
+ * above, 4 to 6 below. Each row is a half of the ladder a player might be
+ * buying from, so each row has to be a roster in miniature.
+ */
+describe('the two rows of three', () => {
+  const { data } = loadDataFromDisk();
+
+  it('orders the roster by rung, which is what the rows mean', () => {
+    for (const builder of data.units.builders) {
+      const rungs = buildableUnits(data, builder.id).map((u) => u.rung);
+      expect(rungs, builder.id).toEqual([1, 2, 3, 4, 5, 6]);
+    }
+  });
+
+  it('splits into two rows of three', () => {
+    for (const builder of data.units.builders) {
+      const rows = rosterRows(data, builder.id);
+      expect(
+        rows.map((r) => r.length),
+        builder.id,
+      ).toEqual([3, 3]);
+      expect(rows[0]!.map((u) => u.rung)).toEqual([1, 2, 3]);
+      expect(rows[1]!.map((u) => u.rung)).toEqual([4, 5, 6]);
+    }
+  });
+
+  it('gives every row a tank and something with reach', () => {
+    for (const builder of data.units.builders) {
+      if (!builder.complete) continue;
+      for (const row of rosterRows(data, builder.id)) {
+        const where = `${builder.id} rungs ${row.map((u) => u.rung).join('')}`;
+        expect(row.some(isTank), `${where} has no tank`).toBe(true);
+        expect(row.some(isRanged), `${where} has nothing with reach`).toBe(true);
+      }
+    }
+  });
+
+  it('reads the roles off the numbers, not off a label', () => {
+    // A tank is melee and mostly hit points; a gun is neither. The point of
+    // deriving it is that a unit cannot be restatted out of the job it was
+    // counted for and still be counted for it.
+    const oathwall = data.units.units.find((u) => u.id === 'oathwall')!;
+    const judgement = data.units.units.find((u) => u.id === 'judgement')!;
+    expect(isTank(oathwall)).toBe(true);
+    expect(isRanged(oathwall)).toBe(false);
+    expect(isTank(judgement)).toBe(false);
+    expect(isRanged(judgement)).toBe(true);
+
+    const glassy = { ...oathwall, hp: 1 };
+    expect(isTank(glassy), 'a wall with no wall left is not a tank').toBe(false);
+  });
+
+  it('is refused by the validator when a row loses its tank', () => {
+    const copy = structuredClone(data) as GameData;
+    // Give Ironvow's rung 1 a gun's profile and its top row has no front line.
+    for (const u of copy.units.units) {
+      if (u.builderId === 'ironvow' && u.rung === 1) {
+        u.range = 4;
+        u.hp = 10;
+      }
+    }
+    const { report } = validateData(copy as unknown as Record<string, unknown>);
+    expect(report.errors.some((e) => e.includes('ironvow') && e.includes('no tank'))).toBe(true);
+  });
+
+  it('is refused by the validator when a row loses its reach', () => {
+    const copy = structuredClone(data) as GameData;
+    for (const u of copy.units.units) {
+      if (u.builderId === 'pyre' && u.rung >= 4) u.range = 0.1;
+    }
+    const { report } = validateData(copy as unknown as Record<string, unknown>);
+    expect(report.errors.some((e) => e.includes('pyre') && e.includes('reach'))).toBe(true);
   });
 });

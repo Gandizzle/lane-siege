@@ -47,6 +47,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { AuraType, DamageType, GameData, MonsterDef, UnitDef } from '../../data/schema.ts';
+import { buildableUnits } from '../../data/roster.ts';
 import { sellValue, ticksToSeconds } from '../../sim/index.ts';
 import type {
   EconomyView,
@@ -924,7 +925,10 @@ export class BuildBar extends Container {
     summary: WaveSummary | null,
     canBuild: boolean,
   ): void {
-    this.unitSlots = this.data.units.units.filter((u) => u.mark === 1 && u.builderId === builderId);
+    // In RUNG order, which is what the two rows of three mean: the top row is
+    // rungs 1 to 3 and the bottom row 4 to 6, so reading down a column is
+    // reading up the ladder (data/roster.ts).
+    this.unitSlots = buildableUnits(this.data, builderId);
 
     this.unitButtons.forEach((button, slot) => {
       const def = this.unitSlots[slot];

@@ -27,6 +27,7 @@
  */
 
 import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
+import { buildableUnits } from '../data/roster.ts';
 import { damageMultiplier, previewWave } from '../sim/index.ts';
 import type { Command, MatchState, TeamId } from '../sim/index.ts';
 
@@ -69,9 +70,9 @@ function buildSlots(data: GameData): { tileX: number; tileY: number; row: number
  * front, what fills the middle, and what shoots over the top (§4.2).
  */
 function rangeClasses(data: GameData, builderId: string): UnitDef[][] {
-  const roster = data.units.units
-    .filter((u) => u.mark === 1 && u.builderId === builderId)
-    .sort((a, b) => (a.range ?? 0) - (b.range ?? 0));
+  const roster = [...buildableUnits(data, builderId)].sort(
+    (a, b) => (a.range ?? 0) - (b.range ?? 0),
+  );
 
   const per = Math.max(1, Math.ceil(roster.length / 3));
   return [roster.slice(0, per), roster.slice(per, per * 2), roster.slice(per * 2)];

@@ -21,6 +21,7 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { BuilderDef, DamageType, GameData } from '../../data/schema.ts';
+import { buildableUnits } from '../../data/roster.ts';
 import type { LaneLayout } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { centreOn, label } from './text.ts';
@@ -54,7 +55,7 @@ interface Profile {
  * time somebody tunes a stat, so this is computed.
  */
 function profile(data: GameData, builderId: string): Profile {
-  const roster = data.units.units.filter((u) => u.mark === 1 && u.builderId === builderId);
+  const roster = buildableUnits(data, builderId);
 
   const byType = new Map<DamageType, number[]>();
   for (const unit of roster) {

@@ -23,6 +23,7 @@
  */
 
 import type { GameData, UnitDef } from '../data/schema.ts';
+import { buildableUnits } from '../data/roster.ts';
 import { totalCost } from './pricing.ts';
 
 /** A share of the supply budget per rung, rung 1 first. Need not sum to 1. */
@@ -324,9 +325,7 @@ export function sharesLabel(shares: RungShares): string {
 export function lineNames(data: GameData, builderId: string): string[] {
   const out: string[] = [];
   for (let rung = 1; rung <= 6; rung++) {
-    const def = data.units.units.find(
-      (u) => u.builderId === builderId && u.rung === rung && u.mark === 1,
-    );
+    const def = buildableUnits(data, builderId).find((u) => u.rung === rung);
     out.push(def?.name ?? '');
   }
   return out;
