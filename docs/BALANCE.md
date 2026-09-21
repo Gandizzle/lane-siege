@@ -234,6 +234,40 @@ over on a walk and nobody owns it by having got there first.
 
 ---
 
+### The corners are not glass — and it did not matter
+
+The arena is a cross, so the four corners of its bounding square are not arena:
+nothing stands there and nothing walks there. Until `waves.showdown.lineOfSight`
+they were transparent anyway, and a body at the back of one spoke could shoot
+one at the back of the next across the gap. That looked like the reason reach
+was beating the price ladder, so it was closed (`crossesTheVoid` in
+`src/sim/arena.ts`) and measured.
+
+**It changed nothing.** A paired A/B — 120 four-ways, the same seeded plan both
+times, the only difference being the flag — moved the four builders by 1.6,
+1.7, 4.2 and 0.9 points against error bars of 2 to 4.5, and left the build
+ladder in the same order. Pure rung 6 went _up_, 52.4% to 57.1%.
+
+The change is very far from inert, which is what makes the null interesting.
+Instrumenting acquisition over twelve four-ways — 193,685 picks that had
+something to pick — the rule changes **63.7%** of them: 41.6% swap to a nearer
+body, and 22.1% are refused a target outright and walk at the centre instead.
+Fight length changed in 119 of the 120 paired fights and the finishing order in
+65 of them. What did not change was who won, in 104 of 120.
+
+So reach simply does not need the corners. It wins inside one spoke, where
+there is no void to shoot over — which is also why the effect is exactly zero
+in a duel: the two armies sit on opposite spokes, every shot stays inside the
+vertical bar, and 0 of 5,310 in-range sightings cross anything. **Do not
+re-measure this in duels.** It is invisible there by construction.
+
+Kept on regardless: shooting through ground nothing can walk on is wrong
+whether or not it is decisive, and the tick cost is nil (5.96ms, unchanged).
+The lesson for the ladder is that reach is mispriced in `unitValue`'s
+`1 + range * 0.08`, not mis-terrained.
+
+---
+
 ## 4. The phases
 
 **Phase 0 — instrumentation.** _Done._ Vocabulary settled, the budget computed
