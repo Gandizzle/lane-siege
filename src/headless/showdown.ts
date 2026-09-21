@@ -132,9 +132,21 @@ function progress(done: number, total: number): void {
  */
 async function runSharded(count: number): Promise<FightRecord[]> {
   const self = fileURLToPath(import.meta.url);
-  const passthrough = ['duels', 'ffa', 'mirrors', 'seed']
-    .flatMap((name) => (flag(name) ? [`--${name}`, flag(name)!] : []))
-    .concat(quick ? ['--quick'] : []);
+  // Everything this process was given, minus what is about to be replaced or
+  // is the parent's alone. Forwarded by SUBTRACTION rather than by naming the
+  // flags to keep, because the list that named them silently dropped `--sight`
+  // - the shards ran on the data file's default and an A/B run came back
+  // byte-identical to itself. A new flag must not be able to go missing.
+  const PARENT_ONLY = new Set(['--shard', '--jobs', '--out', '--records', '--from']);
+  const passthrough: string[] = [];
+  for (let i = 2; i < process.argv.length; i++) {
+    const arg = process.argv[i]!;
+    if (!arg.startsWith('--')) continue;
+    const value = process.argv[i + 1];
+    const hasValue = value !== undefined && !value.startsWith('--');
+    if (!PARENT_ONLY.has(arg)) passthrough.push(arg, ...(hasValue ? [value] : []));
+    if (hasValue) i++;
+  }
 
   const runs = Array.from(
     { length: count },
