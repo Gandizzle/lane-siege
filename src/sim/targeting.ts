@@ -63,10 +63,25 @@ export function withinRange(self: Combatant, other: Combatant, range: number): b
 }
 
 /** Nearest living enemy whose edge is within `range` of `self`'s edge, or null. */
+/**
+ * Something between the two bodies that a shot cannot cross.
+ *
+ * A predicate rather than a filtered list, because filtering would allocate an
+ * array per body per tick and there are two hundred bodies (§15.3). Checked
+ * AFTER the range test, so the expensive question is only asked about enemies
+ * that are close enough to matter.
+ *
+ * Absent means nothing blocks anything, which is a lane: the only place in the
+ * game with ground you cannot shoot across is the Final Showdown's arena, whose
+ * four corners are not arena at all (arena.ts, `crossesTheVoid`).
+ */
+export type Sightline = (other: Combatant) => boolean;
+
 export function nearestInRange<T extends Combatant>(
   enemies: readonly T[],
   self: Combatant,
   range: number,
+  canSee?: Sightline,
 ): T | null {
   let best: T | null = null;
   let bestDist = Infinity;
@@ -75,6 +90,7 @@ export function nearestInRange<T extends Combatant>(
     const reach = range + self.radius + enemy.radius;
     const dist = bodyDistanceSquared(self, enemy);
     if (dist <= reach * reach && dist < bestDist) {
+      if (canSee && !canSee(enemy)) continue;
       bestDist = dist;
       best = enemy;
     }
@@ -111,21 +127,29 @@ export function holdOrAcquire<T extends Combatant>(
   enemies: readonly T[],
   self: Combatant & { targetId: EntityId | null; engaged: boolean },
   acquireRange: number,
+  canSee?: Sightline,
 ): T | null {
   let held: T | null = null;
   if (self.targetId !== null) {
     for (const enemy of enemies) {
       if (enemy.id !== self.targetId) continue;
       // The slack keeps a target hovering on the boundary from being dropped
-      // and retaken every tick.
-      if (enemy.alive && withinRange(self, enemy, acquireRange + ENGAGE_SLACK_TILES)) held = enemy;
+      // and retaken every tick. A target that has walked out of sight is
+      // dropped outright - there is no slack on a wall.
+      if (
+        enemy.alive &&
+        withinRange(self, enemy, acquireRange + ENGAGE_SLACK_TILES) &&
+        (!canSee || canSee(enemy))
+      ) {
+        held = enemy;
+      }
       break;
     }
   }
 
   if (held !== null && self.engaged) return held;
 
-  const nearest = nearestInRange(enemies, self, acquireRange);
+  const nearest = nearestInRange(enemies, self, acquireRange, canSee);
   if (held === null) return nearest;
   if (nearest === null || nearest === held) return held;
   return bodyDistanceSquared(self, nearest) < bodyDistanceSquared(self, held) ? nearest : held;

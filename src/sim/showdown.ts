@@ -38,7 +38,7 @@
 
 import { cooldownTicks, secondsToTicks } from './constants.ts';
 import { buildArenaAbilityEnv, fire, tickBody, type AbilityEnv } from './abilityRuntime.ts';
-import { inCentre, legForSeat, legPosition } from './arena.ts';
+import { crossesTheVoid, inCentre, legForSeat, legPosition } from './arena.ts';
 import type { SimContext } from './context.ts';
 import { applyHealing, healingMultiplier } from './dampening.ts';
 import { stat } from './defs.ts';
@@ -47,7 +47,7 @@ import type { Rng } from './rng.ts';
 import { applyStatus, canAttack, canMove, modifiersOf, tauntedBy, type Status } from './status.ts';
 import { dealDamage } from './strike.ts';
 import { moveSeekers, planMoves, type Walker } from './steering.ts';
-import { holdOrAcquire, withinRange } from './targeting.ts';
+import { holdOrAcquire, withinRange, type Sightline } from './targeting.ts';
 import type { DefensiveUnit, MatchState, Showdown, ShowdownArmy, TeamId } from './types.ts';
 
 /**
@@ -228,6 +228,17 @@ function acquireRange(ctx: SimContext, unit: DefensiveUnit): number {
  * means. Here it means the centre of the map (`planArmyMoves`), exactly as an
  * empty lane means the fortress for a monster (§5.5).
  */
+/**
+ * Whether this arena blocks shots across its own corners, and the test for it.
+ *
+ * `null` when it does not, which lets every caller skip the geometry entirely
+ * rather than paying for a predicate that always says yes.
+ */
+function sightlineFor(ctx: SimContext, from: DefensiveUnit): Sightline | undefined {
+  if (ctx.data.waves.showdown.lineOfSight !== true) return undefined;
+  return (other) => !crossesTheVoid(ctx.arenaShape, from.pos, other.pos);
+}
+
 function classify(ctx: SimContext, army: ShowdownArmy, enemies: readonly DefensiveUnit[]): void {
   for (const unit of army.units) {
     if (!unit.alive) continue;
@@ -236,12 +247,27 @@ function classify(ctx: SimContext, army: ShowdownArmy, enemies: readonly Defensi
     // A taunt overrides acquisition here exactly as it does in a lane, and
     // matters more: the arena has no fortress to fall back to, so dragging a
     // body off its chosen duel is the whole of what a tank does (§18).
+    //
+    // It overrides the corners too. A taunt is a body making itself the thing
+    // you are fighting, and a wall it happens to be standing behind should
+    // make the taunter unreachable rather than unreal - the chaser walks at it
+    // (`planArmyMoves`) and finds it when it gets there.
     const held = tauntedBy(unit);
     const forced = held === null ? null : (enemies.find((e) => e.id === held && e.alive) ?? null);
-    const target = forced ?? holdOrAcquire(enemies, unit, acquireRange(ctx, unit));
+    const target =
+      forced ?? holdOrAcquire(enemies, unit, acquireRange(ctx, unit), sightlineFor(ctx, unit));
     unit.targetId = target ? target.id : null;
-    unit.engaged = target !== null && withinRange(unit, target, unit.range);
+    unit.engaged =
+      target !== null &&
+      withinRange(unit, target, unit.range) &&
+      (forced !== null || canSee(ctx, unit, target));
   }
+}
+
+/** Nothing between them, or nothing in this arena that could be. */
+function canSee(ctx: SimContext, from: DefensiveUnit, to: DefensiveUnit): boolean {
+  if (ctx.data.waves.showdown.lineOfSight !== true) return true;
+  return !crossesTheVoid(ctx.arenaShape, from.pos, to.pos);
 }
 
 /**
@@ -343,6 +369,11 @@ function attack(
     if (!def) continue;
     const target = enemies.find((e) => e.id === unit.targetId && e.alive);
     if (!target) continue;
+    // Checked again here, and not only in `classify`, because everything has
+    // MOVED since: engagement is decided on the positions at the top of the
+    // tick and the blow lands on the positions after the walk. A body that
+    // stepped behind a corner in between does not get shot.
+    if (!canSee(ctx, unit, target)) continue;
 
     // The same one place damage is dealt as in a lane (strike.ts), and the
     // same §14.1 credit.

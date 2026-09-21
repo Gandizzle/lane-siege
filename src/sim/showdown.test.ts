@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { LEGS, arenaShape, inCentre, legForSeat, legPosition } from './arena.ts';
+import { LEGS, arenaShape, crossesTheVoid, inCentre, legForSeat, legPosition } from './arena.ts';
 import {
   applyHealing,
   crowdControlMultiplier,
@@ -728,5 +728,157 @@ describe('holding the centre (§3.3, replaced)', () => {
     for (const watcher of ['a', 'b', 'c', 'd']) {
       expect(viewFor(ctx, state, watcher).showdown!.centreHolders, watcher).toEqual(['c']);
     }
+  });
+});
+
+/**
+ * LINE OF SIGHT (§3.3, replaced; `waves.showdown.lineOfSight`).
+ *
+ * The arena is a cross and the four corners of its bounding square are not
+ * arena - nothing stands there and nothing walks there. With the rule on they
+ * are not transparent either, so the back of one spoke cannot shoot the back of
+ * the next across the gap between them.
+ */
+describe('shooting across the void (§3.3, replaced)', () => {
+  const mid = shape.size / 2;
+  const band = shape.bounds.band!;
+
+  it('lets a shot travel down a spoke and through the centre', () => {
+    // South to north, the length of the vertical bar.
+    expect(crossesTheVoid(shape, { x: mid, y: shape.size - 2 }, { x: mid, y: 2 })).toBe(false);
+    // West to east, the length of the horizontal one.
+    expect(crossesTheVoid(shape, { x: 2, y: mid }, { x: shape.size - 2, y: mid })).toBe(false);
+    // And anywhere inside the middle square.
+    expect(
+      crossesTheVoid(
+        shape,
+        { x: band.min + 1, y: band.min + 1 },
+        { x: band.max - 1, y: band.max - 1 },
+      ),
+    ).toBe(false);
+  });
+
+  it('stops a shot that would cut a corner', () => {
+    // The back of the south spoke at the back of the east spoke: the line
+    // between them runs through ground that is not arena.
+    expect(
+      crossesTheVoid(shape, { x: mid, y: shape.size - 2 }, { x: shape.size - 2, y: mid }),
+    ).toBe(true);
+    expect(crossesTheVoid(shape, { x: mid, y: shape.size - 2 }, { x: 2, y: mid })).toBe(true);
+    expect(crossesTheVoid(shape, { x: mid, y: 2 }, { x: 2, y: mid })).toBe(true);
+    expect(crossesTheVoid(shape, { x: mid, y: 2 }, { x: shape.size - 2, y: mid })).toBe(true);
+  });
+
+  it('lets neighbours shoot each other across the middle', () => {
+    // Close in, the line clips the centre square rather than a corner, so two
+    // armies meeting in the middle fight normally.
+    expect(crossesTheVoid(shape, { x: mid, y: band.max - 1 }, { x: band.max - 1, y: mid })).toBe(
+      false,
+    );
+  });
+
+  it('does not block a shot that merely grazes a corner', () => {
+    // The south and west spokes touch at exactly one point, (band.min,
+    // band.max). A line through that point which stays outside the corner box
+    // on both sides of it grazes and does not cross - two bodies diagonally
+    // either side of the pinch can see each other.
+    //
+    // This is the case a CLOSED overlap test gets wrong. A line straight down
+    // the arena's edge is rejected earlier, by the parallel-to-the-slab arm, so
+    // it would not catch the difference.
+    expect(
+      crossesTheVoid(
+        shape,
+        { x: band.min - 1, y: band.max - 1 },
+        { x: band.min + 1, y: band.max + 1 },
+      ),
+      'a graze is not a wall',
+    ).toBe(false);
+    // The same point, crossed the other way, goes through the corner itself.
+    expect(
+      crossesTheVoid(
+        shape,
+        { x: band.min + 1, y: band.max - 1 },
+        { x: band.min - 1, y: band.max + 1 },
+      ),
+      'and the other diagonal is a wall',
+    ).toBe(true);
+    // Along the arena's edge, which the parallel arm handles.
+    expect(crossesTheVoid(shape, { x: band.max, y: band.max }, { x: band.max, y: band.min })).toBe(
+      false,
+    );
+  });
+
+  it('is symmetric, because a wall is a wall from either side', () => {
+    const a = { x: mid, y: shape.size - 3 };
+    const b = { x: shape.size - 3, y: mid };
+    expect(crossesTheVoid(shape, a, b)).toBe(crossesTheVoid(shape, b, a));
+  });
+
+  it('stops a body engaging a target it cannot see', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'judgement', 3);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    // Seat 0 is the south spoke and seat 1 the west, and they meet at the
+    // point (band.min, band.max). Putting the southern body on the spoke's
+    // LEFT edge and the western one just below the band means the line between
+    // them leaves the cross the instant it crosses x = band.min - close enough
+    // to shoot, and a corner in the way.
+    const south = state.showdown!.armies.find((x) => x.teamId === 'a')!.units[0]!;
+    const west = state.showdown!.armies.find((x) => x.teamId === 'b')!.units[0]!;
+    for (const army of state.showdown!.armies) {
+      for (const unit of army.units) unit.moveSpeed = 0;
+    }
+    south.pos.x = band.min;
+    south.pos.y = band.max + 1;
+    west.pos.x = band.min - 1;
+    west.pos.y = band.max - 1;
+
+    expect(
+      crossesTheVoid(shape, south.pos, west.pos),
+      'the fixture puts a corner between them',
+    ).toBe(true);
+    step(ctx, state);
+    expect(south.engaged, 'engaged something through a wall').toBe(false);
+    expect(state.showdown!.attacks.some((x) => x.attackerId === south.id)).toBe(false);
+  });
+
+  it('lets the same two fight once the corner is out of the way', () => {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'judgement', 3);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+
+    const south = state.showdown!.armies.find((x) => x.teamId === 'a')!.units[0]!;
+    const west = state.showdown!.armies.find((x) => x.teamId === 'b')!.units[0]!;
+    for (const army of state.showdown!.armies) {
+      for (const unit of army.units) {
+        unit.moveSpeed = 0;
+        // Park everyone else far away so the two under test are each other's
+        // only candidate.
+        unit.pos.x = 1;
+        unit.pos.y = 1;
+        unit.alive = unit === south || unit === west;
+      }
+    }
+    // Both just inside the centre square, where the line between them is arena.
+    south.pos.x = mid;
+    south.pos.y = band.max - 0.5;
+    west.pos.x = band.min + 0.5;
+    west.pos.y = mid;
+    south.alive = true;
+    west.alive = true;
+
+    expect(crossesTheVoid(shape, south.pos, west.pos)).toBe(false);
+    step(ctx, state);
+    expect(south.engaged, 'refused a shot it had every right to take').toBe(true);
+  });
+
+  it('is off in a lane, which has no void to shoot across', () => {
+    // The rule lives on the showdown block, and nothing in a lane consults it.
+    expect(data.lane).not.toHaveProperty('lineOfSight');
+    expect(data.waves.showdown.lineOfSight).toBe(true);
   });
 });

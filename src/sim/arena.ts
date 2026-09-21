@@ -86,6 +86,96 @@ export function arenaCentre(shape: ArenaShape): Vec2 {
 }
 
 /**
+ * Does the line between these two points leave the cross?
+ *
+ * The arena is a cross, and the four corners of its bounding square are not
+ * arena at all - nothing stands there and nothing walks there. This asks
+ * whether a shot from `a` to `b` would have to pass through one of them, which
+ * is what "shooting across the void" means: a body at the back of the south
+ * spoke drawing a bead on one at the back of the east spoke, through the gap
+ * between them.
+ *
+ * WHY IT MATTERS. Without it the corners are transparent, and a long enough
+ * gun covers two spokes from a standing start while nothing can walk to it -
+ * so reach is worth far more than the price ladder charges for it, and the
+ * back of your own spoke is the safest place in the game to put your whole
+ * army. The first three round robins all said exactly that: rung 6 alone won
+ * nine fights in ten.
+ *
+ * Liang-Barsky against each corner box, unrolled and allocation-free: this runs
+ * once per candidate target per body per tick (§15.3). The two fast paths
+ * carry most calls - two bodies both inside the vertical bar, or both inside
+ * the horizontal one, are inside a convex rectangle and the segment between
+ * them cannot leave it.
+ */
+export function crossesTheVoid(shape: ArenaShape, a: Vec2, b: Vec2): boolean {
+  const band = shape.bounds.band;
+  if (!band) return false;
+
+  const { min, max } = band;
+  // Both down the vertical bar, or both across the horizontal one. Either way
+  // the segment stays inside one rectangle.
+  if (a.x >= min && a.x <= max && b.x >= min && b.x <= max) return false;
+  if (a.y >= min && a.y <= max && b.y >= min && b.y <= max) return false;
+
+  const size = shape.size;
+  return (
+    hitsBox(a, b, 0, 0, min, min) ||
+    hitsBox(a, b, max, 0, size, min) ||
+    hitsBox(a, b, 0, max, min, size) ||
+    hitsBox(a, b, max, max, size, size)
+  );
+}
+
+/** The inverse, which is what a caller usually wants to say. */
+export function hasLineOfSight(shape: ArenaShape, a: Vec2, b: Vec2): boolean {
+  return !crossesTheVoid(shape, a, b);
+}
+
+/**
+ * Liang-Barsky: does the segment a-b pass through the INTERIOR of this box?
+ *
+ * Interior rather than closed, so a shot that grazes a corner along its edge -
+ * two bodies either side of the centre square, sighting down the line where
+ * the arena stops - is not blocked by a box it never actually enters.
+ */
+function hitsBox(
+  a: Vec2,
+  b: Vec2,
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+): boolean {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  let t0 = 0;
+  let t1 = 1;
+
+  // Each edge as a half-plane: p * t <= q. p of zero is a segment parallel to
+  // that edge, which either misses the slab entirely or tells us nothing.
+  for (let edge = 0; edge < 4; edge++) {
+    const p = edge === 0 ? -dx : edge === 1 ? dx : edge === 2 ? -dy : dy;
+    const q =
+      edge === 0 ? a.x - minX : edge === 1 ? maxX - a.x : edge === 2 ? a.y - minY : maxY - a.y;
+
+    if (p === 0) {
+      if (q <= 0) return false;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) {
+      if (r > t1) return false;
+      if (r > t0) t0 = r;
+    } else {
+      if (r < t0) return false;
+      if (r < t1) t1 = r;
+    }
+  }
+  return t1 > t0;
+}
+
+/**
  * Whether a point is inside the centre square - the ground all four spokes
  * meet on, and the hill somebody holds (§3.3, replaced).
  *

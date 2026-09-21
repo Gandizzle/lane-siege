@@ -405,6 +405,20 @@ export interface ShowdownFile {
    */
   centre: { damageDealt: Unfilled<number>; damageTaken: Unfilled<number> };
   /**
+   * Whether the four corners of the arena's bounding square block shots.
+   *
+   * They are not arena - nothing stands or walks there - and with this on they
+   * are not transparent either, so a body at the back of one spoke cannot
+   * shoot one at the back of the next across the gap between them.
+   *
+   * Off, the corners are glass, and reach is worth far more than the price
+   * ladder charges for it: a long enough gun covers two spokes from a standing
+   * start while nothing can walk to it, which makes the back of your own spoke
+   * the safest ground in the game. A switch rather than a constant so the
+   * difference can be measured (`npm run showdown`).
+   */
+  lineOfSight?: Unfilled<boolean>;
+  /**
    * How far a unit looks for something to fight in the arena, edge to edge in
    * tiles: `max(minimum, its own range + margin)`. There is no global sight -
    * a unit with nothing inside this walks at the centre of the map instead.

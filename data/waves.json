@@ -12,6 +12,8 @@
       "damageDealt": 0.5,
       "damageTaken": -0.5
     },
+    "_sightNote": "LINE OF SIGHT. The arena is a cross, and the four corners of its bounding square are not arena: nothing stands there and nothing walks there. With this on they are not transparent either - a body cannot shoot through one, so the back of the south spoke cannot draw a bead on the back of the east spoke across the gap between them. Off, the corners are glass, and a long enough gun covers two spokes from a standing start while nothing can walk to it. A switch rather than a constant so the difference can be measured rather than assumed.",
+    "lineOfSight": true,
     "acquire": {
       "_comment": "How far a unit looks for something to fight in the arena, edge to edge in tiles: its own reach plus margin, never less than minimum. Nothing looks across the whole board - a unit with nothing inside this walks at the centre instead, which is what makes four armies converge rather than each pick a duel from thirty tiles away. The lane's equivalent is lane.monsterAcquireRange. Placeholders.",
       "margin": 2,
@@ -451,6 +453,11 @@
       ]
     }
   ],
-  "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"],
+  "bossBank": [
+    "brood_sire",
+    "hollow_king",
+    "gravemother",
+    "chitin_lord"
+  ],
   "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one."
 }

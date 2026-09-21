@@ -52,6 +52,13 @@ const numberFlag = (name: string, fallback: number): number => {
 };
 
 const quick = has('quick');
+
+// `--sight on|off` overrides waves.showdown.lineOfSight for this run, so the
+// difference the corners make can be measured rather than argued about. It
+// only shows up in four-ways: a duel sits on opposite spokes and every line
+// between them stays inside one bar of the cross.
+const sight = flag('sight');
+if (sight === 'on' || sight === 'off') data.waves.showdown.lineOfSight = sight === 'on';
 const options: TournamentOptions = {
   duelsPerPair: numberFlag('duels', quick ? 4 : DEFAULTS.duelsPerPair),
   freeForAlls: numberFlag('ffa', quick ? 8 : DEFAULTS.freeForAlls),
@@ -228,6 +235,9 @@ function report(r: TournamentReport, raw: readonly FightRecord[]): void {
   );
   console.log(
     `Every seat got ${Math.round(r.budget.gold).toLocaleString('en-GB')} gold and ${r.budget.supply} supply.`,
+  );
+  console.log(
+    `Line of sight across the arena's corners: ${data.waves.showdown.lineOfSight === true ? 'BLOCKED' : 'open'}.`,
   );
 
   console.log('\n' + '='.repeat(78));
