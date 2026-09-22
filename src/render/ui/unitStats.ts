@@ -462,29 +462,59 @@ export function monsterChips(data: GameData, def: MonsterDef): Chip[] {
 export const NOTHING_SPECIAL = 'Nothing special. It walks at you and hits things.';
 
 /**
+ * The numbers a monster is actually fighting with.
+ *
+ * NOT its definition. §9.1 grows a monster's health and damage one step per
+ * wave, so a wave-5 grub is about twice the grub in `monsters.json` - and a
+ * panel that read the definition told the player the wrong number and gave
+ * them no way to see the curve they were losing to. `resolveMonsterStats`
+ * produces this; the panel is handed the result.
+ */
+export interface MonsterNumbers {
+  hp: number;
+  damage: number;
+  attackSpeed: number;
+  moveSpeed: number;
+  range: number;
+}
+
+/** A monster definition read straight, for the cases with no wave to scale to. */
+export function monsterNumbers(def: MonsterDef): MonsterNumbers {
+  return {
+    hp: def.hp ?? 0,
+    damage: def.damage ?? 0,
+    attackSpeed: def.attackSpeed ?? 0,
+    moveSpeed: def.moveSpeed ?? 0,
+    range: def.range ?? 0,
+  };
+}
+
+/**
  * A monster's stat cells. The same six readings as a unit's, minus the mark
  * comparison a monster has no use for.
+ *
+ * `mods` is what is on the body RIGHT NOW - statuses, and nothing else - so a
+ * wave-5 grub reads as a wave-5 grub in plain type, and only a slow or a hex
+ * colours a cell.
  */
 export function monsterStatText(
   key: StatKey,
-  def: MonsterDef,
+  stats: MonsterNumbers,
   mods: StatMods | null = null,
 ): string {
   const scale = mods ? scaleFor(key, mods) : 1;
-  const damage = (def.damage ?? 0) * scale;
-  const attackSpeed = def.attackSpeed ?? 0;
   switch (key) {
     case 'hp':
-      return String(Math.round((def.hp ?? 0) * scale));
+      return String(Math.round(stats.hp * scale));
     case 'damage':
-      return String(Math.round(damage));
+      return String(Math.round(stats.damage * scale));
     case 'attackSpeed':
-      return `${trim(attackSpeed * scale)}/s`;
+      return `${trim(stats.attackSpeed * scale)}/s`;
     case 'dps':
-      return trim((def.damage ?? 0) * attackSpeed * scale);
+      return trim(stats.damage * stats.attackSpeed * scale);
     case 'moveSpeed':
-      return `${trim((def.moveSpeed ?? 0) * scale, 2)} t/s`;
+      return `${trim(stats.moveSpeed * scale, 2)} t/s`;
     case 'range':
-      return (def.range ?? 0) < RANGED_MIN_TILES ? 'melee' : `${trim(def.range ?? 0)} tiles`;
+      return stats.range < RANGED_MIN_TILES ? 'melee' : `${trim(stats.range)} tiles`;
   }
 }

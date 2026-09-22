@@ -54,15 +54,39 @@ function num(value: number | null, fallback = 0): number {
 }
 
 /**
- * How far past the authored composition this wave sits. Authored waves scale by
- * 1; every wave beyond the last authored one compounds the §9.2 growth factors.
+ * How far past the authored composition this wave sits. Authored waves scale
+ * their COUNT by 1; every wave beyond the last authored one compounds §9.2's
+ * growth factor, because past the authored range there is nothing else to say
+ * how many walk in.
+ *
+ * Counts only. What a wave is MADE OF is a decision; how strong each body in it
+ * is, is a curve - see `statSteps`.
  */
-function scalingExponent(data: GameData, waveNumber: number): number {
+function countSteps(data: GameData, waveNumber: number): number {
   let lastAuthored = 0;
   for (const wave of data.waves.composition) {
     if (wave.wave > lastAuthored) lastAuthored = wave.wave;
   }
   return waveNumber > lastAuthored ? waveNumber - lastAuthored : 0;
+}
+
+/**
+ * How far up the strength curve a wave sits: one step per wave, from the first.
+ *
+ * §9.1 as written only grew a monster past the authored range, so a grub was
+ * the same 30-health grub at wave 1 and at wave 20 and the whole difficulty
+ * curve had to be carried by counts and by which monsters were in the mix. That
+ * makes the cheap monsters dead weight the moment anything bigger exists, and
+ * it means a wave cannot reuse a body without the wave getting easier.
+ *
+ * Scaling the bodies instead lets a wave keep a small roster on purpose - a
+ * grub is a fine "it walks at you and hits things", and one asset can serve
+ * twenty-five waves - while still being a real fight at wave 20. The numbers
+ * it produces are what the stat panel shows, not the definition's
+ * (`monsterStatText`), because a wave-5 grub really is not a wave-1 grub.
+ */
+function statSteps(waveNumber: number): number {
+  return Math.max(0, waveNumber - 1);
 }
 
 /**
@@ -91,22 +115,29 @@ function bossStep(data: GameData, waveNumber: number): number {
 }
 
 /**
- * §9.1: monster stats scale with wave number, and so does monster count. HP,
- * damage and bounty grow; move and attack speed deliberately do not - that is
- * enrage's job (§8), and stacking the two would make late waves unreadable.
+ * §9.1, amended: monster HP and DAMAGE grow one step a wave, from wave 1.
  *
- * A boss scales on its own ladder (`bossScaling`) rather than the wave one,
- * because it appears once every five waves and a per-wave factor applied to a
- * body that only shows up on multiples of five is a curve nobody chose.
+ * Move and attack speed deliberately do not - that is enrage's job (§8), and
+ * stacking the two would make late waves unreadable. Nor does bounty any more:
+ * §11.1 made it a WEIGHT within a fixed pool rather than an amount, and every
+ * body in one wave scales by the same factor, so scaling it moved no share of
+ * anything and only made the number on the definition harder to read.
+ *
+ * A boss scales on its own ladder (`bossScaling`) and not on this one, because
+ * it appears once every five waves and would otherwise take both.
  */
 export function resolveMonsterStats(
   data: GameData,
   def: MonsterDef,
   waveNumber: number,
 ): ResolvedMonsterStats {
-  const steps = scalingExponent(data, waveNumber);
   const { scaling } = data.waves;
-  const boss = def.isBoss === true ? bossStep(data, waveNumber) : 0;
+  // A boss scales on its own ladder and NOT on the per-wave one, or it would
+  // take both: it appears once every five waves, so five waves of ordinary
+  // growth are already priced into `bossScaling`.
+  const isBoss = def.isBoss === true;
+  const steps = isBoss ? 0 : statSteps(waveNumber);
+  const boss = isBoss ? bossStep(data, waveNumber) : 0;
   const bossHp = intPow(num(data.waves.bossScaling?.hp ?? null, 1), boss);
   const bossDamage = intPow(num(data.waves.bossScaling?.damage ?? null, 1), boss);
 
@@ -116,7 +147,7 @@ export function resolveMonsterStats(
     attackSpeed: num(def.attackSpeed),
     moveSpeed: num(def.moveSpeed),
     range: num(def.range),
-    bounty: num(def.bounty) * intPow(num(scaling.bounty, 1), steps),
+    bounty: num(def.bounty),
     radius: num(def.bodyRadius, 0.3),
   };
 }
@@ -137,7 +168,7 @@ export function generateWave(data: GameData, seed: number, waveNumber: number): 
   const specs: SpawnSpec[] = [];
 
   const authored = data.waves.composition.find((w) => w.wave === waveNumber);
-  const steps = scalingExponent(data, waveNumber);
+  const steps = countSteps(data, waveNumber);
 
   let template = authored;
   if (!template && data.waves.composition.length > 0) {

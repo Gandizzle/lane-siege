@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { generateWave, isBossWave, previewWave, resolveMonsterStats, sendBounty } from './waves.ts';
+import { createContext, createMatch, step } from './index.ts';
 
 const { data } = loadDataFromDisk();
 
@@ -74,6 +75,63 @@ describe('wave generation (DESIGN.md §9.2)', () => {
     }
     const total = preview.reduce((sum, e) => sum + e.count, 0);
     expect(total).toBe(generateWave(data, 1, 3).length);
+  });
+});
+
+/**
+ * §9.1, amended: a monster grows one step a wave, and the panel that shows it
+ * resolves against the wave on screen rather than being told per body.
+ */
+describe('monsters grow with the wave', () => {
+  const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
+
+  it('scales health and damage from wave 1 up', () => {
+    const one = resolveMonsterStats(data, grub, 1);
+    const five = resolveMonsterStats(data, grub, 5);
+    expect(one.hp).toBe(grub.hp);
+    expect(one.damage).toBe(grub.damage);
+    expect(five.hp).toBeGreaterThan(one.hp * 1.5);
+    expect(five.damage).toBeGreaterThan(one.damage * 1.4);
+  });
+
+  it("leaves speed and reach alone, which is enrage's job (§8)", () => {
+    const one = resolveMonsterStats(data, grub, 1);
+    const twenty = resolveMonsterStats(data, grub, 20);
+    expect(twenty.moveSpeed).toBe(one.moveSpeed);
+    expect(twenty.attackSpeed).toBe(one.attackSpeed);
+    expect(twenty.range).toBe(one.range);
+  });
+
+  it('does not scale a boss twice', () => {
+    // A boss has its own ladder, per BOSS wave. Taking the per-wave one too
+    // would have wave 25's boss at the product of both.
+    const boss = data.monsters.bosses[0]!;
+    const first = resolveMonsterStats(data, boss, 5);
+    expect(first.hp).toBe(boss.hp);
+    expect(first.damage).toBe(boss.damage);
+  });
+
+  it('puts every living monster in a lane in the wave on screen', () => {
+    // The stat panel resolves a monster against the CURRENT wave rather than
+    // being told which wave each body came from (buildBar.ts,
+    // `showMonsterStats`). That is only right because combat ends when the
+    // lane is clear, so a wave can never land on an unfinished one.
+    const state = createMatch(data, { seed: 5, teams: [{ id: 'l1', playerIds: ['p'] }] });
+    const ctx = createContext(data);
+    const lane = state.lanes.l1!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    lane.fortress.hp = lane.fortress.maxHp;
+
+    let seen = 0;
+    for (let t = 0; t < 4000; t++) {
+      step(ctx, state);
+      for (const monster of lane.monsters) {
+        if (!monster.alive) continue;
+        expect(monster.waveNumber, `tick ${t}`).toBe(state.wave);
+        seen += 1;
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
   });
 });
 

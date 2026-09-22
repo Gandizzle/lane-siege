@@ -48,7 +48,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { AuraType, DamageType, GameData, MonsterDef, UnitDef } from '../../data/schema.ts';
 import { buildableUnits } from '../../data/roster.ts';
-import { sellValue, ticksToSeconds } from '../../sim/index.ts';
+import { resolveMonsterStats, sellValue, ticksToSeconds } from '../../sim/index.ts';
 import type {
   EconomyView,
   EntityView,
@@ -536,12 +536,22 @@ export class BuildBar extends Container {
    * Fire whatever is armed whose cooldown has run out and whose gems are
    * there.
    *
+   * CALLED BEFORE ANYTHING DRAWS THE WALLET, from `game.ts`, and that ordering
+   * is the whole of a real bug: with auto-send on and gems coming in fast, the
+   * counter flickered. The HUD was drawn from the view, and the sends were
+   * fired afterwards, from `render` - so every gem payout was shown at its
+   * pre-send value for one frame and its post-send value on the next. Firing
+   * first, and re-reading the view before anything draws, means the number on
+   * screen is the number you have.
+   *
    * The purse is tracked locally across the loop, because `lane.economy` is
    * last tick's snapshot: two armed sends firing on one frame would both see
    * the same balance and the second would be refused. Spending it here keeps
    * the client's arithmetic and the simulation's in step.
    */
-  private fireArmed(deltaMs: number, gems: number, canSend: boolean): void {
+  tickSends(view: MatchView, deltaMs: number): void {
+    const gems = view.lane?.economy?.gems ?? 0;
+    const canSend = view.phase !== 'showdown' && !view.eliminated && !view.finished;
     if (this.armed.size === 0) return;
     if (!canSend) {
       this.armed.clear();
@@ -744,7 +754,6 @@ export class BuildBar extends Container {
     // away would be a hold that never completed.
     for (const button of this.everyButton) button.animate(deltaMs);
     this.opponents = view.opponents;
-    this.fireArmed(deltaMs, lane.economy?.gems ?? 0, canShop && alive && !view.finished);
 
     // A selected unit is a view of its own, belonging to no tab: none of them
     // is lit while it is up, and tapping any of them puts the unit down and
@@ -780,7 +789,7 @@ export class BuildBar extends Container {
     // is exactly as useful in a lane you are watching as in your own.
     if (showing === 'unit' && selection?.kind === 'monster') {
       this.selectedUnitId = null;
-      this.renderMonster(shown, selection.monsterId);
+      this.renderMonster(shown, selection.monsterId, view.wave);
     }
 
     const economy = lane.economy;
@@ -1114,7 +1123,7 @@ export class BuildBar extends Container {
    * than showing an empty block: "nothing special" is information, and a
    * player who has just tapped a Grub to find out has been answered.
    */
-  private renderMonster(lane: LaneView, monsterId: number): void {
+  private renderMonster(lane: LaneView, monsterId: number, wave: number): void {
     const body = lane.monsters.find((m) => m.id === monsterId);
     const def = body
       ? [...this.data.monsters.monsters, ...this.data.monsters.bosses].find(
@@ -1137,7 +1146,7 @@ export class BuildBar extends Container {
     }
 
     this.setHeader(def.name, typeLine(def.damageType, def.armour), body, def.id);
-    this.showMonsterStats(def, body?.mods ?? null);
+    this.showMonsterStats(def, wave, body?.mods ?? null);
     // A monster with nothing special says so in the trait line rather than
     // showing an empty row of chips: a blank block reads as a panel that
     // failed to load.
@@ -1232,8 +1241,18 @@ export class BuildBar extends Container {
     });
   }
 
-  /** The same six cells, read off a monster definition and its live modifiers. */
-  private showMonsterStats(def: MonsterDef, mods: StatMods | null): void {
+  /**
+   * The same six cells, read off what the body is ACTUALLY fighting with.
+   *
+   * §9.1 grows a monster's health and damage one step per wave, so the
+   * definition is the wave-1 body and nothing else. Every living monster in a
+   * lane belongs to the wave on screen - combat only ends when the lane is
+   * clear, so a wave can never land on an unfinished one (waves.json,
+   * `_clockNote`) - which is why the current wave number is the right one to
+   * resolve against. `waves.test.ts` holds that invariant.
+   */
+  private showMonsterStats(def: MonsterDef, wave: number, mods: StatMods | null): void {
+    const stats = resolveMonsterStats(this.data, def, wave);
     this.statCells.forEach((cell, i) => {
       const meta = STAT_CELLS[i];
       if (!meta) {
@@ -1242,7 +1261,7 @@ export class BuildBar extends Container {
         return;
       }
       cell.name.text = meta.name;
-      cell.value.text = monsterStatText(meta.key, def, mods);
+      cell.value.text = monsterStatText(meta.key, stats, mods);
       cell.value.style.fill = STAT_COLOURS[statDirection(meta.key, mods)];
     });
   }

@@ -456,7 +456,7 @@ export class Game extends Container {
 
     for (const rejection of transport.takeRejections()) this.toast.show(rejection);
 
-    const view = this.view;
+    let view = this.view;
     if (!view) {
       // Still connecting. Say so rather than showing an empty lane.
       this.banner.renderStatus(transport.status, transport.detail);
@@ -477,6 +477,15 @@ export class Game extends Container {
       this.renderShowdown(view, transport.alpha, deltaMs);
       return;
     }
+
+    // Armed sends fire HERE, before anything draws the wallet. They used to
+    // fire from `buildBar.render`, which runs after `hud.render` - so with
+    // auto-send on, every gem payout was drawn at its pre-send value for one
+    // frame and its post-send value on the next, and the counter flickered.
+    // `submit` refreshes the view on the spot in a practice match, so re-read
+    // it and let the rest of the frame see the wallet the sends left behind.
+    this.buildBar.tickSends(view, deltaMs);
+    view = transport.view() ?? view;
 
     this.refreshSummary(view);
     this.dropStaleWatch(view);

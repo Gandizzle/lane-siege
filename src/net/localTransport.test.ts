@@ -77,6 +77,30 @@ describe('the local transport', () => {
     expect(transport.takeRejections()).toEqual([]);
   });
 
+  it('shows a send leaving the wallet on the frame it was sent', () => {
+    // This is what `game.ts` leans on to stop the gem counter flickering: it
+    // fires armed sends BEFORE anything draws the wallet, then re-reads the
+    // view. If submitting a send did not land in the view until the next tick,
+    // the HUD would draw the pre-send number for a frame and the post-send
+    // number after it, which is exactly the flicker auto-send used to produce.
+    const transport = practice();
+    const send = data.sends.sends[0]!;
+    const cost = send.gemCost ?? 0;
+    expect(cost).toBeGreaterThan(0);
+
+    // Earned rather than injected: the resource building pays out on its own
+    // clock, so run until the wallet can afford one.
+    let guard = 0;
+    while ((transport.view()!.lane!.economy!.gems ?? 0) < cost && guard++ < 4000) {
+      transport.update(MS_PER_TICK);
+    }
+    const before = transport.view()!.lane!.economy!.gems;
+    expect(before).toBeGreaterThanOrEqual(cost);
+
+    transport.submit({ kind: 'send', teamId: 'lane1', targetTeamId: 'lane2', sendId: send.id });
+    expect(transport.view()!.lane!.economy!.gems).toBe(before - cost);
+  });
+
   it('filters what it hands back, exactly as the server would (§12)', () => {
     const transport = practice();
     run(transport, 40);

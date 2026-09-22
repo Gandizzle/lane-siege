@@ -15,6 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../../data/loadNode.ts';
+import { resolveMonsterStats } from '../../sim/index.ts';
 import type { UnitDef } from '../../data/schema.ts';
 import { refId } from '../../data/schema.ts';
 import { computeLayout } from '../layout.ts';
@@ -29,6 +30,7 @@ import {
   energyMeter,
   isPlain,
   monsterChips,
+  monsterNumbers,
   monsterStatText,
   panelRegions,
   statDirection,
@@ -315,11 +317,22 @@ describe('what a body panel says', () => {
   });
 
   it('reads a monster the same way it reads a unit', () => {
-    const husk = data.monsters.monsters.find((m) => m.id === 'husk')!;
+    const husk = monsterNumbers(data.monsters.monsters.find((m) => m.id === 'husk')!);
     for (const cell of STAT_CELLS) {
       expect(monsterStatText(cell.key, husk), cell.key).not.toBe('');
     }
     expect(monsterStatText('range', husk)).toBe('melee');
+  });
+
+  it('shows the wave it is in, not the definition (§9.1, amended)', () => {
+    // A grub grows one step a wave, so the panel must say so: reading the
+    // definition told a wave-5 player their grub had 30 health when the thing
+    // walking at them had nearly twice that.
+    const def = data.monsters.monsters.find((m) => m.id === 'grub')!;
+    const early = monsterStatText('hp', resolveMonsterStats(data, def, 1));
+    const late = monsterStatText('hp', resolveMonsterStats(data, def, 5));
+    expect(Number(early)).toBe(def.hp);
+    expect(Number(late)).toBeGreaterThan(Number(early) * 1.5);
   });
 });
 
@@ -417,7 +430,7 @@ describe('a stat cell shows what the body is actually fighting with', () => {
 
   it("reads a monster's live numbers the same way", () => {
     const husk = data.monsters.monsters.find((m) => m.id === 'husk')!;
-    const slowed = monsterStatText('moveSpeed', husk, mods({ moveSpeed: 0.5 }));
+    const slowed = monsterStatText('moveSpeed', monsterNumbers(husk), mods({ moveSpeed: 0.5 }));
     expect(Number(slowed.split(' ')[0])).toBeCloseTo((husk.moveSpeed ?? 0) * 0.5, 2);
   });
 
