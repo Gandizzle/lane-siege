@@ -53,10 +53,26 @@ const options: SweepOptions = {
 };
 
 const probes = planProbes(data, options);
+const started = Date.now();
 
-// ------------------------------------------------------------------- a shard
+// ---------------------------------------------------------- shard, or whole
+//
+// A shard and the whole run are two different programs sharing a file, and
+// which one this process is must be decided ONCE, structurally. It was an
+// `if (shard) { ... }` at the top level with the whole-run code after it,
+// which is not a branch at all: a shard ran its probes, wrote them, and then
+// fell straight through and forked four more shards, each of which forked
+// four more. From outside that looks like a sweep getting slower and slower.
+//
+// The shard's exit also has to wait for its output. `process.exit` on the line
+// after the write throws away whatever is still buffered on the pipe, and a
+// quarter-megabyte of outcomes is mostly still buffered - every shard reported
+// done, the parent read truncated JSON, and the run ended with no report and
+// exit code 0. So: exit from the write callback, which fires once the bytes
+// have gone.
 
 const shard = flag('shard');
+
 if (shard) {
   const [indexRaw, countRaw] = shard.split('/');
   const index = Number(indexRaw);
@@ -66,38 +82,34 @@ if (shard) {
     if (done % 25 === 0 || done === total)
       process.stderr.write(`shard ${index}: ${done}/${total}\n`);
   });
-  // Written and then LEFT to drain. `process.exit` after a write to a pipe
-  // discards whatever is still buffered, which on a quarter-megabyte of
-  // outcomes is most of it: the shards all reported done, the parent got
-  // truncated JSON, and the run ended with no report and no error. Nothing
-  // else holds the loop open, so returning is how this exits.
-  process.stdout.write(JSON.stringify(outcomes));
+  process.stdout.write(JSON.stringify(outcomes), () => process.exit(0));
+} else {
+  await wholeRun();
 }
 
-// ------------------------------------------------------------- the whole run
+async function wholeRun(): Promise<void> {
+  const jobs = Math.max(1, Math.min(numberFlag('jobs', os.cpus().length), probes.length));
 
-const jobs = Math.max(1, Math.min(numberFlag('jobs', os.cpus().length), probes.length));
-const started = Date.now();
+  console.log(
+    `\n${probes.length} probes across waves ${options.waves.join(', ')}. seed ${options.seed}.`,
+  );
+  console.log(
+    `gold bands: ${options.bands.map((b) => `${Math.round(b * 100)}%`).join(' ')} of nominal`,
+  );
+  console.log(`running on ${jobs} ${jobs === 1 ? 'process' : 'processes'}...\n`);
 
-console.log(
-  `\n${probes.length} probes across waves ${options.waves.join(', ')}. seed ${options.seed}.`,
-);
-console.log(
-  `gold bands: ${options.bands.map((b) => `${Math.round(b * 100)}%`).join(' ')} of nominal`,
-);
-console.log(`running on ${jobs} ${jobs === 1 ? 'process' : 'processes'}...\n`);
+  const outcomes = await (jobs === 1
+    ? Promise.resolve(runProbes(data, probes, options.seed, progress))
+    : runSharded(jobs).catch((error: unknown) => {
+        // Loud. A sharded run that fails silently looks exactly like one that
+        // finished, which cost a whole sweep once.
+        console.error(`\nthe sharded run failed: ${String(error)}`);
+        process.exitCode = 1;
+        return [] as WaveOutcome[];
+      }));
 
-const outcomes = await (jobs === 1
-  ? Promise.resolve(runProbes(data, probes, options.seed, progress))
-  : runSharded(jobs).catch((error: unknown) => {
-      // Loud. A sharded run that fails silently looks exactly like one that
-      // finished, which cost a whole sweep once.
-      console.error(`\nthe sharded run failed: ${String(error)}`);
-      process.exitCode = 1;
-      return [] as WaveOutcome[];
-    }));
-
-if (outcomes.length > 0) report(outcomes);
+  if (outcomes.length > 0) report(outcomes);
+}
 
 function progress(done: number, total: number): void {
   if (done % 50 !== 0 && done !== total) return;
