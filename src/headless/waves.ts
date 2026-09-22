@@ -66,8 +66,12 @@ if (shard) {
     if (done % 25 === 0 || done === total)
       process.stderr.write(`shard ${index}: ${done}/${total}\n`);
   });
+  // Written and then LEFT to drain. `process.exit` after a write to a pipe
+  // discards whatever is still buffered, which on a quarter-megabyte of
+  // outcomes is most of it: the shards all reported done, the parent got
+  // truncated JSON, and the run ended with no report and no error. Nothing
+  // else holds the loop open, so returning is how this exits.
   process.stdout.write(JSON.stringify(outcomes));
-  process.exit(0);
 }
 
 // ------------------------------------------------------------- the whole run
@@ -83,10 +87,17 @@ console.log(
 );
 console.log(`running on ${jobs} ${jobs === 1 ? 'process' : 'processes'}...\n`);
 
-const outcomes =
-  jobs === 1 ? runProbes(data, probes, options.seed, progress) : await runSharded(jobs);
+const outcomes = await (jobs === 1
+  ? Promise.resolve(runProbes(data, probes, options.seed, progress))
+  : runSharded(jobs).catch((error: unknown) => {
+      // Loud. A sharded run that fails silently looks exactly like one that
+      // finished, which cost a whole sweep once.
+      console.error(`\nthe sharded run failed: ${String(error)}`);
+      process.exitCode = 1;
+      return [] as WaveOutcome[];
+    }));
 
-report(outcomes);
+if (outcomes.length > 0) report(outcomes);
 
 function progress(done: number, total: number): void {
   if (done % 50 !== 0 && done !== total) return;
@@ -168,6 +179,19 @@ function rule(title: string): void {
 
 function report(all: WaveOutcome[]): void {
   console.log(`\n${all.length} probes in ${Math.round((Date.now() - started) / 1000)}s.\n`);
+
+  // A fight that ran out of clock is not a result. It means two sides that
+  // cannot finish each other, which is a bug in the wave or in the sandbox
+  // rather than a balance finding, and averaging one in would quietly drag
+  // every margin around it.
+  const stalled = all.filter((o) => o.timedOut);
+  if (stalled.length > 0) {
+    console.log(`  !! ${stalled.length} probes hit the tick cap and are NOT results:`);
+    for (const o of stalled.slice(0, 8)) {
+      console.log(`     wave ${o.wave} ${o.builderId} ${o.label} (${o.goldBudget}g)`);
+    }
+    console.log('');
+  }
 
   rule('THE WAVES AS THEY STAND');
   console.log('  wave  monsters   total hp   nominal army   what a player has   slack');
