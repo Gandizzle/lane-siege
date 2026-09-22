@@ -83,18 +83,26 @@ export const RUNG_ONE_COST = 45;
  * Cost: each upgrade is 1.5x the one before it, so a Mark II has cost 2.5x the
  * base body in total and a Mark III 4.75x.
  *
- * Value: 2.85x and 5.9x, which is 14% and 24% ahead of the cost. An upgraded
- * body is meant to be what a player brings to the endgame - the Mark I is the
- * thing you could afford in wave three - so a mark is clearly better gold as
- * well as enormously better supply. It was 6% and 9.5%, which was not enough
- * to be a reason for anything.
+ * Value: 2.85x and 5.9x. Against the cost that is 14% ahead at Mark II and 5%
+ * at Mark III. An upgraded body is meant to be what a player brings to the
+ * endgame - the Mark I is the thing you could afford in wave three - so a mark
+ * has to be clearly better gold as well as enormously better supply; it was 6%
+ * and 9.5%, which was not enough to be a reason for anything.
+ *
+ * MARK III USED TO BE 4.75, a 24% discount, and that was too much. The top of a
+ * chain is where the abilities are, so it is already the best thing a line
+ * offers before its price is discounted as well - Ember Mark III came out of
+ * the sweep at half again the damage per gold of the identically statted Pledge
+ * Mark III, and a tank besides. Supply is where the reward for going tall
+ * belongs and it is still enormous: a Mark III is 5.9 times the value for twice
+ * the supply.
  *
  * This only works because every line goes to Mark III now. While ten of the
  * twenty-four stopped at Mark II, rewarding marks this heavily would have
  * handed a large free advantage to the two builders whose expensive lines
  * happened to have one.
  */
-export const MARK_COST = [1, 2.5, 4.75] as const;
+export const MARK_COST = [1, 2.5, 5.6] as const;
 export const MARK_VALUE = [1, 2.85, 5.9] as const;
 
 /**

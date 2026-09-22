@@ -589,7 +589,7 @@
         "jumps": 1,
         "radius": 1.8,
         "falloff": 0.75,
-        "share": 0.55
+        "share": 0.38
       },
       "ranks": [
         {},
@@ -597,7 +597,7 @@
           "jumps": 2
         },
         {
-          "jumps": 3,
+          "jumps": 2,
           "radius": 2.16
         }
       ],
@@ -616,7 +616,8 @@
           "ofAttack": "@share",
           "damageType": "blast"
         }
-      ]
+      ],
+      "_note": "Priced down after the wave sweep. Pyre’s cheap half is the only one in the game whose three abilities are ALL offence and ALL on-attack, and two of them hit more than one body. Against thirty monsters arriving together that is worth far more than a slow, an evade or a shield, which is what the other three builders have there - Pyre cleared 73-95% of its armies at every one of the first five waves against 23-75% for everyone else, while carrying 11% fewer raw stats. The bodies were not the problem."
     },
     {
       "id": "emberdust",
@@ -734,20 +735,20 @@
       "text": "Carries a fire from one body to the next, but only to what already burns.",
       "role": "offence",
       "numbers": {
-        "jumps": 2,
+        "jumps": 1,
         "radius": 2.2,
-        "burn": 6.0,
+        "burn": 4.5,
         "duration": 4.0
       },
       "ranks": [
         {},
         {
-          "jumps": 3,
-          "burn": 11.0
+          "jumps": 2,
+          "burn": 8.0
         },
         {
-          "jumps": 4,
-          "burn": 16.0,
+          "jumps": 2,
+          "burn": 12.0,
           "radius": 2.64
         }
       ],
@@ -772,7 +773,8 @@
             "from": "any"
           }
         }
-      ]
+      ],
+      "_note": "Priced down after the wave sweep. Pyre’s cheap half is the only one in the game whose three abilities are ALL offence and ALL on-attack, and two of them hit more than one body. Against thirty monsters arriving together that is worth far more than a slow, an evade or a shield, which is what the other three builders have there - Pyre cleared 73-95% of its armies at every one of the first five waves against 23-75% for everyone else, while carrying 11% fewer raw stats. The bodies were not the problem."
     },
     {
       "id": "emberwind",

@@ -49,12 +49,16 @@
       "armyGold": 200,
       "entries": [
         {
-          "monsterId": "grub",
-          "count": 20
+          "monsterId": "mote",
+          "count": 18
         },
         {
-          "monsterId": "mote",
+          "monsterId": "swarmling",
           "count": 8
+        },
+        {
+          "monsterId": "grub",
+          "count": 4
         }
       ]
     },
@@ -64,15 +68,19 @@
       "entries": [
         {
           "monsterId": "grub",
-          "count": 22
+          "count": 20
         },
         {
           "monsterId": "mote",
-          "count": 10
+          "count": 8
         },
         {
-          "monsterId": "husk",
-          "count": 5
+          "monsterId": "swarmling",
+          "count": 6
+        },
+        {
+          "monsterId": "stalker",
+          "count": 4
         }
       ]
     },
@@ -81,20 +89,16 @@
       "armyGold": 500,
       "entries": [
         {
-          "monsterId": "grub",
+          "monsterId": "husk",
           "count": 18
         },
         {
-          "monsterId": "mote",
-          "count": 14
-        },
-        {
-          "monsterId": "husk",
+          "monsterId": "swarmling",
           "count": 8
         },
         {
-          "monsterId": "warden",
-          "count": 4
+          "monsterId": "mote",
+          "count": 8
         }
       ]
     },
@@ -103,20 +107,20 @@
       "armyGold": 650,
       "entries": [
         {
-          "monsterId": "grub",
-          "count": 12
+          "monsterId": "warden",
+          "count": 10
         },
         {
           "monsterId": "mote",
-          "count": 12
+          "count": 10
         },
         {
-          "monsterId": "husk",
-          "count": 12
+          "monsterId": "swarmling",
+          "count": 8
         },
         {
-          "monsterId": "warden",
-          "count": 6
+          "monsterId": "grub",
+          "count": 8
         }
       ]
     },
@@ -126,19 +130,23 @@
       "entries": [
         {
           "monsterId": "grub",
-          "count": 14
+          "count": 8
         },
         {
           "monsterId": "mote",
-          "count": 12
+          "count": 6
         },
         {
           "monsterId": "husk",
-          "count": 10
+          "count": 5
         },
         {
           "monsterId": "warden",
-          "count": 8
+          "count": 3
+        },
+        {
+          "monsterId": "swarmling",
+          "count": 4
         }
       ]
     },

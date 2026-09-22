@@ -270,7 +270,9 @@ describe('the panel gives the buttons their space before anything else gets any'
 describe('what a body panel says', () => {
   it('puts the name and the types on one line, and no mark at all', () => {
     const vigil = def('vigil');
-    expect(typeLine(vigil.damageType, vigil.armour)).toBe('arcane · ward');
+    // Read off the definition: which damage type a line carries is balance
+    // data and has moved once already.
+    expect(typeLine(vigil.damageType, vigil.armour)).toBe(`${vigil.damageType} · ${vigil.armour}`);
     // The thing this replaced: "Vigil → Vigil II" over "Mark 1 → 2 · arcane ·
     // ward", which spent two of the panel's lines on the next unit's suffix.
     expect(typeLine(vigil.damageType, vigil.armour)).not.toContain('Mark');

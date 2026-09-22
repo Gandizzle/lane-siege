@@ -281,25 +281,27 @@ gold of army it takes to beat it**, and that number is authored on the wave as
 A player who spends every coin on army has 250 at wave 1 and 200 more each
 wave after, since a wave pays a fixed pool (§11.1) whatever walks in. The
 nominal is about four fifths of that, and **the fifth left over is the whole
-point**: it is the room to bank gold, buy gem output, take a risk, or cover a
-bad build. A wave a player must spend every coin to survive has taken the
-decision away and is too hard whatever its clear rate says.
+point**: it is the room to bank gold, buy economy, take a risk, or cover a bad
+build. A wave a player must spend every coin to survive has taken the decision
+away and is too hard whatever its clear rate says.
 
-| wave | monsters | health | `armyGold` | a player has | slack |
-| ---: | -------: | -----: | ---------: | -----------: | ----: |
-|    1 |       28 |    744 |        200 |          250 |    50 |
-|    2 |       37 |  1,390 |        350 |          450 |   100 |
-|    3 |       44 |  2,012 |        500 |          650 |   150 |
-|    4 |       42 |  2,406 |        650 |          850 |   200 |
-|    5 |  44+boss |  3,666 |        850 |        1,050 |   200 |
+| wave | monsters | health | `armyGold` | a player has | slack | asks for             |
+| ---: | -------: | -----: | ---------: | -----------: | ----: | -------------------- |
+|    1 |       30 |    540 |        200 |          250 |    50 | Swarm 78%            |
+|    2 |       38 |  1,293 |        350 |          450 |   100 | Flesh 80%            |
+|    3 |       34 |  3,091 |        500 |          650 |   150 | Plate 89%            |
+|    4 |       36 |  2,244 |        650 |          850 |   200 | Ward 62%             |
+|    5 |  26+boss |  6,128 |        850 |        1,050 |   200 | all four, and a boss |
 
-Health per gold sits between 3.7 and 4.0 the whole way up, which is the ratio
-the ladder was settled on rather than a rule it was derived from. Wave 5 is
-4.3, deliberately: a boss is ONE body, and a single 1,275-health lump that can
-only hit one thing at a time is less dangerous per point than forty small ones
-that surround you. At the same ratio as its neighbours it was the easiest wave
-of the five to half-budget — Pyre cleared 24 baskets of 50 at 425 gold. More
-escort and a harder-hitting boss took that to 10.
+Health is what the wave is worth AT THAT WAVE, not what its definitions say:
+every monster grows one step a wave (§9.1, amended), so the same 30-health grub
+is a 58-health grub by wave 5. That is what lets a wave reuse a body without
+getting easier, and it is why the stat panel resolves against the wave on screen
+rather than reading `monsters.json`. Health per gold climbs from 2.7 to 7.2 up
+the five and that climb is not the difficulty curve on its own — the bodies are
+getting individually harder too, and a boss is one lump that can only hit one
+thing at a time and is therefore worth far less threat per point than forty
+bodies that surround you.
 
 ### Twenty-five to forty-five bodies
 
@@ -315,18 +317,37 @@ bodies at the old 45 health each is 1,125 health against a wave 1 army of about
 Fewer, bigger monsters would have been the other answer, and it is the wrong one:
 the count is what the game is made of.
 
-### No wave is one armour type
+### Every wave asks for something, and it is not the same thing
 
-Wave 1 used to be nothing but Grubs, which are Flesh. Against a single-armour
-wave the matrix is not a decision, it is a verdict: Blast is 1.5 against Flesh
-and Pierce is 0.6, and at 200 gold a player is buying from rungs 1 to 3 — so
-whether your cheap lines happen to match is settled before you build. Measured,
-Pyre cleared 6 baskets of 7 and Ironvow none.
+The first attempt spread each wave's armour around so nobody was wrong-footed.
+That was backwards, and the reasoning that corrected it is worth writing down:
 
-So every wave carries at least two armour types, and which types rotate as the
-ladder climbs: Flesh and Swarm at wave 1, Plate joins at wave 2, Ward at wave 3,
-and waves 4 and 5 carry all four. A builder punished at wave 1 for having Pierce
-low on its ladder is rewarded for it at wave 2, when the Plate arrives.
+> If the wave has some of everything, then there is nothing for me to build
+> against, and any composition I have will be strong in some ways and weak in
+> others. So I can just spam the single most broken unit my builder has.
+> Versus, if each wave has a particular strength, I will get wrecked on the
+> wave that counters my one-unit strategy, and I'll lose. So I have to build
+> balance to survive.
+
+A balanced wave is a wave with no answer, and a wave with no answer is a wave
+you brute-force. So each of the five is about 80% one armour type and the type
+rotates: Swarm, Flesh, Plate, Ward, then a boss wave carrying all four plus
+whatever the boss came up as.
+
+Which builder that hurts rotates with it, because a builder's cheap half —
+rungs 1 to 3, all a 200-to-500 gold player can reach — carries three of the
+four damage types and is therefore missing one. Ironvow had no Blast down there
+and cleared 5% of its armies at the Flesh wave; swapping which of its rungs
+carries Blast and which carries Arcane took that to 23% without giving it
+anything it did not already own.
+
+**The damage a wave DEALS matters as much as the armour it wears**, and that is
+easier to miss. Blast is the only damage type Flesh armour fears, and the only
+monster in the game that dealt any was the Bloater, which does not appear until
+wave 16. So through the whole early game Flesh was simply the best armour to
+wear, Pyre wore it on its cheap front line, and Pyre cleared more of every one
+of the first five waves than anyone — on survivability, not damage, which is
+why the damage-per-gold table never showed it. The Swarmling deals Blast now.
 
 ### The boss, and its purse
 
@@ -337,9 +358,16 @@ amount of tuning the escort makes that one wave. They differ in shape — the Wa
 one hits hardest and has least health, the Flesh one the reverse — so which
 comes up changes how you fight it and not whether you can.
 
+They are 3,500 to 4,300 health and hit for 105 to 145 at about 73 damage a
+second — roughly three times what they were. At 1,275 health a boss died in
+five seconds against an army that could afford wave 5 at all, which is not a
+boss, it is a large monster. It is now more than half of wave 5's health on its
+own, and the escort came down to 26 bodies to make room for it.
+
 What separates wave 25's boss from wave 5's is `waves.bossScaling`, compounded
 per BOSS WAVE rather than per wave: 1.6× health and 1.35× damage each time one
-comes round.
+comes round. A boss does NOT also take the per-wave growth every other monster
+gets, or it would take both.
 
 And a boss pays a **purse** (`economy.bossBounty`, 200) on top of its share of
 the wave pool. The pool is fixed, so without one a boss wave pays exactly what
@@ -358,38 +386,71 @@ reports per wave, builder and band:
 - **time** — seconds of game clock. A wave that takes ninety seconds is not
   the same wave as one that takes fifteen, whoever wins it.
 
+It also reports **what each line gave back for what it cost**: damage per gold,
+averaged over every fight a line appeared in, and health per gold. Neither is a
+verdict — a wall is supposed to be all health and a gun all damage — but a line
+that is several times its neighbours on both is carrying something its price
+does not know about. That is how Ember Mark III was caught: half again the
+damage per gold of the identically statted Pledge Mark III, and a tank besides,
+because its top mark comes with an area attack that nothing charged for it.
+
 A wave is tuned when, at its nominal: a good build clears it with room over, a
 poor build at the same gold does not, and half the gold clears nothing.
 
 ### Where the five landed
 
-Clear rate at nominal — the share of a builder's armies at that gold that took
-the wave with nothing leaking. 2,824 probes, `reports/waves-01.txt`.
+Every army every builder could buy, at four gold bands, against all five waves.
+2,332 probes in two minutes, `reports/waves-11.txt`. Pooled over the four
+builders, the share that cleared:
 
-| wave | gold | ironvow | pyre | thornweald | gloomtide |
-| ---: | ---: | ------: | ---: | ---------: | --------: |
-|    1 |  200 |     57% |  86% |        29% |       29% |
-|    2 |  350 |    100% | 100% |        82% |       98% |
-|    3 |  500 |     80% |  98% |        80% |       66% |
-|    4 |  650 |     92% | 100% |        92% |       82% |
-|    5 |  850 |     84% |  94% |        88% |       72% |
+| wave | 50% | 75% | 100% | 125% |
+| ---: | --: | --: | ---: | ---: |
+|    1 |  0% |  0% |  71% |  98% |
+|    2 |  0% |  3% |  43% |  81% |
+|    3 |  0% |  9% |  64% |  88% |
+|    4 |  0% | 11% |  65% |  79% |
+|    5 |  0% |  6% |  57% |  94% |
 
-Half the nominal clears almost nothing at any wave (0 of 50 for three builders
-at wave 5; Pyre's 10 of 50 is the worst case). Three quarters is a real fight.
-A quarter over clears 47 to 50 of 50. That is the shape the ladder was after.
+That is the shape the ladder was after. Half the nominal clears nothing at any
+wave. Three quarters is a real fight and mostly a lost one. At the nominal a
+good build passes and a bad one does not, which is the decision the whole thing
+exists to create. A quarter over — the slack — is safe.
 
-**What it says about the builders, which is not a wave finding.** Pyre is
-first at every one of the five. Gloomtide is last at three of them and never
-better than third. Thornweald has the highest ceiling in the game — its best
-build beats everyone at waves 1, 3 and 5 — and one of the lowest clear rates,
-which is a builder with a few very good answers and a lot of bad ones; its
-fights also run 22-27 seconds at nominal against Pyre's 10-15.
+**What it says about the builders.** Best margin at nominal, which is a finer
+reading than clear rate:
 
-That is worth holding against the showdown, which says the opposite: in the
-arena Gloomtide wins 44% of four-ways and Pyre 19%. **A builder is not strong
-or weak, it is strong or weak at a phase**, and a `valueWeight` nerf aimed at
-Pyre's wave record would land on a builder that is already last but one in the
-arena. Neither number should be acted on alone.
+| wave | ironvow | pyre | thornweald | gloomtide |
+| ---: | ------: | ---: | ---------: | --------: |
+|    1 |    0.53 | 0.42 |       0.82 |      0.58 |
+|    2 |    0.41 | 0.53 |       0.66 |      0.41 |
+|    3 |    0.63 | 0.61 |       0.78 |      0.52 |
+|    4 |    0.47 | 0.71 |       0.84 |      0.37 |
+|    5 |    0.55 | 0.54 |       0.78 |      0.50 |
+
+Thornweald is first at all five on margin and mid-table on clear rate: a few
+very good answers and a lot of bad ones. Pyre is the reverse — it clears 70 to
+95% of its armies at every wave on the thinnest margins in the game, which is a
+builder that is hard to build badly. Those are legitimately different identities
+and not obviously a problem; what would be a problem is one builder ahead on
+both, and none is.
+
+Pyre took three passes to get there, and what finally moved it is worth
+recording because the obvious instruments all missed it. Its lines are not
+stronger per gold — a table of effective damage per gold at rungs 1 to 3 put it
+LAST at three of the five waves — and it carries 11% fewer raw stats than
+anyone else's cheap half. What it has is that **all three of its cheap abilities
+are offence and all three fire on attack, two of them at more than one body**,
+where the other three builders have a slow, an evade, a shield and a heal aura
+down there. Against thirty monsters arriving together that is a different order
+of thing, and it is not something a body's price knows about. Spitfire and
+Wildfire were priced down; the bodies were never the problem.
+
+**Hold all of this against the showdown, which disagrees.** In the arena
+Gloomtide wins 44% of four-ways and Pyre 19%. A builder is not strong or weak,
+it is strong or weak AT A PHASE, and a weight aimed at one record lands on the
+other. Gloomtide's 8% weight is now on its rungs 4 to 6 only, which is what the
+arena is fought with; its cheap half, which is what the waves are fought with,
+carries none.
 
 ## 5. The phases
 

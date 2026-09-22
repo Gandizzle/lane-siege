@@ -109,6 +109,29 @@ export interface WaveOutcome {
   unitsLost: number;
   seconds: number;
   timedOut: boolean;
+
+  /**
+   * What each body it bought cost, and what that bought.
+   *
+   * The margin says whether an ARMY was worth its gold. This says whether a
+   * BODY was, which is a different question and the one that catches a line
+   * carrying more than it is charged for - a top mark with an area attack
+   * bolted on reads as three times the damage per gold of its neighbours long
+   * before it shows up as a builder winning too often.
+   */
+  lines: LineResult[];
+}
+
+/** One body's ledger: what it cost, what it dealt, what it could take. */
+export interface LineResult {
+  defId: string;
+  rung: number;
+  mark: number;
+  gold: number;
+  supply: number;
+  damageDealt: number;
+  maxHp: number;
+  survived: boolean;
 }
 
 const DEFAULT_MAX_TICKS = TICKS_PER_SECOND * 60 * 6;
@@ -373,10 +396,13 @@ export function runWave(
   const energyMax = stat(data.abilities.energy.max);
   for (const p of placed) lane.units.push(createUnit(state, p.def, p.tileX, p.tileY, energyMax));
   recomputeUnitBuffs(data, defs, lane);
+  // By id, so a summon added mid-fight is never mistaken for a body that was
+  // paid for, and so the ledger below can be built from the same list.
+  const bought = new Map(lane.units.map((unit, i) => [unit.id, placed[i]!.def]));
 
   // The bodies the player PAID for, by id. A builder that summons adds units
   // to the lane mid-fight, and those are not what the gold bought.
-  const paidFor = new Set(lane.units.map((u) => u.id));
+  const paidFor = new Set(bought.keys());
   const waveHp = waveHitPoints(data, seed, wave);
   const line = leakLine(data);
 
@@ -433,6 +459,23 @@ export function runWave(
   const armyHpLeft = armyHpMax > 0 ? armyHpNow / armyHpMax : 0;
   const waveHpLeft = waveHp > 0 ? (standing + reserveHp + leakedHp) / waveHp : 0;
 
+  const ledger: LineResult[] = [];
+  for (const unit of lane.units) {
+    const def = bought.get(unit.id);
+    if (!def) continue;
+    const cost = chainCost(data, builderId, def.rung, def.mark);
+    ledger.push({
+      defId: def.id,
+      rung: def.rung,
+      mark: def.mark,
+      gold: cost.gold,
+      supply: cost.supply,
+      damageDealt: unit.damageDealt,
+      maxHp: unit.maxHp,
+      survived: unit.alive,
+    });
+  }
+
   return {
     wave,
     builderId,
@@ -449,6 +492,7 @@ export function runWave(
     unitsLost: placed.length - living,
     seconds: ticks / TICKS_PER_SECOND,
     timedOut: ticks >= maxTicks,
+    lines: ledger,
   };
 }
 

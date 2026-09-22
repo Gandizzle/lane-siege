@@ -260,6 +260,8 @@ function report(all: WaveOutcome[]): void {
     verdict(nominal, atNominal);
   }
 
+  valuePerGold(all);
+
   const detail = flag('detail');
   if (detail) detailTable(all, Number(detail));
 }
@@ -306,3 +308,75 @@ function detailTable(all: WaveOutcome[], wave: number): void {
 
 export type { Probe };
 export { shoppingLabel };
+
+/**
+ * What each line gave back for what it cost.
+ *
+ * Two readings, both per gold of the body's whole chain: DAMAGE, averaged over
+ * every fight the line appeared in, and HEALTH, which is fixed. Neither is a
+ * verdict - a wall is supposed to be all health and a gun all damage, and a
+ * body that never found a target reads as worthless through no fault of its
+ * own - but a line that is several times its neighbours on BOTH is carrying
+ * something its price does not know about.
+ */
+function valuePerGold(all: WaveOutcome[]): void {
+  interface Row {
+    defId: string;
+    builderId: string;
+    rung: number;
+    mark: number;
+    gold: number;
+    damage: number;
+    hp: number;
+    fights: number;
+    lived: number;
+  }
+  const rows = new Map<string, Row>();
+  for (const outcome of all) {
+    for (const line of outcome.lines) {
+      const row = rows.get(line.defId) ?? {
+        defId: line.defId,
+        builderId: outcome.builderId,
+        rung: line.rung,
+        mark: line.mark,
+        gold: line.gold,
+        damage: 0,
+        hp: line.maxHp,
+        fights: 0,
+        lived: 0,
+      };
+      row.damage += line.damageDealt;
+      row.hp = Math.max(row.hp, line.maxHp);
+      row.fights += 1;
+      row.lived += line.survived ? 1 : 0;
+      rows.set(line.defId, row);
+    }
+  }
+  if (rows.size === 0) return;
+
+  rule('WHAT EACH LINE GAVE BACK FOR WHAT IT COST');
+  console.log('  damage is a mean over every body of that line in every fight it appeared in.');
+  console.log(
+    `\n  ${'line'.padEnd(14)}${'builder'.padEnd(12)}${'rung'.padStart(5)}${'mark'.padStart(5)}` +
+      `${'gold'.padStart(6)}${'dmg/gold'.padStart(10)}${'hp/gold'.padStart(9)}` +
+      `${'both'.padStart(7)}${'lived'.padStart(7)}${'bodies'.padStart(8)}`,
+  );
+
+  const scored = [...rows.values()]
+    .map((r) => {
+      const perGold = r.gold > 0 ? r.damage / r.fights / r.gold : 0;
+      const hpGold = r.gold > 0 ? r.hp / r.gold : 0;
+      return { ...r, perGold, hpGold, both: perGold * hpGold };
+    })
+    .sort((a, b) => b.both - a.both);
+
+  for (const r of scored) {
+    console.log(
+      `  ${r.defId.padEnd(14)}${r.builderId.padEnd(12)}${String(r.rung).padStart(5)}` +
+        `${String(r.mark).padStart(5)}${String(Math.round(r.gold)).padStart(6)}` +
+        `${r.perGold.toFixed(2).padStart(10)}${r.hpGold.toFixed(2).padStart(9)}` +
+        `${r.both.toFixed(1).padStart(7)}${pct(r.lived / r.fights).padStart(7)}` +
+        `${String(r.fights).padStart(8)}`,
+    );
+  }
+}

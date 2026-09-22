@@ -44,9 +44,18 @@ describe('wave summary (§9.3)', () => {
     // §6: Blast shreds Flesh (1.5); Pierce passes through it (0.6).
     const summary = summariseWave(grubsOnly, 1, 1, 'ironvow');
 
-    const mortar = summary.units.find((u) => u.unitId === 'sanction')!;
-    const spike = summary.units.find((u) => u.unitId === 'sentinel')!;
-    const hammer = summary.units.find((u) => u.unitId === 'pledge')!;
+    // BY DAMAGE TYPE, not by name. Which of Ironvow's six lines carries Blast
+    // is a balance decision and has moved once already; what the summary has
+    // to get right is that whichever one does reads as strong into Flesh.
+    const lineDealing = (type: string) => {
+      const def = data.units.units.find(
+        (u) => u.builderId === 'ironvow' && u.mark === 1 && u.damageType === type,
+      )!;
+      return summary.units.find((u) => u.unitId === def.id)!;
+    };
+    const mortar = lineDealing('blast');
+    const spike = lineDealing('pierce');
+    const hammer = lineDealing('impact');
 
     expect(mortar.verdict).toBe('strong');
     expect(mortar.effectiveness).toBeCloseTo(1.5, 6);

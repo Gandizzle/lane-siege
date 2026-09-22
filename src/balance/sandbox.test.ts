@@ -34,10 +34,22 @@ function basket(
 
 describe('the shop', () => {
   it('charges what the roster charges, chain and all', () => {
-    // pledge 45, pledge_2 +68, pledge_3 +101.
-    expect(chainCost(data, 'ironvow', 1, 1)).toEqual({ gold: 45, supply: 1 });
-    expect(chainCost(data, 'ironvow', 1, 2)).toEqual({ gold: 113, supply: 1 });
-    expect(chainCost(data, 'ironvow', 1, 3)).toEqual({ gold: 214, supply: 2 });
+    // Summed off the definitions rather than written down here: the prices are
+    // balance data and move whenever the mark ladder is retuned, and a test
+    // that names them fails on the retune while saying nothing about whether
+    // the shop reads the roster - which is the thing under test.
+    const chain = ['pledge', 'pledge_2', 'pledge_3'].map((id) =>
+      data.units.units.find((u) => u.id === id)!,
+    );
+    let gold = 0;
+    let supply = 0;
+    chain.forEach((def, i) => {
+      gold += def.goldCost ?? 0;
+      supply += def.supplyCost ?? 0;
+      expect(chainCost(data, 'ironvow', 1, i + 1), `mark ${i + 1}`).toEqual({ gold, supply });
+    });
+    // And it really is cumulative, not the last step alone.
+    expect(gold).toBeGreaterThan(chain[2]!.goldCost ?? 0);
   });
 
   it('shelves nothing a budget cannot reach', () => {

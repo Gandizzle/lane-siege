@@ -171,16 +171,21 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
   });
 
   it('splits it by the weight on each definition, not evenly', () => {
-    // Wave 2 is grubs (weight 4) and husks (weight 9), so a husk is worth
-    // 9/4 of a grub - the relative worth survives, the total does not float.
+    // A monster worth twice another takes twice the share: the relative worth
+    // survives, the total does not float. The pair is taken from whatever wave
+    // 2 actually holds, because which monsters are in it is balance data.
     const byId = new Map(data.monsters.monsters.map((m) => [m.id, m]));
     const wave = generateWave(data, 1, 2);
-    const grub = wave.find((s) => s.defId === 'grub')!;
-    const husk = wave.find((s) => s.defId === 'husk')!;
+    const kinds = [...new Set(wave.map((s) => s.defId))]
+      .map((id) => ({ id, weight: byId.get(id)?.bounty ?? 0 }))
+      .sort((a, b) => a.weight - b.weight);
+    const light = wave.find((s) => s.defId === kinds[0]!.id)!;
+    const heavy = wave.find((s) => s.defId === kinds[kinds.length - 1]!.id)!;
+    expect(kinds[kinds.length - 1]!.weight).toBeGreaterThan(kinds[0]!.weight);
 
-    const ratio = (byId.get('husk')!.bounty ?? 0) / (byId.get('grub')!.bounty ?? 0);
-    expect(husk.bounty! / grub.bounty!).toBeCloseTo(ratio, 6);
-    expect(husk.bounty).not.toBeCloseTo(grub.bounty!, 6);
+    const ratio = kinds[kinds.length - 1]!.weight / kinds[0]!.weight;
+    expect(heavy.bounty! / light.bounty!).toBeCloseTo(ratio, 6);
+    expect(heavy.bounty).not.toBeCloseTo(light.bounty!, 6);
   });
 
   it('does not pay more for a wave with more monsters in it', () => {
