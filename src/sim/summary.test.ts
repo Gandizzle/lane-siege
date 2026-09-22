@@ -8,16 +8,28 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
+import { trivialWaves } from './fixtures.ts';
 import { summariseWave } from './waves.ts';
 
 const { data } = loadDataFromDisk();
 
+/** A wave of Grubs and nothing else, for the single-armour readings. */
+const grubsOnly = trivialWaves(data, 'grub');
+
 describe('wave summary (§9.3)', () => {
   it('names what the wave mostly deals', () => {
-    // Wave 1 is entirely Grubs, which deal Impact.
-    const summary = summariseWave(data, 1, 1);
+    // A wave of nothing but Grubs, which deal Impact. Built rather than
+    // assumed: wave 1 is a tuned composition and picked up a second monster
+    // the first time it was tuned.
+    const summary = summariseWave(grubsOnly, 1, 1);
     expect(summary.dominantDamageType).toBe('impact');
     expect(summary.dominantDamageShare).toBe(1);
+  });
+
+  it('names the commonest of a mixed wave rather than claiming all of it', () => {
+    const summary = summariseWave(data, 1, 1);
+    expect(summary.dominantDamageShare).toBeGreaterThan(0);
+    expect(summary.dominantDamageShare).toBeLessThanOrEqual(1);
   });
 
   it('reports the armour spread, commonest first', () => {
@@ -30,7 +42,7 @@ describe('wave summary (§9.3)', () => {
 
   it('rates Blast strong and Pierce weak against an all-Flesh wave', () => {
     // §6: Blast shreds Flesh (1.5); Pierce passes through it (0.6).
-    const summary = summariseWave(data, 1, 1, 'ironvow');
+    const summary = summariseWave(grubsOnly, 1, 1, 'ironvow');
 
     const mortar = summary.units.find((u) => u.unitId === 'sanction')!;
     const spike = summary.units.find((u) => u.unitId === 'sentinel')!;

@@ -146,6 +146,13 @@ describe('sends (§11.5)', () => {
     // think about it. The monsters queue and wait either way.
     const { state, ctx } = fourPlayerMatch();
     fund(state, 'a', 500);
+    // Nobody here builds anything, so every wall would fall and the match
+    // would end before the next wave - which is a statement about how hard
+    // wave 1 is and not about when a send lands.
+    for (const lane of Object.values(state.lanes)) {
+      lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+      lane.fortress.hp = lane.fortress.maxHp;
+    }
     while (state.phase !== 'combat') step(ctx, state);
     const waveDuring = state.wave;
     const inLaneBefore = state.lanes.b!.monsters.length;

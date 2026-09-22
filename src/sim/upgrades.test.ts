@@ -6,14 +6,19 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
+import { trivialWaves } from './fixtures.ts';
 import { applyCommand, createContext, createMatch, secondsToTicks, step } from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
 
+// One grub a wave (`fixtures.ts`), because reaching a build phase means
+// finishing the wave before it and none of this is about how hard that is.
+const easy = trivialWaves(data);
+
 function rich(): { state: MatchState; ctx: SimContext } {
-  const state = createMatch(data, { seed: 1, teams: [{ id: 'l1', playerIds: ['p'] }] });
-  const ctx = createContext(data);
+  const state = createMatch(easy, { seed: 1, teams: [{ id: 'l1', playerIds: ['p'] }] });
+  const ctx = createContext(easy);
   const lane = state.lanes.l1!;
   lane.economy.gold = 99999;
   lane.economy.gems = 99999;

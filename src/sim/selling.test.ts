@@ -13,15 +13,20 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
+import { trivialWaves } from './fixtures.ts';
 import { applyCommand, createContext, createMatch, sellValue, step } from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
 
 /** A lane with money, so a rejection is never about affording something. */
+// One grub a wave (`fixtures.ts`): these are tests about what the NEXT build
+// phase charges, so the wave in between has to be one this lane can finish.
+const easy = trivialWaves(data);
+
 function rich(): { state: MatchState; ctx: SimContext } {
-  const state = createMatch(data, { seed: 3, teams: [{ id: 'l1', playerIds: ['p'] }] });
-  const ctx = createContext(data);
+  const state = createMatch(easy, { seed: 3, teams: [{ id: 'l1', playerIds: ['p'] }] });
+  const ctx = createContext(easy);
   const lane = state.lanes.l1!;
   lane.economy.gold = 10_000;
   lane.economy.supplyCap = 999;

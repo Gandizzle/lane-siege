@@ -150,7 +150,8 @@ describe('a measured wave', () => {
     expect(out.timedOut).toBe(false);
   });
 
-  it('never reports more health than an army has', () => {
+  // Twenty-four fights against a tuned wave 2, which is a real wave now.
+  it('never reports more health than an army has', { timeout: 30_000 }, () => {
     // Thornweald's rung 2 raises its neighbours' maximum on the first tick of
     // combat. Measured against the maximum they were BUILT with, a full-health
     // army came back at 125%, and every margin in the report was inflated by

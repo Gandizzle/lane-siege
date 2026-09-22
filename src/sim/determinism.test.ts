@@ -47,17 +47,32 @@ function fingerprint(state: MatchState): string {
   );
 }
 
+/**
+ * Long enough for several waves of real combat, short enough that the three
+ * units `runMatch` builds are still standing. Both halves matter: no combat
+ * and the fingerprint captures nothing, an elimination and the two runs stop
+ * at different ticks.
+ */
+const RUN_TICKS = 1600;
+
 describe('determinism (DESIGN.md §15.1)', () => {
   it('produces an identical state from an identical seed', () => {
-    expect(fingerprint(runMatch(4242, 2600))).toEqual(fingerprint(runMatch(4242, 2600)));
+    expect(fingerprint(runMatch(4242, RUN_TICKS))).toEqual(fingerprint(runMatch(4242, RUN_TICKS)));
   });
 
   it('produces a different state from a different seed, or at least not by luck', () => {
-    // Waves are seeded, so two seeds should not coincidentally agree on
-    // everything. This guards against a fingerprint that accidentally captures
-    // nothing.
-    const a = runMatch(1, 2600);
-    const b = runMatch(2, 2600);
+    // Every roll a match makes comes off its seeded generator, so two seeds
+    // should not coincidentally agree on everything. This guards against a
+    // fingerprint that accidentally captures nothing.
+    //
+    // Stopped short of anyone being eliminated. A finished match freezes its
+    // tick, so two seeds that die on different waves stop at different ticks
+    // and the comparison is between a longer run and a shorter one rather
+    // than between two seeds.
+    const a = runMatch(1, RUN_TICKS);
+    const b = runMatch(2, RUN_TICKS);
+    expect(a.finished, 'the run outlived the line it built').toBe(false);
+    expect(b.finished).toBe(false);
     expect(a.tick).toEqual(b.tick);
     expect(fingerprint(a)).not.toEqual(fingerprint(b));
   });

@@ -13,9 +13,18 @@ describe('wave generation (DESIGN.md §9.2)', () => {
   });
 
   it('uses the authored composition where one exists', () => {
+    // Read off the file rather than written down here. The counts are balance
+    // data and move whenever a wave is tuned; a test that names them fails on
+    // every tuning pass and says nothing about generation either way.
+    const authored = data.waves.composition.find((w) => w.wave === 1)!;
     const wave1 = generateWave(data, 1, 1);
-    expect(wave1).toHaveLength(8);
-    expect(wave1.every((s) => s.defId === 'grub')).toBe(true);
+    expect(wave1).toHaveLength(authored.entries.reduce((n, e) => n + (e.count ?? 0), 0));
+    for (const entry of authored.entries) {
+      expect(
+        wave1.filter((s) => s.defId === entry.monsterId),
+        entry.monsterId,
+      ).toHaveLength(entry.count ?? 0);
+    }
   });
 
   it('stamps each monster with its own wave number (§8)', () => {
@@ -76,11 +85,31 @@ describe('wave generation (DESIGN.md §9.2)', () => {
 describe('the wave bounty pool (§11.1, replaced)', () => {
   const pool = data.economy.waveBounty ?? 0;
 
+  const purse = data.economy.bossBounty ?? 0;
+
   it('pays the same total every wave, whatever walks in', () => {
     for (let wave = 1; wave <= 30; wave++) {
       const paid = generateWave(data, 99, wave).reduce((sum, s) => sum + (s.bounty ?? 0), 0);
-      expect(paid, `wave ${wave}`).toBeCloseTo(pool, 6);
+      // A boss wave pays the pool AND the boss's purse (§3.4, added); every
+      // other wave pays the pool and nothing else, however many walk in.
+      const due = pool + (isBossWave(data, wave) ? purse : 0);
+      expect(paid, `wave ${wave}`).toBeCloseTo(due, 6);
     }
+  });
+
+  it('pays a boss its purse on top, and only a boss', () => {
+    expect(purse).toBeGreaterThan(0);
+    const bossIds = new Set(data.waves.bossBank);
+    const wave = generateWave(data, 99, 5);
+    const boss = wave.find((s) => bossIds.has(s.defId))!;
+    const escort = wave.filter((s) => !bossIds.has(s.defId));
+
+    // The escort still shares the plain pool between them; the difference
+    // between what the boss takes and its share of that pool is the purse.
+    const escortPaid = escort.reduce((sum, s) => sum + (s.bounty ?? 0), 0);
+    expect(boss.bounty! - purse).toBeCloseTo(pool - escortPaid, 6);
+    expect(boss.bounty!).toBeGreaterThan(escortPaid);
+    for (const s of escort) expect(s.bounty!).toBeLessThan(purse);
   });
 
   it('splits it by the weight on each definition, not evenly', () => {
@@ -97,14 +126,21 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
   });
 
   it('does not pay more for a wave with more monsters in it', () => {
-    // The old per-monster bounties made wave 25 worth nineteen times wave 1.
-    const first = generateWave(data, 7, 1);
-    const last = generateWave(data, 7, 25);
-    expect(last.length).toBeGreaterThan(first.length * 2);
-    expect(last.reduce((s, m) => s + (m.bounty ?? 0), 0)).toBeCloseTo(
-      first.reduce((s, m) => s + (m.bounty ?? 0), 0),
-      6,
-    );
+    // The old per-monster bounties made the biggest wave worth nineteen times
+    // the smallest. Both waves are picked off the file by size and both are
+    // non-boss, since a boss carries a purse on top of the pool and comparing
+    // one against a plain wave would be comparing two different rules.
+    const sizes = data.waves.composition
+      .filter((w) => !isBossWave(data, w.wave))
+      .map((w) => ({ wave: w.wave, n: w.entries.reduce((sum, e) => sum + (e.count ?? 0), 0) }))
+      .sort((a, b) => a.n - b.n);
+    const smallest = sizes[0]!;
+    const biggest = sizes[sizes.length - 1]!;
+    expect(biggest.n).toBeGreaterThan(smallest.n);
+
+    const paid = (wave: number): number =>
+      generateWave(data, 7, wave).reduce((sum, s) => sum + (s.bounty ?? 0), 0);
+    expect(paid(biggest.wave)).toBeCloseTo(paid(smallest.wave), 6);
   });
 
   it('prices a sent monster against the gems its sender spent, not the pool', () => {

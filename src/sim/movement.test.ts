@@ -10,6 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
+import { fastestStep } from './fixtures.ts';
 import {
   applyCommand,
   buildDefIndex,
@@ -19,6 +20,7 @@ import {
   FORTRESS_ID,
   gap,
   placeWave,
+  TICKS_PER_SECOND,
   step,
 } from './index.ts';
 import type { GameData } from '../data/schema.ts';
@@ -185,8 +187,11 @@ describe('bodies do not overlap', () => {
       streak = overlap >= OVERLAP_TOLERANCE ? streak + 1 : 0;
       longest = Math.max(longest, streak);
     }
-    // A grub's step is 0.055 tiles: a brush is shallower than one step.
-    expect(worst).toBeLessThan(0.055);
+    // A brush is shallower than one step of the quickest thing in the wave.
+    // Read off the wave rather than written down: wave 1 was grubs alone at
+    // 0.055 tiles a tick, and the day a mote joined them at 0.075 the test
+    // failed on the composition rather than on contact resolution.
+    expect(worst).toBeLessThan(fastestStep(d, 1, TICKS_PER_SECOND));
     expect(longest).toBeLessThanOrEqual(3);
   });
 
@@ -894,35 +899,40 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
     expect(peak).toBe(d.waves.maxConcurrentMonsters);
   });
 
-  it('gives the wave the lane to fight in rather than a scrum at the door', () => {
-    // Enough sent that the line is eventually overrun, which is when the lane
-    // behind it matters. Before the rule this scenario put monsters in only 4
-    // of the lane's 14 rows for the whole fight: the wave was ground down on
-    // the spawn point and never got past the door.
-    //
-    // Three hundred monsters rather than the two hundred this used to need. A block of thirty-two
-    // Pledges all grant each other Shoulder to Shoulder (abilities.json), so
-    // the same wall of bodies is about a quarter stronger than it was and forty
-    // bodies no longer break it - at two hundred the line finishes the fight intact
-    // and the wave never leaves the doorway, which measures the ABILITY rather
-    // than the rule under test. At three hundred the line gives way and
-    // thirteen of the fourteen rows see a monster.
-    const { state, ctx } = underSiege(300);
-    const lane = state.lanes.l1!;
-    const rows = new Set<number>();
+  // Three hundred bodies for 2,200 ticks: slow enough to need saying so.
+  it(
+    'gives the wave the lane to fight in rather than a scrum at the door',
+    { timeout: 30_000 },
+    () => {
+      // Enough sent that the line is eventually overrun, which is when the lane
+      // behind it matters. Before the rule this scenario put monsters in only 4
+      // of the lane's 14 rows for the whole fight: the wave was ground down on
+      // the spawn point and never got past the door.
+      //
+      // Three hundred monsters rather than the two hundred this used to need. A block of thirty-two
+      // Pledges all grant each other Shoulder to Shoulder (abilities.json), so
+      // the same wall of bodies is about a quarter stronger than it was and forty
+      // bodies no longer break it - at two hundred the line finishes the fight intact
+      // and the wave never leaves the doorway, which measures the ABILITY rather
+      // than the rule under test. At three hundred the line gives way and
+      // thirteen of the fourteen rows see a monster.
+      const { state, ctx } = underSiege(300);
+      const lane = state.lanes.l1!;
+      const rows = new Set<number>();
 
-    // Long enough for the line to be overrun, which is when the rows behind it
-    // start earning their keep: the front holds for the first eighty seconds
-    // and the lane opens up as it gives way.
-    for (let t = 0; t < 2200; t++) {
-      step(ctx, state);
-      for (const monster of lane.monsters) {
-        if (monster.alive) rows.add(Math.floor(monster.pos.y));
+      // Long enough for the line to be overrun, which is when the rows behind it
+      // start earning their keep: the front holds for the first eighty seconds
+      // and the lane opens up as it gives way.
+      for (let t = 0; t < 2200; t++) {
+        step(ctx, state);
+        for (const monster of lane.monsters) {
+          if (monster.alive) rows.add(Math.floor(monster.pos.y));
+        }
       }
-    }
 
-    expect(rows.size).toBeGreaterThan(6);
-  });
+      expect(rows.size).toBeGreaterThan(6);
+    },
+  );
 
   it('packs a cap-sized clump wholly inside the zone', () => {
     const radii = new Array(data.waves.maxConcurrentMonsters).fill(0.3);

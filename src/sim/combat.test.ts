@@ -4,18 +4,28 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
+import { trivialWaves } from './fixtures.ts';
 import { applyCommand } from './apply.ts';
 import { countLiving, createContext, createMatch, step, TICKS_PER_SECOND } from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
 
+/**
+ * A match whose waves are one grub each (`fixtures.ts`).
+ *
+ * These are tests about the BUILD PHASE, and reaching one means finishing a
+ * wave. Against the real wave 1 a lane holding the single unit under test
+ * loses its fortress instead, and the test fails on the difficulty of wave 1
+ * rather than on respawn.
+ */
 function freshMatch(players = 1): { state: MatchState; ctx: SimContext } {
   const teams = Array.from({ length: players }, (_, i) => ({
     id: `lane${i + 1}`,
     playerIds: [`p${i + 1}`],
   }));
-  return { state: createMatch(data, { seed: 1, teams }), ctx: createContext(data) };
+  const easy = trivialWaves(data);
+  return { state: createMatch(easy, { seed: 1, teams }), ctx: createContext(easy) };
 }
 
 function runToPhase(ctx: SimContext, state: MatchState, phase: 'build' | 'combat'): void {
@@ -280,7 +290,10 @@ describe('elimination wipes a lane (§13, amended)', () => {
 
 describe('the reserve queue (§8.1)', () => {
   it('holds monsters beyond the lane cap and feeds them in as others die', () => {
-    const { state, ctx } = freshMatch();
+    // The REAL waves, not `freshMatch`'s trivial ones: this is the one test in
+    // the file that is about how many monsters a wave has.
+    const state = createMatch(data, { seed: 1, teams: [{ id: 'lane1', playerIds: ['p1'] }] });
+    const ctx = createContext(data);
     const lane = state.lanes.lane1!;
     const cap = data.waves.maxConcurrentMonsters;
 
@@ -289,11 +302,17 @@ describe('the reserve queue (§8.1)', () => {
     lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
     lane.fortress.hp = lane.fortress.maxHp;
 
-    // Wave 22 is authored well over the 30-monster cap, so it overflows.
-    state.wave = 21;
+    // Any wave authored over the 30-monster cap overflows; pick the biggest
+    // there is rather than naming one, so tuning a wave cannot silently turn
+    // this into a test of nothing.
+    const biggest = data.waves.composition
+      .map((w) => ({ wave: w.wave, n: w.entries.reduce((sum, e) => sum + (e.count ?? 0), 0) }))
+      .reduce((a, b) => (b.n > a.n ? b : a));
+    expect(biggest.n).toBeGreaterThan(cap);
+    state.wave = biggest.wave - 1;
     runToPhase(ctx, state, 'combat');
 
-    expect(state.wave).toBe(22);
+    expect(state.wave).toBe(biggest.wave);
     expect(countLiving(lane)).toBe(cap);
     expect(lane.reserve.length).toBeGreaterThan(0);
 

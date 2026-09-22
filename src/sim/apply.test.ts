@@ -251,7 +251,10 @@ describe('gold flow (§11.1)', () => {
     for (const monster of lane.monsters) monster.hp = 0;
     step(ctx, state);
 
-    expect(lane.economy.gold).toBe(goldBefore + expected);
+    // Close rather than exact: a wave's fixed pool is divided by weight, so
+    // most bounties are repeating fractions and twenty-eight of them summed in
+    // a different order land a 1e-13 away from each other.
+    expect(lane.economy.gold).toBeCloseTo(goldBefore + expected, 6);
   });
 
   it('pays gems on its own clock, not once a wave (§10.2, amended)', () => {
