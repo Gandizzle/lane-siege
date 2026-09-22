@@ -291,10 +291,15 @@ decision away and is too hard whatever its clear rate says.
 |    2 |       37 |  1,390 |        350 |          450 |   100 |
 |    3 |       44 |  2,012 |        500 |          650 |   150 |
 |    4 |       42 |  2,406 |        650 |          850 |   200 |
-|    5 |  37+boss |  3,205 |        850 |        1,050 |   200 |
+|    5 |  44+boss |  3,666 |        850 |        1,050 |   200 |
 
 Health per gold sits between 3.7 and 4.0 the whole way up, which is the ratio
-the ladder was settled on rather than a rule it was derived from.
+the ladder was settled on rather than a rule it was derived from. Wave 5 is
+4.3, deliberately: a boss is ONE body, and a single 1,275-health lump that can
+only hit one thing at a time is less dangerous per point than forty small ones
+that surround you. At the same ratio as its neighbours it was the easiest wave
+of the five to half-budget — Pyre cleared 24 baskets of 50 at 425 gold. More
+escort and a harder-hitting boss took that to 10.
 
 ### Twenty-five to forty-five bodies
 
@@ -355,6 +360,36 @@ reports per wave, builder and band:
 
 A wave is tuned when, at its nominal: a good build clears it with room over, a
 poor build at the same gold does not, and half the gold clears nothing.
+
+### Where the five landed
+
+Clear rate at nominal — the share of a builder's armies at that gold that took
+the wave with nothing leaking. 2,824 probes, `reports/waves-01.txt`.
+
+| wave | gold | ironvow | pyre | thornweald | gloomtide |
+| ---: | ---: | ------: | ---: | ---------: | --------: |
+|    1 |  200 |     57% |  86% |        29% |       29% |
+|    2 |  350 |    100% | 100% |        82% |       98% |
+|    3 |  500 |     80% |  98% |        80% |       66% |
+|    4 |  650 |     92% | 100% |        92% |       82% |
+|    5 |  850 |     84% |  94% |        88% |       72% |
+
+Half the nominal clears almost nothing at any wave (0 of 50 for three builders
+at wave 5; Pyre's 10 of 50 is the worst case). Three quarters is a real fight.
+A quarter over clears 47 to 50 of 50. That is the shape the ladder was after.
+
+**What it says about the builders, which is not a wave finding.** Pyre is
+first at every one of the five. Gloomtide is last at three of them and never
+better than third. Thornweald has the highest ceiling in the game — its best
+build beats everyone at waves 1, 3 and 5 — and one of the lowest clear rates,
+which is a builder with a few very good answers and a lot of bad ones; its
+fights also run 22-27 seconds at nominal against Pyre's 10-15.
+
+That is worth holding against the showdown, which says the opposite: in the
+arena Gloomtide wins 44% of four-ways and Pyre 19%. **A builder is not strong
+or weak, it is strong or weak at a phase**, and a `valueWeight` nerf aimed at
+Pyre's wave record would land on a builder that is already last but one in the
+arena. Neither number should be acted on alone.
 
 ## 5. The phases
 

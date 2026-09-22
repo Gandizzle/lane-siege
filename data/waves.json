@@ -126,19 +126,19 @@
       "entries": [
         {
           "monsterId": "grub",
-          "count": 12
+          "count": 14
         },
         {
           "monsterId": "mote",
-          "count": 10
+          "count": 12
         },
         {
           "monsterId": "husk",
-          "count": 8
+          "count": 10
         },
         {
           "monsterId": "warden",
-          "count": 6
+          "count": 8
         }
       ]
     },
