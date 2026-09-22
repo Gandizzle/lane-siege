@@ -41,6 +41,7 @@
   "composition": [
     {
       "wave": 1,
+      "armyGold": 200,
       "entries": [
         {
           "monsterId": "grub",
@@ -50,6 +51,7 @@
     },
     {
       "wave": 2,
+      "armyGold": 350,
       "entries": [
         {
           "monsterId": "grub",
@@ -63,6 +65,7 @@
     },
     {
       "wave": 3,
+      "armyGold": 500,
       "entries": [
         {
           "monsterId": "grub",
@@ -80,6 +83,7 @@
     },
     {
       "wave": 4,
+      "armyGold": 650,
       "entries": [
         {
           "monsterId": "grub",
@@ -97,6 +101,7 @@
     },
     {
       "wave": 5,
+      "armyGold": 850,
       "entries": [
         {
           "monsterId": "grub",
@@ -453,11 +458,6 @@
       ]
     }
   ],
-  "bossBank": [
-    "brood_sire",
-    "hollow_king",
-    "gravemother",
-    "chitin_lord"
-  ],
+  "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"],
   "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one."
 }

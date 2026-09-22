@@ -358,6 +358,20 @@ export interface WaveEntry {
 export interface WaveDef {
   wave: number;
   entries: WaveEntry[];
+  /**
+   * The gold of army this wave is TUNED to be beaten by, and the number the
+   * sandbox (`src/balance/sandbox.ts`) measures against.
+   *
+   * It is deliberately less than the gold a player could have by then, and the
+   * gap is the slack: the room to bank gold, buy economy, or take a risk. A
+   * wave a player must spend every coin to survive has taken that room away
+   * and is too hard whatever its clear rate says; a wave beaten at half this
+   * is not asking anything.
+   *
+   * Optional, because waves past the authored ladder are generated rather than
+   * designed and have nothing to be tuned against.
+   */
+  armyGold?: number;
 }
 
 /**
