@@ -1,9 +1,10 @@
 # Balance: the budget, the ladders, and how we will know
 
-**Status: phase 1 of 4, one tuning round in. The economy and the price ladders
-are in, the round robin runs, and its first findings have been acted on — the
-centre square is now worth holding, every line goes to Mark III, and Gloomtide
-carries an 8% weight.**
+**Status: phases 1 and 3 both open. The economy and the price ladders are in,
+the round robin runs, and its first findings have been acted on — the centre
+square is now worth holding, every line goes to Mark III, and Gloomtide carries
+an 8% weight. Waves 1 to 5 are tuned against an army-gold ladder; waves 6 to 25
+are stale and know it.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
@@ -14,6 +15,7 @@ everything quoted here:
 npm run budget     what a medium player can afford by the Final Showdown
 npm run reprice    the price ladder, and whether the roster is on it
 npm run showdown   the round robin, across every core
+npm run waves      every army a builder could buy, against every wave
 ```
 
 ---
@@ -268,7 +270,93 @@ The lesson for the ladder is that reach is mispriced in `unitValue`'s
 
 ---
 
-## 4. The phases
+## 4. The waves, and what each one asks for
+
+A wave is not tuned against "can you beat it". It is tuned against **how much
+gold of army it takes to beat it**, and that number is authored on the wave as
+`armyGold` in `data/waves.json`.
+
+### The ladder
+
+A player who spends every coin on army has 250 at wave 1 and 200 more each
+wave after, since a wave pays a fixed pool (§11.1) whatever walks in. The
+nominal is about four fifths of that, and **the fifth left over is the whole
+point**: it is the room to bank gold, buy gem output, take a risk, or cover a
+bad build. A wave a player must spend every coin to survive has taken the
+decision away and is too hard whatever its clear rate says.
+
+| wave | monsters | health | `armyGold` | a player has | slack |
+| ---: | -------: | -----: | ---------: | -----------: | ----: |
+|    1 |       28 |    744 |        200 |          250 |    50 |
+|    2 |       37 |  1,390 |        350 |          450 |   100 |
+|    3 |       44 |  2,012 |        500 |          650 |   150 |
+|    4 |       42 |  2,406 |        650 |          850 |   200 |
+|    5 |  37+boss |  3,205 |        850 |        1,050 |   200 |
+
+Health per gold sits between 3.7 and 4.0 the whole way up, which is the ratio
+the ladder was settled on rather than a rule it was derived from.
+
+### Twenty-five to forty-five bodies
+
+The old waves ran 8 to 30 and the first five ran 8 to 12. A wave of eight is
+not a wave, it is an errand: one body of the right damage type answers it, and
+there is nothing to place against. The density target is the genre's — Squadron
+Tower Defense runs 25 to 45 — and it is what makes placement, splash and a
+front line worth anything.
+
+Holding that density meant **cutting the early monsters down**, because 25
+bodies at the old 45 health each is 1,125 health against a wave 1 army of about
+1,000. A grub is 30 health now and does 6 damage; a husk is 110 rather than 170.
+Fewer, bigger monsters would have been the other answer, and it is the wrong one:
+the count is what the game is made of.
+
+### No wave is one armour type
+
+Wave 1 used to be nothing but Grubs, which are Flesh. Against a single-armour
+wave the matrix is not a decision, it is a verdict: Blast is 1.5 against Flesh
+and Pierce is 0.6, and at 200 gold a player is buying from rungs 1 to 3 — so
+whether your cheap lines happen to match is settled before you build. Measured,
+Pyre cleared 6 baskets of 7 and Ironvow none.
+
+So every wave carries at least two armour types, and which types rotate as the
+ladder climbs: Flesh and Swarm at wave 1, Plate joins at wave 2, Ward at wave 3,
+and waves 4 and 5 carry all four. A builder punished at wave 1 for having Pierce
+low on its ladder is rewarded for it at wave 2, when the Plate arrives.
+
+### The boss, and its purse
+
+The bank is **four bodies of equal power in four armour types**, not a
+difficulty ladder. A boss is drawn at random (§3.4), so a bank whose members ran
+1,400 to 3,100 health made wave 5 a different fight depending on the die, and no
+amount of tuning the escort makes that one wave. They differ in shape — the Ward
+one hits hardest and has least health, the Flesh one the reverse — so which
+comes up changes how you fight it and not whether you can.
+
+What separates wave 25's boss from wave 5's is `waves.bossScaling`, compounded
+per BOSS WAVE rather than per wave: 1.6× health and 1.35× damage each time one
+comes round.
+
+And a boss pays a **purse** (`economy.bossBounty`, 200) on top of its share of
+the wave pool. The pool is fixed, so without one a boss wave pays exactly what
+wave 4 paid for several times the work. It is paid on the kill, so a boss that
+walks past the line pays nothing.
+
+### How a wave is measured
+
+`npm run waves` runs the sandbox (`src/balance/sandbox.ts`) over every army each
+builder could buy at gold bands either side of the wave's nominal. What it
+reports per wave, builder and band:
+
+- **cleared** — every monster dead, none past the line. The bar.
+- **margin** — own health left minus the wave's health left, from +1 (untouched
+  against a wiped wave) to −1. How comfortably, rather than whether.
+- **time** — seconds of game clock. A wave that takes ninety seconds is not
+  the same wave as one that takes fifteen, whoever wins it.
+
+A wave is tuned when, at its nominal: a good build clears it with room over, a
+poor build at the same gold does not, and half the gold clears nothing.
+
+## 5. The phases
 
 **Phase 0 — instrumentation.** _Done._ Vocabulary settled, the budget computed
 rather than guessed, the round robin running with its controls.
@@ -282,11 +370,11 @@ do, and until it does, a unit with a strong ability is strictly better than one
 without at the same price. Measure each ability's worth by removing it from a
 fixed army and re-running, then put the number in `abilityWeights` and reprice.
 
-**Phase 3 — waves.** Monster strength, composition and the difficulty curve.
-This is currently wide open: the reprice lifted the middle of the roster about
-4× and the top 12–20×, so every wave is a no-contest — `npm run builders`
-clears all 25 with four fortresses at 100%. It is the safe direction (monsters
-are one knob and can be turned up) and it is deliberately deferred.
+**Phase 3 — waves.** _Waves 1 to 5 done; 6 to 25 open._ Monster strength,
+composition and the difficulty curve, measured with `npm run waves` against the
+army-gold ladder below. Waves 6 to 25 are stale: they were authored against
+monster stats that have since been cut, and they still run 12 to 30 bodies
+rather than the 25 to 45 the early ladder now runs at.
 
 **Phase 4 — sends, and the meta.** What makes an _attack_ send correct. A
 100-gem bloater has a payback of 16 waves and never pays for itself
@@ -301,7 +389,7 @@ or whether losing to three opponents ganging up feels bad.
 
 ---
 
-## 5. How we will know when it is balanced
+## 6. How we will know when it is balanced
 
 In order. **Each one gates the ones below it.**
 
@@ -377,7 +465,7 @@ core; `--shard i/n` splits a run across machines.
 
 ---
 
-## 6. Adjusting the formula
+## 7. Adjusting the formula
 
 The formula is code, not prose, so changing it is changing
 `src/balance/budget.ts` and re-running `npm run budget`. The things most likely

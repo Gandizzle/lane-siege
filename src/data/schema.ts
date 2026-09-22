@@ -454,6 +454,23 @@ export interface WavesFile {
     damage: Unfilled<number>;
     bounty: Unfilled<number>;
   };
+  /**
+   * §3.4, added: how a BOSS grows from one boss wave to the next.
+   *
+   * Compounded per boss wave rather than per wave - a boss appears on
+   * multiples of `bossEveryNWaves` and nowhere else, so a per-wave factor
+   * applied to it is a curve nobody chose. Wave 5's boss is the bank as
+   * authored; wave 10's is this once over, and so on.
+   *
+   * It is also what lets the bank be four bodies of equal power in four
+   * armour types. Without it the bank had to carry the difficulty curve in its
+   * own HP numbers, which made wave 5 a 1,400 HP fight or a 3,100 HP fight
+   * depending on which one the draw picked.
+   */
+  bossScaling?: {
+    hp: Unfilled<number>;
+    damage: Unfilled<number>;
+  };
   composition: WaveDef[];
   bossBank: string[];
 }
@@ -569,6 +586,16 @@ export interface EconomyFile {
    * twice the share. Set every weight equal for a flat split.
    */
   waveBounty: Unfilled<number>;
+  /**
+   * §3.4, added: gold a BOSS pays on death, on top of its share of the wave
+   * pool.
+   *
+   * A boss wave is several times the work of the wave before it and the pool
+   * is fixed, so without a purse it pays exactly the same 200. The purse is
+   * what makes surviving one buy the army that survives the next five. Paid on
+   * the kill, so a boss that walks past the line pays nothing.
+   */
+  bossBounty: Unfilled<number>;
   /**
    * §11.5, decided: gold the DEFENDER is paid for killing a sent monster, per
    * ten gems its sender spent, on top of its share of the wave pool.

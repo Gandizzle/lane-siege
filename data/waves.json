@@ -38,6 +38,11 @@
     "damage": 1.14,
     "bounty": 1.1
   },
+  "bossScaling": {
+    "_comment": "Per BOSS WAVE, compounded: wave 5 draws the bank as authored, wave 10 gets it once over, wave 25 four times. The bank is four bodies of EQUAL power in four armour types, so this is the whole of what separates a late boss from an early one. Untuned past wave 5.",
+    "hp": 1.6,
+    "damage": 1.35
+  },
   "composition": [
     {
       "wave": 1,
@@ -45,6 +50,10 @@
       "entries": [
         {
           "monsterId": "grub",
+          "count": 20
+        },
+        {
+          "monsterId": "mote",
           "count": 8
         }
       ]
@@ -55,11 +64,15 @@
       "entries": [
         {
           "monsterId": "grub",
+          "count": 22
+        },
+        {
+          "monsterId": "mote",
           "count": 10
         },
         {
           "monsterId": "husk",
-          "count": 2
+          "count": 5
         }
       ]
     },
@@ -69,15 +82,19 @@
       "entries": [
         {
           "monsterId": "grub",
-          "count": 8
-        },
-        {
-          "monsterId": "husk",
-          "count": 4
+          "count": 18
         },
         {
           "monsterId": "mote",
-          "count": 6
+          "count": 14
+        },
+        {
+          "monsterId": "husk",
+          "count": 8
+        },
+        {
+          "monsterId": "warden",
+          "count": 4
         }
       ]
     },
@@ -87,15 +104,19 @@
       "entries": [
         {
           "monsterId": "grub",
-          "count": 10
+          "count": 12
+        },
+        {
+          "monsterId": "mote",
+          "count": 12
         },
         {
           "monsterId": "husk",
-          "count": 5
+          "count": 12
         },
         {
           "monsterId": "warden",
-          "count": 3
+          "count": 6
         }
       ]
     },
@@ -109,7 +130,15 @@
         },
         {
           "monsterId": "mote",
+          "count": 10
+        },
+        {
+          "monsterId": "husk",
           "count": 8
+        },
+        {
+          "monsterId": "warden",
+          "count": 6
         }
       ]
     },
@@ -459,5 +488,6 @@
     }
   ],
   "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"],
-  "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one."
+  "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one.",
+  "_ladderNote": "WAVES 1 TO 5 ARE TUNED and carry `armyGold`: each was measured with `npm run waves` until an army worth that much gold could beat it with room over and half that army could not. They run 28 to 44 bodies, which is the density the game is meant to have. WAVES 6 TO 25 ARE STALE. They were authored against monster stats that have since been cut - a grub was 45 health and is now 30 - so they are both weaker than they were and far short of the 25-45 bodies the early waves now run at. They were left alone rather than mechanically rescaled: scaling their counts to the health the early ladder implies puts most of them over 45 bodies, and capping there lands wave 12 at 12% of it, because those waves are built from swarm bodies and need HEAVIER monsters rather than more of the same. That is composition work, not arithmetic. Tune 6 to 25 the way 1 to 5 were tuned before trusting any of them."
 }

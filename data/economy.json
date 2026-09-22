@@ -6,6 +6,7 @@
   "fortressKillBounty": 1,
   "_waveBountyNote": "§11.1, REPLACED. A wave pays waveBounty gold in total, split between its monsters in proportion to the `bounty` weight on each (monsters.json). Authored per-monster bounties made a wave’s payout a consequence of its composition - wave 24 paid 545 gold and wave 12 paid 101, chosen by nobody. A fixed pool makes the gold curve a decision, and removes the reward for farming a wave rather than surviving it. Sent monsters are NOT in the pool: they pay sendBountyPerTenGems separately, so sending at someone cannot starve them.",
   "waveBounty": 200,
+  "bossBounty": 200,
   "sendBountyPerTenGems": 2,
   "supply": {
     "_comment": "§11.4: the cap does not grow on its own - it is an upgrade you choose to buy, which makes a large army a deliberate investment. A flat price and a flat +5, so the decision is always the same one: five more supply, or a unit now.",

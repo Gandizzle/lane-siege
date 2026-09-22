@@ -76,9 +76,28 @@ function intPow(base: number, exponent: number): number {
 }
 
 /**
+ * How many boss waves past the first this one is. Wave 5 is 0, wave 25 is 4.
+ *
+ * Bosses are drawn at random from a bank (§3.4), so the bank has to be four
+ * bodies of the SAME power wearing four different armour types - otherwise
+ * "wave 5" means a 1,400 HP fight or a 3,100 HP fight depending on a die roll,
+ * and no amount of tuning the escort makes that one wave. What separates wave
+ * 5's boss from wave 25's is this exponent, not which body came up.
+ */
+function bossStep(data: GameData, waveNumber: number): number {
+  const every = data.waves.bossEveryNWaves;
+  if (every <= 0) return 0;
+  return Math.max(0, Math.floor(waveNumber / every) - 1);
+}
+
+/**
  * §9.1: monster stats scale with wave number, and so does monster count. HP,
  * damage and bounty grow; move and attack speed deliberately do not - that is
  * enrage's job (§8), and stacking the two would make late waves unreadable.
+ *
+ * A boss scales on its own ladder (`bossScaling`) rather than the wave one,
+ * because it appears once every five waves and a per-wave factor applied to a
+ * body that only shows up on multiples of five is a curve nobody chose.
  */
 export function resolveMonsterStats(
   data: GameData,
@@ -87,10 +106,13 @@ export function resolveMonsterStats(
 ): ResolvedMonsterStats {
   const steps = scalingExponent(data, waveNumber);
   const { scaling } = data.waves;
+  const boss = def.isBoss === true ? bossStep(data, waveNumber) : 0;
+  const bossHp = intPow(num(data.waves.bossScaling?.hp ?? null, 1), boss);
+  const bossDamage = intPow(num(data.waves.bossScaling?.damage ?? null, 1), boss);
 
   return {
-    hp: num(def.hp) * intPow(num(scaling.hp, 1), steps),
-    damage: num(def.damage) * intPow(num(scaling.damage, 1), steps),
+    hp: num(def.hp) * intPow(num(scaling.hp, 1), steps) * bossHp,
+    damage: num(def.damage) * intPow(num(scaling.damage, 1), steps) * bossDamage,
     attackSpeed: num(def.attackSpeed),
     moveSpeed: num(def.moveSpeed),
     range: num(def.range),
@@ -181,6 +203,21 @@ export function shareOutTheWavePool(data: GameData, specs: SpawnSpec[]): void {
   // reading of "no monster here is worth more than another".
   for (const spec of specs) {
     spec.bounty = total > 0 ? (pool * weightOf(spec)) / total : pool / specs.length;
+  }
+
+  // §3.4, added: a boss pays a PURSE on top of its share of the pool.
+  //
+  // Its share alone is not a reward for killing it - the pool is fixed, so a
+  // boss wave that paid only the pool would pay exactly what wave 4 paid for a
+  // wave that is several times the work. The purse is what makes surviving a
+  // boss wave buy the army that survives the next five, and it is paid on the
+  // kill rather than on the wave, so a boss that walks past collects nothing.
+  const purse = num(data.economy.bossBounty);
+  if (purse > 0) {
+    const bosses = new Set(data.monsters.bosses.map((b) => b.id));
+    for (const spec of specs) {
+      if (bosses.has(spec.defId)) spec.bounty = num(spec.bounty ?? null) + purse;
+    }
   }
 }
 
