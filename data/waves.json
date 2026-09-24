@@ -34,8 +34,8 @@
   "scaling": {
     "_comment": "Growth per wave beyond the authored composition. Multiplicative per wave above the last authored one. Placeholders - playtest.",
     "count": 1.12,
-    "hp": 1.18,
-    "damage": 1.14,
+    "hp": 1.22,
+    "damage": 1.17,
     "bounty": 1.1
   },
   "bossScaling": {
@@ -104,7 +104,7 @@
     },
     {
       "wave": 4,
-      "armyGold": 650,
+      "armyGold": 740,
       "entries": [
         {
           "monsterId": "warden",
@@ -126,7 +126,7 @@
     },
     {
       "wave": 5,
-      "armyGold": 850,
+      "armyGold": 920,
       "entries": [
         {
           "monsterId": "grub",
@@ -152,7 +152,7 @@
     },
     {
       "wave": 6,
-      "armyGold": 1150,
+      "armyGold": 1400,
       "entries": [
         {
           "monsterId": "spitter",
@@ -166,7 +166,7 @@
     },
     {
       "wave": 7,
-      "armyGold": 1300,
+      "armyGold": 1500,
       "entries": [
         {
           "monsterId": "mite",
@@ -180,7 +180,7 @@
     },
     {
       "wave": 8,
-      "armyGold": 1450,
+      "armyGold": 1750,
       "entries": [
         {
           "monsterId": "husk",
@@ -198,7 +198,7 @@
     },
     {
       "wave": 9,
-      "armyGold": 1600,
+      "armyGold": 1925,
       "entries": [
         {
           "monsterId": "stalker",
@@ -216,7 +216,7 @@
     },
     {
       "wave": 10,
-      "armyGold": 1800,
+      "armyGold": 2175,
       "entries": [
         {
           "monsterId": "spitter",
@@ -498,5 +498,5 @@
   ],
   "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"],
   "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one.",
-  "_ladderNote": "WAVES 1 TO 5 ARE TUNED and carry `armyGold`: each was measured with `npm run waves` until an army worth that much gold could beat it with room over and half that army could not. They run 28 to 44 bodies, which is the density the game is meant to have. WAVES 6 TO 25 ARE STALE. They were authored against monster stats that have since been cut - a grub was 45 health and is now 30 - so they are both weaker than they were and far short of the 25-45 bodies the early waves now run at. They were left alone rather than mechanically rescaled: scaling their counts to the health the early ladder implies puts most of them over 45 bodies, and capping there lands wave 12 at 12% of it, because those waves are built from swarm bodies and need HEAVIER monsters rather than more of the same. That is composition work, not arithmetic. Tune 6 to 25 the way 1 to 5 were tuned before trusting any of them."
+  "_ladderNote": "WAVES 1 TO 10 ARE TUNED and carry `armyGold`: each was measured with `npm run waves` until an average army worth that much gold beat it with nothing leaking, three quarters of that mostly could not, and half could not at all; then waves 1 to 10 were played whole with `npm run runs` to check a greedy economy cannot outgrow them (docs/BALANCE.md \u00a74a). They run 22 to 45 bodies. WAVES 11 TO 25 ARE STALE. They were authored against monster stats that have since been cut - a grub was 45 health and is now 30 - so they are both weaker than they were and short of the 25-45 bodies the tuned ladder runs at. They were left alone rather than mechanically rescaled: those waves are built from swarm bodies and need HEAVIER monsters and a theme each, not more of the same. That is composition work, not arithmetic. Tune 11 to 25 the way 1 to 10 were tuned before trusting any of them."
 }

@@ -26,7 +26,8 @@
     "budget": "tsx src/headless/budget.ts",
     "reprice": "tsx src/headless/reprice.ts",
     "showdown": "tsx src/headless/showdown.ts",
-    "waves": "tsx src/headless/waves.ts"
+    "waves": "tsx src/headless/waves.ts",
+    "runs": "tsx src/headless/runs.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

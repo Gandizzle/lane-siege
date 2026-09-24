@@ -216,7 +216,12 @@ function report(all: WaveOutcome[]): void {
         `${Math.round(summary.hp).toLocaleString().padStart(9)}  ${String(nominal).padStart(13)}  ` +
         `${earned.toLocaleString().padStart(18)}  ${String(earned - nominal).padStart(6)}`,
     );
-    earned += 200;
+    // A wave's pool, and a boss's purse on top when the wave just survived was
+    // a boss wave: both are paid to anyone who clears it, whatever they built.
+    earned += data.economy.waveBounty ?? 0;
+    if (data.waves.bossEveryNWaves > 0 && wave % data.waves.bossEveryNWaves === 0) {
+      earned += data.economy.bossBounty ?? 0;
+    }
   }
 
   for (const wave of options.waves) {

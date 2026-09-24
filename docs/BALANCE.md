@@ -2,20 +2,22 @@
 
 **Status: phases 1 and 3 both open. The economy and the price ladders are in,
 the round robin runs, and its first findings have been acted on — the centre
-square is now worth holding, every line goes to Mark III, and Gloomtide carries
-an 8% weight. Waves 1 to 5 are tuned against an army-gold ladder; waves 6 to 25
-are stale and know it.**
+square is now worth holding, every line goes to Mark III, and Gloomtide's
+Mark IIIs carry an 8% weight. Waves 1 to 10 are tuned against an army-gold
+ladder and against whole runs played on four economy plans; waves 11 to 25 are
+stale and know it.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
-the standard we are going to hold the answer to. Three commands reproduce
-everything quoted here:
+the standard we are going to hold the answer to. Five commands
+reproduce everything quoted here:
 
 ```
 npm run budget     what a medium player can afford by the Final Showdown
 npm run reprice    the price ladder, and whether the roster is on it
 npm run showdown   the round robin, across every core
 npm run waves      every army a builder could buy, against every wave
+npm run runs       whole runs, played, on four economy plans
 ```
 
 ---
@@ -278,30 +280,44 @@ gold of army it takes to beat it**, and that number is authored on the wave as
 
 ### The ladder
 
-A player who spends every coin on army has 250 at wave 1 and 200 more each
-wave after, since a wave pays a fixed pool (§11.1) whatever walks in. The
-nominal is about four fifths of that, and **the fifth left over is the whole
-point**: it is the room to bank gold, buy economy, take a risk, or cover a bad
-build. A wave a player must spend every coin to survive has taken the decision
-away and is too hard whatever its clear rate says.
+A player who spends every coin on army has 250 at wave 1, 200 more each wave
+after (a wave pays a fixed pool, §11.1), and a boss's 200-gold purse on top
+after waves 5 and 10. The nominal was set at about four fifths of that for
+waves 1 to 3, and **the fifth left over is the point**: it is the room to bank
+gold, buy economy, take a risk, or cover a bad build.
 
-| wave | monsters | health | `armyGold` | a player has | slack | asks for             |
-| ---: | -------: | -----: | ---------: | -----------: | ----: | -------------------- |
-|    1 |       30 |    540 |        200 |          250 |    50 | Swarm 78%            |
-|    2 |       38 |  1,293 |        350 |          450 |   100 | Flesh 80%            |
-|    3 |       34 |  3,091 |        500 |          650 |   150 | Plate 89%            |
-|    4 |       36 |  2,244 |        650 |          850 |   200 | Ward 62%             |
-|    5 |  26+boss |  6,128 |        850 |        1,050 |   200 | all four, and a boss |
+| wave | theme   | monsters | health | `armyGold` | no-economy player has | asks for                    |
+| ---: | ------- | -------: | -----: | ---------: | --------------------: | --------------------------- |
+|    1 |         |       30 |    540 |        200 |                   250 | Swarm 78%                   |
+|    2 |         |       38 |  1,337 |        350 |                   450 | Flesh 80%                   |
+|    3 |         |       34 |  3,304 |        500 |                   650 | Plate 89%                   |
+|    4 |         |       36 |  2,480 |        740 |                   850 | Ward 62%                    |
+|    5 | boss    |  26+boss |  6,461 |        920 |                 1,050 | all four, and a boss        |
+|    6 | Volley  |       32 |  4,676 |      1,400 |                 1,450 | Ward: all ranged            |
+|    7 | Skitter |       45 |  4,155 |      1,500 |                 1,650 | Swarm: tiny and fast        |
+|    8 | Bulwark |       27 | 15,093 |      1,750 |                 1,850 | Plate: slow and armoured    |
+|    9 | Rush    |       27 | 11,867 |      1,925 |                 2,050 | Flesh: divers and bursters  |
+|   10 | boss    |  22+boss | 14,581 |      2,175 |                 2,250 | all four, and a bigger boss |
+
+`armyGold` is where an AVERAGE build clears — the gold at which 55 to 65% of
+every army a builder could buy takes the wave with nothing leaking. It is not
+what a good build needs, which is 80 to 90% of it, and it is set against a
+player with no economy at all. So from wave 4 the column on the right looks
+thin, and it is thin on purpose: waves 6 to 10 grow faster than a flat 200 gold
+a wave because the economy does (see below), and the full-run harness is the
+measure of whether there is room left. There is — a player who bought no
+economy and played well still had about 450 gold in hand at wave 10 with the
+fortress untouched.
 
 Health is what the wave is worth AT THAT WAVE, not what its definitions say:
-every monster grows one step a wave (§9.1, amended), so the same 30-health grub
-is a 58-health grub by wave 5. That is what lets a wave reuse a body without
-getting easier, and it is why the stat panel resolves against the wave on screen
-rather than reading `monsters.json`. Health per gold climbs from 2.7 to 7.2 up
-the five and that climb is not the difficulty curve on its own — the bodies are
-getting individually harder too, and a boss is one lump that can only hit one
-thing at a time and is therefore worth far less threat per point than forty
-bodies that surround you.
+every monster grows one step a wave (§9.1, amended) — 1.22× health and 1.17×
+damage — so the same 30-health grub is a 66-health grub by wave 5 and a
+180-health grub by wave 10. That is what lets a wave reuse a body without getting
+easier, and it is why the stat panel resolves against the wave on screen rather
+than reading `monsters.json`. Health per gold is not the difficulty curve on its
+own: the bodies are getting individually harder, a boss is one lump that can
+only hit one thing at a time, and a Bulwark's 15,000 health is slow Plate that
+has to walk to you.
 
 ### Twenty-five to forty-five bodies
 
@@ -374,6 +390,39 @@ the wave pool. The pool is fixed, so without one a boss wave pays exactly what
 wave 4 paid for several times the work. It is paid on the kill, so a boss that
 walks past the line pays nothing.
 
+### Waves 6 to 10, and the two new monsters
+
+Each has a theme you have to answer, on top of an armour type:
+
+- **Volley (6)** — every monster fights from range: Spitters from two and a
+  half tiles, Wardens from one. A line that does not walk forward is being shot
+  for free, and a back line that out-ranges them is worth more than one that
+  out-damages them.
+- **Skitter (7)** — forty Mites. A Mite is 0.13 tiles where every other monster
+  is 0.22, so nearly three times as many fit around a unit, and it is the
+  fastest thing in the game. One is nothing; forty surrounding a gun are the
+  whole wave. Splash is the answer, and so is a line with no gaps in it.
+- **Bulwark (8)** — Husks and Carapaces: fifteen thousand health of slow Plate
+  that shrugs off a fifth of every hit. Sustained Pierce, and time.
+- **Rush (9)** — Stalkers sprint in on Ambush and go for the back line;
+  Bloaters burst when they die. Flesh armour, Blast damage.
+- **Boss (10)** — the bank once over (`bossScaling`), with an escort that
+  borrows from the four before it.
+
+**The Spitter and the Mite** are the first monsters that are not a 0.22-tile
+disc fighting from contact. The Mite broke one thing: the spawn lattice was
+sized by the smallest monster IN THE GAME, which was the same as the smallest
+monster in the wave until the Mite existed — after which every wave spawned on a
+Mite-sized lattice, packed its grubs nearly edge to edge, and arrived at the line
+as a crowd that shoved engaged bodies into each other. It is sized by the
+smallest body being placed now.
+
+**The Stalker deals Blast.** Pierce was the damage type of every heavy hitter
+in the monster set — Warden, Carapace, Stalker — while Blast belonged to the
+Swarmling and the Bloater, one tiny and one rare. So Flesh, which only Blast
+hurts, was the best armour to wear for the first half of the game. The Rush
+wave is where a Flesh front line pays for it.
+
 ### How a wave is measured
 
 `npm run waves` runs the sandbox (`src/balance/sandbox.ts`) over every army each
@@ -397,60 +446,130 @@ because its top mark comes with an area attack that nothing charged for it.
 A wave is tuned when, at its nominal: a good build clears it with room over, a
 poor build at the same gold does not, and half the gold clears nothing.
 
-### Where the five landed
+### Where the ten landed
 
-Every army every builder could buy, at four gold bands, against all five waves.
-2,332 probes in two minutes, `reports/waves-11.txt`. Pooled over the four
-builders, the share that cleared:
+Every army every builder could buy, at four gold bands, against all ten waves —
+5,540 probes in five minutes, `reports/waves-13.txt`. Pooled over the builders,
+the share that cleared:
 
 | wave | 50% | 75% | 100% | 125% |
 | ---: | --: | --: | ---: | ---: |
 |    1 |  0% |  0% |  71% |  98% |
-|    2 |  0% |  3% |  43% |  81% |
-|    3 |  0% |  9% |  64% |  88% |
-|    4 |  0% | 11% |  65% |  79% |
-|    5 |  0% |  6% |  57% |  94% |
+|    2 |  0% |  1% |  46% |  84% |
+|    3 |  0% |  2% |  52% |  81% |
+|    4 |  0% | 14% |  63% |  92% |
+|    5 |  0% |  2% |  61% |  96% |
+|    6 |  0% |  8% |  73% |  95% |
+|    7 |  0% |  9% |  62% |  95% |
+|    8 |  0% |  4% |  69% |  93% |
+|    9 |  0% |  6% |  59% |  96% |
+|   10 |  0% |  1% |  51% |  96% |
 
-That is the shape the ladder was after. Half the nominal clears nothing at any
-wave. Three quarters is a real fight and mostly a lost one. At the nominal a
-good build passes and a bad one does not, which is the decision the whole thing
-exists to create. A quarter over — the slack — is safe.
+Half the nominal clears nothing. Three quarters is a fight you mostly lose. At
+the nominal a good build passes and a bad one does not, which is the decision
+the ladder exists to create. A quarter over is safe.
 
-**What it says about the builders.** Best margin at nominal, which is a finer
-reading than clear rate:
+That table is about one wave at a time. Whether a WHOLE RUN is balanced is a
+different question, and the one that decides it is how far a player can push
+the economy — which is the next section.
 
-| wave | ironvow | pyre | thornweald | gloomtide |
-| ---: | ------: | ---: | ---------: | --------: |
-|    1 |    0.53 | 0.42 |       0.82 |      0.58 |
-|    2 |    0.41 | 0.53 |       0.66 |      0.41 |
-|    3 |    0.63 | 0.61 |       0.78 |      0.52 |
-|    4 |    0.47 | 0.71 |       0.84 |      0.37 |
-|    5 |    0.55 | 0.54 |       0.78 |      0.50 |
+## 4a. How far the economy can be pushed
 
-Thornweald is first at all five on margin and mid-table on clear rate: a few
-very good answers and a lot of bad ones. Pyre is the reverse — it clears 70 to
-95% of its armies at every wave on the thinnest margins in the game, which is a
-builder that is hard to build badly. Those are legitimately different identities
-and not obviously a problem; what would be a problem is one builder ahead on
-both, and none is.
+The sandbox cannot see the economy. Gem output makes gems, gems buy sends,
+sends buy income, and income arrives every wave for the rest of the game: a
+player who invests early is poorer for a few waves and richer after, and
+whether "a few waves" is survivable is only visible over a run.
 
-Pyre took three passes to get there, and what finally moved it is worth
-recording because the obvious instruments all missed it. Its lines are not
-stronger per gold — a table of effective damage per gold at rungs 1 to 3 put it
-LAST at three of the five waves — and it carries 11% fewer raw stats than
-anyone else's cheap half. What it has is that **all three of its cheap abilities
-are offence and all three fire on attack, two of them at more than one body**,
-where the other three builders have a slow, an evade, a shield and a heal aura
-down there. Against thirty monsters arriving together that is a different order
-of thing, and it is not something a body's price knows about. Spitfire and
-Wildfire were priced down; the bodies were never the problem.
+`npm run runs` plays waves 1 to 10 in the real simulation (`src/balance/run.ts`)
+with a scripted player on four economy plans:
 
-**Hold all of this against the showdown, which disagrees.** In the arena
-Gloomtide wins 44% of four-ways and Pyre 19%. A builder is not strong or weak,
-it is strong or weak AT A PHASE, and a weight aimed at one record lands on the
-other. Gloomtide's 8% weight is now on its rungs 4 to 6 only, which is what the
-arena is fought with; its cheap half, which is what the waves are fought with,
-carries none.
+- **army** — no economy at all. Its gems still go into income.
+- **steady** — the line `budget.ts` models the whole game on: one output level a
+  wave, a rate level every five, army first to a safe margin.
+- **greedy** — output to 20 and two rate levels by wave 10, bought before the
+  army every time, whatever that costs it.
+- **smart** — the same greed played well: army only until the coming wave is
+  safely won, every spare coin into the economy, and save before a boss. Where
+  this lands at wave 10 is the real answer.
+
+Its army is bought by LOOKAHEAD: for everything it could buy, it plays the
+coming wave in the sandbox with and without it, and buys what gains most per
+gold. That is a stronger player than most people, on purpose — a weak army
+policy would make greed die of bad play and call the waves tuned.
+
+**The design's line**: a player who can reach gem output 20 with two rate levels
+by wave 10 and still be alive has found waves that are too soft or a builder
+that is too strong.
+
+**At first, three builders crossed it.** Smart greed reached output 20 to 25
+with two or three rate levels, the fortress never below 91%. The economy
+compounds and the waves did not: their difficulty grew by the flat 200 gold of
+the wave bounty while a medium economy's income was adding up to 175 a wave on
+top. What fixed it, in the order the runs found it:
+
+1. **A steeper monster curve** — 1.22× health and 1.17× damage a wave, from
+   1.18 and 1.14 — so the waves outgrow a linear line. This moved waves 4 and 5
+   by about a tenth too, and their nominals with them.
+2. **Heartwood** (Hollowbark) regenerated 1.2% of maximum health a second —
+   29 a second on a Mark I — and a pair of Hollowbarks, 356 gold, beat waves 2
+   to 4 alone by out-healing them. No other rung-4 pair cleared wave 3. Halved,
+   and its middle rank cut further.
+3. **Underweb** (Mycelia) gave four allies 1.8% of maximum health a second at
+   Mark III, and stacked with Heartwood into a wall healing near 200 a second:
+   three bodies held wave 8. Halved.
+4. **Firebrand** had the highest rung-5 damage in the game AND a splash, at the
+   price the ladder charges Sanction for a single target; a pair of them cleared
+   waves 2 to 4 in five seconds. Its splash reaches three bodies rather than
+   four and the line carries a 1.15 weight.
+5. **Sporecrown**'s rapid 116-damage shots waste almost nothing on a
+   70-health monster, where a rung-5 heavy hitter overkills it by 350. The price
+   ladder cannot see overkill. A 1.1 weight.
+6. **Hollowbark** itself took a 1.1 weight after all of that.
+
+Three of those changes (Heartwood, Underweb, the Hollowbark and Sporecrown
+weights) are scoped to Marks I and II, or to lower ranks: a wave-1-to-10 army
+fields those, and the Final Showdown is fought at Mark III.
+
+And one thing about the INSTRUMENT, because it nearly produced the wrong
+answer. The sandbox's margin is army health left minus wave health left, and a
+wave that walks PAST an army is wave health left — so a tanky army that
+survived at 38% while a quarter of wave 6 strolled by scored +0.15, a win. The
+scripted player optimised that, bought exactly that army against the all-ranged
+wave, and lost its fortress with two Hollowbarks still standing. It weighs what
+leaks four times what survives now. The sandbox's own report was always right
+about that fight — it said "not cleared" — but the one-number margin was not.
+
+**Where it landed** — `reports/runs-07.txt`:
+
+| builder    | army               | steady             | greedy      | smart: output / rate at wave 10 |
+| ---------- | ------------------ | ------------------ | ----------- | ------------------------------- |
+| Ironvow    | all ten, untouched | all ten, untouched | dies wave 5 | 14 / 2                          |
+| Pyre       | all ten, untouched | all ten, untouched | dies wave 5 | 13 / 2                          |
+| Thornweald | all ten, untouched | all ten, untouched | dies wave 4 | 14 / 2                          |
+| Gloomtide  | all ten, untouched | all ten, untouched | dies wave 3 | 12 / 1                          |
+
+Nobody reaches the line, and all four stop within two output levels of each
+other. A player can still out-invest the budget model's steady line by about
+half, which is the room for a greedy plan to pay off.
+
+### What it did to the arena, and what is left open
+
+Every one of those nerfs also lands in the Final Showdown, so the round robin was
+re-run afterwards (`reports/showdown-05.txt`, 20 duels a pair). The waves-only
+changes above were scoped away from Mark III where they could be, and
+Thornweald's Mark IIIs took a 0.93 weight (a price cut) — it is still the
+weakest at 39%, with Pyre and Ironvow at 44% and 43%. Two findings are left open
+because they are design calls, not tuning:
+
+- **Gloomtide wins 73% of its duels** (from 59%), and it does not move with its
+  own prices: a 1.28 weight on its Mark IIIs moved it to 68%. The likeliest
+  cause is last round's armour trades, which took away the all-Swarm weakness
+  every other builder was built to exploit. That is a roster question.
+- **Mark II is now the best arena buy** — the design-to-Mark-II core wins 90%
+  of its duels — because Ember's Mark III and the final upgrade in general got
+  dearer last round. That runs against "every line goes to Mark III". Either
+  the last step's price comes back down or Mark III gets something Mark II
+  does not have.
 
 ## 5. The phases
 
@@ -466,11 +585,12 @@ do, and until it does, a unit with a strong ability is strictly better than one
 without at the same price. Measure each ability's worth by removing it from a
 fixed army and re-running, then put the number in `abilityWeights` and reprice.
 
-**Phase 3 — waves.** _Waves 1 to 5 done; 6 to 25 open._ Monster strength,
+**Phase 3 — waves.** _Waves 1 to 10 done; 11 to 25 open._ Monster strength,
 composition and the difficulty curve, measured with `npm run waves` against the
-army-gold ladder below. Waves 6 to 25 are stale: they were authored against
-monster stats that have since been cut, and they still run 12 to 30 bodies
-rather than the 25 to 45 the early ladder now runs at.
+army-gold ladder, and with `npm run runs` for how far the economy can be pushed.
+Waves 11 to 25 are stale: they were authored against monster stats that have
+since been cut, and they still run 12 to 30 bodies rather than the 25 to 45 the
+early ladder runs at.
 
 **Phase 4 — sends, and the meta.** What makes an _attack_ send correct. A
 100-gem bloater has a payback of 16 waves and never pays for itself

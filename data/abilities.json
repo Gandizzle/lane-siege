@@ -544,19 +544,20 @@
       "role": "offence",
       "numbers": {
         "radius": 1.3,
-        "targets": 4,
+        "targets": 3,
         "falloff": 0.7,
-        "share": 0.5,
+        "share": 0.36,
         "bonus": 1.6
       },
       "ranks": [
         {},
         {
-          "share": 0.65
+          "share": 0.5
         },
         {
-          "share": 0.8,
-          "radius": 1.6
+          "share": 0.62,
+          "radius": 1.6,
+          "targets": 4
         }
       ],
       "trigger": {
@@ -578,7 +579,8 @@
             "multiplier": "@bonus"
           }
         }
-      ]
+      ],
+      "_note": "Cut after the full-run sweep: a pair of Firebrands cleared waves 2 to 4 in five to eleven seconds where every other rung-5 pair failed wave 3. A 466 shell one-shots anything small, so the SHARE barely matters against a crowd - the number of bodies the splash reaches is the whole of it. Three at Mark I and II, four at Mark III."
     },
     {
       "id": "spitfire",
@@ -931,15 +933,15 @@
       "text": "Closes its own wounds, slowly and without being asked.",
       "role": "defence",
       "numbers": {
-        "rate": 0.012
+        "rate": 0.006
       },
       "ranks": [
         {},
         {
-          "rate": 0.02
+          "rate": 0.008
         },
         {
-          "rate": 0.028
+          "rate": 0.02
         }
       ],
       "trigger": {
@@ -953,7 +955,8 @@
           "kind": "regen",
           "ofMaxHealth": "@rate"
         }
-      ]
+      ],
+      "_note": "Halved after the full-run sweep. At 1.2% of maximum health a second a Hollowbark healed 29 a second, and two of them - 356 gold, against a wave-4 nominal of 650 - beat waves 2, 3 and 4 alone by out-healing them, in 60-second grinds. No other rung-4 pair cleared wave 3. It was also how a player could starve their army to build economy for four waves and not be punished for it. The higher ranks came down further after that, because the rate is a share of MAXIMUM health and so grows with the mark: at 1% a Hollowbark II healed 70 a second on its own, and stacked with a Mycelia III’s Underweb it was over 130."
     },
     {
       "id": "thicket",
@@ -1036,18 +1039,18 @@
       "numbers": {
         "radius": 2.0,
         "allies": 4,
-        "rate": 0.008,
+        "rate": 0.004,
         "bulk": 60
       },
       "ranks": [
         {},
         {
-          "rate": 0.013,
+          "rate": 0.0055,
           "radius": 2.3,
           "bulk": 110
         },
         {
-          "rate": 0.018,
+          "rate": 0.007,
           "radius": 2.6,
           "bulk": 160
         }
@@ -1071,7 +1074,8 @@
           "mode": "flat",
           "amount": "@bulk"
         }
-      ]
+      ],
+      "_note": "Regeneration halved after the full-run sweep. At 1.8% of maximum health a second on four allies it stacked with a Hollowbark’s own Heartwood into a wall healing nearly 200 a second, and a Mycelia III with two Hollowbark IIs - three bodies - held wave 8 through a 91-second grind while the rest of the gold went into the economy."
     },
     {
       "id": "sporebloom",
