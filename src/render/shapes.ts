@@ -259,6 +259,8 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
     poly([-0.66, -0.74, 0.66, -0.74, 0.094, 0, 0.66, 0.74, -0.66, 0.74, -0.094, 0]),
   ],
   spear: () => [poly([0, -1, 0.72, 0.66, 0, 0.25, -0.72, 0.66])],
+  // A long thin sliver, point up: the thing that shoots from out of reach.
+  dart: () => [poly([0, -1, 0.42, 0.9, 0, 0.58, -0.42, 0.9])],
 
   // ---- Swarm: many small things.
   cluster3: () => stamp(TRIAD, (x, y) => poly(regular(3, UP, 0.34, x, y))),
@@ -285,6 +287,9 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
       ],
       (x, y) => dot(x, y, 0.22),
     ),
+  // Seven tiny things packed tight, one in the middle: smaller and denser than
+  // any other swarm, which is what the body underneath it is.
+  hive: () => [dot(0, 0, 0.2), ...stamp(regularOffsets(6, 0.6), (x, y) => dot(x, y, 0.2))],
 };
 
 /** The centres of `n` things evenly around a ring of radius `r`. */

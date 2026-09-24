@@ -48,15 +48,20 @@ export function spawnCentre(data: GameData): Vec2 {
   return { x: data.lane.buildZone.width / 2, y: -data.lane.spawnZoneDepth / 2 };
 }
 
-/** The smallest monster in the game sets the lattice pitch. */
-function latticePitch(data: GameData): number {
-  let smallest = Infinity;
-  for (const def of data.monsters.monsters) {
-    const r = def.bodyRadius ?? 0.3;
-    if (r < smallest) smallest = r;
-  }
-  if (!Number.isFinite(smallest)) smallest = 0.3;
-  return smallest * 2 + PACK_GAP;
+/**
+ * The lattice pitch for bodies this size: two radii and the packing gap.
+ *
+ * Set by the smallest body BEING PLACED, not the smallest monster in the game.
+ * It used to be the latter, which was the same thing while every monster was
+ * the same 0.22-tile disc - and stopped being the moment the Mite arrived at
+ * 0.13. Every wave then spawned on a lattice fine enough for Mites, packed its
+ * grubs a third tighter than before, and arrived at the line as a denser crowd
+ * that pushed engaged bodies into each other. A wave's clump is a property of
+ * that wave.
+ */
+function latticePitch(smallestRadius: number): number {
+  const r = Number.isFinite(smallestRadius) && smallestRadius > 0 ? smallestRadius : 0.3;
+  return r * 2 + PACK_GAP;
 }
 
 /**
@@ -89,9 +94,8 @@ const latticeCache = new Map<string, Vec2[]>();
  * Lattice points around the spawn centre, nearest first. Cached per lane
  * geometry: it depends on nothing that changes during a match.
  */
-function spawnLattice(data: GameData): Vec2[] {
+function spawnLattice(data: GameData, pitch: number): Vec2[] {
   const centre = spawnCentre(data);
-  const pitch = latticePitch(data);
   const key = `${centre.x}:${centre.y}:${pitch}`;
   const cached = latticeCache.get(key);
   if (cached) return cached;
@@ -128,8 +132,8 @@ function spawnLattice(data: GameData): Vec2[] {
  * point they cover, so the next body lands clear of them.
  */
 export function placeWave(data: GameData, radii: readonly number[]): Vec2[] {
-  const lattice = spawnLattice(data);
-  const pitch = latticePitch(data);
+  const pitch = latticePitch(Math.min(...radii));
+  const lattice = spawnLattice(data, pitch);
   const taken: { x: number; y: number; radius: number }[] = [];
   const positions: Vec2[] = [];
 
@@ -168,7 +172,7 @@ export function placeWave(data: GameData, radii: readonly number[]): Vec2[] {
  * innermost lattice point not currently under a living monster.
  */
 export function reservePosition(data: GameData, radius: number, living: readonly Monster[]): Vec2 {
-  for (const point of spawnLattice(data)) {
+  for (const point of spawnLattice(data, latticePitch(radius))) {
     if (!insideSpawnZone(data, point, radius)) continue;
     let clear = true;
     for (const monster of living) {

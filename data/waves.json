@@ -152,86 +152,87 @@
     },
     {
       "wave": 6,
+      "armyGold": 1150,
       "entries": [
         {
-          "monsterId": "grub",
+          "monsterId": "spitter",
+          "count": 22
+        },
+        {
+          "monsterId": "warden",
           "count": 10
-        },
-        {
-          "monsterId": "husk",
-          "count": 6
-        },
-        {
-          "monsterId": "stalker",
-          "count": 4
         }
       ]
     },
     {
       "wave": 7,
+      "armyGold": 1300,
       "entries": [
         {
-          "monsterId": "mote",
-          "count": 14
+          "monsterId": "mite",
+          "count": 40
         },
         {
           "monsterId": "swarmling",
-          "count": 10
-        },
-        {
-          "monsterId": "husk",
-          "count": 4
+          "count": 5
         }
       ]
     },
     {
       "wave": 8,
+      "armyGold": 1450,
       "entries": [
         {
           "monsterId": "husk",
-          "count": 8
+          "count": 18
         },
         {
           "monsterId": "carapace",
-          "count": 3
+          "count": 5
         },
         {
-          "monsterId": "warden",
+          "monsterId": "mote",
           "count": 4
         }
       ]
     },
     {
       "wave": 9,
+      "armyGold": 1600,
       "entries": [
         {
-          "monsterId": "grub",
-          "count": 12
-        },
-        {
           "monsterId": "stalker",
-          "count": 6
+          "count": 15
         },
         {
-          "monsterId": "revenant",
+          "monsterId": "bloater",
           "count": 3
+        },
+        {
+          "monsterId": "swarmling",
+          "count": 9
         }
       ]
     },
     {
       "wave": 10,
+      "armyGold": 1800,
       "entries": [
         {
-          "monsterId": "husk",
-          "count": 8
+          "monsterId": "spitter",
+          "count": 6
+        },
+        {
+          "monsterId": "mite",
+          "count": 10
         },
         {
           "monsterId": "carapace",
-          "count": 4
+          "count": 2
         },
         {
-          "monsterId": "mote",
-          "count": 10
+          "monsterId": "stalker",
+          "count": 4
         }
       ]
     },

@@ -125,13 +125,44 @@
       "armour": "flesh",
       "shape": "moon",
       "damage": 16,
-      "damageType": "pierce",
+      "damageType": "blast",
       "attackSpeed": 1.2,
       "range": 0.25,
       "moveSpeed": 1.6,
       "bounty": 7,
       "bodyRadius": 0.22,
-      "abilities": ["ambush"]
+      "abilities": ["ambush"],
+      "_note": "Blast, not Pierce, since the wave-6-to-10 sweep. Pierce was the damage type of every heavy hitter in the monster set - Warden, Carapace and this - while Blast belonged to the Swarmling and the Bloater, one tiny and one rare. So Flesh, which only Blast hurts, was the best armour to wear for the whole first half of the game, and the builder whose cheap front line wears it (Pyre) was first or near-first at every wave. The rush wave is where Flesh fronts now pay for it."
+    },
+    {
+      "id": "spitter",
+      "name": "Spitter",
+      "hp": 40,
+      "armour": "ward",
+      "shape": "dart",
+      "damage": 9,
+      "damageType": "arcane",
+      "attackSpeed": 0.8,
+      "range": 2.4,
+      "moveSpeed": 0.9,
+      "bounty": 6,
+      "bodyRadius": 0.22,
+      "_note": "THE RANGED MONSTER. Every other monster in the game fights from 0.9 tiles or closer, so a front line only ever had to stand in the way. A Spitter stops two and a half tiles short and shoots over it, which means a line that does not walk forward to meet it is a line being shot for free, and a back line that out-ranges it is worth more than one that out-damages it. Frail on purpose: it is a thing to be reached."
+    },
+    {
+      "id": "mite",
+      "name": "Mite",
+      "hp": 30,
+      "armour": "swarm",
+      "shape": "hive",
+      "damage": 9,
+      "damageType": "impact",
+      "attackSpeed": 2.0,
+      "range": 0.06,
+      "moveSpeed": 2.4,
+      "bounty": 1,
+      "bodyRadius": 0.13,
+      "_note": "THE SMALL ONE. Every monster used to be the same 0.22-tile disc, so the same six or seven could stand around a unit whatever the wave was. A Mite is 0.13 - small enough that nearly three times as many fit in the same ring - and the fastest thing in the game, so it arrives in the gaps before the line has closed them. One is nothing; forty surrounding a gun are the whole wave. Splash is the answer, and so is a line with no gaps in it."
     }
   ],
   "bosses": [

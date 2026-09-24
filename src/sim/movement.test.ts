@@ -944,3 +944,74 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
     }
   });
 });
+
+/**
+ * The Mite and the Spitter (monsters.json): the first two monsters in the
+ * game that are not a 0.22-tile disc fighting from contact range.
+ */
+describe('bodies that are not the usual shape', () => {
+  const mite = data.monsters.monsters.find((m) => m.id === 'mite')!;
+  const spitter = data.monsters.monsters.find((m) => m.id === 'spitter')!;
+
+  it('makes the Mite the smallest and the fastest thing in the lane', () => {
+    for (const other of data.monsters.monsters) {
+      if (other.id === 'mite') continue;
+      expect(mite.bodyRadius!, other.id).toBeLessThan(other.bodyRadius ?? 0.3);
+      expect(mite.moveSpeed!, other.id).toBeGreaterThan(other.moveSpeed ?? 0);
+    }
+  });
+
+  it('packs a full clump of Mites inside the zone, none on top of another', () => {
+    const r = mite.bodyRadius!;
+    const at = placeWave(data, new Array(data.waves.maxConcurrentMonsters).fill(r));
+    for (const p of at) {
+      expect(p.x).toBeGreaterThanOrEqual(r);
+      expect(p.x).toBeLessThanOrEqual(data.lane.buildZone.width - r);
+      expect(p.y).toBeGreaterThanOrEqual(-data.lane.spawnZoneDepth + r);
+      expect(p.y).toBeLessThanOrEqual(-r);
+    }
+    for (let i = 0; i < at.length; i++) {
+      for (let j = i + 1; j < at.length; j++) {
+        expect(Math.hypot(at[i]!.x - at[j]!.x, at[i]!.y - at[j]!.y)).toBeGreaterThanOrEqual(2 * r);
+      }
+    }
+  });
+
+  it('packs every other wave exactly as loosely as it did before Mites existed', () => {
+    // The lattice is sized by the smallest body BEING PLACED. Sized by the
+    // smallest monster in the game instead, the Mite's arrival packed every
+    // wave's grubs nearly edge to edge - a third of a tile of air between them
+    // became a sixteenth - and they reached the line as a crowd that shoved
+    // engaged bodies into each other.
+    const grub = data.monsters.monsters.find((m) => m.id === 'grub')!.bodyRadius!;
+    const at = placeWave(data, new Array(20).fill(grub));
+    for (let i = 0; i < at.length; i++) {
+      let nearest = Infinity;
+      for (let j = 0; j < at.length; j++) {
+        if (i === j) continue;
+        nearest = Math.min(nearest, Math.hypot(at[i]!.x - at[j]!.x, at[i]!.y - at[j]!.y));
+      }
+      expect(nearest - 2 * grub, `grub ${i}: air to its nearest neighbour`).toBeGreaterThan(0.2);
+    }
+  });
+
+  it('stops a Spitter short of the line and has it shoot from there', () => {
+    const d = structuredClone(data);
+    for (const w of d.waves.composition) w.entries = [{ monsterId: 'spitter', count: 1 }];
+    d.waves.bossEveryNWaves = 0;
+    const { state, ctx } = setup(d);
+    const lane = state.lanes.l1!;
+    place(ctx, state, 'oathwall', 4, 2);
+    startCombat(ctx, state);
+
+    const wall = lane.units[0]!;
+    let shotFrom = 0;
+    for (let t = 0; t < 600 && shotFrom === 0; t++) {
+      step(ctx, state);
+      const body = lane.monsters.find((m) => m.alive && m.engaged);
+      if (body) shotFrom = Math.hypot(body.pos.x - wall.pos.x, body.pos.y - wall.pos.y);
+    }
+    // Engaged from well beyond touching: two bodies' radii apart is contact.
+    expect(shotFrom).toBeGreaterThan(spitter.range! * 0.8);
+  });
+});

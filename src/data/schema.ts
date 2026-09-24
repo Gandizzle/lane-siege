@@ -158,6 +158,7 @@ export type ShapeId =
   | 'cross'
   | 'hourglass'
   | 'spear'
+  | 'dart'
   // Swarm: many small things.
   | 'cluster3'
   | 'dots3'
@@ -167,7 +168,8 @@ export type ShapeId =
   | 'tri4'
   | 'diamonds3'
   | 'squares4'
-  | 'flock';
+  | 'flock'
+  | 'hive';
 
 /** Which armour type each silhouette belongs to. The counter-read lives here. */
 export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
@@ -199,6 +201,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
   cross: 'ward',
   hourglass: 'ward',
   spear: 'ward',
+  dart: 'ward',
   cluster3: 'swarm',
   dots3: 'swarm',
   dots4: 'swarm',
@@ -208,6 +211,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
   diamonds3: 'swarm',
   squares4: 'swarm',
   flock: 'swarm',
+  hive: 'swarm',
 };
 
 export interface UnitDef {

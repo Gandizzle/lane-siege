@@ -272,9 +272,13 @@ export function enumerateArmies(
 
   const walk = (index: number, goldLeft: number, supplyLeft: number): void => {
     if (index === shelfItems.length) {
-      if (basket.length > 0 && gold - goldLeft >= floor) {
-        out.push({ buys: [...basket], gold: gold - goldLeft, supply: supplyCap - supplyLeft });
-      }
+      if (basket.length === 0) return;
+      // The bodies' gold plus whatever it cost to raise the cap far enough to
+      // field them. Checked here rather than as the walk goes, because what a
+      // cap costs depends on the basket's TOTAL supply.
+      const supply = supplyCap - supplyLeft;
+      const spent = gold - goldLeft + supplyGold(data, supply);
+      if (spent <= gold && spent >= floor) out.push({ buys: [...basket], gold: spent, supply });
       return;
     }
 
@@ -306,6 +310,33 @@ export function enumerateArmies(
 
   walk(0, gold, supplyCap);
   return out;
+}
+
+/**
+ * Gold it takes to raise the supply cap far enough to field this much.
+ *
+ * The cap starts at `capBase` and is bought up five at a time (§11.4). Through
+ * wave 5 an army never needed more than the base, so the sandbox could ignore
+ * it; from wave 6 a 1,200-gold army of cheap bodies wants thirty-odd supply,
+ * and a basket that did not pay for that would be measuring an army nobody can
+ * field for its price.
+ */
+export function supplyGold(data: GameData, supply: number): number {
+  const { capBase, capUpgrades } = data.economy.supply;
+  let cap = num(capBase, 25);
+  let gold = 0;
+  for (const level of capUpgrades) {
+    if (cap >= supply) break;
+    cap = num(level.value, cap);
+    gold += num(level.goldCost);
+  }
+  return cap >= supply ? gold : Number.POSITIVE_INFINITY;
+}
+
+/** The most supply that can be bought at all. */
+export function maxSupply(data: GameData): number {
+  const { capBase, capUpgrades } = data.economy.supply;
+  return capUpgrades.reduce((cap, level) => Math.max(cap, num(level.value, cap)), num(capBase, 25));
 }
 
 /** `r4m2 x1, r1m1 x2`, which is how a basket reads in a table. */
@@ -539,11 +570,14 @@ export interface SweepOptions {
 }
 
 export const SWEEP_DEFAULTS: SweepOptions = {
-  waves: [1, 2, 3, 4, 5],
-  bands: [0.5, 0.75, 1, 1.25, 1.5],
-  cap: 120,
+  waves: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  bands: [0.5, 0.75, 1, 1.25],
+  cap: 40,
   seed: 1,
-  supplyCap: 25,
+  // As much as can be bought. A basket pays for the cap it needs out of its own
+  // gold (`supplyGold`), so a high ceiling costs a cheap army nothing and lets a
+  // wide one exist at all.
+  supplyCap: 120,
 };
 
 /**
