@@ -53,6 +53,8 @@ describe('a run, played', { timeout: 120_000 }, () => {
     short.waves.showdown.afterWave = 2;
     const run = playRun(short, 'ironvow', plan('army'), 2);
     expect(run.waves.map((w) => w.wave)).toEqual([1, 2]);
+    // With the army it fought it with, not the empty lane the showdown left.
+    expect(run.waves[1]!.bodies).toBeGreaterThan(0);
     expect(run.survived).toBe(true);
     expect(run.reached).toBe(2);
   });

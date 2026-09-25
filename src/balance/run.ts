@@ -183,6 +183,12 @@ export function judge(outcome: Pick<WaveOutcome, 'armyHpLeft' | 'waveHpLeft'>): 
   return outcome.armyHpLeft - LEAK_WEIGHT * outcome.waveHpLeft;
 }
 
+/** What a wave's record takes from the moment it ended, over the army it started with. */
+function pick(log: WaveLog): Partial<WaveLog> {
+  const { survived, fortressHp, fortressMaxHp, lowest, gold, income, seconds } = log;
+  return { survived, fortressHp, fortressMaxHp, lowest, gold, income, seconds };
+}
+
 /** Play waves 1 to `waves` under one economy plan. */
 export function playRun(
   data: GameData,
@@ -212,6 +218,9 @@ export function playRun(
   const log: WaveLog[] = [];
   let actedFor = -1;
   let lowest = 1;
+  // The army as it walked into the last wave. By the time the Final Showdown
+  // has begun it has been moved into the arena, and the lane is empty.
+  let finalArmy: WaveLog | null = null;
   let combatStarted = 0;
   let lastPhase = state.phase;
 
@@ -225,7 +234,8 @@ export function playRun(
     // Showdown, so the wave that ends a full run is written down here. Without
     // this a player who beat wave 25 was reported as having died at 24.
     if (state.phase === 'showdown') {
-      log.push(player.record(state.wave, true, lowest, state.tick - combatStarted));
+      const now = player.record(state.wave, true, lowest, state.tick - combatStarted);
+      log.push(finalArmy ? { ...finalArmy, ...pick(now) } : now);
       break;
     }
 
@@ -236,6 +246,9 @@ export function playRun(
       if (state.wave >= waves) break;
       actedFor = state.wave;
       player.buildPhase(state.wave + 1);
+      if (state.wave + 1 === data.waves.showdown.afterWave) {
+        finalArmy = player.record(state.wave + 1, true, 1, 0);
+      }
       lowest = 1;
     }
 
