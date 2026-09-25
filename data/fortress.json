@@ -230,7 +230,7 @@
     "payoutSeconds": 2,
     "_costNote": "DESIGN CHANGE from §11.3: both ladders are bought with GOLD, not gems. A building that makes gems paid for in gems is a loop that only opens once you are already winning it; gold is what you have from the first build phase, which is when the decision to invest should be live. Costs are placeholders like every other number here.",
     "output": {
-      "_comment": "Each level adds one gem to every payout, at a flat gold price AND ONE SUPPLY. The supply is the governor: gems buy sends, sends buy permanent income, and income buys more of everything, which is a loop with nothing stopping it if the only cost is gold you are about to have more of. Charging supply makes the economy compete with the army for the one budget that is genuinely scarce, so a player who maxes output arrives at the Final Showdown rich and 25 supply short.",
+      "_comment": "Each level adds one gem to every payout, at a price that rises 3 gold a level (50 for the first, 122 for the twenty-fifth) AND ONE SUPPLY. The rising price is so that a strong economy is earned: at a flat 50 a player who put every spare coin into the economy maxed this ladder by wave 15 in ten runs of eleven and was never in danger after; at +3 a level nobody got there by 15 and more than half of the players who tried died. +1 and +2 were measured too (docs/BALANCE.md §4a). The supply is the governor: gems buy sends, sends buy permanent income, and income buys more of everything, which is a loop with nothing stopping it if the only cost is gold you are about to have more of. Charging supply makes the economy compete with the army for the one budget that is genuinely scarce, so a player who maxes output arrives at the Final Showdown rich and 25 supply short.",
       "upgrades": [
         {
           "level": 1,
@@ -241,168 +241,168 @@
         },
         {
           "level": 2,
-          "goldCost": 50,
+          "goldCost": 53,
           "gemCost": null,
           "supplyCost": 1,
           "value": 3
         },
         {
           "level": 3,
-          "goldCost": 50,
+          "goldCost": 56,
           "gemCost": null,
           "supplyCost": 1,
           "value": 4
         },
         {
           "level": 4,
-          "goldCost": 50,
+          "goldCost": 59,
           "gemCost": null,
           "supplyCost": 1,
           "value": 5
         },
         {
           "level": 5,
-          "goldCost": 50,
+          "goldCost": 62,
           "gemCost": null,
           "supplyCost": 1,
           "value": 6
         },
         {
           "level": 6,
-          "goldCost": 50,
+          "goldCost": 65,
           "gemCost": null,
           "supplyCost": 1,
           "value": 7
         },
         {
           "level": 7,
-          "goldCost": 50,
+          "goldCost": 68,
           "gemCost": null,
           "supplyCost": 1,
           "value": 8
         },
         {
           "level": 8,
-          "goldCost": 50,
+          "goldCost": 71,
           "gemCost": null,
           "supplyCost": 1,
           "value": 9
         },
         {
           "level": 9,
-          "goldCost": 50,
+          "goldCost": 74,
           "gemCost": null,
           "supplyCost": 1,
           "value": 10
         },
         {
           "level": 10,
-          "goldCost": 50,
+          "goldCost": 77,
           "gemCost": null,
           "supplyCost": 1,
           "value": 11
         },
         {
           "level": 11,
-          "goldCost": 50,
+          "goldCost": 80,
           "gemCost": null,
           "supplyCost": 1,
           "value": 12
         },
         {
           "level": 12,
-          "goldCost": 50,
+          "goldCost": 83,
           "gemCost": null,
           "supplyCost": 1,
           "value": 13
         },
         {
           "level": 13,
-          "goldCost": 50,
+          "goldCost": 86,
           "gemCost": null,
           "supplyCost": 1,
           "value": 14
         },
         {
           "level": 14,
-          "goldCost": 50,
+          "goldCost": 89,
           "gemCost": null,
           "supplyCost": 1,
           "value": 15
         },
         {
           "level": 15,
-          "goldCost": 50,
+          "goldCost": 92,
           "gemCost": null,
           "supplyCost": 1,
           "value": 16
         },
         {
           "level": 16,
-          "goldCost": 50,
+          "goldCost": 95,
           "gemCost": null,
           "supplyCost": 1,
           "value": 17
         },
         {
           "level": 17,
-          "goldCost": 50,
+          "goldCost": 98,
           "gemCost": null,
           "supplyCost": 1,
           "value": 18
         },
         {
           "level": 18,
-          "goldCost": 50,
+          "goldCost": 101,
           "gemCost": null,
           "supplyCost": 1,
           "value": 19
         },
         {
           "level": 19,
-          "goldCost": 50,
+          "goldCost": 104,
           "gemCost": null,
           "supplyCost": 1,
           "value": 20
         },
         {
           "level": 20,
-          "goldCost": 50,
+          "goldCost": 107,
           "gemCost": null,
           "supplyCost": 1,
           "value": 21
         },
         {
           "level": 21,
-          "goldCost": 50,
+          "goldCost": 110,
           "gemCost": null,
           "supplyCost": 1,
           "value": 22
         },
         {
           "level": 22,
-          "goldCost": 50,
+          "goldCost": 113,
           "gemCost": null,
           "supplyCost": 1,
           "value": 23
         },
         {
           "level": 23,
-          "goldCost": 50,
+          "goldCost": 116,
           "gemCost": null,
           "supplyCost": 1,
           "value": 24
         },
         {
           "level": 24,
-          "goldCost": 50,
+          "goldCost": 119,
           "gemCost": null,
           "supplyCost": 1,
           "value": 25
         },
         {
           "level": 25,
-          "goldCost": 50,
+          "goldCost": 122,
           "gemCost": null,
           "supplyCost": 1,
           "value": 26

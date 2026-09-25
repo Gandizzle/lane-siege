@@ -286,26 +286,26 @@
     },
     {
       "wave": 16,
-      "armyGold": 4900,
+      "armyGold": 4650,
       "entries": [
-        { "monsterId": "bloater", "count": 10 },
-        { "monsterId": "grub", "count": 30 },
+        { "monsterId": "bloater", "count": 8 },
+        { "monsterId": "grub", "count": 28 },
         { "monsterId": "stalker", "count": 5 }
       ]
     },
     {
       "wave": 17,
-      "armyGold": 6000,
+      "armyGold": 5700,
       "entries": [
-        { "monsterId": "mite", "count": 28 },
-        { "monsterId": "stalker", "count": 17 }
+        { "monsterId": "mite", "count": 26 },
+        { "monsterId": "stalker", "count": 15 }
       ]
     },
     {
       "wave": 18,
-      "armyGold": 7200,
+      "armyGold": 6900,
       "entries": [
-        { "monsterId": "revenant", "count": 7 },
+        { "monsterId": "revenant", "count": 6 },
         { "monsterId": "warden", "count": 11 },
         { "monsterId": "spitter", "count": 15 },
         { "monsterId": "mender", "count": 6 }
@@ -313,39 +313,39 @@
     },
     {
       "wave": 19,
-      "armyGold": 7400,
+      "armyGold": 6950,
       "entries": [
-        { "monsterId": "carapace", "count": 15 },
-        { "monsterId": "husk", "count": 17 },
+        { "monsterId": "carapace", "count": 13 },
+        { "monsterId": "husk", "count": 15 },
         { "monsterId": "warden", "count": 4 }
       ]
     },
     {
       "wave": 20,
-      "armyGold": 9000,
+      "armyGold": 8400,
       "entries": [
         { "monsterId": "bloater", "count": 4 },
         { "monsterId": "revenant", "count": 3 },
-        { "monsterId": "carapace", "count": 4 },
+        { "monsterId": "carapace", "count": 3 },
         { "monsterId": "mender", "count": 5 },
-        { "monsterId": "mite", "count": 12 }
+        { "monsterId": "mite", "count": 10 }
       ]
     },
     {
       "wave": 21,
-      "armyGold": 9600,
+      "armyGold": 9000,
       "entries": [
-        { "monsterId": "spitter", "count": 20 },
-        { "monsterId": "warden", "count": 14 },
-        { "monsterId": "revenant", "count": 7 }
+        { "monsterId": "spitter", "count": 18 },
+        { "monsterId": "warden", "count": 12 },
+        { "monsterId": "revenant", "count": 6 }
       ]
     },
     {
       "wave": 22,
-      "armyGold": 10000,
+      "armyGold": 9200,
       "entries": [
-        { "monsterId": "carapace", "count": 14 },
-        { "monsterId": "husk", "count": 14 },
+        { "monsterId": "carapace", "count": 12 },
+        { "monsterId": "husk", "count": 12 },
         { "monsterId": "mender", "count": 8 }
       ]
     },
