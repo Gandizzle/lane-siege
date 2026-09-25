@@ -234,11 +234,15 @@ describe('a measured wave', () => {
 
 describe('what a wave is tuned for', () => {
   it('is authored on waves 1 to 25, and rises', () => {
+    // A boss wave is a spike and may stand above the wave after it; that
+    // wave still has to be harder than the one BEFORE the boss.
+    const every = data.waves.bossEveryNWaves;
     let previous = 0;
     for (let wave = 1; wave <= 25; wave++) {
       const nominal = nominalArmyGold(data, wave);
       expect(nominal, `wave ${wave}`).toBeGreaterThan(previous);
-      previous = nominal;
+      const boss = every > 0 && wave % every === 0;
+      if (!boss) previous = nominal;
     }
   });
 
