@@ -489,9 +489,11 @@ nominals for waves 1 to 10 sit under what a player with NO economy has; from
 wave 11 they sit under what the budget model's steady player has for the army —
 one gem output level a wave, a rate level every five, after paying for both and
 for tech. A player with no economy is meant to fall behind there, and does.
-Waves 11 to 15 sit at 85 to 90% of the steady line, and 16 to 20 at 94 to 97%,
-which is the ramp: by wave 20 the steady player has almost nothing over, and
-room to spare belongs to whoever built a better economy than that.
+Waves 11 to 15 sit at 90 to 96% of the steady line and 16 to 24 at about 88%.
+They were at 94 to 97% for a while, and at that only Thornweald's scripted
+player reached wave 25 under any economy: a run's army is shaped by every wave
+before it and cannot be bought fresh for each one, which a sweep of fresh armies
+does not see. At 88% every plan with an economy gets somebody to the council.
 
 **The sweep fights with tech from wave 13.** Every army in it carries a level
 each of health, attack speed and its main damage type from wave 13, two from
@@ -525,9 +527,15 @@ times. One of each would have been a tenth of what a wave-25 army is. Three of
 each is what the sweep says it takes.
 
 **The council is set above the steady line, on purpose.** Its nominal is
-21,000; a steady economy has about 17,900 for its army going into wave 25, and
+21,000; a steady economy has about 17,000 for its army going into wave 25, and
 an army at the supply cap costs about 21,000 by the budget model. At 21,000 two
-armies in five clear it; at 26,000, four in five. That is the brief — very hard
+armies in five clear it; at 26,000, four in five. In whole runs it was beaten,
+untouched, by five players who arrived with 89 to 109 supply and 19,000 to
+24,000 gold of army and tech between them — all Thornweald and Gloomtide. It
+killed the two steady players who arrived with 81 and 84 supply and about
+15,000, which is the brief. It also killed Ironvow's strong player, who arrived
+with 104 supply and 21,000, which is not the council's doing: it is the
+late-game builder gap (§4a). That is the brief — very hard
 without a maxed-out army — and the test that holds every other wave under the
 steady line exempts this one by name.
 
