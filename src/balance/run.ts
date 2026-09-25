@@ -484,7 +484,7 @@ class Player {
    */
   private buyArmy(wave: number, enough = Number.POSITIVE_INFINITY): void {
     const tiles = 4 * this.data.lane.buildZone.width;
-    const limit = this.options.maxBuysPerPhase ?? 24;
+    const limit = this.options.maxBuysPerPhase ?? 40;
     let current = this.margin(this.shopping(this.army()).buys, wave);
 
     for (let n = 0; n < limit; n++) {
