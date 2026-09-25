@@ -94,6 +94,21 @@ describe('monsters grow with the wave', () => {
     expect(five.damage).toBeGreaterThan(one.damage * 1.4);
   });
 
+  it('grows by the early rate up to its wave and the later rate after', () => {
+    const { hp, damage, after } = data.waves.scaling;
+    expect(after, 'the data has a later rate').toBeDefined();
+    const at = (wave: number) => resolveMonsterStats(data, grub, wave);
+    const last = after!.wave - 1;
+    // Up to the wave before, nothing has changed: the early curve.
+    expect(at(last).hp / at(last - 1).hp).toBeCloseTo(hp!, 9);
+    expect(at(last).damage / at(last - 1).damage).toBeCloseTo(damage!, 9);
+    // From it on, every step is the later rate.
+    for (const wave of [after!.wave, after!.wave + 1, after!.wave + 6]) {
+      expect(at(wave).hp / at(wave - 1).hp, `wave ${wave}`).toBeCloseTo(after!.hp, 9);
+      expect(at(wave).damage / at(wave - 1).damage, `wave ${wave}`).toBeCloseTo(after!.damage, 9);
+    }
+  });
+
   it("leaves speed and reach alone, which is enrage's job (§8)", () => {
     const one = resolveMonsterStats(data, grub, 1);
     const twenty = resolveMonsterStats(data, grub, 20);

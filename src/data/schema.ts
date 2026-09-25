@@ -459,6 +459,14 @@ export interface WavesFile {
     hp: Unfilled<number>;
     damage: Unfilled<number>;
     bounty: Unfilled<number>;
+    /**
+     * From `wave` on, each further wave grows by these instead of `hp` and
+     * `damage`. The early curve is steep because the economy compounds
+     * fastest early; past that an army grows by roughly what a wave pays, and
+     * a curve that kept compounding at the early rate would outrun every army
+     * there is.
+     */
+    after?: { wave: number; hp: number; damage: number };
   };
   /**
    * §3.4, added: how a BOSS grows from one boss wave to the next.

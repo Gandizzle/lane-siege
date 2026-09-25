@@ -32,11 +32,12 @@
     "cap": 6.0
   },
   "scaling": {
-    "_comment": "Growth per wave beyond the authored composition. Multiplicative per wave above the last authored one. Placeholders - playtest.",
+    "_comment": "hp and damage compound EVERY wave from wave 1 (§9.1, amended) - steeply to wave 10, because that is where the economy compounds fastest and a player who invests early must not be able to outgrow the waves; then by `after` from wave 11, because past that an army grows by about what a wave pays and the early rate would outrun every army there is (docs/BALANCE.md §4). count and bounty apply only past the last authored wave.",
     "count": 1.12,
     "hp": 1.22,
     "damage": 1.17,
-    "bounty": 1.1
+    "bounty": 1.1,
+    "after": { "wave": 11, "hp": 1.12, "damage": 1.1 }
   },
   "bossScaling": {
     "_comment": "Per BOSS WAVE, compounded: wave 5 draws the bank as authored, wave 10 gets it once over, wave 25 four times. The bank is four bodies of EQUAL power in four armour types, so this is the whole of what separates a late boss from an early one. Untuned past wave 5.",
@@ -238,46 +239,46 @@
     },
     {
       "wave": 11,
-      "armyGold": 2500,
+      "armyGold": 2550,
       "entries": [
-        { "monsterId": "revenant", "count": 8 },
-        { "monsterId": "warden", "count": 12 },
-        { "monsterId": "mote", "count": 12 }
+        { "monsterId": "revenant", "count": 6 },
+        { "monsterId": "warden", "count": 10 },
+        { "monsterId": "mote", "count": 14 }
       ]
     },
     {
       "wave": 12,
-      "armyGold": 2725,
+      "armyGold": 2850,
       "entries": [
-        { "monsterId": "grub", "count": 26 },
+        { "monsterId": "grub", "count": 24 },
         { "monsterId": "mender", "count": 6 },
         { "monsterId": "bloater", "count": 3 }
       ]
     },
     {
       "wave": 13,
-      "armyGold": 2950,
+      "armyGold": 3150,
       "entries": [
-        { "monsterId": "carapace", "count": 8 },
-        { "monsterId": "husk", "count": 10 },
-        { "monsterId": "spitter", "count": 12 }
+        { "monsterId": "carapace", "count": 4 },
+        { "monsterId": "husk", "count": 8 },
+        { "monsterId": "spitter", "count": 14 }
       ]
     },
     {
       "wave": 14,
-      "armyGold": 3175,
+      "armyGold": 3450,
       "entries": [
         { "monsterId": "mite", "count": 30 },
-        { "monsterId": "stalker", "count": 12 }
+        { "monsterId": "stalker", "count": 14 }
       ]
     },
     {
       "wave": 15,
-      "armyGold": 3425,
+      "armyGold": 3800,
       "entries": [
         { "monsterId": "mender", "count": 4 },
-        { "monsterId": "revenant", "count": 4 },
-        { "monsterId": "carapace", "count": 4 },
+        { "monsterId": "revenant", "count": 3 },
+        { "monsterId": "carapace", "count": 3 },
         { "monsterId": "mite", "count": 12 },
         { "monsterId": "bloater", "count": 2 }
       ]

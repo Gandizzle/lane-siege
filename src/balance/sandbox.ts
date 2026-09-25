@@ -576,7 +576,7 @@ export interface SweepOptions {
 }
 
 export const SWEEP_DEFAULTS: SweepOptions = {
-  waves: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+  waves: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
   bands: [0.5, 0.75, 1, 1.25],
   cap: 40,
   seed: 1,

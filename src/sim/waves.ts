@@ -90,6 +90,21 @@ function statSteps(waveNumber: number): number {
 }
 
 /**
+ * What `steps` steps of growth multiply a stat by: the early rate up to the
+ * wave before `after.wave`, and the later rate for every step past it.
+ */
+function growth(
+  early: number,
+  later: number | undefined,
+  laterFromWave: number | undefined,
+  steps: number,
+): number {
+  if (later === undefined || laterFromWave === undefined) return intPow(early, steps);
+  const earlySteps = Math.min(steps, Math.max(0, laterFromWave - 2));
+  return intPow(early, earlySteps) * intPow(later, steps - earlySteps);
+}
+
+/**
  * Integer power. Math.pow is banned in the simulation - it is not bit-identical
  * across engines - and repeated multiplication of a small integer count is.
  */
@@ -132,6 +147,7 @@ export function resolveMonsterStats(
   waveNumber: number,
 ): ResolvedMonsterStats {
   const { scaling } = data.waves;
+  const after = scaling.after;
   // A boss scales on its own ladder and NOT on the per-wave one, or it would
   // take both: it appears once every five waves, so five waves of ordinary
   // growth are already priced into `bossScaling`.
@@ -142,8 +158,11 @@ export function resolveMonsterStats(
   const bossDamage = intPow(num(data.waves.bossScaling?.damage ?? null, 1), boss);
 
   return {
-    hp: num(def.hp) * intPow(num(scaling.hp, 1), steps) * bossHp,
-    damage: num(def.damage) * intPow(num(scaling.damage, 1), steps) * bossDamage,
+    hp: num(def.hp) * growth(num(scaling.hp, 1), after?.hp, after?.wave, steps) * bossHp,
+    damage:
+      num(def.damage) *
+      growth(num(scaling.damage, 1), after?.damage, after?.wave, steps) *
+      bossDamage,
     attackSpeed: num(def.attackSpeed),
     moveSpeed: num(def.moveSpeed),
     range: num(def.range),
