@@ -624,6 +624,47 @@ Nobody reaches the line, and all four stop within two output levels of each
 other. A player can still out-invest the budget model's steady line by about
 half, which is the room for a greedy plan to pay off.
 
+### To wave 20
+
+The same four plans, played to wave 20 (`reports/runs-20.txt`), with two
+changes to the player: it buys tech, judged by the same lookahead as bodies,
+and it buys in lots of about a sixth of its gold, because one body at a time
+was seven hundred simulated waves a build phase at late incomes.
+
+| builder    | no economy | steady                    | greedy | smart greed           |
+| ---------- | ---------- | ------------------------- | ------ | --------------------- |
+| Ironvow    | dies 15    | dies 15 (the boss)        | dies 5 | all twenty, untouched |
+| Pyre       | dies 16    | dies 19                   | dies 5 | all twenty, untouched |
+| Thornweald | dies 16    | all twenty, 2,198 in hand | dies 4 | all twenty, untouched |
+| Gloomtide  | dies 15    | dies 19                   | dies 3 | all twenty, untouched |
+
+It took three passes to get here. The first set waves 11 to 20 at four fifths of
+the steady line with no tech in the sweep, and everyone with an economy walked
+through them — smart greed had maxed its gem building by wave 15 while fielding
+80% of each wave's nominal. The second raised the nominals without the tech and
+over-shot on one wave: forty Mites at wave 14 were a splash check that 42% of
+armies failed with a quarter more gold, and it killed two steady players who
+happened to own no splash. The third is the one described above.
+
+**No economy dies at 15 or 16, and that is the design.** It is where the ladder
+stops being set against a player with none. **Naive greed** still dies by wave 5. **Smart greed** stays under the wave-10 line (output 11 to 15, rate 1 or 2)
+and survives everything.
+
+**What is left open is not a wave question.** Smart greed reaches the top of the
+gem building — output 25, rate 5 — between waves 13 and 15, every builder. From
+there the economy is no longer a decision: its income runs at 2,000 to 2,700 a
+wave against a steady player's 1,000 to 1,500, and it finishes wave 20 untouched
+with 2,500 to 4,800 banked. No wave 16 to 20 can threaten that player without
+killing the steady one first, because the gap between them is the economy.
+Output levels cost a flat 50 gold all the way to 25, so the last ten are as
+cheap as the first; a rising price on the late levels, or a lower ceiling, is
+the lever — and it is the economy's formula, so it is a design call.
+
+**Thornweald is the late-wave builder.** It is the only steady player alive at
+wave 20, and at the nominal it clears 75% of wave 19 where the others clear 35
+to 45%. Not acted on yet: one run each is a single seed, and the sweep's
+per-builder spread past wave 15 is wide for everyone.
+
 ### What it did to the arena, and what is left open
 
 Every one of those nerfs also lands in the Final Showdown, so the round robin was
