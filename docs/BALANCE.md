@@ -423,6 +423,67 @@ Swarmling and the Bloater, one tiny and one rare. So Flesh, which only Blast
 hurts, was the best armour to wear for the first half of the game. The Rush
 wave is where a Flesh front line pays for it.
 
+### Waves 11 to 20: the Mender, the Revenant, and a curve that bends
+
+Each still asks one question on top of its armour:
+
+- **Hollow (11)** — the Revenant's first wave. Wardens and Motes, with Revenants
+  that no ability touches: no slow, no burn, no soak, no chain. Only plain
+  damage works, which is a bad day for an army built on its abilities.
+- **Mend (12)** — the Mender's first: a Grub horde and five Bloaters, held
+  together by healers standing out of reach behind them. Killing things is not
+  enough; the answer is reach, a diver, or burst that finishes a body between
+  two heals.
+- **Siege (13)** — Carapaces and Husks in front, Spitters behind: a Plate wall
+  with guns over it.
+- **Frenzy (14)** — Mites and Stalkers. Everything is fast and half of it is
+  tiny: Arcane or splash for the one, Blast for the other.
+- **Boss (15)** — with Menders in the escort, and a Mender heals a share of
+  whatever it is standing behind. Including the boss.
+- **Blight (16)** — ten Bloaters in a Grub tide. Every Bloater that dies in
+  your melee bursts on it, and Rupture now grows with the wave.
+- **Stampede (17)** — forty-five bodies, as fast as the game has.
+- **Dirge (18)** — every monster is Ward: Revenants that shrug off abilities,
+  Wardens that slow your swing, Spitters behind, and Menders keeping the
+  Spitters alive.
+- **Iron Tide (19)** — seventeen thousand base health of Plate: the Bulwark
+  again, three times over.
+- **Boss (20)** — a bigger boss, with an escort that takes one of everything
+  hard.
+
+**The Mender** stops short like a Spitter and heals the most wounded monster in
+reach by a share of that monster's maximum health (`mend`, 5% every 2.5
+seconds). A share, not a number, so it grows with whatever it stands behind.
+Revenants are immune to it, as they are to everything.
+
+**Rupture grows with the wave.** It was a flat 60 — a Bloater hit and a half at
+wave 1, a sixth of one by wave 15 — so the thing a Bloater wave asks for had
+quietly stopped being asked. It is 1.6 of the Bloater's own hit now.
+
+**The curve bends at wave 10.** Monsters grow 1.22× health and 1.17× damage a
+wave to wave 10, because that is where the economy compounds fastest. Past it
+an army grows by roughly what a wave pays, and the early rate would have
+outrun every army there is by wave 15 — leaving nothing to build later waves
+from but Grubs. From wave 11 it is 1.15× and 1.11× (`scaling.after`). Bosses
+went the other way: at 1.6× a boss wave, the wave 20 boss would have had
+16,000 health against a 9,000-gold army, which is one large monster. From
+wave 15 a boss grows 2.2× health and 1.6× damage (`bossScaling.after`).
+
+**Past wave 10 the ladder is set against a player with an economy.** The
+nominals for waves 1 to 10 sit under what a player with NO economy has; from
+wave 11 they sit under what the budget model's steady player has for the army —
+one gem output level a wave, a rate level every five, after paying for both and
+for tech. A player with no economy is meant to fall behind there, and does.
+Waves 11 to 15 sit at 85 to 90% of the steady line, and 16 to 20 at 94 to 97%,
+which is the ramp: by wave 20 the steady player has almost nothing over, and
+room to spare belongs to whoever built a better economy than that.
+
+**The sweep fights with tech from wave 13.** Every army in it carries a level
+each of health, attack speed and its main damage type from wave 13, two from
+16, three from 19 — what a steady player owns by then (`techAtWave`). The first
+20-wave runs had a player who bought tech needing about two thirds of each late
+wave's nominal, because the nominal had been measured against armies with none.
+
 ### How a wave is measured
 
 `npm run waves` runs the sandbox (`src/balance/sandbox.ts`) over every army each
@@ -445,6 +506,17 @@ because its top mark comes with an area attack that nothing charged for it.
 
 A wave is tuned when, at its nominal: a good build clears it with room over, a
 poor build at the same gold does not, and half the gold clears nothing.
+
+Past wave 10 the enumeration had to change. The number of distinct armies
+grows about three and a half times every 500 gold — a million a builder at
+2,500, six million at 3,500 — and a sweep past wave 10 ran out of memory holding
+them. Almost all of that growth is one line split across marks, four Mark I and
+two Mark II of the same rung, which is a real army mid-upgrade but not a
+different answer to a wave. So past 2.5 million armies each line is bought at a
+single mark, which bounds the count at any gold; every band of waves 1 to 10 is
+still enumerated in full, exactly as those waves were tuned. The sweep now plans
+once and hands each process its share, where each process used to plan the
+whole thing itself — three minutes and 3.5 GB apiece past wave 10.
 
 ### Where the ten landed
 
@@ -561,12 +633,26 @@ Thornweald's Mark IIIs took a 0.93 weight (a price cut) — it is still the
 weakest at 39%, with Pyre and Ironvow at 44% and 43%. Two findings are left open
 because they are design calls, not tuning:
 
-- **Gloomtide wins 73% of its duels** (from 59%), and it does not move with its
-  own prices: a 1.28 weight on its Mark IIIs moved it to 68%. The likeliest
-  cause is last round's armour trades, which took away the all-Swarm weakness
-  every other builder was built to exploit. That is a roster question.
+- **Gloomtide won 73% of its duels.** Settled since, by its REACH. Every one of
+  its four ranged lines out-ranged everything else at its rung — the
+  Maelstrom by more than a tile — and the price formula values a tile of range
+  at about four percent of a unit's worth (`RANGE_VALUE_PER_TILE`), where in an
+  arena it is the fight. Measured one change at a time, 20 duels a pair:
+
+  | change                                                        | Gloomtide |
+  | ------------------------------------------------------------- | --------: |
+  | as it was                                                     |       73% |
+  | reach cut to a little past each rung's next-longest           |       62% |
+  | and its Mark III soak combos trimmed (Hailburst, Torrential…) |       60% |
+  | reach equal to each rung's longest, Tidesong's haste trimmed  |       55% |
+
+  Every builder now sits between 47% and 55% (`reports/showdown-06.txt`). The
+  soak trims are kept but were never the story: damage bonuses on Mark III
+  abilities moved it two points where range moved it sixteen.
+
 - **Mark II is now the best arena buy** — the design-to-Mark-II core wins 90%
-  of its duels — because Ember's Mark III and the final upgrade in general got
+  of its duels (80% after the Gloomtide change, still ahead of the Mark III
+  design at 73%) — because Ember's Mark III and the final upgrade in general got
   dearer last round. That runs against "every line goes to Mark III". Either
   the last step's price comes back down or Mark III gets something Mark II
   does not have.
