@@ -778,6 +778,43 @@ The steady player spends a little more on its gem building too, so the line the
 later nominals sit under came down by up to 500 gold, and waves 16 to 22 were
 re-set to about 95% of it.
 
+### To wave 25
+
+All five plans, every builder, the whole ladder, with the rising output price
+and a fifth plan: **strong**, which buys half again the steady line's economy
+with the army first. Steady is the budget model's medium player and too timid
+to see the late game; smart greed puts every spare coin in, which at a rising
+price is reckless; strong is the economy the late waves are meant to reward.
+(`reports/runs-25.txt`; one seed, so read the pattern rather than any one cell.)
+
+| builder    | no economy | steady                | strong              | greedy | smart greed  |
+| ---------- | ---------- | --------------------- | ------------------- | ------ | ------------ |
+| Ironvow    | dies 15    | dies 13               | dies at the council | dies 4 | dies 15      |
+| Pyre       | dies 18    | dies at the council   | dies 13             | dies 4 | dies 13      |
+| Thornweald | dies 16    | **beats the council** | **beats it**        | dies 4 | **beats it** |
+| Gloomtide  | dies 15    | dies at the council   | **beats it**        | dies 3 | **beats it** |
+
+What it says:
+
+- **No economy dies in the mid-teens; naive greed by wave 4.** Both by design.
+- **Every plan with an economy gets somebody to the council**, and the council
+  kills whoever arrives short of a full army (above).
+- **A strong economy wins the late game — for two builders of four.** The five
+  players that beat the council finished on 2,800 to 3,500 gold a wave of
+  income; the two steady players it killed were on about 2,150.
+- **Maximum greed is a coin flip**: two of four maxed the gem building by wave
+  20 and walked the council, two died at 13 and 15.
+
+**The open question now is the builders, not the waves.** Thornweald and
+Gloomtide win the late game under every plan with an economy; Pyre and Ironvow
+mostly do not. Pyre dies at wave 13 in two plans of three — Siege, Plate armour,
+and Pyre's only Pierce is its rung 6 — and Ironvow's strong player lost the
+council with 104 supply and 21,000 of army and tech, more than two of the
+players who beat it. The sweep, which buys every army fresh for the wave in
+front of it, puts the four builders within a few points of each other at most
+waves; a run, which has to carry its army from wave to wave, does not. That gap
+is where the next round of builder balance belongs.
+
 ### What it did to the arena, and what is left open
 
 Every one of those nerfs also lands in the Final Showdown, so the round robin was
