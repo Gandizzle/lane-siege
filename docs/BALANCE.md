@@ -499,6 +499,47 @@ each of health, attack speed and its main damage type from wave 13, two from
 20-wave runs had a player who bought tech needing about two thirds of each late
 wave's nominal, because the nominal had been measured against armies with none.
 
+### Waves 21 to 25, and the council
+
+- **Artillery (21)** — the Volley at scale: twenty Spitters and fourteen Wardens
+  firing over seven Revenants. Reach, or a line that walks forward and gets
+  there.
+- **Bastion (22)** — fourteen Carapaces and fourteen Husks with eight Menders
+  behind: a Plate wall that heals.
+- **Onslaught (23)** — Stalkers, Mites and Bloaters, forty-five of them, all at
+  a sprint.
+- **Juggernaut (24)** — Bloaters, Revenants, a Grub screen and Menders: Flesh and
+  Ward, one of them immune to everything clever.
+- **The Council (25)** — three of each of the four bosses, and four Menders to
+  keep them standing. They were built as one of each armour type so that no
+  single damage type answers a boss wave, and together that is the point: the
+  Hollow King stuns the line in front of it, the Brood Sire hits harder the
+  more it is hurt, the Gravemother heals itself off every wound it deals, the
+  Chitin Lord cannot be held once it is wounded and shrugs off a fifth of every
+  hit, and the Menders heal a share of whatever they stand behind — a boss
+  included.
+
+**Why twelve.** A boss grows on its own curve (`bossScaling`), slower than the
+monsters: by wave 25 a boss is 17 times its base health where a Grub is 49
+times. One of each would have been a tenth of what a wave-25 army is. Three of
+each is what the sweep says it takes.
+
+**The council is set above the steady line, on purpose.** Its nominal is
+21,000; a steady economy has about 17,900 for its army going into wave 25, and
+an army at the supply cap costs about 21,000 by the budget model. At 21,000 two
+armies in five clear it; at 26,000, four in five. That is the brief — very hard
+without a maxed-out army — and the test that holds every other wave under the
+steady line exempts this one by name.
+
+**One purse a boss wave.** A boss pays a purse on the kill; with twelve bosses
+that would have been twelve purses — 2,400 gold — the moment before the Final
+Showdown. A boss wave now pays one purse, shared between its bosses, which
+changes nothing for waves 5 to 20. A wave past 25, reusing the last authored
+shape, brings its monsters and not its bosses.
+
+**The tech the sweep assumes tops out at level 4** from wave 22, about where the
+budget model has a player by the showdown (3.5).
+
 ### How a wave is measured
 
 `npm run waves` runs the sandbox (`src/balance/sandbox.ts`) over every army each
