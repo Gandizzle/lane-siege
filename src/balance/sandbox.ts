@@ -636,7 +636,7 @@ export interface SweepOptions {
 }
 
 export const SWEEP_DEFAULTS: SweepOptions = {
-  waves: Array.from({ length: 20 }, (_, i) => i + 1),
+  waves: Array.from({ length: 25 }, (_, i) => i + 1),
   bands: [0.5, 0.75, 1, 1.25],
   cap: 40,
   seed: 1,

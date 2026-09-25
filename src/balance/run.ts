@@ -97,6 +97,18 @@ export const ECONOMY_PLANS: readonly EconomyPlan[] = [
     armyFirst: 0.25,
   },
   {
+    // Between the two: an economy half again the steady line's, bought after
+    // the army is safe. Steady is the budget model's medium player and too
+    // timid to see the late game; smart greed puts EVERY spare coin in, which
+    // at a rising output price is reckless. This is the strong economy the
+    // late waves are meant to reward.
+    id: 'strong',
+    name: 'Strong (half again the steady line, army first)',
+    output: (wave) => Math.min(25, Math.round(1.5 * Math.max(0, wave - 1))),
+    rate: (wave) => Math.floor(Math.max(0, wave) / 4),
+    armyFirst: 0.25,
+  },
+  {
     // The line the design says should NOT be survivable: output to twenty and
     // two rate levels by wave 10, both front-loaded because that is how the
     // compounding pays best, and bought before the army every time. Past wave
