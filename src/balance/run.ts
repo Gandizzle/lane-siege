@@ -215,7 +215,10 @@ export function playRun(
   let combatStarted = 0;
   let lastPhase = state.phase;
 
-  for (let guard = 0; guard < TICKS_PER_SECOND * 60 * 60; guard++) {
+  // A guard against a lane that never clears, not a length. An hour of game
+  // time was a length: twenty-five waves of late-game fights ran past it, and
+  // two runs that were winning came back as "died at 24".
+  for (let guard = 0; guard < TICKS_PER_SECOND * 60 * 60 * 4; guard++) {
     if (state.finished) break;
 
     if (state.phase === 'build' && actedFor !== state.wave) {
