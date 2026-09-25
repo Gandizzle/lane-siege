@@ -710,11 +710,67 @@ export function runProbes(
   const out: WaveOutcome[] = [];
   probes.forEach((probe, i) => {
     out.push(
-      runWave(data, probe.builderId, probe.shopping, probe.wave, seed, { goldBudget: probe.gold }),
+      runWave(data, probe.builderId, probe.shopping, probe.wave, seed, {
+        goldBudget: probe.gold,
+        tech: techAtWave(data, probe.builderId, probe.shopping, probe.wave),
+      }),
     );
     onProgress?.(i + 1, probes.length);
   });
   return out;
+}
+
+/**
+ * The tech a steady player owns going into a wave: nothing to wave 12, then
+ * a level each of health, attack speed and the army's main damage type every
+ * three waves - one at 13, two at 16, three at 19.
+ *
+ * The sweep fights with it because a real player at wave 16 owns it. Without
+ * it, a wave's nominal was the gold an army needed with NO tech, and the first
+ * 20-wave runs showed what that means: a player who bought tech needed about
+ * two thirds of a late wave's nominal and banked the rest. The budget model
+ * already takes tech out of the gold before the army (`budget.ts`), which is
+ * the same thing said the other way round.
+ */
+export function techAtWave(
+  data: GameData,
+  builderId: string,
+  shopping: Shopping,
+  wave: number,
+): Record<string, number> {
+  const level = Math.max(0, Math.floor((wave - 10) / TECH_WAVES_PER_LEVEL));
+  if (level === 0) return {};
+  // The damage type the army spends most on, by what its bodies cost.
+  const byType = new Map<string, number>();
+  const chains = lines(data, builderId);
+  for (const buy of shopping.buys) {
+    const def = chains.get(buy.rung)?.[buy.mark - 1];
+    if (!def) continue;
+    const cost = chainCost(data, builderId, buy.rung, buy.mark).gold;
+    byType.set(def.damageType, (byType.get(def.damageType) ?? 0) + cost);
+  }
+  const main = [...byType].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const tracks = ['def_hp', 'def_speed', ...(main ? [`dmg_${main}`] : [])];
+  const out: Record<string, number> = {};
+  for (const id of tracks) {
+    const track = data.economy.tech.tracks.find((t) => t.id === id);
+    if (track) out[id] = Math.min(level, track.levels.length);
+  }
+  return out;
+}
+
+export const TECH_WAVES_PER_LEVEL = 3;
+
+/** What the tech `techAtWave` hands an army at this wave costs, damage track included. */
+export function techGoldAtWave(data: GameData, wave: number): number {
+  const level = Math.max(0, Math.floor((wave - 10) / TECH_WAVES_PER_LEVEL));
+  let gold = 0;
+  // Any damage track: they are priced alike.
+  for (const id of ['def_hp', 'def_speed', 'dmg_impact']) {
+    const track = data.economy.tech.tracks.find((t) => t.id === id);
+    for (const l of track?.levels ?? []) if (l.level <= level) gold += l.goldCost ?? 0;
+  }
+  return gold;
 }
 
 /** What a wave actually is: how many bodies and how much health, in total. */

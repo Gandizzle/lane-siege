@@ -23,6 +23,7 @@ import {
   nominalArmyGold,
   planProbes,
   runProbes,
+  techGoldAtWave,
   shoppingLabel,
   type Probe,
   type SweepOptions,
@@ -227,7 +228,7 @@ function report(all: WaveOutcome[]): void {
   );
   // What a player has for army going into each wave, two ways: every coin on
   // army from the start, and the budget model's steady economy with its
-  // resource-building spend taken off. Counted from wave 1 whatever waves this
+  // resource-building spend and the tech the sweep fights with taken off. Counted from wave 1 whatever waves this
   // run covers, or a sweep of waves 11 to 20 starts everyone at 250.
   const noEconomy = new Map<number, number>();
   let earned = 250;
@@ -245,7 +246,10 @@ function report(all: WaveOutcome[]): void {
     const nominal = nominalArmyGold(data, wave);
     const none = noEconomy.get(wave) ?? 0;
     const before = budgetRows[wave - 2];
-    const steady = Math.round(before ? before.cumulativeIncome - before.cumulativeGemLadder : 250);
+    const steady = Math.round(
+      (before ? before.cumulativeIncome - before.cumulativeGemLadder : 250) -
+        techGoldAtWave(data, wave),
+    );
     console.log(
       `  ${String(wave).padStart(4)}  ${String(summary.count).padStart(8)}  ` +
         `${Math.round(summary.hp).toLocaleString().padStart(9)}  ${String(nominal).padStart(13)}  ` +

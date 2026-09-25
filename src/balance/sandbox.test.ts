@@ -8,6 +8,7 @@ import {
   layOut,
   leakLine,
   nominalArmyGold,
+  techGoldAtWave,
   runWave,
   sampleArmies,
   shelf,
@@ -256,14 +257,17 @@ describe('what a wave is tuned for', () => {
   it('never asks for more than a steady economy leaves for the army', () => {
     // Past wave 10 the ladder is set against the player the budget model
     // describes - one output level a wave, a rate level every five - and not
-    // against one with no economy at all, who is meant to fall behind there.
+    // against one with no economy at all, who is meant to fall behind there,
+    // and with the tech the sweep fights with already paid for.
     // Still never more than that player has, or nobody has room. (Not before
     // wave 11: until it pays back, an economy leaves LESS for the army than
     // none, which is the test above.)
     const rows = computeBudget(data).waves;
     for (let wave = 11; wave <= 20; wave++) {
       const before = rows[wave - 2];
-      const has = before ? before.cumulativeIncome - before.cumulativeGemLadder : 250;
+      const has =
+        (before ? before.cumulativeIncome - before.cumulativeGemLadder : 250) -
+        techGoldAtWave(data, wave);
       expect(nominalArmyGold(data, wave), `wave ${wave}`).toBeLessThan(has);
     }
   });
