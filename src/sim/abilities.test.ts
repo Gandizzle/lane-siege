@@ -34,6 +34,7 @@ import { TICKS_PER_SECOND } from './constants.ts';
 import { dampeningRemaining } from './dampening.ts';
 import { createContext, createMatch, step } from './index.ts';
 import { beginShowdown } from './showdown.ts';
+import { createMonster } from './spawn.ts';
 import {
   ADDITIVE_STATS,
   FLAT_CAPABLE,
@@ -465,6 +466,42 @@ describe('a real roster applies its real abilities', () => {
         expect(fromOthers).toEqual([]);
       }
     }
+  });
+
+  it('closes the worst wound in reach, and grows with its patient (Mender: Mend)', () => {
+    const { state, ctx } = match('ironvow');
+    toCombat(ctx, state);
+    const lane = state.lanes.lane1!;
+    lane.monsters.length = 0;
+    lane.reserve.length = 0;
+
+    // Two grubs and a Mender standing together at the spawn, far from anything
+    // that could hurt them. The wounded one is the one it must pick.
+    const at = (x: number) => ({ x, y: -1.5 });
+    const spawn = (defId: string, x: number) => {
+      const m = createMonster(state, data, ctx.defs, { defId, waveNumber: 5 }, at(x))!;
+      m.moveSpeed = 0;
+      lane.monsters.push(m);
+      return m;
+    };
+    const mender = spawn('mender', 3);
+    const wounded = spawn('grub', 4);
+    const whole = spawn('grub', 5);
+    wounded.hp = wounded.maxHp * 0.2;
+    whole.hp = whole.maxHp * 0.9;
+
+    const mend = data.abilities.abilities.find((a) => a.id === 'mend')!;
+    const share = Number(mend.numbers!.share);
+    const before = wounded.hp;
+    for (let t = 0; t < 10 * TICKS_PER_SECOND && wounded.hp === before; t++) {
+      step(ctx, state);
+      for (const m of lane.monsters) m.pos = m === mender ? at(3) : m === wounded ? at(4) : at(5);
+    }
+    // One heal, of a share of the PATIENT's maximum - which at wave 5 is not
+    // the grub in monsters.json, so a flat number would have shown up here.
+    expect(wounded.hp - before).toBeCloseTo(wounded.maxHp * share, 5);
+    expect(wounded.maxHp).toBeGreaterThan(data.monsters.monsters.find((m) => m.id === 'grub')!.hp!);
+    expect(whole.hp).toBeCloseTo(whole.maxHp * 0.9, 5);
   });
 
   it('gives a send its own abilities, on top of the monster it delivers', () => {

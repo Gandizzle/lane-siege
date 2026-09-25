@@ -238,87 +238,48 @@
     },
     {
       "wave": 11,
+      "armyGold": 2500,
       "entries": [
-        {
-          "monsterId": "bloater",
-          "count": 4
-        },
-        {
-          "monsterId": "grub",
-          "count": 12
-        },
-        {
-          "monsterId": "warden",
-          "count": 5
-        }
+        { "monsterId": "revenant", "count": 8 },
+        { "monsterId": "warden", "count": 12 },
+        { "monsterId": "mote", "count": 12 }
       ]
     },
     {
       "wave": 12,
+      "armyGold": 2725,
       "entries": [
-        {
-          "monsterId": "swarmling",
-          "count": 18
-        },
-        {
-          "monsterId": "mote",
-          "count": 10
-        },
-        {
-          "monsterId": "stalker",
-          "count": 5
-        }
+        { "monsterId": "grub", "count": 26 },
+        { "monsterId": "mender", "count": 6 },
+        { "monsterId": "bloater", "count": 3 }
       ]
     },
     {
       "wave": 13,
+      "armyGold": 2950,
       "entries": [
-        {
-          "monsterId": "carapace",
-          "count": 6
-        },
-        {
-          "monsterId": "husk",
-          "count": 8
-        },
-        {
-          "monsterId": "revenant",
-          "count": 4
-        }
+        { "monsterId": "carapace", "count": 8 },
+        { "monsterId": "husk", "count": 10 },
+        { "monsterId": "spitter", "count": 12 }
       ]
     },
     {
       "wave": 14,
+      "armyGold": 3175,
       "entries": [
-        {
-          "monsterId": "bloater",
-          "count": 6
-        },
-        {
-          "monsterId": "warden",
-          "count": 7
-        },
-        {
-          "monsterId": "stalker",
-          "count": 6
-        }
+        { "monsterId": "mite", "count": 30 },
+        { "monsterId": "stalker", "count": 12 }
       ]
     },
     {
       "wave": 15,
+      "armyGold": 3425,
       "entries": [
-        {
-          "monsterId": "carapace",
-          "count": 6
-        },
-        {
-          "monsterId": "revenant",
-          "count": 5
-        },
-        {
-          "monsterId": "swarmling",
-          "count": 12
-        }
+        { "monsterId": "mender", "count": 4 },
+        { "monsterId": "revenant", "count": 4 },
+        { "monsterId": "carapace", "count": 4 },
+        { "monsterId": "mite", "count": 12 },
+        { "monsterId": "bloater", "count": 2 }
       ]
     },
     {

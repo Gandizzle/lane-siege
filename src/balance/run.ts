@@ -28,8 +28,12 @@
  * well tuned. It banks gold rather than spend it on nothing, so a plan that
  * leaves the army comfortable shows up as gold in hand.
  *
- * WHAT IT DOES NOT DO: tech, fortress upgrades (its gems all go to income),
- * selling, or anything to do with opponents. There is one rival lane, which
+ * Tech is bought the same way, as one more thing on the shelf: the next level
+ * of a damage track its army deals, or of health or attack speed, judged by
+ * the same lookahead and bought when it gains more per gold than a body does.
+ *
+ * WHAT IT DOES NOT DO: fortress upgrades (its gems all go to income), selling,
+ * or anything to do with opponents. There is one rival lane, which
  * exists only to be sent at; it cannot lose and it never sends back. That makes
  * these runs the floor of a real game's difficulty, not the ceiling - a real
  * table sends at whoever is richest.
@@ -95,11 +99,12 @@ export const ECONOMY_PLANS: readonly EconomyPlan[] = [
   {
     // The line the design says should NOT be survivable: output to twenty and
     // two rate levels by wave 10, both front-loaded because that is how the
-    // compounding pays best, and bought before the army every time.
+    // compounding pays best, and bought before the army every time. Past wave
+    // 10 it keeps the same pace - twice the steady line's output.
     id: 'greedy',
     name: 'Greedy (output 20, rate 2 by wave 10)',
-    output: (wave) => Math.min(20, Math.round((20 * Math.max(0, wave - 1)) / 9)),
-    rate: (wave) => (wave >= 7 ? 2 : wave >= 4 ? 1 : 0),
+    output: (wave) => Math.round((20 * Math.max(0, wave - 1)) / 9),
+    rate: (wave) => (wave >= 12 ? 3 : wave >= 7 ? 2 : wave >= 4 ? 1 : 0),
   },
   {
     // The same greed played well: survive first, then every spare coin into
@@ -133,6 +138,8 @@ export interface WaveLog {
   armyGold: number;
   /** What the resource building has cost so far. */
   economyGold: number;
+  /** What tech has cost so far. */
+  techGold: number;
   bodies: number;
   /** What the army is, `r4m2x2 r1m1` style, for reading a run back. */
   army: string;
@@ -252,6 +259,7 @@ class Player {
   private readonly defs: Map<string, UnitDef>;
   private readonly sendId: string;
   private economyGold = 0;
+  private techGold = 0;
 
   constructor(
     private readonly data: GameData,
@@ -457,10 +465,15 @@ class Player {
    * standing. What leaks is weighted four times what survives, because what
    * leaks is fortress damage and what survives is only comfort.
    */
-  private margin(buys: Buy[], wave: number): number {
+  private margin(
+    buys: Buy[],
+    wave: number,
+    tech: Readonly<Record<string, number>> = this.lane.economy.tech,
+  ): number {
     if (buys.length === 0) return -4;
     const out = runWave(this.data, this.builderId, { buys, gold: 0, supply: 0 }, wave, this.seed, {
       maxTicks: TICKS_PER_SECOND * 120,
+      tech,
     });
     return judge(out);
   }
@@ -482,10 +495,16 @@ class Player {
 
       type Option = { gain: number; margin: number; act: () => boolean };
       let best: Option | null = null;
-      const consider = (next: Buy[], price: number, supply: number, act: () => boolean): void => {
+      const consider = (
+        next: Buy[],
+        price: number,
+        supply: number,
+        act: () => boolean,
+        tech?: Record<string, number>,
+      ): void => {
         const cost = price + this.roomCost(supply);
         if (!Number.isFinite(cost) || cost > gold || cost <= 0) return;
-        const margin = this.margin(next, wave);
+        const margin = this.margin(next, wave, tech);
         const gain = (margin - current) / cost;
         if (!best || gain > best.gain) best = { gain, margin, act };
       };
@@ -514,6 +533,19 @@ class Player {
           this.upgrade(unit, num(next.supplyCost)),
         );
       });
+      // The next level of a tech track: health and attack speed for everyone,
+      // damage for the types this army actually deals.
+      if (units.length > 0) {
+        const dealt = new Set(units.map((u) => `dmg_${this.defs.get(u.defId)!.damageType}`));
+        for (const track of this.data.economy.tech.tracks) {
+          if (track.id.startsWith('dmg_') && !dealt.has(track.id)) continue;
+          const owned = this.lane.economy.tech[track.id] ?? 0;
+          const level = track.levels.find((l) => l.level === owned + 1);
+          if (!level) continue;
+          const tech = { ...this.lane.economy.tech, [track.id]: owned + 1 };
+          consider(buys, num(level.goldCost), 0, () => this.buyTech(track.id), tech);
+        }
+      }
 
       const chosen = best as Option | null;
       // Nothing is worth buying: bank it. A comfortable army with gold in hand
@@ -547,6 +579,13 @@ class Player {
       }
     }
     return false;
+  }
+
+  private buyTech(trackId: string): boolean {
+    const before = this.lane.economy.gold;
+    if (!this.apply({ kind: 'buyTech', teamId: YOU, trackId })) return false;
+    this.techGold += before - this.lane.economy.gold;
+    return true;
   }
 
   private upgrade(unit: DefensiveUnit, supply: number): boolean {
@@ -592,10 +631,13 @@ class Player {
       const key = `r${def.rung}m${def.mark}`;
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
-    return [...counts]
-      .sort()
-      .map(([k, n]) => (n > 1 ? `${k}x${n}` : k))
-      .join(' ');
+    const tech = Object.entries(this.lane.economy.tech)
+      .filter(([, level]) => level > 0)
+      .map(([id, level]) => `${id.replace(/^(dmg|def)_/, '')}${level}`);
+    return [
+      ...[...counts].sort().map(([k, n]) => (n > 1 ? `${k}x${n}` : k)),
+      ...(tech.length > 0 ? [`| ${tech.join(' ')}`] : []),
+    ].join(' ');
   }
 
   record(wave: number, survived: boolean, lowest: number, ticks: number): WaveLog {
@@ -626,6 +668,7 @@ class Player {
         f.gemPayoutTicks > 0 ? (f.gemsPerPayout * TICKS_PER_SECOND) / f.gemPayoutTicks : 0,
       armyGold,
       economyGold: this.economyGold,
+      techGold: this.techGold,
       bodies: this.army().length,
       army: this.label(),
       supplyUsed: e.supplyUsed,

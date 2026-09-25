@@ -74,6 +74,11 @@ export interface SandboxOptions {
   wakeTheFortress?: boolean;
   /** The band this basket was drawn for. Reported, never simulated. */
   goldBudget?: number;
+  /**
+   * Tech levels owned, by track. None by default: the ladder's nominals are
+   * army gold with no tech, and tech is one of the things the slack buys.
+   */
+  tech?: Readonly<Record<string, number>>;
 }
 
 export interface WaveOutcome {
@@ -426,6 +431,7 @@ export function runWave(
   const placed = layOut(data, builderId, shopping);
   const energyMax = stat(data.abilities.energy.max);
   for (const p of placed) lane.units.push(createUnit(state, p.def, p.tileX, p.tileY, energyMax));
+  Object.assign(lane.economy.tech, options.tech ?? {});
   recomputeUnitBuffs(data, defs, lane);
   // By id, so a summon added mid-fight is never mistaken for a body that was
   // paid for, and so the ledger below can be built from the same list.

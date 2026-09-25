@@ -261,6 +261,10 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
   spear: () => [poly([0, -1, 0.72, 0.66, 0, 0.25, -0.72, 0.66])],
   // A long thin sliver, point up: the thing that shoots from out of reach.
   dart: () => [poly([0, -1, 0.42, 0.9, 0, 0.58, -0.42, 0.9])],
+  // Three points over a flat base: the one that stands at the back and tends.
+  crown: () => [
+    poly([-0.86, 0.7, -0.86, -0.62, -0.4, 0.02, 0, -0.9, 0.4, 0.02, 0.86, -0.62, 0.86, 0.7]),
+  ],
 
   // ---- Swarm: many small things.
   cluster3: () => stamp(TRIAD, (x, y) => poly(regular(3, UP, 0.34, x, y))),

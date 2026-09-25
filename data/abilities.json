@@ -1762,7 +1762,7 @@
       "numbers": {
         "radius": 1.5,
         "targets": 5,
-        "damage": 60
+        "share": 1.6
       },
       "trigger": {
         "when": "onDeath"
@@ -1775,10 +1775,37 @@
       "effects": [
         {
           "kind": "damage",
-          "flat": "@damage",
+          "ofAttack": "@share",
           "damageType": "blast"
         }
-      ]
+      ],
+      "_note": "A share of the Bloater's own hit rather than a flat 60, since waves 11 to 15. Monsters grow every wave and a flat number does not: 60 was a Bloater hit and a half at wave 1 and a sixth of one by wave 15, so the thing a wave of Bloaters asks for - do not let them die in the middle of your melee - stopped being asked. 1.6 is the old burst at the Bloater's wave-1 hit."
+    },
+    {
+      "id": "mend",
+      "name": "Mend",
+      "text": "Stands back and closes the worst wound it can see.",
+      "role": "support",
+      "numbers": {
+        "period": 2.5,
+        "radius": 3.2,
+        "share": 0.05
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "lowestHealthAlly",
+        "radius": "@radius"
+      },
+      "effects": [
+        {
+          "kind": "heal",
+          "ofMaxHealth": "@share"
+        }
+      ],
+      "_note": "The Mender's. A share of the PATIENT's maximum, so it grows with whatever it is standing behind - a grub, a Bloater, a boss - and the most wounded body in reach is the one it picks, which is always the one the defence is trying to finish. It reaches further than the Mender shoots, so it heals the front line from behind it."
     },
     {
       "id": "unhallowed",

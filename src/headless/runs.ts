@@ -128,7 +128,7 @@ function summary(results: RunResult[]): void {
   console.log(
     `  ${'builder'.padEnd(12)}${'plan'.padEnd(8)}${'reached'.padStart(8)}${'lowest'.padStart(8)}` +
       `${'output'.padStart(8)}${'rate'.padStart(6)}${'gem/s'.padStart(7)}${'income'.padStart(8)}` +
-      `${'army$'.padStart(8)}${'eco$'.padStart(7)}${'banked'.padStart(8)}`,
+      `${'army$'.padStart(8)}${'eco$'.padStart(7)}${'tech$'.padStart(7)}${'banked'.padStart(8)}`,
   );
   for (const r of results) {
     const last = r.waves[r.waves.length - 1];
@@ -141,6 +141,7 @@ function summary(results: RunResult[]): void {
         `${String(last?.output ?? 0).padStart(8)}${String(last?.rate ?? 0).padStart(6)}` +
         `${(last?.gemsPerSecond ?? 0).toFixed(1).padStart(7)}${String(last?.income ?? 0).padStart(8)}` +
         `${String(Math.round(last?.armyGold ?? 0)).padStart(8)}${String(Math.round(last?.economyGold ?? 0)).padStart(7)}` +
+        `${String(Math.round(last?.techGold ?? 0)).padStart(7)}` +
         `${String(Math.round(last?.gold ?? 0)).padStart(8)}${over ? '   <- past the line' : ''}`,
     );
   }
@@ -150,7 +151,7 @@ function summary(results: RunResult[]): void {
 function detail(r: RunResult): void {
   rule(`${r.builderId} - ${plans.find((p) => p.id === r.planId)?.name ?? r.planId}`);
   console.log(
-    '  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  bodies  supply  secs',
+    '  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs',
   );
   for (const w of r.waves) {
     console.log(
@@ -158,7 +159,8 @@ function detail(r: RunResult): void {
         `${`${Math.round(100 * w.lowest)}%`.padStart(8)}${String(Math.round(w.gold)).padStart(7)}` +
         `${String(w.income).padStart(8)}${String(w.output).padStart(5)}${String(w.rate).padStart(5)}` +
         `${w.gemsPerSecond.toFixed(1).padStart(7)}${String(Math.round(w.armyGold)).padStart(8)}` +
-        `${String(Math.round(w.economyGold)).padStart(7)}${String(w.bodies).padStart(8)}` +
+        `${String(Math.round(w.economyGold)).padStart(7)}${String(Math.round(w.techGold)).padStart(7)}` +
+        `${String(w.bodies).padStart(8)}` +
         `${`${w.supplyUsed}/${w.supplyCap}`.padStart(8)}${w.seconds.toFixed(0).padStart(6)}` +
         `${w.survived ? '' : '   LOST'}  ${w.army}`,
     );

@@ -1,5 +1,5 @@
 {
-  "_comment": "DESIGN.md §9. Nine normal monsters spanning all four armour types, plus four bosses - one per armour type, drawn at random on boss waves (§3.4). FIVE of the nine carry an ability and four do not: a wave whose every member is special is a wave with nothing special in it, so the cheap bodies stay cheap and the ones worth recognising are the ones a defence has to answer differently. Every boss has one, and three of the four are thresholds - wounding it is what sets it off. `range` is reach measured EDGE TO EDGE, so a melee value near zero means walking up and touching. `bodyRadius` is both the collision size and the drawn size. All placeholders.",
+  "_comment": "DESIGN.md §9. Twelve normal monsters spanning all four armour types, plus four bosses - one per armour type, drawn at random on boss waves (§3.4). Six of the twelve carry an ability and six do not: a wave whose every member is special is a wave with nothing special in it, so the cheap bodies stay cheap and the ones worth recognising are the ones a defence has to answer differently. Every boss has one, and three of the four are thresholds - wounding it is what sets it off. `range` is reach measured EDGE TO EDGE, so a melee value near zero means walking up and touching. `bodyRadius` is both the collision size and the drawn size. All placeholders.",
   "monsters": [
     {
       "id": "grub",
@@ -163,6 +163,22 @@
       "bounty": 1,
       "bodyRadius": 0.13,
       "_note": "THE SMALL ONE. Every monster used to be the same 0.22-tile disc, so the same six or seven could stand around a unit whatever the wave was. A Mite is 0.13 - small enough that nearly three times as many fit in the same ring - and the fastest thing in the game, so it arrives in the gaps before the line has closed them. One is nothing; forty surrounding a gun are the whole wave. Splash is the answer, and so is a line with no gaps in it."
+    },
+    {
+      "id": "mender",
+      "name": "Mender",
+      "hp": 55,
+      "armour": "ward",
+      "shape": "crown",
+      "damage": 5,
+      "damageType": "arcane",
+      "attackSpeed": 0.8,
+      "range": 2.6,
+      "moveSpeed": 0.9,
+      "bounty": 7,
+      "bodyRadius": 0.22,
+      "abilities": ["mend"],
+      "_note": "THE HEALER. Stops short like a Spitter and spends the fight closing the worst wound on the monster in front of it, a twentieth of that body's health every two and a half seconds. A wave with Menders in it is a wave where killing things is not enough: the answer is reach, or a diver, or burst that finishes a body between two heals. Revenants are immune to it, as they are to everything."
     }
   ],
   "bosses": [

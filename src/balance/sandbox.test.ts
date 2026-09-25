@@ -215,6 +215,15 @@ describe('a measured wave', () => {
     );
   });
 
+  it('fights with the tech it is handed, and none unless it is', () => {
+    const plain = runWave(data, 'ironvow', army, 1, 1);
+    const tougher = runWave(data, 'ironvow', army, 1, 1, { tech: { def_hp: 1 } });
+    const bonus = data.economy.tech.tracks.find((t) => t.id === 'def_hp')!.levels[0]!.value!;
+    for (const [i, line] of plain.lines.entries()) {
+      expect(tougher.lines[i]!.maxHp).toBeCloseTo(line.maxHp * (1 + bonus), 5);
+    }
+  });
+
   it('measures the wave against the wave', () => {
     expect(waveHitPoints(data, 1, 1)).toBeGreaterThan(0);
     expect(waveHitPoints(data, 1, 4)).toBeGreaterThan(waveHitPoints(data, 1, 1));
@@ -222,9 +231,9 @@ describe('a measured wave', () => {
 });
 
 describe('what a wave is tuned for', () => {
-  it('is authored on waves 1 to 5, and rises', () => {
+  it('is authored on waves 1 to 15, and rises', () => {
     let previous = 0;
-    for (let wave = 1; wave <= 5; wave++) {
+    for (let wave = 1; wave <= 15; wave++) {
       const nominal = nominalArmyGold(data, wave);
       expect(nominal, `wave ${wave}`).toBeGreaterThan(previous);
       previous = nominal;
@@ -232,12 +241,14 @@ describe('what a wave is tuned for', () => {
   });
 
   it('always leaves the player something over', () => {
-    // 250 to start and a fixed 200 a wave, spent on nothing but army. A wave
-    // that asks for every coin has taken the decision away.
+    // 250 to start, a fixed 200 a wave and a boss's purse, spent on nothing but
+    // army. A wave that asks for every coin has taken the decision away.
+    const every = data.waves.bossEveryNWaves;
     let earned = 250;
-    for (let wave = 1; wave <= 5; wave++) {
+    for (let wave = 1; wave <= 15; wave++) {
       expect(nominalArmyGold(data, wave), `wave ${wave}`).toBeLessThan(earned);
       earned += 200;
+      if (wave % every === 0) earned += data.economy.bossBounty ?? 0;
     }
   });
 });

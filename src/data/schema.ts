@@ -159,6 +159,7 @@ export type ShapeId =
   | 'hourglass'
   | 'spear'
   | 'dart'
+  | 'crown'
   // Swarm: many small things.
   | 'cluster3'
   | 'dots3'
@@ -202,6 +203,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
   hourglass: 'ward',
   spear: 'ward',
   dart: 'ward',
+  crown: 'ward',
   cluster3: 'swarm',
   dots3: 'swarm',
   dots4: 'swarm',
