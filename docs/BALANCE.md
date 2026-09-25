@@ -735,6 +735,41 @@ wave 20, and at the nominal it clears 75% of wave 19 where the others clear 35
 to 45%. Not acted on yet: one run each is a single seed, and the sweep's
 per-builder spread past wave 15 is wide for everyone.
 
+### The gem output price rises
+
+That open question was answered by making each output level cost more than
+the last: 50 gold for the first, then 3 more a level, 122 for the twenty-fifth.
+The brief was that a strong economy should still win the late game, but that
+getting one should not be easy, and maxing the building by wave 15 should be
+extremely risky.
+
+Rises of 1, 2 and 3 gold a level were each played by the maximum-greed player,
+every builder, on three seeds, to wave 20 — eleven runs a step, leaving out one
+seed on which Ironvow died to its wave-5 boss draw whatever the price was:
+
+| rise a level | maxed output by wave 15 | of those, died | died at all |
+| -----------: | ----------------------: | -------------: | ----------: |
+|  0 (flat 50) |                10 of 11 |              1 |     1 of 11 |
+|           +1 |                 6 of 11 |              3 |     6 of 11 |
+|           +2 |                 3 of 11 |              0 |     4 of 11 |
+|           +3 |                 0 of 11 |              — |     6 of 11 |
+
+At +2 the few who got there by wave 15 all lived — harder, but not risky. At +3
+nobody gets there by 15 however greedy, and more than half the players who try
+die; the ones who do not still finish on about twice the steady player's
+income, which is the strong economy winning the late game. So +3.
+
+Two things the table does not say on its face. At +1, Gloomtide's greed collapsed
+at wave 8 on all three seeds — the price tipped the scripted player's choice
+between output and rate at the wrong moment — which is an artefact of one
+player's policy, not of the price. And who survives greed depends more on the
+BUILDER than on the price: Thornweald and Gloomtide came through at every step,
+Ironvow and Pyre mostly did not. That is the late-wave builder gap again.
+
+The steady player spends a little more on its gem building too, so the line the
+later nominals sit under came down by up to 500 gold, and waves 16 to 22 were
+re-set to about 95% of it.
+
 ### What it did to the arena, and what is left open
 
 Every one of those nerfs also lands in the Final Showdown, so the round robin was
