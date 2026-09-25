@@ -124,7 +124,7 @@ function rule(title: string): void {
 }
 
 function summary(results: RunResult[]): void {
-  rule(`WHERE EACH RUN ENDED - the design's line is output 20 and rate 2 by wave ${waves}`);
+  rule("WHERE EACH RUN ENDED - the design's line is output 20 and rate 2 by wave 10");
   console.log(
     `  ${'builder'.padEnd(12)}${'plan'.padEnd(8)}${'reached'.padStart(8)}${'lowest'.padStart(8)}` +
       `${'output'.padStart(8)}${'rate'.padStart(6)}${'gem/s'.padStart(7)}${'income'.padStart(8)}` +
@@ -133,7 +133,10 @@ function summary(results: RunResult[]): void {
   for (const r of results) {
     const last = r.waves[r.waves.length - 1];
     const lowest = Math.min(...r.waves.map((w) => w.lowest));
-    const over = last && last.survived && last.output >= 20 && last.rate >= 2;
+    // The line is drawn at wave 10, where the design drew it, whatever wave
+    // the run went on to: a run that crossed it and lived is the finding.
+    const ten = r.waves.find((w) => w.wave === 10);
+    const over = ten && r.reached >= 10 && ten.output >= 20 && ten.rate >= 2;
     console.log(
       `  ${r.builderId.padEnd(12)}${r.planId.padEnd(8)}` +
         `${(r.survived ? `${r.reached}` : `died ${last?.wave ?? '?'}`).padStart(8)}` +
