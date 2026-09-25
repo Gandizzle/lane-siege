@@ -1469,7 +1469,7 @@
       "damage": 1057,
       "damageType": "blast",
       "attackSpeed": 0.3,
-      "range": 5.0,
+      "range": 4.9,
       "bodyRadius": 0.26,
       "abilities": ["torrential"],
       "moveSpeed": 0.2
@@ -1490,7 +1490,7 @@
       "damage": 3022,
       "damageType": "blast",
       "attackSpeed": 0.3,
-      "range": 5.3,
+      "range": 5.2,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1515,7 +1515,7 @@
       "damage": 5831,
       "damageType": "blast",
       "attackSpeed": 0.35,
-      "range": 5.6,
+      "range": 5.49,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1541,7 +1541,7 @@
       "damage": 110.2,
       "damageType": "blast",
       "attackSpeed": 0.7,
-      "range": 3.0,
+      "range": 2.9,
       "bodyRadius": 0.26,
       "abilities": ["sleetfall"],
       "moveSpeed": 0.35
@@ -1560,7 +1560,7 @@
       "damage": 314.3,
       "damageType": "blast",
       "attackSpeed": 0.7,
-      "range": 3.15,
+      "range": 3.0,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1586,7 +1586,7 @@
       "damage": 586,
       "damageType": "blast",
       "attackSpeed": 0.73,
-      "range": 3.35,
+      "range": 3.2,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1613,7 +1613,7 @@
       "damage": 582,
       "damageType": "arcane",
       "attackSpeed": 0.35,
-      "range": 4.1,
+      "range": 3.9,
       "bodyRadius": 0.26,
       "abilities": ["undertow"],
       "moveSpeed": 0.2
@@ -1634,7 +1634,7 @@
       "damage": 1654,
       "damageType": "arcane",
       "attackSpeed": 0.35,
-      "range": 4.4,
+      "range": 4.2,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1659,7 +1659,7 @@
       "damage": 3215.1,
       "damageType": "arcane",
       "attackSpeed": 0.4,
-      "range": 4.65,
+      "range": 4.4,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1685,7 +1685,7 @@
       "damage": 14.5,
       "damageType": "arcane",
       "attackSpeed": 1.5,
-      "range": 2.5,
+      "range": 2.4,
       "bodyRadius": 0.26,
       "abilities": ["tidesong"],
       "moveSpeed": 0.4
@@ -1704,7 +1704,7 @@
       "damage": 41.0,
       "damageType": "arcane",
       "attackSpeed": 1.5,
-      "range": 2.7,
+      "range": 2.6,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1730,7 +1730,7 @@
       "damage": 76,
       "damageType": "arcane",
       "attackSpeed": 1.58,
-      "range": 2.85,
+      "range": 2.75,
       "bodyRadius": 0.26,
       "abilities": [
         {

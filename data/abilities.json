@@ -1702,11 +1702,11 @@
       "ranks": [
         {},
         {
-          "haste": 0.18,
+          "haste": 0.15,
           "radius": 2.5
         },
         {
-          "haste": 0.24,
+          "haste": 0.2,
           "radius": 2.8
         }
       ],
