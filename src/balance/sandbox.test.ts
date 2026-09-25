@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { computeBudget } from './budget.ts';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { isMelee } from '../data/roster.ts';
 import {
@@ -231,24 +232,39 @@ describe('a measured wave', () => {
 });
 
 describe('what a wave is tuned for', () => {
-  it('is authored on waves 1 to 15, and rises', () => {
+  it('is authored on waves 1 to 20, and rises', () => {
     let previous = 0;
-    for (let wave = 1; wave <= 15; wave++) {
+    for (let wave = 1; wave <= 20; wave++) {
       const nominal = nominalArmyGold(data, wave);
       expect(nominal, `wave ${wave}`).toBeGreaterThan(previous);
       previous = nominal;
     }
   });
 
-  it('always leaves the player something over', () => {
+  it('leaves a player with no economy something over, to wave 10', () => {
     // 250 to start, a fixed 200 a wave and a boss's purse, spent on nothing but
     // army. A wave that asks for every coin has taken the decision away.
     const every = data.waves.bossEveryNWaves;
     let earned = 250;
-    for (let wave = 1; wave <= 15; wave++) {
+    for (let wave = 1; wave <= 10; wave++) {
       expect(nominalArmyGold(data, wave), `wave ${wave}`).toBeLessThan(earned);
       earned += 200;
       if (wave % every === 0) earned += data.economy.bossBounty ?? 0;
+    }
+  });
+
+  it('never asks for more than a steady economy leaves for the army', () => {
+    // Past wave 10 the ladder is set against the player the budget model
+    // describes - one output level a wave, a rate level every five - and not
+    // against one with no economy at all, who is meant to fall behind there.
+    // Still never more than that player has, or nobody has room. (Not before
+    // wave 11: until it pays back, an economy leaves LESS for the army than
+    // none, which is the test above.)
+    const rows = computeBudget(data).waves;
+    for (let wave = 11; wave <= 20; wave++) {
+      const before = rows[wave - 2];
+      const has = before ? before.cumulativeIncome - before.cumulativeGemLadder : 250;
+      expect(nominalArmyGold(data, wave), `wave ${wave}`).toBeLessThan(has);
     }
   });
 });

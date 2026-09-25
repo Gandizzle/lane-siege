@@ -484,6 +484,8 @@ export interface WavesFile {
   bossScaling?: {
     hp: Unfilled<number>;
     damage: Unfilled<number>;
+    /** From the boss wave `wave` on, each boss grows by these instead. */
+    after?: { wave: number; hp: number; damage: number };
   };
   composition: WaveDef[];
   bossBank: string[];

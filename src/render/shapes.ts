@@ -263,7 +263,11 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
   dart: () => [poly([0, -1, 0.42, 0.9, 0, 0.58, -0.42, 0.9])],
   // Three points over a flat base: the one that stands at the back and tends.
   crown: () => [
-    poly([-0.86, 0.7, -0.86, -0.62, -0.4, 0.02, 0, -0.9, 0.4, 0.02, 0.86, -0.62, 0.86, 0.7]),
+    poly(
+      [-0.86, 0.7, -0.86, -0.62, -0.4, 0.02, 0, -0.9, 0.4, 0.02, 0.86, -0.62, 0.86, 0.7].map(
+        (v) => v * 0.88,
+      ),
+    ),
   ],
 
   // ---- Swarm: many small things.

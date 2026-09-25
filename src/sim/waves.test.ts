@@ -109,6 +109,22 @@ describe('monsters grow with the wave', () => {
     }
   });
 
+  it('grows a boss once a boss wave, faster from its later wave', () => {
+    const boss = data.monsters.bosses[0]!;
+    const { hp, damage, after } = data.waves.bossScaling!;
+    const every = data.waves.bossEveryNWaves;
+    const at = (wave: number) => resolveMonsterStats(data, boss, wave);
+    expect(at(2 * every).hp / at(every).hp).toBeCloseTo(hp!, 9);
+    expect(at(2 * every).damage / at(every).damage).toBeCloseTo(damage!, 9);
+    for (const wave of [after!.wave, after!.wave + every]) {
+      expect(at(wave).hp / at(wave - every).hp, `wave ${wave}`).toBeCloseTo(after!.hp, 9);
+      expect(at(wave).damage / at(wave - every).damage, `wave ${wave}`).toBeCloseTo(
+        after!.damage,
+        9,
+      );
+    }
+  });
+
   it("leaves speed and reach alone, which is enrage's job (§8)", () => {
     const one = resolveMonsterStats(data, grub, 1);
     const twenty = resolveMonsterStats(data, grub, 20);

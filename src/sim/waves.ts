@@ -90,18 +90,18 @@ function statSteps(waveNumber: number): number {
 }
 
 /**
- * What `steps` steps of growth multiply a stat by: the early rate up to the
- * wave before `after.wave`, and the later rate for every step past it.
+ * What `steps` steps of growth multiply a stat by: the early rate for the
+ * first `earlySteps` of them and the later rate, if there is one, for the rest.
  */
 function growth(
   early: number,
   later: number | undefined,
-  laterFromWave: number | undefined,
+  earlySteps: number,
   steps: number,
 ): number {
-  if (later === undefined || laterFromWave === undefined) return intPow(early, steps);
-  const earlySteps = Math.min(steps, Math.max(0, laterFromWave - 2));
-  return intPow(early, earlySteps) * intPow(later, steps - earlySteps);
+  if (later === undefined) return intPow(early, steps);
+  const first = Math.min(steps, Math.max(0, earlySteps));
+  return intPow(early, first) * intPow(later, steps - first);
 }
 
 /**
@@ -153,15 +153,22 @@ export function resolveMonsterStats(
   // growth are already priced into `bossScaling`.
   const isBoss = def.isBoss === true;
   const steps = isBoss ? 0 : statSteps(waveNumber);
+  // Steps are counted from wave 1, so the wave before `after.wave` is the last
+  // one reached at the early rate.
+  const earlySteps = after ? statSteps(after.wave - 1) : steps;
+
+  const bossCurve = data.waves.bossScaling;
+  const bossAfter = bossCurve?.after;
   const boss = isBoss ? bossStep(data, waveNumber) : 0;
-  const bossHp = intPow(num(data.waves.bossScaling?.hp ?? null, 1), boss);
-  const bossDamage = intPow(num(data.waves.bossScaling?.damage ?? null, 1), boss);
+  const bossEarly = bossAfter ? bossStep(data, bossAfter.wave) - 1 : boss;
+  const bossHp = growth(num(bossCurve?.hp ?? null, 1), bossAfter?.hp, bossEarly, boss);
+  const bossDamage = growth(num(bossCurve?.damage ?? null, 1), bossAfter?.damage, bossEarly, boss);
 
   return {
-    hp: num(def.hp) * growth(num(scaling.hp, 1), after?.hp, after?.wave, steps) * bossHp,
+    hp: num(def.hp) * growth(num(scaling.hp, 1), after?.hp, earlySteps, steps) * bossHp,
     damage:
       num(def.damage) *
-      growth(num(scaling.damage, 1), after?.damage, after?.wave, steps) *
+      growth(num(scaling.damage, 1), after?.damage, earlySteps, steps) *
       bossDamage,
     attackSpeed: num(def.attackSpeed),
     moveSpeed: num(def.moveSpeed),

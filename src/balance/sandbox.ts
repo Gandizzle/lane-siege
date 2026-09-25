@@ -266,16 +266,63 @@ export function enumerateArmies(
   spendAtLeast = 0.85,
   maxLines = DEFAULT_MAX_LINES,
 ): Shopping[] {
+  // Mixed marks within a line while the whole space can be held; one mark a
+  // line past that. See `MIXED_MARK_LIMIT`.
+  let leaves = 0;
+  walkArmies(data, builderId, gold, supplyCap, spendAtLeast, maxLines, false, () => {
+    leaves += 1;
+    return leaves <= MIXED_MARK_LIMIT;
+  });
+  const oneMarkPerLine = leaves > MIXED_MARK_LIMIT;
+
+  const out: Shopping[] = [];
+  walkArmies(data, builderId, gold, supplyCap, spendAtLeast, maxLines, oneMarkPerLine, (b) => {
+    out.push(b);
+    return true;
+  });
+  return out;
+}
+
+/**
+ * How many baskets the exhaustive walk may find before it stops mixing marks
+ * within a line.
+ *
+ * The count grows about three and a half times for every 500 gold: a million
+ * baskets a builder at 2,500, six million at 3,500, and a sweep past wave 10
+ * ran out of memory holding them. Almost all of that growth is one line's
+ * bodies split across marks - four Mark I and two Mark II of the same rung -
+ * which is a real army mid-upgrade but not a different ANSWER to a wave. So
+ * past this many, every line is bought at a single mark, which bounds the
+ * space whatever the gold. Set high enough that every band of waves 1 to 10
+ * is still enumerated in full, exactly as those waves were tuned.
+ */
+export const MIXED_MARK_LIMIT = 2_500_000;
+
+/**
+ * The walk behind `enumerateArmies`: every basket in turn, handed to `visit`,
+ * which returns false to stop.
+ */
+function walkArmies(
+  data: GameData,
+  builderId: string,
+  gold: number,
+  supplyCap: number,
+  spendAtLeast: number,
+  maxLines: number,
+  oneMarkPerLine: boolean,
+  visit: (basket: Shopping) => boolean,
+): void {
   const shelfItems = shelf(data, builderId, gold);
   const costs = shelfItems.map((item) => chainCost(data, builderId, item.rung, item.mark));
   const tiles = usableRows(data) * data.lane.buildZone.width;
   const floor = gold * spendAtLeast;
 
-  const out: Shopping[] = [];
   const basket: Buy[] = [];
-  const rungs = new Set<number>();
+  const rungs = new Map<number, number>();
+  let stopped = false;
 
   const walk = (index: number, goldLeft: number, supplyLeft: number): void => {
+    if (stopped) return;
     if (index === shelfItems.length) {
       if (basket.length === 0) return;
       // The bodies' gold plus whatever it cost to raise the cap far enough to
@@ -283,7 +330,9 @@ export function enumerateArmies(
       // cap costs depends on the basket's TOTAL supply.
       const supply = supplyCap - supplyLeft;
       const spent = gold - goldLeft + supplyGold(data, supply);
-      if (spent <= gold && spent >= floor) out.push({ buys: [...basket], gold: spent, supply });
+      if (spent <= gold && spent >= floor) {
+        stopped = !visit({ buys: [...basket], gold: spent, supply });
+      }
       return;
     }
 
@@ -292,10 +341,12 @@ export function enumerateArmies(
 
     const item = shelfItems[index]!;
     const cost = costs[index]!;
-    const fresh = !rungs.has(item.rung);
+    const marks = rungs.get(item.rung) ?? 0;
+    const fresh = marks === 0;
     if (fresh && rungs.size >= maxLines) return;
+    if (!fresh && oneMarkPerLine) return;
 
-    if (fresh) rungs.add(item.rung);
+    rungs.set(item.rung, marks + 1);
     let taken = 0;
     let goldHere = goldLeft;
     let supplyHere = supplyLeft;
@@ -311,10 +362,10 @@ export function enumerateArmies(
     }
     for (let i = 0; i < taken; i++) basket.pop();
     if (fresh) rungs.delete(item.rung);
+    else rungs.set(item.rung, marks);
   };
 
   walk(0, gold, supplyCap);
-  return out;
 }
 
 /**
