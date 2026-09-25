@@ -49,10 +49,15 @@ describe('wave generation (DESIGN.md §9.2)', () => {
   });
 
   it('scales count and stats past the authored range (§9.1)', () => {
-    // Waves 1-25 are authored; 26 onward reuse the last shape, scaled up.
-    const authored = generateWave(data, 1, 25).length;
-    const beyond = generateWave(data, 1, 30).length;
-    expect(beyond).toBeGreaterThan(authored);
+    // Waves 1-25 are authored; 26 onward reuse the last shape, scaled up -
+    // its monsters, that is. Its bosses do not come along: a boss comes from
+    // the bank on a boss wave, one of them.
+    const bank = new Set(data.waves.bossBank);
+    const escort = (wave: number) =>
+      generateWave(data, 1, wave).filter((s) => !bank.has(s.defId)).length;
+    expect(escort(30)).toBeGreaterThan(escort(25));
+    expect(generateWave(data, 1, 31).some((s) => bank.has(s.defId))).toBe(false);
+    expect(generateWave(data, 1, 30).filter((s) => bank.has(s.defId))).toHaveLength(1);
 
     const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
     const early = resolveMonsterStats(data, grub, 1);
@@ -184,6 +189,15 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
       const due = pool + (isBossWave(data, wave) ? purse : 0);
       expect(paid, `wave ${wave}`).toBeCloseTo(due, 6);
     }
+  });
+
+  it('pays one purse a boss wave, however many bosses are in it', () => {
+    const bank = new Set(data.waves.bossBank);
+    const council = generateWave(data, 99, data.waves.showdown.afterWave);
+    const bosses = council.filter((s) => bank.has(s.defId));
+    expect(bosses.length, 'the last wave is a council').toBeGreaterThan(1);
+    const paid = council.reduce((sum, s) => sum + (s.bounty ?? 0), 0);
+    expect(paid).toBeCloseTo(pool + purse, 6);
   });
 
   it('pays a boss its purse on top, and only a boss', () => {

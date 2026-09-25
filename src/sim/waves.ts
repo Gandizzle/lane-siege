@@ -202,8 +202,13 @@ export function generateWave(data: GameData, seed: number, waveNumber: number): 
     template = data.waves.composition.reduce((a, b) => (a.wave > b.wave ? a : b));
   }
 
+  // A reused template brings its monsters and not its bosses: a boss comes
+  // from the bank on a boss wave, and the last authored wave is a council of
+  // them that a wave 26 has no business repeating.
+  const bank = new Set(data.waves.bossBank);
   if (template) {
     for (const entry of template.entries) {
+      if (template !== authored && bank.has(entry.monsterId)) continue;
       const scaled = Math.round(num(entry.count) * intPow(num(data.waves.scaling.count, 1), steps));
       for (let i = 0; i < scaled; i++) {
         specs.push({ defId: entry.monsterId, waveNumber });
@@ -269,11 +274,17 @@ export function shareOutTheWavePool(data: GameData, specs: SpawnSpec[]): void {
   // wave that is several times the work. The purse is what makes surviving a
   // boss wave buy the army that survives the next five, and it is paid on the
   // kill rather than on the wave, so a boss that walks past collects nothing.
+  //
+  // ONE purse a boss wave, shared between its bosses. Every boss wave but the
+  // last has one boss and so pays the whole purse on it; the last is a council
+  // of them, and paying each its own purse would hand whoever cleared it a
+  // second army's worth of gold the moment before the Final Showdown.
   const purse = num(data.economy.bossBounty);
-  if (purse > 0) {
-    const bosses = new Set(data.monsters.bosses.map((b) => b.id));
+  const bosses = new Set(data.monsters.bosses.map((b) => b.id));
+  const count = specs.filter((spec) => bosses.has(spec.defId)).length;
+  if (purse > 0 && count > 0) {
     for (const spec of specs) {
-      if (bosses.has(spec.defId)) spec.bounty = num(spec.bounty ?? null) + purse;
+      if (bosses.has(spec.defId)) spec.bounty = num(spec.bounty ?? null) + purse / count;
     }
   }
 }

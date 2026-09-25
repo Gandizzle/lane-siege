@@ -233,9 +233,9 @@ describe('a measured wave', () => {
 });
 
 describe('what a wave is tuned for', () => {
-  it('is authored on waves 1 to 20, and rises', () => {
+  it('is authored on waves 1 to 25, and rises', () => {
     let previous = 0;
-    for (let wave = 1; wave <= 20; wave++) {
+    for (let wave = 1; wave <= 25; wave++) {
       const nominal = nominalArmyGold(data, wave);
       expect(nominal, `wave ${wave}`).toBeGreaterThan(previous);
       previous = nominal;
@@ -263,7 +263,7 @@ describe('what a wave is tuned for', () => {
     // wave 11: until it pays back, an economy leaves LESS for the army than
     // none, which is the test above.)
     const rows = computeBudget(data).waves;
-    for (let wave = 11; wave <= 20; wave++) {
+    for (let wave = 11; wave <= 25; wave++) {
       const before = rows[wave - 2];
       const has =
         (before ? before.cumulativeIncome - before.cumulativeGemLadder : 250) -

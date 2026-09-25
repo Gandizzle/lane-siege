@@ -723,7 +723,8 @@ export function runProbes(
 /**
  * The tech a steady player owns going into a wave: nothing to wave 12, then
  * a level each of health, attack speed and the army's main damage type every
- * three waves - one at 13, two at 16, three at 19.
+ * three waves - one at 13, two at 16, three at 19, four from 22 and no more,
+ * which is about where the budget model has a player by the showdown (3.5).
  *
  * The sweep fights with it because a real player at wave 16 owns it. Without
  * it, a wave's nominal was the gold an army needed with NO tech, and the first
@@ -738,7 +739,7 @@ export function techAtWave(
   shopping: Shopping,
   wave: number,
 ): Record<string, number> {
-  const level = Math.max(0, Math.floor((wave - 10) / TECH_WAVES_PER_LEVEL));
+  const level = techLevelAtWave(wave);
   if (level === 0) return {};
   // The damage type the army spends most on, by what its bodies cost.
   const byType = new Map<string, number>();
@@ -760,10 +761,15 @@ export function techAtWave(
 }
 
 export const TECH_WAVES_PER_LEVEL = 3;
+export const TECH_MAX_LEVEL = 4;
+
+function techLevelAtWave(wave: number): number {
+  return Math.min(TECH_MAX_LEVEL, Math.max(0, Math.floor((wave - 10) / TECH_WAVES_PER_LEVEL)));
+}
 
 /** What the tech `techAtWave` hands an army at this wave costs, damage track included. */
 export function techGoldAtWave(data: GameData, wave: number): number {
-  const level = Math.max(0, Math.floor((wave - 10) / TECH_WAVES_PER_LEVEL));
+  const level = techLevelAtWave(wave);
   let gold = 0;
   // Any damage track: they are priced alike.
   for (const id of ['def_hp', 'def_speed', 'dmg_impact']) {
