@@ -1,11 +1,11 @@
 # Balance: the budget, the ladders, and how we will know
 
 **Status: phases 1 and 3 both open. The economy and the price ladders are in,
-the round robin runs, and its first findings have been acted on — the centre
-square is now worth holding, every line goes to Mark III, and every builder
-wins between 47% and 55% of its duels. Waves 1 to 20 are tuned against an
-army-gold ladder and against whole runs played on four economy plans; waves 21
-to 25 are stale and know it. The gem building's ceiling is the open question.**
+the round robin runs, and every builder wins between 47% and 55% of its duels.
+All twenty-five waves are tuned against an army-gold ladder and against whole
+runs on five economy plans, and gem output costs 3 more gold a level. The open
+question is the late-game builder gap: Thornweald and Gloomtide win the late
+game under every plan with an economy, Pyre and Ironvow mostly do not.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
@@ -286,28 +286,33 @@ after waves 5 and 10. The nominal was set at about four fifths of that for
 waves 1 to 3, and **the fifth left over is the point**: it is the room to bank
 gold, buy economy, take a risk, or cover a bad build.
 
-| wave | theme     | monsters |  health | `armyGold` | no economy has | steady has | asks for                      |
-| ---: | --------- | -------: | ------: | ---------: | -------------: | ---------: | ----------------------------- |
-|    1 |           |       30 |     540 |        200 |            250 |            | Swarm 78%                     |
-|    2 |           |       38 |   1,337 |        350 |            450 |            | Flesh 80%                     |
-|    3 |           |       34 |   3,304 |        500 |            650 |            | Plate 89%                     |
-|    4 |           |       36 |   2,480 |        740 |            850 |            | Ward 62%                      |
-|    5 | boss      |  26+boss |   6,461 |        920 |          1,050 |            | all four, and a boss          |
-|    6 | Volley    |       32 |   4,676 |      1,400 |          1,450 |            | Ward: all ranged              |
-|    7 | Skitter   |       45 |   4,155 |      1,500 |          1,650 |            | Swarm: tiny and fast          |
-|    8 | Bulwark   |       27 |  15,093 |      1,750 |          1,850 |            | Plate: slow and armoured      |
-|    9 | Rush      |       27 |  11,867 |      1,925 |          2,050 |            | Flesh: divers and bursters    |
-|   10 | boss      |  22+boss |  14,581 |      2,175 |          2,250 |            | all four, and a bigger boss   |
-|   11 | Hollow    |       28 |  14,749 |      2,550 |          2,650 |      2,819 | Ward: immune to abilities     |
-|   12 | Mend      |       33 |  24,468 |      3,000 |          2,850 |      3,412 | Flesh, healed from behind     |
-|   13 | Siege     |       28 |  27,500 |      3,300 |          3,050 |      3,640 | Plate, with guns behind it    |
-|   14 | Frenzy    |       34 |  15,708 |      3,850 |          3,250 |      4,408 | Swarm and Flesh, all fast     |
-|   15 | boss      |  26+boss |  39,703 |      4,500 |          3,450 |      5,271 | a boss with healers           |
-|   16 | Blight    |       45 |  75,478 |      4,900 |          3,850 |      5,191 | Flesh: ten Bloaters           |
-|   17 | Stampede  |       45 |  32,331 |      6,000 |          4,050 |      6,359 | Swarm and Flesh, forty-five   |
-|   18 | Dirge     |       39 |  67,493 |      7,200 |          4,250 |      7,670 | Ward: every one of them       |
-|   19 | Iron Tide |       36 | 153,970 |      7,400 |          4,450 |      7,660 | Plate: the Bulwark, ten times |
-|   20 | boss      |  28+boss | 137,338 |      9,000 |          4,650 |      9,278 | one of everything hard        |
+| wave | theme      |    monsters |  health | `armyGold` | no economy has | steady has | asks for                     |
+| ---: | ---------- | ----------: | ------: | ---------: | -------------: | ---------: | ---------------------------- |
+|    1 |            |          30 |     540 |        200 |            250 |            | Swarm 78%                    |
+|    2 |            |          38 |   1,337 |        350 |            450 |            | Flesh 80%                    |
+|    3 |            |          34 |   3,304 |        500 |            650 |            | Plate 89%                    |
+|    4 |            |          36 |   2,480 |        740 |            850 |            | Ward 62%                     |
+|    5 | boss       |     26+boss |   6,461 |        920 |          1,050 |            | all four, and a boss         |
+|    6 | Volley     |          32 |   4,676 |      1,400 |          1,450 |            | Ward: all ranged             |
+|    7 | Skitter    |          45 |   4,155 |      1,500 |          1,650 |            | Swarm: tiny and fast         |
+|    8 | Bulwark    |          27 |  15,093 |      1,750 |          1,850 |            | Plate: slow and armoured     |
+|    9 | Rush       |          27 |  11,867 |      1,925 |          2,050 |            | Flesh: divers and bursters   |
+|   10 | boss       |     22+boss |  14,581 |      2,175 |          2,250 |            | all four, and a bigger boss  |
+|   11 | Hollow     |          28 |  14,749 |      2,550 |          2,650 |      2,684 | Ward: immune to abilities    |
+|   12 | Mend       |          33 |  24,468 |      3,000 |          2,850 |      3,247 | Flesh, healed from behind    |
+|   13 | Siege      |          28 |  27,500 |      3,300 |          3,050 |      3,442 | Plate, with guns behind it   |
+|   14 | Frenzy     |          34 |  15,708 |      3,850 |          3,250 |      4,174 | Swarm and Flesh, all fast    |
+|   15 | boss       |     26+boss |  39,703 |      4,500 |          3,450 |      4,998 | a boss with healers          |
+|   16 | Blight     |          37 |  55,397 |      4,290 |          3,850 |      4,876 | Flesh: Bloaters in a horde   |
+|   17 | Stampede   |          36 |  25,483 |      5,280 |          4,050 |      5,999 | Swarm and Flesh, all fast    |
+|   18 | Dirge      |          31 |  51,650 |      6,390 |          4,250 |      7,262 | Ward: every one of them      |
+|   19 | Iron Tide  |          28 | 116,057 |      6,400 |          4,450 |      7,201 | Plate: the Bulwark, at scale |
+|   20 | boss       |     21+boss | 114,690 |      7,710 |          4,650 |      8,765 | one of everything hard       |
+|   21 | Artillery  |          35 |  89,556 |      8,400 |          5,050 |     10,195 | Ward: the Volley, at scale   |
+|   22 | Bastion    |          28 | 160,010 |      8,500 |          5,250 |      9,576 | Plate, healed from behind    |
+|   23 | Onslaught  |          39 | 171,671 |     10,400 |          5,450 |     11,834 | Flesh and Swarm, sprinting   |
+|   24 | Juggernaut |          34 | 216,909 |     12,600 |          5,650 |     14,320 | Flesh and Ward, healed       |
+|   25 | Council    | 12 bosses+4 | 808,041 |     21,000 |          5,850 |     17,042 | a full army, or nothing      |
 
 "Steady has" is the budget model's steady player going into the wave — one gem
 output level a wave, a rate level every five — after paying for its gem
@@ -455,14 +460,14 @@ Each still asks one question on top of its armour:
   tiny: Arcane or splash for the one, Blast for the other.
 - **Boss (15)** — with Menders in the escort, and a Mender heals a share of
   whatever it is standing behind. Including the boss.
-- **Blight (16)** — ten Bloaters in a Grub tide. Every Bloater that dies in
+- **Blight (16)** — seven Bloaters in a Grub tide. Every Bloater that dies in
   your melee bursts on it, and Rupture now grows with the wave.
-- **Stampede (17)** — forty-five bodies, as fast as the game has.
+- **Stampede (17)** — thirty-six bodies, Mites and Stalkers, as fast as the game has.
 - **Dirge (18)** — every monster is Ward: Revenants that shrug off abilities,
   Wardens that slow your swing, Spitters behind, and Menders keeping the
   Spitters alive.
-- **Iron Tide (19)** — a hundred and fifty thousand health of Plate: the
-  Bulwark again, ten times over.
+- **Iron Tide (19)** — over a hundred thousand health of Plate: the Bulwark
+  again, seven times over.
 - **Boss (20)** — a bigger boss, with an escort that takes one of everything
   hard.
 
@@ -503,12 +508,12 @@ wave's nominal, because the nominal had been measured against armies with none.
 
 ### Waves 21 to 25, and the council
 
-- **Artillery (21)** — the Volley at scale: twenty Spitters and fourteen Wardens
-  firing over seven Revenants. Reach, or a line that walks forward and gets
+- **Artillery (21)** — the Volley at scale: eighteen Spitters and eleven Wardens
+  firing over six Revenants. Reach, or a line that walks forward and gets
   there.
-- **Bastion (22)** — fourteen Carapaces and fourteen Husks with eight Menders
-  behind: a Plate wall that heals.
-- **Onslaught (23)** — Stalkers, Mites and Bloaters, forty-five of them, all at
+- **Bastion (22)** — ten Carapaces and eleven Husks with seven Menders behind: a
+  Plate wall that heals.
+- **Onslaught (23)** — Stalkers, Mites and Bloaters, thirty-nine of them, all at
   a sprint.
 - **Juggernaut (24)** — Bloaters, Revenants, a Grub screen and Menders: Flesh and
   Ward, one of them immune to everything clever.
@@ -582,11 +587,11 @@ still enumerated in full, exactly as those waves were tuned. The sweep now plans
 once and hands each process its share, where each process used to plan the
 whole thing itself — three minutes and 3.5 GB apiece past wave 10.
 
-### Where the twenty landed
+### Where the twenty-five landed
 
-Every army every builder could buy, at four gold bands, against all twenty waves
-— 11,940 probes in eighteen minutes, `reports/waves-20.txt`. Pooled over the
-builders, the share that cleared:
+Every army every builder could buy, at four gold bands, against all twenty-five
+waves — 15,140 probes in twenty-three minutes, `reports/waves-25.txt`. Pooled
+over the builders, the share that cleared:
 
 | wave | 50% | 75% | 100% | 125% |
 | ---: | --: | --: | ---: | ---: |
@@ -605,19 +610,27 @@ builders, the share that cleared:
 |   13 |  0% |  4% |  54% |  89% |
 |   14 |  0% |  8% |  62% |  88% |
 |   15 |  0% | 19% |  60% |  83% |
-|   16 |  0% |  9% |  41% |  71% |
-|   17 |  1% | 26% |  66% |  84% |
-|   18 |  0% |  4% |  52% |  84% |
-|   19 |  0% |  8% |  49% |  72% |
-|   20 |  0% | 14% |  61% |  91% |
+|   16 |  0% | 22% |  64% |  92% |
+|   17 |  0% | 29% |  71% |  84% |
+|   18 |  0% | 16% |  64% |  92% |
+|   19 |  0% | 15% |  44% |  80% |
+|   20 |  0% | 20% |  81% |  92% |
+|   21 |  0% | 11% |  65% |  84% |
+|   22 |  1% | 26% |  68% |  90% |
+|   23 |  2% | 26% |  66% |  80% |
+|   24 |  0% | 14% |  69% |  97% |
+|   25 |  0% | 14% |  44% |  86% |
 
 Half the nominal clears nothing. Three quarters is a fight you mostly lose. At
 the nominal a good build passes and a bad one does not, which is the decision
 the ladder exists to create. A quarter over is safe — less so past wave 15,
 where the waves that are a check (Blight on melee, Stampede on splash, Iron
 Tide on sustained Pierce) fail a quarter of armies whatever they spent, because
-money does not buy the answer if the army has none. Waves 1 to 10 came back
-within a few points of where they were tuned, after Gloomtide's reach came down.
+money does not buy the answer if the army has none. Past wave 15 the nominal
+clears two thirds of armies rather than half, on purpose: a run's army is
+carried from wave to wave rather than bought fresh for each one, and the waves
+were eased until a strong economy reliably arrived at the council (§4a). Iron
+Tide (19) and the council (25) are the two walls, at 44%.
 
 That table is about one wave at a time. Whether a WHOLE RUN is balanced is a
 different question, and the one that decides it is how far a player can push
@@ -862,12 +875,11 @@ do, and until it does, a unit with a strong ability is strictly better than one
 without at the same price. Measure each ability's worth by removing it from a
 fixed army and re-running, then put the number in `abilityWeights` and reprice.
 
-**Phase 3 — waves.** _Waves 1 to 20 done; 21 to 25 open._ Monster strength,
-composition and the difficulty curve, measured with `npm run waves` against the
-army-gold ladder, and with `npm run runs` for how far the economy can be pushed.
-Waves 21 to 25 are stale: authored against monster stats that have since been
-cut. And before they are tuned the gem building's ceiling wants deciding (§4a,
-"To wave 20"), because the later the wave the more it decides everything.
+**Phase 3 — waves.** _All twenty-five tuned._ Monster strength, composition
+and the difficulty curve, measured with `npm run waves` against the army-gold
+ladder and with `npm run runs` for how far the economy can be pushed. What is
+left is not a wave question: a run exposes a late-game gap between builders that
+the per-wave sweep does not (§4a, "To wave 25").
 
 **Phase 4 — sends, and the meta.** What makes an _attack_ send correct. A
 100-gem bloater has a payback of 16 waves and never pays for itself
