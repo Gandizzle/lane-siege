@@ -10,7 +10,9 @@
  *   npm run waves -- --detail 1          the basket-by-basket table for wave 1
  */
 
+import fs from 'node:fs';
 import os from 'node:os';
+import path from 'node:path';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { computeBudget } from '../balance/budget.ts';
@@ -53,7 +55,14 @@ const options: SweepOptions = {
   seed: numberFlag('seed', SWEEP_DEFAULTS.seed),
 };
 
-const probes = planProbes(data, options);
+// Planned ONCE, by the parent, and handed to the shards in a file. Every shard
+// used to plan the whole sweep itself and keep its slice: past wave 10 that is
+// three minutes and three and a half gigabytes a process, and five of them at
+// once ran the machine out of memory.
+const probesFile = flag('probes');
+const probes: Probe[] = probesFile
+  ? (JSON.parse(fs.readFileSync(probesFile, 'utf8')) as Probe[])
+  : planProbes(data, options);
 const started = Date.now();
 
 // ---------------------------------------------------------- shard, or whole
@@ -122,7 +131,9 @@ function progress(done: number, total: number): void {
 
 async function runSharded(count: number): Promise<WaveOutcome[]> {
   const self = fileURLToPath(import.meta.url);
-  const PARENT_ONLY = new Set(['--shard', '--jobs']);
+  const PARENT_ONLY = new Set(['--shard', '--jobs', '--probes']);
+  const planned = path.join(os.tmpdir(), `lane-siege-probes-${process.pid}.json`);
+  fs.writeFileSync(planned, JSON.stringify(probes));
   const passthrough: string[] = [];
   for (let i = 2; i < process.argv.length; i++) {
     const arg = process.argv[i]!;
@@ -137,10 +148,14 @@ async function runSharded(count: number): Promise<WaveOutcome[]> {
     { length: count },
     (_, i) =>
       new Promise<WaveOutcome[]>((resolve, reject) => {
-        const child = fork(self, [...passthrough, '--shard', `${i}/${count}`], {
-          execArgv: process.execArgv,
-          stdio: ['ignore', 'pipe', 'inherit', 'ipc'],
-        });
+        const child = fork(
+          self,
+          [...passthrough, '--probes', planned, '--shard', `${i}/${count}`],
+          {
+            execArgv: process.execArgv,
+            stdio: ['ignore', 'pipe', 'inherit', 'ipc'],
+          },
+        );
         let out = '';
         child.stdout?.on('data', (chunk: Buffer) => {
           out += chunk.toString();
@@ -158,7 +173,7 @@ async function runSharded(count: number): Promise<WaveOutcome[]> {
   );
 
   // Interleaved, so the shards finish together.
-  const slices = await Promise.all(runs);
+  const slices = await Promise.all(runs).finally(() => fs.rmSync(planned, { force: true }));
   const merged: WaveOutcome[] = [];
   for (let i = 0; ; i++) {
     let any = false;

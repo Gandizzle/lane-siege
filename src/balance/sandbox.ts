@@ -276,10 +276,19 @@ export function enumerateArmies(
   const oneMarkPerLine = leaves > MIXED_MARK_LIMIT;
 
   const out: Shopping[] = [];
-  walkArmies(data, builderId, gold, supplyCap, spendAtLeast, maxLines, oneMarkPerLine, (b) => {
-    out.push(b);
-    return true;
-  });
+  walkArmies(
+    data,
+    builderId,
+    gold,
+    supplyCap,
+    spendAtLeast,
+    maxLines,
+    oneMarkPerLine,
+    (buys, spent, supply) => {
+      out.push({ buys: [...buys], gold: spent, supply });
+      return true;
+    },
+  );
   return out;
 }
 
@@ -300,7 +309,9 @@ export const MIXED_MARK_LIMIT = 2_500_000;
 
 /**
  * The walk behind `enumerateArmies`: every basket in turn, handed to `visit`,
- * which returns false to stop.
+ * which returns false to stop. The basket is the walk's own working array and
+ * changes as soon as `visit` returns, so a caller that keeps one copies it -
+ * and one that only counts does not pay for millions of copies it throws away.
  */
 function walkArmies(
   data: GameData,
@@ -310,7 +321,7 @@ function walkArmies(
   spendAtLeast: number,
   maxLines: number,
   oneMarkPerLine: boolean,
-  visit: (basket: Shopping) => boolean,
+  visit: (buys: readonly Buy[], spent: number, supply: number) => boolean,
 ): void {
   const shelfItems = shelf(data, builderId, gold);
   const costs = shelfItems.map((item) => chainCost(data, builderId, item.rung, item.mark));
@@ -330,9 +341,7 @@ function walkArmies(
       // cap costs depends on the basket's TOTAL supply.
       const supply = supplyCap - supplyLeft;
       const spent = gold - goldLeft + supplyGold(data, supply);
-      if (spent <= gold && spent >= floor) {
-        stopped = !visit({ buys: [...basket], gold: spent, supply });
-      }
+      if (spent <= gold && spent >= floor) stopped = !visit(basket, spent, supply);
       return;
     }
 
