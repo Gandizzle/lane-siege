@@ -381,30 +381,28 @@ class Player {
 
   // ------------------------------------------------------------- the economy
 
+  /**
+   * Up to the plan's levels for this wave, whichever ladder pays more first.
+   *
+   * It used to buy output up to its target and then rate, which starved rate
+   * whenever the output target took the gold: a plan asking for half again
+   * the steady line's output reached wave 15 with no rate levels at all, and
+   * made fewer gems than the plan it was meant to out-invest.
+   */
   private buyEconomy(wave: number): void {
-    const f = this.data.fortress.resourceBuilding;
-    const want: [string, number, typeof f.output.upgrades][] = [
-      ['gemOutput', this.plan.output(wave), f.output.upgrades],
-      ['gemRate', this.plan.rate(wave), f.rate.upgrades],
-    ];
-    for (const [id, target, ladder] of want) {
-      while ((this.lane.fortress.upgrades[id] ?? 0) < target) {
-        const next = ladder.find((l) => l.level === (this.lane.fortress.upgrades[id] ?? 0) + 1);
-        if (!next) break;
-        if (!this.makeRoom(num(next.supplyCost))) break;
-        const before = this.lane.economy.gold;
-        if (!this.apply({ kind: 'buyFortressUpgrade', teamId: YOU, upgradeId: id })) break;
-        this.economyGold += before - this.lane.economy.gold;
-      }
-    }
+    this.buyEconomyGreedily(this.plan.output(wave), this.plan.rate(wave));
   }
 
   /**
    * Everything left into the resource building, one level at a time, whichever
    * ladder adds more gems a second per gold. Output adds a gem to every payout;
    * rate shortens the interval, so it is worth more the more output there is.
+   * Neither goes past the level given for it.
    */
-  private buyEconomyGreedily(): void {
+  private buyEconomyGreedily(
+    maxOutput = Number.POSITIVE_INFINITY,
+    maxRate = Number.POSITIVE_INFINITY,
+  ): void {
     const f = this.data.fortress.resourceBuilding;
     const base = num(f.payoutSeconds, 2);
     for (let guard = 0; guard < 100; guard++) {
@@ -412,8 +410,10 @@ class Player {
       const rateLevel = this.lane.fortress.upgrades.gemRate ?? 0;
       const perPayout = this.lane.fortress.gemsPerPayout;
       const multiplier = rateLevel > 0 ? num(f.rate.upgrades[rateLevel - 1]?.value, 1) : 1;
-      const nextOut = f.output.upgrades.find((l) => l.level === outLevel + 1);
-      const nextRate = f.rate.upgrades.find((l) => l.level === rateLevel + 1);
+      const nextOut =
+        outLevel < maxOutput ? f.output.upgrades.find((l) => l.level === outLevel + 1) : undefined;
+      const nextRate =
+        rateLevel < maxRate ? f.rate.upgrades.find((l) => l.level === rateLevel + 1) : undefined;
 
       const options: { id: string; perGold: number; supply: number }[] = [];
       if (nextOut) {
