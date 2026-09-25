@@ -13,6 +13,7 @@
 import os from 'node:os';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { computeBudget } from '../balance/budget.ts';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import {
   SWEEP_DEFAULTS,
@@ -206,22 +207,36 @@ function report(all: WaveOutcome[]): void {
   }
 
   rule('THE WAVES AS THEY STAND');
-  console.log('  wave  monsters   total hp   nominal army   what a player has   slack');
+  console.log(
+    '  wave  monsters   total hp   nominal army   no economy has   slack   steady has   slack',
+  );
+  // What a player has for army going into each wave, two ways: every coin on
+  // army from the start, and the budget model's steady economy with its
+  // resource-building spend taken off. Counted from wave 1 whatever waves this
+  // run covers, or a sweep of waves 11 to 20 starts everyone at 250.
+  const noEconomy = new Map<number, number>();
   let earned = 250;
-  for (const wave of options.waves) {
-    const summary = generateWaveSummary(data, options.seed, wave);
-    const nominal = nominalArmyGold(data, wave);
-    console.log(
-      `  ${String(wave).padStart(4)}  ${String(summary.count).padStart(8)}  ` +
-        `${Math.round(summary.hp).toLocaleString().padStart(9)}  ${String(nominal).padStart(13)}  ` +
-        `${earned.toLocaleString().padStart(18)}  ${String(earned - nominal).padStart(6)}`,
-    );
-    // A wave's pool, and a boss's purse on top when the wave just survived was
-    // a boss wave: both are paid to anyone who clears it, whatever they built.
+  for (let wave = 1; wave <= Math.max(...options.waves); wave++) {
+    noEconomy.set(wave, earned);
     earned += data.economy.waveBounty ?? 0;
+    // A boss's purse on top when the wave just survived was a boss wave.
     if (data.waves.bossEveryNWaves > 0 && wave % data.waves.bossEveryNWaves === 0) {
       earned += data.economy.bossBounty ?? 0;
     }
+  }
+  const budgetRows = computeBudget(data).waves;
+  for (const wave of options.waves) {
+    const summary = generateWaveSummary(data, options.seed, wave);
+    const nominal = nominalArmyGold(data, wave);
+    const none = noEconomy.get(wave) ?? 0;
+    const before = budgetRows[wave - 2];
+    const steady = Math.round(before ? before.cumulativeIncome - before.cumulativeGemLadder : 250);
+    console.log(
+      `  ${String(wave).padStart(4)}  ${String(summary.count).padStart(8)}  ` +
+        `${Math.round(summary.hp).toLocaleString().padStart(9)}  ${String(nominal).padStart(13)}  ` +
+        `${none.toLocaleString().padStart(15)}  ${String(none - nominal).padStart(6)}` +
+        `${steady.toLocaleString().padStart(13)}  ${String(steady - nominal).padStart(6)}`,
+    );
   }
 
   for (const wave of options.waves) {
