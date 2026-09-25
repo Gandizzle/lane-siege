@@ -1,0 +1,1216 @@
+
+> lane-siege@0.0.1 waves
+> tsx src/headless/waves.ts
+
+
+11940 probes across waves 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20. seed 1.
+gold bands: 50% 75% 100% 125% of nominal
+running on 4 processes...
+
+shard 1: 25/2985
+shard 2: 25/2985
+shard 3: 25/2985
+shard 0: 25/2985
+shard 0: 50/2985
+shard 3: 50/2985
+shard 2: 50/2985
+shard 1: 50/2985
+shard 0: 75/2985
+shard 3: 75/2985
+shard 2: 75/2985
+shard 1: 75/2985
+shard 0: 100/2985
+shard 2: 100/2985
+shard 1: 100/2985
+shard 3: 100/2985
+shard 0: 125/2985
+shard 2: 125/2985
+shard 1: 125/2985
+shard 3: 125/2985
+shard 0: 150/2985
+shard 2: 150/2985
+shard 1: 150/2985
+shard 3: 150/2985
+shard 0: 175/2985
+shard 2: 175/2985
+shard 1: 175/2985
+shard 3: 175/2985
+shard 0: 200/2985
+shard 1: 200/2985
+shard 2: 200/2985
+shard 3: 200/2985
+shard 0: 225/2985
+shard 1: 225/2985
+shard 3: 225/2985
+shard 2: 225/2985
+shard 0: 250/2985
+shard 1: 250/2985
+shard 3: 250/2985
+shard 2: 250/2985
+shard 0: 275/2985
+shard 1: 275/2985
+shard 2: 275/2985
+shard 3: 275/2985
+shard 0: 300/2985
+shard 1: 300/2985
+shard 2: 300/2985
+shard 3: 300/2985
+shard 0: 325/2985
+shard 2: 325/2985
+shard 1: 325/2985
+shard 3: 325/2985
+shard 0: 350/2985
+shard 2: 350/2985
+shard 1: 350/2985
+shard 3: 350/2985
+shard 2: 375/2985
+shard 0: 375/2985
+shard 1: 375/2985
+shard 3: 375/2985
+shard 1: 400/2985
+shard 0: 400/2985
+shard 2: 400/2985
+shard 3: 400/2985
+shard 1: 425/2985
+shard 0: 425/2985
+shard 2: 425/2985
+shard 3: 425/2985
+shard 1: 450/2985
+shard 0: 450/2985
+shard 2: 450/2985
+shard 3: 450/2985
+shard 1: 475/2985
+shard 0: 475/2985
+shard 3: 475/2985
+shard 2: 475/2985
+shard 1: 500/2985
+shard 0: 500/2985
+shard 3: 500/2985
+shard 2: 500/2985
+shard 1: 525/2985
+shard 3: 525/2985
+shard 0: 525/2985
+shard 2: 525/2985
+shard 1: 550/2985
+shard 3: 550/2985
+shard 0: 550/2985
+shard 1: 575/2985
+shard 2: 550/2985
+shard 3: 575/2985
+shard 0: 575/2985
+shard 1: 600/2985
+shard 2: 575/2985
+shard 3: 600/2985
+shard 0: 600/2985
+shard 2: 600/2985
+shard 1: 625/2985
+shard 3: 625/2985
+shard 0: 625/2985
+shard 2: 625/2985
+shard 1: 650/2985
+shard 3: 650/2985
+shard 0: 650/2985
+shard 2: 650/2985
+shard 1: 675/2985
+shard 3: 675/2985
+shard 0: 675/2985
+shard 1: 700/2985
+shard 2: 675/2985
+shard 1: 725/2985
+shard 0: 700/2985
+shard 2: 700/2985
+shard 3: 700/2985
+shard 0: 725/2985
+shard 2: 725/2985
+shard 3: 725/2985
+shard 1: 750/2985
+shard 1: 775/2985
+shard 0: 750/2985
+shard 1: 800/2985
+shard 2: 750/2985
+shard 0: 775/2985
+shard 3: 750/2985
+shard 1: 825/2985
+shard 2: 775/2985
+shard 3: 775/2985
+shard 0: 800/2985
+shard 1: 850/2985
+shard 2: 800/2985
+shard 3: 800/2985
+shard 0: 825/2985
+shard 1: 875/2985
+shard 2: 825/2985
+shard 3: 825/2985
+shard 0: 850/2985
+shard 1: 900/2985
+shard 2: 850/2985
+shard 3: 850/2985
+shard 0: 875/2985
+shard 1: 925/2985
+shard 0: 900/2985
+shard 2: 875/2985
+shard 3: 875/2985
+shard 2: 900/2985
+shard 3: 900/2985
+shard 0: 925/2985
+shard 1: 950/2985
+shard 2: 925/2985
+shard 3: 925/2985
+shard 0: 950/2985
+shard 1: 975/2985
+shard 2: 950/2985
+shard 3: 950/2985
+shard 0: 975/2985
+shard 1: 1000/2985
+shard 3: 975/2985
+shard 2: 975/2985
+shard 0: 1000/2985
+shard 1: 1025/2985
+shard 3: 1000/2985
+shard 2: 1000/2985
+shard 0: 1025/2985
+shard 1: 1050/2985
+shard 3: 1025/2985
+shard 2: 1025/2985
+shard 0: 1050/2985
+shard 1: 1075/2985
+shard 2: 1050/2985
+shard 3: 1050/2985
+shard 0: 1075/2985
+shard 1: 1100/2985
+shard 3: 1075/2985
+shard 2: 1075/2985
+shard 0: 1100/2985
+shard 1: 1125/2985
+shard 3: 1100/2985
+shard 2: 1100/2985
+shard 0: 1125/2985
+shard 3: 1125/2985
+shard 2: 1125/2985
+shard 1: 1150/2985
+shard 0: 1150/2985
+shard 1: 1175/2985
+shard 3: 1150/2985
+shard 0: 1175/2985
+shard 2: 1150/2985
+shard 1: 1200/2985
+shard 3: 1175/2985
+shard 0: 1200/2985
+shard 2: 1175/2985
+shard 1: 1225/2985
+shard 3: 1200/2985
+shard 0: 1225/2985
+shard 2: 1200/2985
+shard 2: 1225/2985
+shard 3: 1225/2985
+shard 1: 1250/2985
+shard 0: 1250/2985
+shard 2: 1250/2985
+shard 3: 1250/2985
+shard 0: 1275/2985
+shard 1: 1275/2985
+shard 2: 1275/2985
+shard 3: 1275/2985
+shard 0: 1300/2985
+shard 1: 1300/2985
+shard 2: 1300/2985
+shard 3: 1300/2985
+shard 0: 1325/2985
+shard 1: 1325/2985
+shard 2: 1325/2985
+shard 3: 1325/2985
+shard 0: 1350/2985
+shard 1: 1350/2985
+shard 2: 1350/2985
+shard 3: 1350/2985
+shard 0: 1375/2985
+shard 1: 1375/2985
+shard 2: 1375/2985
+shard 3: 1375/2985
+shard 0: 1400/2985
+shard 1: 1400/2985
+shard 2: 1400/2985
+shard 3: 1400/2985
+shard 0: 1425/2985
+shard 1: 1425/2985
+shard 2: 1425/2985
+shard 3: 1425/2985
+shard 0: 1450/2985
+shard 2: 1450/2985
+shard 1: 1450/2985
+shard 3: 1450/2985
+shard 0: 1475/2985
+shard 2: 1475/2985
+shard 1: 1475/2985
+shard 3: 1475/2985
+shard 2: 1500/2985
+shard 0: 1500/2985
+shard 1: 1500/2985
+shard 3: 1500/2985
+shard 2: 1525/2985
+shard 1: 1525/2985
+shard 0: 1525/2985
+shard 3: 1525/2985
+shard 2: 1550/2985
+shard 1: 1550/2985
+shard 0: 1550/2985
+shard 3: 1550/2985
+shard 2: 1575/2985
+shard 1: 1575/2985
+shard 0: 1575/2985
+shard 3: 1575/2985
+shard 2: 1600/2985
+shard 3: 1600/2985
+shard 0: 1600/2985
+shard 1: 1600/2985
+shard 2: 1625/2985
+shard 3: 1625/2985
+shard 0: 1625/2985
+shard 1: 1625/2985
+shard 2: 1650/2985
+shard 3: 1650/2985
+shard 0: 1650/2985
+shard 1: 1650/2985
+shard 2: 1675/2985
+shard 3: 1675/2985
+shard 0: 1675/2985
+shard 1: 1675/2985
+shard 2: 1700/2985
+shard 3: 1700/2985
+shard 1: 1700/2985
+shard 2: 1725/2985
+shard 0: 1700/2985
+shard 3: 1725/2985
+shard 1: 1725/2985
+shard 2: 1750/2985
+shard 0: 1725/2985
+shard 3: 1750/2985
+shard 1: 1750/2985
+shard 0: 1750/2985
+shard 2: 1775/2985
+shard 3: 1775/2985
+shard 1: 1775/2985
+shard 2: 1800/2985
+shard 0: 1775/2985
+shard 3: 1800/2985
+shard 1: 1800/2985
+shard 2: 1825/2985
+shard 3: 1825/2985
+shard 0: 1800/2985
+shard 1: 1825/2985
+shard 3: 1850/2985
+shard 2: 1850/2985
+shard 0: 1825/2985
+shard 3: 1875/2985
+shard 1: 1850/2985
+shard 2: 1875/2985
+shard 3: 1900/2985
+shard 0: 1850/2985
+shard 2: 1900/2985
+shard 3: 1925/2985
+shard 1: 1875/2985
+shard 0: 1875/2985
+shard 2: 1925/2985
+shard 1: 1900/2985
+shard 3: 1950/2985
+shard 0: 1900/2985
+shard 2: 1950/2985
+shard 3: 1975/2985
+shard 1: 1925/2985
+shard 0: 1925/2985
+shard 3: 2000/2985
+shard 2: 1975/2985
+shard 3: 2025/2985
+shard 1: 1950/2985
+shard 0: 1950/2985
+shard 2: 2000/2985
+shard 1: 1975/2985
+shard 0: 1975/2985
+shard 2: 2025/2985
+shard 1: 2000/2985
+shard 0: 2000/2985
+shard 3: 2050/2985
+shard 0: 2025/2985
+shard 1: 2025/2985
+shard 2: 2050/2985
+shard 3: 2075/2985
+shard 0: 2050/2985
+shard 1: 2050/2985
+shard 2: 2075/2985
+shard 3: 2100/2985
+shard 0: 2075/2985
+shard 1: 2075/2985
+shard 3: 2125/2985
+shard 2: 2100/2985
+shard 0: 2100/2985
+shard 3: 2150/2985
+shard 1: 2100/2985
+shard 2: 2125/2985
+shard 1: 2125/2985
+shard 0: 2125/2985
+shard 3: 2175/2985
+shard 2: 2150/2985
+shard 0: 2150/2985
+shard 1: 2150/2985
+shard 3: 2200/2985
+shard 2: 2175/2985
+shard 0: 2175/2985
+shard 1: 2175/2985
+shard 3: 2225/2985
+shard 2: 2200/2985
+shard 0: 2200/2985
+shard 1: 2200/2985
+shard 2: 2225/2985
+shard 3: 2250/2985
+shard 0: 2225/2985
+shard 1: 2225/2985
+shard 3: 2275/2985
+shard 2: 2250/2985
+shard 1: 2250/2985
+shard 0: 2250/2985
+shard 3: 2300/2985
+shard 1: 2275/2985
+shard 0: 2275/2985
+shard 2: 2275/2985
+shard 3: 2325/2985
+shard 2: 2300/2985
+shard 1: 2300/2985
+shard 0: 2300/2985
+shard 3: 2350/2985
+shard 2: 2325/2985
+shard 3: 2375/2985
+shard 0: 2325/2985
+shard 1: 2325/2985
+shard 3: 2400/2985
+shard 2: 2350/2985
+shard 3: 2425/2985
+shard 0: 2350/2985
+shard 2: 2375/2985
+shard 1: 2350/2985
+shard 3: 2450/2985
+shard 0: 2375/2985
+shard 2: 2400/2985
+shard 1: 2375/2985
+shard 3: 2475/2985
+shard 0: 2400/2985
+shard 2: 2425/2985
+shard 3: 2500/2985
+shard 1: 2400/2985
+shard 0: 2425/2985
+shard 2: 2450/2985
+shard 1: 2425/2985
+shard 0: 2450/2985
+shard 2: 2475/2985
+shard 3: 2525/2985
+shard 1: 2450/2985
+shard 2: 2500/2985
+shard 0: 2475/2985
+shard 0: 2500/2985
+shard 1: 2475/2985
+shard 3: 2550/2985
+shard 1: 2500/2985
+shard 2: 2525/2985
+shard 0: 2525/2985
+shard 1: 2525/2985
+shard 3: 2575/2985
+shard 2: 2550/2985
+shard 0: 2550/2985
+shard 1: 2550/2985
+shard 3: 2600/2985
+shard 2: 2575/2985
+shard 0: 2575/2985
+shard 3: 2625/2985
+shard 1: 2575/2985
+shard 2: 2600/2985
+shard 0: 2600/2985
+shard 3: 2650/2985
+shard 1: 2600/2985
+shard 2: 2625/2985
+shard 0: 2625/2985
+shard 3: 2675/2985
+shard 1: 2625/2985
+shard 2: 2650/2985
+shard 0: 2650/2985
+shard 3: 2700/2985
+shard 2: 2675/2985
+shard 1: 2650/2985
+shard 0: 2675/2985
+shard 3: 2725/2985
+shard 2: 2700/2985
+shard 1: 2675/2985
+shard 0: 2700/2985
+shard 3: 2750/2985
+shard 2: 2725/2985
+shard 1: 2700/2985
+shard 0: 2725/2985
+shard 3: 2775/2985
+shard 1: 2725/2985
+shard 3: 2800/2985
+shard 2: 2750/2985
+shard 0: 2750/2985
+shard 2: 2775/2985
+shard 3: 2825/2985
+shard 1: 2750/2985
+shard 0: 2775/2985
+shard 2: 2800/2985
+shard 1: 2775/2985
+shard 0: 2800/2985
+shard 3: 2850/2985
+shard 2: 2825/2985
+shard 0: 2825/2985
+shard 1: 2800/2985
+shard 3: 2875/2985
+shard 2: 2850/2985
+shard 1: 2825/2985
+shard 0: 2850/2985
+shard 3: 2900/2985
+shard 2: 2875/2985
+shard 1: 2850/2985
+shard 3: 2925/2985
+shard 0: 2875/2985
+shard 2: 2900/2985
+shard 3: 2950/2985
+shard 0: 2900/2985
+shard 1: 2875/2985
+shard 3: 2975/2985
+shard 2: 2925/2985
+shard 3: 2985/2985
+shard 0: 2925/2985
+shard 1: 2900/2985
+shard 2: 2950/2985
+shard 0: 2950/2985
+shard 2: 2975/2985
+shard 1: 2925/2985
+shard 0: 2975/2985
+shard 2: 2985/2985
+shard 0: 2985/2985
+shard 1: 2950/2985
+shard 1: 2975/2985
+shard 1: 2985/2985
+
+11940 probes in 1078s.
+
+
+==============================================================================
+THE WAVES AS THEY STAND
+==============================================================================
+  wave  monsters   total hp   nominal army   no economy has   slack   steady has   slack
+     1        30        540            200              250      50          250      50
+     2        38      1,337            350              450     100          409      59
+     3        34      3,304            500              650     150          580      80
+     4        36      2,480            740              850     110          766      26
+     5        27      6,461            920            1,050     130          970      50
+     6        32      4,676           1400            1,450      50        1,117    -283
+     7        45      4,155           1500            1,650     150        1,399    -101
+     8        27     15,093           1750            1,850     100        1,721     -29
+     9        27     11,867           1925            2,050     125        2,088     163
+    10        23     14,581           2175            2,250      75        2,503     328
+    11        28     14,749           2550            2,650     100        2,819     269
+    12        33     24,468           3000            2,850    -150        3,412     412
+    13        28     27,500           3300            3,050    -250        3,640     340
+    14        34     15,708           3850            3,250    -600        4,408     558
+    15        27     39,703           4500            3,450   -1050        5,271     771
+    16        45     75,478           4900            3,850   -1050        5,191     291
+    17        45     32,331           6000            4,050   -1950        6,359     359
+    18        39     67,493           7200            4,250   -2950        7,670     470
+    19        36    153,970           7400            4,450   -2950        7,660     260
+    20        29    137,338           9000            4,650   -4350        9,278     278
+
+==============================================================================
+WAVE 1 — tuned for 200 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        100   50%       1      0/1   -0.79   -0.79   -0.79    18s     24
+  ironvow        150   75%       4      0/4    0.35   -0.04   -0.55    22s      6
+  ironvow        200  100%       7      5/7    0.53    0.38   -0.09    16s      0
+  ironvow        250  125%      15    15/15    0.75    0.55    0.38    14s      0
+
+  pyre           100   50%       1      0/1   -0.70   -0.70   -0.70    15s     20
+  pyre           150   75%       4      0/4    0.10   -0.30   -0.48    17s     10
+  pyre           200  100%       7      6/7    0.42    0.31    0.24    14s      0
+  pyre           250  125%      15    15/15    0.66    0.54    0.37    12s      0
+
+  thornweald     100   50%       1      0/1   -0.63   -0.63   -0.63    23s     18
+  thornweald     150   75%       4      0/4   -0.07   -0.32   -0.51    24s     11
+  thornweald     200  100%       7      5/7    0.66    0.46   -0.21    22s      0
+  thornweald     250  125%      15    15/15    0.84    0.74    0.15    14s      0
+
+  gloomtide      100   50%       1      0/1   -0.74   -0.74   -0.74    16s     22
+  gloomtide      150   75%       4      0/4    0.29   -0.33   -0.72    19s     11
+  gloomtide      200  100%       7      4/7    0.60    0.29   -0.50    16s      0
+  gloomtide      250  125%      15    14/15    0.76    0.53   -0.34    13s      0
+
+  AT NOMINAL (200g), best margin each:
+    thornweald    0.66   clears 71% of its armies
+    gloomtide     0.60   clears 57% of its armies
+    ironvow       0.53   clears 71% of its armies
+    pyre          0.42   clears 86% of its armies
+    spread 0.24
+
+==============================================================================
+WAVE 2 — tuned for 350 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        175   50%       4      0/4   -0.69   -0.70   -0.72    21s     24
+  ironvow        263   75%      19     0/19   -0.03   -0.42   -0.60    24s     13
+  ironvow        350  100%      40    28/40    0.42    0.16   -0.28    26s      0
+  ironvow        438  125%      40    39/40    0.69    0.50   -0.67    19s      0
+
+  pyre           175   50%       4      0/4   -0.60   -0.66   -0.70    17s     25
+  pyre           263   75%      19     0/19    0.01   -0.43   -0.61    16s     13
+  pyre           350  100%      40    25/40    0.48    0.08   -0.49    17s      0
+  pyre           438  125%      40    38/40    0.73    0.47   -0.38    12s      0
+
+  thornweald     175   50%       4      0/4   -0.55   -0.68   -0.75    20s     24
+  thornweald     263   75%      19     1/19    0.01   -0.53   -0.77    19s     18
+  thornweald     350  100%      40    10/40    0.53   -0.35   -0.62    23s     11
+  thornweald     438  125%      40    28/40    0.76    0.32   -0.55    20s      0
+
+  gloomtide      175   50%       4      0/4   -0.53   -0.69   -0.75    22s     24
+  gloomtide      263   75%      19     0/19   -0.38   -0.60   -0.73    21s     20
+  gloomtide      350  100%      40     9/40    0.29   -0.33   -0.66    25s     10
+  gloomtide      438  125%      40    29/40    0.73    0.31   -0.73    23s      0
+
+  AT NOMINAL (350g), best margin each:
+    thornweald    0.53   clears 25% of its armies
+    pyre          0.48   clears 63% of its armies
+    ironvow       0.42   clears 70% of its armies
+    gloomtide     0.29   clears 23% of its armies
+    spread 0.24
+
+==============================================================================
+WAVE 3 — tuned for 500 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        250   50%      15     0/15   -0.58   -0.74   -0.84    27s     23
+  ironvow        375   75%      40     2/40    0.08   -0.45   -0.71    32s     14
+  ironvow        500  100%      40    22/40    0.58    0.10   -0.52    31s      0
+  ironvow        625  125%      40    32/40    0.69    0.46   -0.55    21s      0
+
+  pyre           250   50%      15     0/15   -0.63   -0.77   -0.83    22s     25
+  pyre           375   75%      40     1/40    0.09   -0.46   -0.76    26s     14
+  pyre           500  100%      40    25/40    0.48    0.13   -0.54    28s      0
+  pyre           625  125%      40    34/40    0.62    0.42   -0.54    20s      0
+
+  thornweald     250   50%      15     0/15   -0.64   -0.78   -0.87    23s     25
+  thornweald     375   75%      40     1/40    0.10   -0.51   -0.81    28s     16
+  thornweald     500  100%      40    21/40    0.60    0.07   -0.61    28s      0
+  thornweald     625  125%      40    32/40    0.69    0.41   -0.65    22s      0
+
+  gloomtide      250   50%      15     0/15   -0.64   -0.76   -0.85    24s     27
+  gloomtide      375   75%      40     0/40   -0.05   -0.55   -0.78    34s     17
+  gloomtide      500  100%      40    16/40    0.50   -0.28   -0.65    36s      8
+  gloomtide      625  125%      40    31/40    0.70    0.39   -0.66    26s      0
+
+  AT NOMINAL (500g), best margin each:
+    thornweald    0.60   clears 53% of its armies
+    ironvow       0.58   clears 55% of its armies
+    gloomtide     0.50   clears 40% of its armies
+    pyre          0.48   clears 63% of its armies
+    spread 0.12
+
+==============================================================================
+WAVE 4 — tuned for 740 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        370   50%      40     0/40   -0.67   -0.80   -0.90    18s     24
+  ironvow        555   75%      40     0/40   -0.17   -0.52   -0.87    24s     11
+  ironvow        740  100%      40    24/40    0.49    0.13   -0.75    25s      0
+  ironvow        925  125%      40    36/40    0.64    0.50   -0.20    18s      0
+
+  pyre           370   50%      40     0/40   -0.06   -0.71   -0.81    20s     20
+  pyre           555   75%      40    16/40    0.60   -0.05   -0.86    21s      3
+  pyre           740  100%      40    37/40    0.74    0.54   -0.17    16s      0
+  pyre           925  125%      40    39/40    0.86    0.71    0.06    14s      0
+
+  thornweald     370   50%      40     0/40   -0.40   -0.78   -0.86    20s     21
+  thornweald     555   75%      40     6/40    0.35   -0.43   -0.85    27s      9
+  thornweald     740  100%      40    26/40    0.72    0.37   -0.61    28s      0
+  thornweald     925  125%      40    37/40    0.87    0.63   -0.53    23s      0
+
+  gloomtide      370   50%      40     0/40   -0.72   -0.82   -0.89    18s     25
+  gloomtide      555   75%      40     0/40   -0.29   -0.64   -0.82    25s     16
+  gloomtide      740  100%      40    15/40    0.47   -0.10   -0.71    29s      5
+  gloomtide      925  125%      40    36/40    0.62    0.42   -0.12    24s      0
+
+  AT NOMINAL (740g), best margin each:
+    pyre          0.74   clears 93% of its armies
+    thornweald    0.72   clears 65% of its armies
+    ironvow       0.49   clears 60% of its armies
+    gloomtide     0.47   clears 38% of its armies
+    spread 0.27
+
+==============================================================================
+WAVE 5 — tuned for 920 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        460   50%      40     0/40   -0.75   -0.84   -0.91    23s     16
+  ironvow        690   75%      40     0/40   -0.12   -0.58   -0.81    35s      6
+  ironvow        920  100%      40    24/40    0.48    0.20   -0.79    33s      0
+  ironvow       1150  125%      40    39/40    0.72    0.56    0.04    22s      0
+
+  pyre           460   50%      40     0/40   -0.67   -0.81   -0.91    22s     15
+  pyre           690   75%      40     2/40    0.14   -0.52   -0.84    31s      4
+  pyre           920  100%      40    32/40    0.55    0.34   -0.80    24s      0
+  pyre          1150  125%      40    39/40    0.78    0.59   -0.28    18s      0
+
+  thornweald     460   50%      40     0/40   -0.73   -0.86   -0.95    23s     18
+  thornweald     690   75%      40     1/40    0.11   -0.65   -0.81    32s      8
+  thornweald     920  100%      40    27/40    0.65    0.35   -0.79    29s      0
+  thornweald    1150  125%      40    38/40    0.82    0.66   -0.65    21s      0
+
+  gloomtide      460   50%      40     0/40   -0.82   -0.88   -0.95    21s     19
+  gloomtide      690   75%      40     0/40   -0.25   -0.75   -0.85    29s     10
+  gloomtide      920  100%      40    15/40    0.45    0.09   -0.72    35s      2
+  gloomtide     1150  125%      40    38/40    0.64    0.50   -0.20    21s      0
+
+  AT NOMINAL (920g), best margin each:
+    thornweald    0.65   clears 68% of its armies
+    pyre          0.55   clears 80% of its armies
+    ironvow       0.48   clears 60% of its armies
+    gloomtide     0.45   clears 38% of its armies
+    spread 0.20
+
+==============================================================================
+WAVE 6 — tuned for 1400 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        700   50%      40     0/40   -0.52   -0.76   -0.84    19s     27
+  ironvow       1050   75%      40     5/40    0.22   -0.39   -0.67    28s     17
+  ironvow       1400  100%      40    32/40    0.58    0.43   -0.44    17s      0
+  ironvow       1750  125%      40    39/40    0.73    0.61   -0.32    15s      0
+
+  pyre           700   50%      40     0/40   -0.38   -0.72   -0.84    18s     28
+  pyre          1050   75%      40     5/40    0.47   -0.32   -0.70    24s     18
+  pyre          1400  100%      40    31/40    0.65    0.31   -0.21    16s      0
+  pyre          1750  125%      40    40/40    0.74    0.60    0.41    13s      0
+
+  thornweald     700   50%      40     0/40   -0.39   -0.80   -0.89    22s     28
+  thornweald    1050   75%      40     1/40    0.10   -0.40   -0.70    33s     18
+  thornweald    1400  100%      40    35/40    0.64    0.33   -0.18    25s      0
+  thornweald    1750  125%      40    38/40    0.82    0.64   -0.27    26s      0
+
+  gloomtide      700   50%      40     0/40   -0.62   -0.85   -0.92    19s     29
+  gloomtide     1050   75%      40     1/40    0.03   -0.57   -0.82    25s     22
+  gloomtide     1400  100%      40    20/40    0.65    0.09   -0.72    26s      1
+  gloomtide     1750  125%      40    35/40    0.81    0.31   -0.70    27s      0
+
+  AT NOMINAL (1400g), best margin each:
+    gloomtide     0.65   clears 50% of its armies
+    pyre          0.65   clears 78% of its armies
+    thornweald    0.64   clears 88% of its armies
+    ironvow       0.58   clears 80% of its armies
+    spread 0.07
+
+==============================================================================
+WAVE 7 — tuned for 1500 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        750   50%      40     0/40   -0.61   -0.75   -0.86    13s     38
+  ironvow       1125   75%      40     0/40   -0.14   -0.54   -0.71    14s     29
+  ironvow       1500  100%      40    17/40    0.39    0.10   -0.77    15s      4
+  ironvow       1875  125%      40    37/40    0.68    0.50   -0.13    11s      0
+
+  pyre           750   50%      40     0/40   -0.30   -0.56   -0.78    11s     31
+  pyre          1125   75%      40     7/40    0.36   -0.23   -0.55    13s     17
+  pyre          1500  100%      40    31/40    0.71    0.39   -0.68     9s      0
+  pyre          1875  125%      40    40/40    0.81    0.59    0.35     7s      0
+
+  thornweald     750   50%      40     0/40   -0.15   -0.67   -0.87    11s     34
+  thornweald    1125   75%      40     5/40    0.55   -0.55   -0.77    13s     29
+  thornweald    1500  100%      40    20/40    0.75    0.25   -0.75    13s      1
+  thornweald    1875  125%      40    36/40    0.87    0.51   -0.41     9s      0
+
+  gloomtide      750   50%      40     0/40   -0.46   -0.70   -0.85    14s     35
+  gloomtide     1125   75%      40     1/40    0.06   -0.44   -0.75    18s     24
+  gloomtide     1500  100%      40    31/40    0.64    0.36   -0.45    13s      0
+  gloomtide     1875  125%      40    39/40    0.82    0.65    0.20     9s      0
+
+  AT NOMINAL (1500g), best margin each:
+    thornweald    0.75   clears 50% of its armies
+    pyre          0.71   clears 78% of its armies
+    gloomtide     0.64   clears 78% of its armies
+    ironvow       0.39   clears 43% of its armies
+    spread 0.36
+
+==============================================================================
+WAVE 8 — tuned for 1750 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        875   50%      40     0/40   -0.56   -0.74   -0.84    31s     22
+  ironvow       1313   75%      40     2/40    0.14   -0.46   -0.71    39s     14
+  ironvow       1750  100%      40    29/40    0.58    0.29   -0.35    32s      0
+  ironvow       2188  125%      40    37/40    0.68    0.54   -0.29    24s      0
+
+  pyre           875   50%      40     0/40   -0.52   -0.74   -0.86    28s     21
+  pyre          1313   75%      40     1/40    0.00   -0.41   -0.74    37s     13
+  pyre          1750  100%      40    29/40    0.51    0.24   -0.32    33s      0
+  pyre          2188  125%      40    38/40    0.65    0.52    0.09    26s      0
+
+  thornweald     875   50%      40     0/40   -0.60   -0.78   -0.86    31s     22
+  thornweald    1313   75%      40     1/40    0.17   -0.52   -0.78    38s     14
+  thornweald    1750  100%      40    24/40    0.71    0.23   -0.47    39s      0
+  thornweald    2188  125%      40    36/40    0.79    0.55   -0.39    31s      0
+
+  gloomtide      875   50%      40     0/40   -0.41   -0.75   -0.84    31s     21
+  gloomtide     1313   75%      40     3/40    0.46   -0.50   -0.70    39s     15
+  gloomtide     1750  100%      40    28/40    0.60    0.26   -0.35    38s      0
+  gloomtide     2188  125%      40    37/40    0.76    0.56   -0.06    28s      0
+
+  AT NOMINAL (1750g), best margin each:
+    thornweald    0.71   clears 60% of its armies
+    gloomtide     0.60   clears 70% of its armies
+    ironvow       0.58   clears 73% of its armies
+    pyre          0.51   clears 73% of its armies
+    spread 0.19
+
+==============================================================================
+WAVE 9 — tuned for 1925 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow        963   50%      40     0/40   -0.51   -0.75   -0.90    27s     17
+  ironvow       1444   75%      40     4/40    0.18   -0.41   -0.76    39s      8
+  ironvow       1925  100%      40    34/40    0.57    0.38   -0.73    24s      0
+  ironvow       2406  125%      40    40/40    0.73    0.54    0.26    18s      0
+
+  pyre           963   50%      40     0/40   -0.18   -0.77   -0.92    19s     19
+  pyre          1444   75%      40     1/40    0.34   -0.55   -0.75    20s     12
+  pyre          1925  100%      40    23/40    0.59    0.03   -0.74    21s      0
+  pyre          2406  125%      40    38/40    0.75    0.36    0.01    14s      0
+
+  thornweald     963   50%      40     0/40   -0.73   -0.83   -0.93    21s     20
+  thornweald    1444   75%      40     0/40    0.14   -0.66   -0.84    25s     15
+  thornweald    1925  100%      40    19/40    0.35    0.04   -0.78    27s      1
+  thornweald    2406  125%      40    37/40    0.74    0.39   -0.51    18s      0
+
+  gloomtide      963   50%      40     0/40   -0.18   -0.82   -0.94    21s     20
+  gloomtide     1444   75%      40     2/40    0.21   -0.67   -0.89    26s     15
+  gloomtide     1925  100%      40    12/40    0.39   -0.17   -0.80    25s      5
+  gloomtide     2406  125%      40    36/40    0.74    0.39   -0.69    18s      0
+
+  AT NOMINAL (1925g), best margin each:
+    pyre          0.59   clears 57% of its armies
+    ironvow       0.57   clears 85% of its armies
+    gloomtide     0.39   clears 30% of its armies
+    thornweald    0.35   clears 48% of its armies
+    spread 0.24
+
+==============================================================================
+WAVE 10 — tuned for 2175 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       1088   50%      40     0/40   -0.82   -0.87   -0.93    19s     19
+  ironvow       1631   75%      40     0/40   -0.21   -0.63   -0.86    27s     11
+  ironvow       2175  100%      40    22/40    0.37    0.11   -0.69    33s      0
+  ironvow       2719  125%      40    40/40    0.66    0.50    0.03    23s      0
+
+  pyre          1088   50%      40     0/40   -0.61   -0.81   -0.90    17s     16
+  pyre          1631   75%      40     0/40   -0.04   -0.48   -0.76    25s      8
+  pyre          2175  100%      40    25/40    0.50    0.19   -0.55    30s      0
+  pyre          2719  125%      40    39/40    0.75    0.57   -0.24    19s      0
+
+  thornweald    1088   50%      40     0/40   -0.79   -0.86   -0.96    18s     19
+  thornweald    1631   75%      40     0/40   -0.02   -0.60   -0.88    28s     11
+  thornweald    2175  100%      40    18/40    0.54   -0.03   -0.71    39s      3
+  thornweald    2719  125%      40    38/40    0.87    0.53   -0.54    25s      0
+
+  gloomtide     1088   50%      40     0/40   -0.67   -0.87   -0.96    19s     18
+  gloomtide     1631   75%      40     1/40    0.16   -0.59   -0.85    29s     10
+  gloomtide     2175  100%      40    16/40    0.45   -0.06   -0.75    37s      3
+  gloomtide     2719  125%      40    37/40    0.85    0.47   -0.61    25s      0
+
+  AT NOMINAL (2175g), best margin each:
+    thornweald    0.54   clears 45% of its armies
+    pyre          0.50   clears 63% of its armies
+    gloomtide     0.45   clears 40% of its armies
+    ironvow       0.37   clears 55% of its armies
+    spread 0.17
+
+==============================================================================
+WAVE 11 — tuned for 2550 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       1275   50%      40     0/40   -0.70   -0.81   -0.94    18s     18
+  ironvow       1913   75%      40     0/40   -0.23   -0.56   -0.83    23s     11
+  ironvow       2550  100%      40    18/40    0.49    0.05   -0.51    28s      1
+  ironvow       3188  125%      40    30/40    0.63    0.35   -0.84    23s      0
+
+  pyre          1275   50%      40     0/40   -0.54   -0.70   -0.86    18s     15
+  pyre          1913   75%      40     0/40   -0.20   -0.43   -0.79    23s     10
+  pyre          2550  100%      40    25/40    0.48    0.17   -0.30    26s      0
+  pyre          3188  125%      40    33/40    0.70    0.44   -0.69    21s      0
+
+  thornweald    1275   50%      40     0/40   -0.74   -0.79   -0.88    20s     17
+  thornweald    1913   75%      40     0/40   -0.25   -0.55   -0.78    27s     10
+  thornweald    2550  100%      40    23/40    0.61    0.17   -0.61    34s      0
+  thornweald    3188  125%      40    32/40    0.85    0.50   -0.51    22s      0
+
+  gloomtide     1275   50%      40     0/40   -0.68   -0.84   -0.95    18s     18
+  gloomtide     1913   75%      40     2/40    0.12   -0.61   -0.88    22s     12
+  gloomtide     2550  100%      40    14/40    0.54   -0.23   -0.83    28s      6
+  gloomtide     3188  125%      40    31/40    0.74    0.41   -0.78    24s      0
+
+  AT NOMINAL (2550g), best margin each:
+    thornweald    0.61   clears 57% of its armies
+    gloomtide     0.54   clears 35% of its armies
+    ironvow       0.49   clears 45% of its armies
+    pyre          0.48   clears 63% of its armies
+    spread 0.14
+
+==============================================================================
+WAVE 12 — tuned for 3000 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       1500   50%      40     0/40   -0.58   -0.82   -0.92    32s     19
+  ironvow       2250   75%      40     2/40    0.35   -0.63   -0.79    48s     10
+  ironvow       3000  100%      40    26/40    0.66    0.23   -0.86    38s      0
+  ironvow       3750  125%      40    33/40    0.88    0.50   -0.71    31s      0
+
+  pyre          1500   50%      40     0/40   -0.45   -0.72   -0.87    26s     13
+  pyre          2250   75%      40     3/40    0.32   -0.37   -0.79    31s      8
+  pyre          3000  100%      40    26/40    0.71    0.20   -0.81    28s      0
+  pyre          3750  125%      40    37/40    0.72    0.44   -0.26    21s      0
+
+  thornweald    1500   50%      40     0/40   -0.64   -0.82   -0.94    29s     20
+  thornweald    2250   75%      40     0/40    0.06   -0.61   -0.86    39s     12
+  thornweald    3000  100%      40    21/40    0.79    0.16   -0.88    32s      0
+  thornweald    3750  125%      40    34/40    0.69    0.39   -0.74    28s      0
+
+  gloomtide     1500   50%      40     0/40    0.01   -0.82   -0.93    28s     19
+  gloomtide     2250   75%      40     2/40    0.30   -0.63   -0.91    37s     11
+  gloomtide     3000  100%      40    20/40    0.70    0.11   -0.83    39s      1
+  gloomtide     3750  125%      40    35/40    0.85    0.42   -0.75    25s      0
+
+  AT NOMINAL (3000g), best margin each:
+    thornweald    0.79   clears 53% of its armies
+    pyre          0.71   clears 65% of its armies
+    gloomtide     0.70   clears 50% of its armies
+    ironvow       0.66   clears 65% of its armies
+    spread 0.13
+
+==============================================================================
+WAVE 13 — tuned for 3300 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       1650   50%      40     0/40   -0.44   -0.70   -0.83    27s     19
+  ironvow       2475   75%      40     4/40    0.24   -0.30   -0.62    35s     12
+  ironvow       3300  100%      40    23/40    0.53    0.21   -0.44    36s      0
+  ironvow       4125  125%      40    36/40    0.87    0.51   -0.27    28s      0
+
+  pyre          1650   50%      40     0/40   -0.58   -0.73   -0.88    23s     23
+  pyre          2475   75%      40     0/40   -0.10   -0.48   -0.77    27s     16
+  pyre          3300  100%      40    17/40    0.65    0.07   -0.64    33s      2
+  pyre          4125  125%      40    34/40    0.89    0.47   -0.14    25s      0
+
+  thornweald    1650   50%      40     0/40   -0.33   -0.75   -0.87    26s     21
+  thornweald    2475   75%      40     2/40    0.16   -0.39   -0.71    35s     14
+  thornweald    3300  100%      40    21/40    0.90    0.27   -0.57    38s      0
+  thornweald    4125  125%      40    37/40    0.94    0.57   -0.12    24s      0
+
+  gloomtide     1650   50%      40     0/40   -0.53   -0.79   -0.86    25s     22
+  gloomtide     2475   75%      40     1/40    0.07   -0.44   -0.77    30s     14
+  gloomtide     3300  100%      40    25/40    0.64    0.27   -0.66    33s      0
+  gloomtide     4125  125%      40    36/40    0.84    0.54   -0.51    27s      0
+
+  AT NOMINAL (3300g), best margin each:
+    thornweald    0.90   clears 53% of its armies
+    pyre          0.65   clears 43% of its armies
+    gloomtide     0.64   clears 63% of its armies
+    ironvow       0.53   clears 57% of its armies
+    spread 0.37
+
+==============================================================================
+WAVE 14 — tuned for 3850 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       1925   50%      40     0/40   -0.59   -0.76   -0.89    11s     29
+  ironvow       2888   75%      40     1/40    0.20   -0.53   -0.71    16s     20
+  ironvow       3850  100%      40    23/40    0.73    0.17   -0.75    17s      0
+  ironvow       4813  125%      40    35/40    0.82    0.62   -0.54    13s      0
+
+  pyre          1925   50%      40     0/40   -0.38   -0.68   -0.82     8s     28
+  pyre          2888   75%      40     4/40    0.30   -0.35   -0.61    11s     14
+  pyre          3850  100%      40    27/40    0.73    0.36   -0.71    13s      0
+  pyre          4813  125%      40    37/40    0.84    0.62   -0.29     7s      0
+
+  thornweald    1925   50%      40     0/40   -0.44   -0.74   -0.90    10s     28
+  thornweald    2888   75%      40     2/40    0.29   -0.49   -0.82    14s     18
+  thornweald    3850  100%      40    19/40    0.71    0.00   -0.70    15s      4
+  thornweald    4813  125%      40    33/40    0.88    0.58   -0.67     9s      0
+
+  gloomtide     1925   50%      40     0/40   -0.33   -0.70   -0.88    11s     27
+  gloomtide     2888   75%      40     6/40    0.43   -0.39   -0.76    16s     14
+  gloomtide     3850  100%      40    30/40    0.86    0.44   -0.59    13s      0
+  gloomtide     4813  125%      40    35/40    0.95    0.68   -0.48     8s      0
+
+  AT NOMINAL (3850g), best margin each:
+    gloomtide     0.86   clears 75% of its armies
+    pyre          0.73   clears 68% of its armies
+    ironvow       0.73   clears 57% of its armies
+    thornweald    0.71   clears 48% of its armies
+    spread 0.15
+
+==============================================================================
+WAVE 15 — tuned for 4500 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       2250   50%      40     0/40   -0.80   -0.87   -0.95    20s     16
+  ironvow       3375   75%      40     2/40    0.35   -0.72   -0.91    35s      9
+  ironvow       4500  100%      40    17/40    0.83    0.04   -0.76    44s      1
+  ironvow       5625  125%      40    31/40    0.80    0.49   -0.71    29s      0
+
+  pyre          2250   50%      40     0/40   -0.55   -0.81   -0.93    20s     11
+  pyre          3375   75%      40    11/40    0.66   -0.51   -0.92    27s      7
+  pyre          4500  100%      40    26/40    0.62    0.28   -0.74    30s      0
+  pyre          5625  125%      40    35/40    0.94    0.54   -0.34    30s      0
+
+  thornweald    2250   50%      40     0/40   -0.55   -0.84   -0.95    21s     13
+  thornweald    3375   75%      40     7/40    0.87   -0.52   -0.92    32s      6
+  thornweald    4500  100%      40    26/40    0.98    0.38   -0.86    38s      0
+  thornweald    5625  125%      40    36/40    1.00    0.64   -0.81    28s      0
+
+  gloomtide     2250   50%      40     0/40   -0.40   -0.84   -0.93    23s     12
+  gloomtide     3375   75%      40    10/40    0.62   -0.54   -0.92    28s      7
+  gloomtide     4500  100%      40    27/40    0.84    0.44   -0.83    28s      0
+  gloomtide     5625  125%      40    31/40    0.92    0.62   -0.82    25s      0
+
+  AT NOMINAL (4500g), best margin each:
+    thornweald    0.98   clears 65% of its armies
+    gloomtide     0.84   clears 68% of its armies
+    ironvow       0.83   clears 43% of its armies
+    pyre          0.62   clears 65% of its armies
+    spread 0.36
+
+==============================================================================
+WAVE 16 — tuned for 4900 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       2450   50%      40     0/40   -0.60   -0.74   -0.83    37s     24
+  ironvow       3675   75%      40     3/40    0.32   -0.46   -0.75    50s     12
+  ironvow       4900  100%      40    21/40    0.74    0.09   -0.77    45s      0
+  ironvow       6125  125%      40    27/40    0.64    0.37   -0.64    36s      0
+
+  pyre          2450   50%      40     0/40   -0.47   -0.73   -0.82    25s     22
+  pyre          3675   75%      40     6/40    0.38   -0.47   -0.77    31s     12
+  pyre          4900  100%      40    18/40    0.57   -0.10   -0.66    33s      3
+  pyre          6125  125%      40    27/40    0.70    0.30   -0.69    31s      0
+
+  thornweald    2450   50%      40     0/40   -0.61   -0.79   -0.92    30s     26
+  thornweald    3675   75%      40     1/40    0.40   -0.58   -0.87    40s     16
+  thornweald    4900  100%      40     7/40    0.65   -0.30   -0.72    42s      7
+  thornweald    6125  125%      40    27/40    0.94    0.14   -0.68    33s      0
+
+  gloomtide     2450   50%      40     0/40   -0.29   -0.76   -0.92    31s     24
+  gloomtide     3675   75%      40     5/40    0.54   -0.49   -0.82    40s     12
+  gloomtide     4900  100%      40    20/40    0.78    0.11   -0.78    32s      1
+  gloomtide     6125  125%      40    32/40    0.72    0.32   -0.73    26s      0
+
+  AT NOMINAL (4900g), best margin each:
+    gloomtide     0.78   clears 50% of its armies
+    ironvow       0.74   clears 53% of its armies
+    thornweald    0.65   clears 18% of its armies
+    pyre          0.57   clears 45% of its armies
+    spread 0.21
+
+==============================================================================
+WAVE 17 — tuned for 6000 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       3000   50%      40     0/40   -0.58   -0.77   -0.92    13s     34
+  ironvow       4500   75%      40     6/40    0.42   -0.48   -0.79    17s     20
+  ironvow       6000  100%      40    24/40    0.81    0.37   -0.81    17s      0
+  ironvow       7500  125%      40    30/40    0.83    0.52   -0.66    19s      0
+
+  pyre          3000   50%      40     1/40    0.34   -0.64   -0.88    11s     29
+  pyre          4500   75%      40    12/40    0.54   -0.13   -0.78    15s      8
+  pyre          6000  100%      40    26/40    0.89    0.41   -0.77    13s      0
+  pyre          7500  125%      40    33/40    0.94    0.68   -0.56    10s      0
+
+  thornweald    3000   50%      40     0/40   -0.35   -0.71   -0.94    12s     32
+  thornweald    4500   75%      40     5/40    0.70   -0.45   -0.81    16s     17
+  thornweald    6000  100%      40    24/40    0.75    0.29   -0.80    15s      0
+  thornweald    7500  125%      40    34/40    0.84    0.59   -0.57    13s      0
+
+  gloomtide     3000   50%      40     0/40    0.05   -0.64   -0.86    13s     27
+  gloomtide     4500   75%      40    19/40    0.74   -0.06   -0.74    14s      6
+  gloomtide     6000  100%      40    31/40    0.86    0.44   -0.67    12s      0
+  gloomtide     7500  125%      40    38/40    0.92    0.70   -0.49     9s      0
+
+  AT NOMINAL (6000g), best margin each:
+    pyre          0.89   clears 65% of its armies
+    gloomtide     0.86   clears 78% of its armies
+    ironvow       0.81   clears 60% of its armies
+    thornweald    0.75   clears 60% of its armies
+    spread 0.14
+
+==============================================================================
+WAVE 18 — tuned for 7200 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       3600   50%      40     0/40   -0.67   -0.81   -0.90    24s     32
+  ironvow       5400   75%      40     0/40   -0.13   -0.59   -0.87    29s     26
+  ironvow       7200  100%      40    17/40    0.80   -0.14   -0.84    36s      9
+  ironvow       9000  125%      40    32/40    0.85    0.39   -0.42    31s      0
+
+  pyre          3600   50%      40     0/40   -0.47   -0.77   -0.89    23s     33
+  pyre          5400   75%      40     2/40    0.21   -0.50   -0.75    24s     25
+  pyre          7200  100%      40    23/40    0.68    0.14   -0.64    27s      0
+  pyre          9000  125%      40    36/40    0.82    0.43   -0.18    25s      0
+
+  thornweald    3600   50%      40     0/40   -0.53   -0.79   -0.91    25s     33
+  thornweald    5400   75%      40     3/40    0.40   -0.60   -0.90    30s     26
+  thornweald    7200  100%      40    22/40    0.93    0.24   -0.87    32s      0
+  thornweald    9000  125%      40    35/40    0.97    0.54   -0.44    26s      0
+
+  gloomtide     3600   50%      40     0/40   -0.38   -0.80   -0.95    24s     32
+  gloomtide     5400   75%      40     2/40    0.43   -0.57   -0.95    25s     25
+  gloomtide     7200  100%      40    21/40    0.61    0.13   -0.94    28s      0
+  gloomtide     9000  125%      40    32/40    0.77    0.45   -0.42    23s      0
+
+  AT NOMINAL (7200g), best margin each:
+    thornweald    0.93   clears 55% of its armies
+    ironvow       0.80   clears 43% of its armies
+    pyre          0.68   clears 57% of its armies
+    gloomtide     0.61   clears 53% of its armies
+    spread 0.32
+
+==============================================================================
+WAVE 19 — tuned for 7400 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       3700   50%      40     0/40   -0.58   -0.78   -0.90    36s     29
+  ironvow       5550   75%      40     0/40   -0.13   -0.60   -0.80    45s     23
+  ironvow       7400  100%      40    15/40    0.58   -0.06   -0.67    46s      8
+  ironvow       9250  125%      40    27/40    0.68    0.31   -0.48    39s      0
+
+  pyre          3700   50%      40     0/40   -0.46   -0.73   -0.86    35s     28
+  pyre          5550   75%      40     2/40    0.32   -0.53   -0.79    45s     23
+  pyre          7400  100%      40    17/40    0.58    0.00   -0.58    39s      4
+  pyre          9250  125%      40    29/40    0.74    0.32   -0.42    35s      0
+
+  thornweald    3700   50%      40     0/40    0.43   -0.66   -0.88    41s     25
+  thornweald    5550   75%      40     9/40    0.60   -0.28   -0.82    47s     13
+  thornweald    7400  100%      40    28/40    0.86    0.37   -0.68    33s      0
+  thornweald    9250  125%      40    33/40    0.91    0.63   -0.50    28s      0
+
+  gloomtide     3700   50%      40     0/40   -0.43   -0.80   -0.87    33s     29
+  gloomtide     5550   75%      40     1/40    0.52   -0.60   -0.78    44s     24
+  gloomtide     7400  100%      40    19/40    0.70    0.02   -0.69    35s      2
+  gloomtide     9250  125%      40    27/40    0.84    0.23   -0.53    32s      0
+
+  AT NOMINAL (7400g), best margin each:
+    thornweald    0.86   clears 70% of its armies
+    gloomtide     0.70   clears 48% of its armies
+    ironvow       0.58   clears 38% of its armies
+    pyre          0.58   clears 43% of its armies
+    spread 0.29
+
+==============================================================================
+WAVE 20 — tuned for 9000 gold of army
+==============================================================================
+  builder       gold  band  armies  cleared    best  median   worst   time  leaks
+  ironvow       4500   50%      40     0/40   -0.74   -0.86   -0.96    31s     16
+  ironvow       6750   75%      40     0/40   -0.00   -0.63   -0.92    42s     12
+  ironvow       9000  100%      40    18/40    0.57   -0.13   -0.82    43s      3
+  ironvow      11250  125%      40    35/40    0.75    0.56   -0.41    30s      0
+
+  pyre          4500   50%      40     0/40   -0.49   -0.82   -0.91    27s     16
+  pyre          6750   75%      40     7/40    0.69   -0.52   -0.82    32s     12
+  pyre          9000  100%      40    20/40    0.90   -0.04   -0.67    38s      3
+  pyre         11250  125%      40    36/40    0.90    0.52   -0.34    28s      0
+
+  thornweald    4500   50%      40     0/40   -0.58   -0.84   -0.95    29s     16
+  thornweald    6750   75%      40     7/40    0.68   -0.38   -0.93    37s      9
+  thornweald    9000  100%      40    29/40    0.99    0.26   -0.67    35s      0
+  thornweald   11250  125%      40    38/40    1.00    0.55   -0.61    23s      0
+
+  gloomtide     4500   50%      40     0/40    0.17   -0.78   -0.96    30s     16
+  gloomtide     6750   75%      40     9/40    0.61   -0.28   -0.94    33s      8
+  gloomtide     9000  100%      40    31/40    0.81    0.41   -0.75    28s      0
+  gloomtide    11250  125%      40    37/40    0.90    0.59   -0.68    20s      0
+
+  AT NOMINAL (9000g), best margin each:
+    thornweald    0.99   clears 73% of its armies
+    pyre          0.90   clears 50% of its armies
+    gloomtide     0.81   clears 78% of its armies
+    ironvow       0.57   clears 45% of its armies
+    spread 0.42
+
+==============================================================================
+WHAT EACH LINE GAVE BACK FOR WHAT IT COST
+==============================================================================
+  damage is a mean over every body of that line in every fight it appeared in.
+
+  line          builder      rung mark  gold  dmg/gold  hp/gold   both  lived  bodies
+  hollowbark_3  thornweald      4    3   996     11.56    20.40  235.7    74%     405
+  oathwall_3    ironvow         4    3   996      9.14    17.28  157.8    37%     405
+  fathomhold_3  gloomtide       4    3   996      6.92    21.63  149.7    45%     405
+  slagmaw_3     pyre            4    3   996      7.00    17.84  124.8    53%     405
+  oathwall_2    ironvow         4    2   445      6.08    19.11  116.2    33%    1252
+  fathomhold_2  gloomtide       4    2   445      4.59    24.04  110.4    40%    1252
+  hollowbark_2  thornweald      4    2   445      5.59    19.32  108.1    38%    1252
+  nettlespire_2 thornweald      6    2  1049     16.86     6.31  106.3    55%     363
+  scoria_2      pyre            6    2  1049     14.64     7.25  106.1    50%     363
+  judgement_2   ironvow         6    2  1049     14.63     6.91  101.1    47%     363
+  slagmaw_2     pyre            4    2   445      5.03    19.84   99.9    45%    1252
+  nettlespire   thornweald      6    1   420     16.39     5.82   95.4    46%    1176
+  sporecrown_3  thornweald      5    3  1873     17.48     5.37   93.8    85%     122
+  judgement     ironvow         6    1   420     14.99     6.14   92.0    46%    1176
+  sanction_2    ironvow         5    2   836     14.94     6.15   91.9    55%     494
+  torrent_2     gloomtide       6    2  1049     18.72     4.78   89.5    74%     363
+  nettlespire_3 thornweald      6    3  2350     14.32     6.03   86.4    63%     109
+  scoria        pyre            6    1   420     13.15     6.46   84.9    38%    1176
+  sporecrown_2  thornweald      5    2   836     16.03     5.23   83.8    68%     494
+  torrent       gloomtide       6    1   420     19.01     4.27   81.3    57%    1176
+  sanction_3    ironvow         5    3  1873     15.35     5.29   81.2    60%     122
+  scoria_3      pyre            6    3  2350     12.35     6.46   79.8    54%     109
+  judgement_3   ironvow         6    3  2350     12.89     6.16   79.4    44%     109
+  firebrand_2   pyre            5    2   836     17.86     4.43   79.2    72%     494
+  firebrand_3   pyre            5    3  1873     19.77     3.84   76.0    94%     122
+  sleet_3       gloomtide       3    3   793     17.81     4.14   73.7    77%     471
+  maelstrom_2   gloomtide       5    2   836     14.51     5.04   73.2    59%     494
+  torrent_3     gloomtide       6    3  2350     17.84     4.00   71.3    95%     109
+  vigil_2       ironvow         3    2   354     11.15     6.28   70.0    47%    1361
+  rotgourd_3    thornweald      3    3   793     11.10     6.28   69.7    51%     471
+  vigil_3       ironvow         3    3   793     12.50     5.54   69.3    56%     471
+  sporecrown    thornweald      5    1   334     13.80     4.99   68.8    44%    1385
+  rotgourd_2    thornweald      3    2   354     10.18     6.73   68.6    43%    1361
+  sanction      ironvow         5    1   334     12.25     5.48   67.1    36%    1385
+  maelstrom_3   gloomtide       5    3  1873     15.22     4.27   65.0    69%     122
+  firebrand     pyre            5    1   334     15.22     3.94   59.9    43%    1385
+  maelstrom     gloomtide       5    1   334     13.12     4.50   59.0    35%    1385
+  mycelia_3     thornweald      2    3   316     10.83     5.34   57.8    41%    1834
+  sleet_2       gloomtide       3    2   354     11.57     4.98   57.6    45%    1361
+  rotgourd      thornweald      3    1   142      7.75     6.71   52.0    25%    3589
+  sentinel_3    ironvow         2    3   316      9.97     5.14   51.3    40%    1834
+  oathwall      ironvow         4    1   178      2.98    16.89   50.4    18%    2869
+  vigil         ironvow         3    1   142      9.05     5.55   50.2    32%    3589
+  foxfire_2     pyre            3    2   354      8.70     5.68   49.4    36%    1361
+  ember_3       pyre            1    3   252      5.76     8.27   47.7    18%    2870
+  foxfire_3     pyre            3    3   793      9.23     5.11   47.2    44%     471
+  fathomhold    gloomtide       4    1   178      2.19    21.25   46.6    25%    2869
+  mycelia_2     thornweald      2    2   141      8.07     5.77   46.5    26%    3968
+  sentinel_2    ironvow         2    2   141      7.97     5.71   45.5    29%    3968
+  pledge_3      ironvow         1    3   252      3.90    11.17   43.5    17%    2870
+  murmur_2      gloomtide       2    2   141      7.29     5.96   43.5    28%    3968
+  slagmaw       pyre            4    1   178      2.38    17.45   41.6    30%    2869
+  sleet         gloomtide       3    1   142      9.34     4.42   41.2    28%    3589
+  hollowbark    thornweald      4    1   178      2.27    17.91   40.7    20%    2869
+  mycelia       thornweald      2    1    56      5.49     7.00   38.4    16%    6457
+  murmur_3      gloomtide       2    3   316      7.75     4.94   38.3    34%    1834
+  wickling_2    pyre            2    2   141      8.56     4.23   36.2    28%    3968
+  wickling_3    pyre            2    3   316      9.48     3.81   36.1    36%    1834
+  thornling_3   thornweald      1    3   252      2.76    12.65   34.9    13%    2870
+  foxfire       pyre            3    1   142      6.30     5.10   32.1    24%    3589
+  sentinel      ironvow         2    1    56      5.37     5.08   27.3    16%    6457
+  murmur        gloomtide       2    1    56      4.83     5.34   25.8    15%    6457
+  pledge_2      ironvow         1    2   113      2.06    12.04   24.8    12%    4131
+  kelpsnare_3   gloomtide       1    3   252      2.34    10.34   24.2    12%    2870
+  kelpsnare_2   gloomtide       1    2   113      1.83    12.04   22.0    11%    4131
+  ember_2       pyre            1    2   113      1.98    10.74   21.2    13%    4131
+  thornling_2   thornweald      1    2   113      1.57    13.45   21.1    10%    4131
+  wickling      pyre            2    1    56      5.40     3.79   20.5    18%    6457
+  ember         pyre            1    1    45      1.13     9.46   10.7     4%    7151
+  pledge        ironvow         1    1    45      0.97    10.61   10.2     3%    7151
+  kelpsnare     gloomtide       1    1    45      0.94    10.58   10.0     3%    7151
+  thornling     thornweald      1    1    45      0.65    14.16    9.2     3%    7151
