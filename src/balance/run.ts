@@ -221,6 +221,14 @@ export function playRun(
   for (let guard = 0; guard < TICKS_PER_SECOND * 60 * 60 * 4; guard++) {
     if (state.finished) break;
 
+    // The last monster wave is not followed by a build phase but by the Final
+    // Showdown, so the wave that ends a full run is written down here. Without
+    // this a player who beat wave 25 was reported as having died at 24.
+    if (state.phase === 'showdown') {
+      log.push(player.record(state.wave, true, lowest, state.tick - combatStarted));
+      break;
+    }
+
     if (state.phase === 'build' && actedFor !== state.wave) {
       if (state.wave >= 1) {
         log.push(player.record(state.wave, true, lowest, state.tick - combatStarted));

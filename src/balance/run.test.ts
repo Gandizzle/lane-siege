@@ -44,6 +44,19 @@ describe('a run, played', { timeout: 120_000 }, () => {
     expect(last.income).toBeGreaterThan(0);
   });
 
+  it('writes down the last wave, which a showdown follows rather than a build phase', () => {
+    // A player who beat wave 25 used to be reported as having died at 24,
+    // because the last wave is followed by the Final Showdown and every other
+    // wave is written down when the next build phase opens. A two-wave game
+    // has the same shape and plays in a second.
+    const short = structuredClone(data);
+    short.waves.showdown.afterWave = 2;
+    const run = playRun(short, 'ironvow', plan('army'), 2);
+    expect(run.waves.map((w) => w.wave)).toEqual([1, 2]);
+    expect(run.survived).toBe(true);
+    expect(run.reached).toBe(2);
+  });
+
   it('punishes buying the economy first, whatever it costs the army', () => {
     // The whole point of a wave's difficulty: a player who starves the army to
     // build income has to be caught by it, and here that is the first boss.
