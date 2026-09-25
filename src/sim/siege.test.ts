@@ -25,9 +25,13 @@ const { data } = loadDataFromDisk();
  * wave-14 lane goes down inside twenty seconds, which wipes the lane (§13) and
  * leaves nothing to measure.
  */
-function undefended(wave: number): { state: MatchState; ctx: SimContext } {
-  const state = createMatch(data, { seed: 5, teams: [{ id: 'l1', playerIds: ['p'] }] });
-  const ctx = createContext(data);
+function undefended(
+  wave: number,
+  crowd?: { monsterId: string; count: number }[],
+): { state: MatchState; ctx: SimContext } {
+  const d = crowd ? withCrowd(wave + 1, crowd) : data;
+  const state = createMatch(d, { seed: 5, teams: [{ id: 'l1', playerIds: ['p'] }] });
+  const ctx = createContext(d);
   state.wave = wave;
   state.lanes.l1!.fortress.weaponDamage = 0;
   state.lanes.l1!.fortress.maxHp = 1e9;
@@ -36,6 +40,30 @@ function undefended(wave: number): { state: MatchState; ctx: SimContext } {
   let guard = 0;
   while (state.phase !== 'combat' && guard++ < 5000) step(ctx, state);
   return { state, ctx };
+}
+
+/**
+ * THE CROWD these tests measure, as a fixture: 27 slow, heavy bodies, a few of
+ * which reach far enough to fight from the second rank.
+ *
+ * It used to be whatever the data said wave 21 was, and that is balance data:
+ * when wave 21 became twenty Spitters that stop two tiles short of the wall,
+ * the crowd never arrived and the tests failed on a wave that was working
+ * exactly as designed. What a crowd at the wall does is a question about
+ * movement, so the crowd is written down here.
+ */
+const CROWD = [
+  { monsterId: 'carapace', count: 10 },
+  { monsterId: 'revenant', count: 8 },
+  { monsterId: 'stalker', count: 9 },
+];
+const CROWD_WAVE = 20;
+
+function withCrowd(wave: number, entries: { monsterId: string; count: number }[]) {
+  const d = structuredClone(data);
+  const at = d.waves.composition.find((w) => w.wave === wave);
+  if (at) at.entries = entries;
+  return d;
 }
 
 function run(ctx: SimContext, state: MatchState, ticks: number): void {
@@ -89,7 +117,7 @@ describe('a crowd at the wall (§4, §5.5)', () => {
     // along the whole face. This fails when a monster closes on the fortress's
     // CENTRE instead of the nearest point of it - arriving at one end, it then
     // walks the length of the wall through everything already fighting there.
-    const { state, ctx } = undefended(18);
+    const { state, ctx } = undefended(CROWD_WAVE, CROWD);
     const lane = state.lanes.l1!;
     run(ctx, state, 700);
 
@@ -106,7 +134,7 @@ describe('a crowd at the wall (§4, §5.5)', () => {
     // Body-ticks rather than a head count at the end, because a head count is
     // a photograph - somebody is always still walking in, and which instant
     // you look at decides the answer. This is the whole run.
-    const { state, ctx } = undefended(20);
+    const { state, ctx } = undefended(CROWD_WAVE, CROWD);
     const lane = state.lanes.l1!;
 
     let atWall = 0;
@@ -130,7 +158,7 @@ describe('a crowd at the wall (§4, §5.5)', () => {
     // or going somewhere. What a player reported - and what this measures - is
     // the third: shuffling back and forth behind the body in front for the
     // rest of the wave, walking the whole time and arriving nowhere.
-    const { state, ctx } = undefended(20);
+    const { state, ctx } = undefended(CROWD_WAVE, CROWD);
     const lane = state.lanes.l1!;
     run(ctx, state, 700);
 
