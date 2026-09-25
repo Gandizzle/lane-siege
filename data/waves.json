@@ -244,7 +244,7 @@
       "entries": [
         { "monsterId": "revenant", "count": 4 },
         { "monsterId": "warden", "count": 10 },
-        { "monsterId": "mote", "count": 16 }
+        { "monsterId": "mote", "count": 14 }
       ]
     },
     {
@@ -315,7 +315,7 @@
       "wave": 19,
       "armyGold": 9500,
       "entries": [
-        { "monsterId": "carapace", "count": 12 },
+        { "monsterId": "carapace", "count": 13 },
         { "monsterId": "husk", "count": 14 },
         { "monsterId": "warden", "count": 4 }
       ]
@@ -325,8 +325,8 @@
       "armyGold": 11000,
       "entries": [
         { "monsterId": "bloater", "count": 3 },
-        { "monsterId": "revenant", "count": 3 },
-        { "monsterId": "carapace", "count": 2 },
+        { "monsterId": "revenant", "count": 4 },
+        { "monsterId": "carapace", "count": 3 },
         { "monsterId": "mender", "count": 4 },
         { "monsterId": "mite", "count": 12 }
       ]
