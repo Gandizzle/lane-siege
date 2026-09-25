@@ -278,9 +278,9 @@
       "armyGold": 4500,
       "entries": [
         { "monsterId": "mender", "count": 4 },
-        { "monsterId": "revenant", "count": 2 },
+        { "monsterId": "revenant", "count": 1 },
         { "monsterId": "carapace", "count": 1 },
-        { "monsterId": "mite", "count": 16 },
+        { "monsterId": "mite", "count": 18 },
         { "monsterId": "bloater", "count": 1 }
       ]
     },

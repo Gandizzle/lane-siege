@@ -493,13 +493,13 @@ class Player {
       const buys = this.shopping(units).buys;
       const gold = this.lane.economy.gold;
 
-      type Option = { gain: number; margin: number; act: () => boolean };
+      type Option = { gain: number; margin: number; act: () => boolean | number };
       let best: Option | null = null;
       const consider = (
         next: Buy[],
         price: number,
         supply: number,
-        act: () => boolean,
+        act: () => boolean | number,
         tech?: Record<string, number>,
       ): void => {
         const cost = price + this.roomCost(supply);
@@ -509,30 +509,50 @@ class Player {
         if (!best || gain > best.gain) best = { gain, margin, act };
       };
 
-      // A new Mark I body of each line.
+      // Bought in steps of about a sixth of the gold in hand rather than one
+      // body at a time. Every candidate is judged by playing the coming wave,
+      // and at a late-game income one at a time is seven hundred simulations a
+      // build phase. Early on a sixth of the gold is less than any body, so
+      // the first waves are still bought one purchase at a time.
+      const step = gold / 6;
+      const lots = (price: number, most: number): number =>
+        Math.max(1, Math.min(most, Math.floor(step / Math.max(1, price))));
+
+      // New Mark I bodies of each line.
       if (units.length < tiles) {
         for (const [, chain] of this.chains) {
           const def = chain[0]!;
+          const n = lots(num(def.goldCost), tiles - units.length);
           consider(
-            [...buys, { rung: def.rung, mark: 1 }],
-            num(def.goldCost),
-            num(def.supplyCost),
-            () => this.place(def),
+            [...buys, ...Array.from({ length: n }, () => ({ rung: def.rung, mark: 1 }))],
+            num(def.goldCost) * n,
+            num(def.supplyCost) * n,
+            () => this.repeat(n, () => this.place(def)),
           );
         }
       }
-      // One more mark on a body already standing, one candidate per kind.
-      const seen = new Set<string>();
+      // One more mark on bodies already standing, one candidate per kind.
+      const kinds = new Map<string, number[]>();
       units.forEach((unit, i) => {
-        const def = this.defs.get(unit.defId)!;
-        if (!def.upgradesTo || seen.has(def.id)) return;
-        seen.add(def.id);
-        const next = this.defs.get(def.upgradesTo)!;
-        const after = buys.map((b, j) => (j === i ? { rung: b.rung, mark: b.mark + 1 } : b));
-        consider(after, num(next.goldCost), num(next.supplyCost), () =>
-          this.upgrade(unit, num(next.supplyCost)),
-        );
+        if (!this.defs.get(unit.defId)!.upgradesTo) return;
+        kinds.set(unit.defId, [...(kinds.get(unit.defId) ?? []), i]);
       });
+      for (const [defId, indices] of kinds) {
+        const next = this.defs.get(this.defs.get(defId)!.upgradesTo!)!;
+        const chosen = indices.slice(0, lots(num(next.goldCost), indices.length));
+        const after = buys.map((b, j) =>
+          chosen.includes(j) ? { rung: b.rung, mark: b.mark + 1 } : b,
+        );
+        consider(
+          after,
+          num(next.goldCost) * chosen.length,
+          num(next.supplyCost) * chosen.length,
+          () =>
+            this.repeat(chosen.length, (k) =>
+              this.upgrade(units[chosen[k]!]!, num(next.supplyCost)),
+            ),
+        );
+      }
       // The next level of a tech track: health and attack speed for everyone,
       // damage for the types this army actually deals.
       if (units.length > 0) {
@@ -547,12 +567,15 @@ class Player {
         }
       }
 
-      const chosen = best as Option | null;
+      const pick = best as Option | null;
       // Nothing is worth buying: bank it. A comfortable army with gold in hand
       // is a plan with slack, and the report shows it as exactly that.
-      if (!chosen || chosen.gain <= 0) break;
-      if (!chosen.act()) break;
-      current = chosen.margin;
+      if (!pick || pick.gain <= 0) break;
+      const bought = pick.act();
+      if (bought === false || bought === 0) break;
+      // A lot that could only be partly bought is a different army from the
+      // one that was judged, so judge the one that is standing.
+      current = bought === true ? pick.margin : this.margin(this.shopping(this.army()).buys, wave);
     }
 
     this.rehome();
@@ -579,6 +602,15 @@ class Player {
       }
     }
     return false;
+  }
+
+  /**
+   * Do `act` up to `n` times, stopping at the first refusal. True when all of
+   * them went through, otherwise how many did.
+   */
+  private repeat(n: number, act: (k: number) => boolean): true | number {
+    for (let k = 0; k < n; k++) if (!act(k)) return k;
+    return true;
   }
 
   private buyTech(trackId: string): boolean {
