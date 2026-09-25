@@ -262,8 +262,11 @@ describe('what a wave is tuned for', () => {
     // Still never more than that player has, or nobody has room. (Not before
     // wave 11: until it pays back, an economy leaves LESS for the army than
     // none, which is the test above.)
+    // The last wave is the exception, on purpose: a council of bosses that a
+    // steady economy is NOT meant to beat. It is the check that a player built
+    // an army at or near the supply cap, and a medium economy does not.
     const rows = computeBudget(data).waves;
-    for (let wave = 11; wave <= 25; wave++) {
+    for (let wave = 11; wave < data.waves.showdown.afterWave; wave++) {
       const before = rows[wave - 2];
       const has =
         (before ? before.cumulativeIncome - before.cumulativeGemLadder : 250) -
