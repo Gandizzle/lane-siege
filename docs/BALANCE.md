@@ -1,11 +1,14 @@
 # Balance: the budget, the ladders, and how we will know
 
 **Status: phases 1 and 3 both open. The economy and the price ladders are in,
-the round robin runs, and every builder wins between 47% and 55% of its duels.
+the round robin runs, and every builder wins between 47% and 53% of its duels.
 All twenty-five waves are tuned against an army-gold ladder and against whole
-runs on five economy plans, and gem output costs 3 more gold a level. The open
-question is the late-game builder gap: Thornweald and Gloomtide win the late
-game under every plan with an economy, Pyre and Ironvow mostly do not.**
+runs on five economy plans, and gem output costs 3 more gold a level. The game
+has since been played to break it (§4b): sends are priced by wave, the
+regeneration aura no longer heals for free, and the arena is walked at 2.5×
+so that no single shape of army wins it. The open question is still the
+late-game builder gap: Thornweald and Gloomtide win the late game more often
+than Pyre and Ironvow.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
@@ -946,6 +949,22 @@ each other, and none of them is the top rung. Faster than that, the side that
 walks the most bodies into the centre wins before anything can shoot it. The
 king-of-the-hill prize is what answers reach, and it stays at 50%: at half the
 prize and 2× walking, pure rung 6 was back to 88%.
+
+Across builders the walk moved little (`reports/showdown-07.txt`): 44% to 55%
+of duels, where 1× had 47% to 55%. It did cost Ironvow three points, and
+Ironvow was already the builder a new player would give up on — last or
+second-last in best margin at nominal gold on fifteen of the sixteen waves from
+10 to 25. Its Mark IIIs, which both the late waves and the arena are fought
+with, took the lever Thornweald's took before them: a 0.95 value weight, five
+percent more health and damage for the same price. Marks I and II are
+untouched; the early waves were already even.
+
+|        | Ironvow duels | all four builders | Ironvow clears at nominal, waves 16–25 |
+| ------ | ------------: | ----------------- | -------------------------------------- |
+| before |         44.2% | 44% – 55%         | 31, 27, 34, 30, 28, 17 of 40           |
+| after  |         47.5% | 47.5% – 53%       | 32, 29, 35, 32, 29, 20 of 40           |
+
+(`reports/showdown-08.txt`; the sweep at waves 16, 18, 20, 22, 24 and 25.)
 
 ## 5. The phases
 
