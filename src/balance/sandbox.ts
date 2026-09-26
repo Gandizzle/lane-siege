@@ -552,6 +552,9 @@ export function runWave(
   const waveHp =
     waveHitPoints(data, seed, wave) +
     (options.incoming ?? []).reduce((sum, send) => {
+      // A sent body is the size its send says (sends.json `_bodies`).
+      const fixed = defs.sends.get(send.sendId)?.hp;
+      if (fixed !== undefined) return sum + fixed;
       const def = defs.monsters.get(send.defId);
       return sum + (def ? resolveMonsterStats(data, def, wave).hp : 0);
     }, 0);
