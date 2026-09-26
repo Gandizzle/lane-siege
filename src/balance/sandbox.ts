@@ -36,7 +36,7 @@
  *     the run harness's question.
  */
 
-import type { GameData, UnitDef } from '../data/schema.ts';
+import type { AuraType, GameData, UnitDef } from '../data/schema.ts';
 import { buildableUnits, isMelee } from '../data/roster.ts';
 import {
   buildDefIndex,
@@ -79,6 +79,28 @@ export interface SandboxOptions {
    * army gold with no tech, and tech is one of the things the slack buys.
    */
   tech?: Readonly<Record<string, number>>;
+  /**
+   * Monsters other players have sent at this lane, which join the wave. None
+   * by default: the ladder is tuned against the wave alone.
+   */
+  incoming?: readonly { defId: string; sendId: string }[];
+  /**
+   * Where the army stands. `forward` (the default) is the sweep's: out of the
+   * wall's reach, with a leak taken off the board at the weapon's range. `wall`
+   * is the other thing a player can do - stand at the fortress, in its aura and
+   * under its gun - and there nothing is taken off the board: what reaches the
+   * wall hits it, and `fortressDamage` says how much.
+   */
+  stance?: 'forward' | 'wall';
+  /** The aura the fortress runs, for a `wall` stance. None by default. */
+  aura?: AuraType;
+  /**
+   * Measure at the wall whatever the stance: the fortress awake, nothing taken
+   * off the board, and what reaches the wall counted as `fortressDamage`. On
+   * by default for `wall`; on `forward` it is the fair comparison between the
+   * two, since the leak line is a stricter bar than the wall.
+   */
+  atWall?: boolean;
 }
 
 export interface WaveOutcome {
@@ -114,6 +136,8 @@ export interface WaveOutcome {
   unitsLost: number;
   seconds: number;
   timedOut: boolean;
+  /** Damage the fortress took. Always 0 standing forward, where nothing reaches it. */
+  fortressDamage: number;
 
   /**
    * What each body it bought cost, and what that bought.
@@ -428,7 +452,12 @@ interface Placed {
  * front line that stands behind its guns is not a front line; within each group
  * the shortest reach goes first, so a 2-tile gun sits in front of a 5-tile one.
  */
-export function layOut(data: GameData, builderId: string, shopping: Shopping): Placed[] {
+export function layOut(
+  data: GameData,
+  builderId: string,
+  shopping: Shopping,
+  stance: 'forward' | 'wall' = 'forward',
+): Placed[] {
   const chains = lines(data, builderId);
   const bodies: UnitDef[] = [];
   for (const buy of shopping.buys) {
@@ -447,8 +476,18 @@ export function layOut(data: GameData, builderId: string, shopping: Shopping): P
     if (x >= 0 && x < width) columns.push(x);
   }
 
-  const rows = usableRows(data);
   const tiles: { tileX: number; tileY: number }[] = [];
+  if (stance === 'wall') {
+    // From the back row forward, reach first so the guns stand against the
+    // wall and the melee in front of them.
+    for (let tileY = data.lane.buildZone.depth - 1; tileY >= 0; tileY--) {
+      for (const tileX of columns) tiles.push({ tileX, tileY });
+    }
+    return [...reach.reverse(), ...melee.reverse()]
+      .slice(0, tiles.length)
+      .map((def, i) => ({ def, tileX: tiles[i]!.tileX, tileY: tiles[i]!.tileY }));
+  }
+  const rows = usableRows(data);
   for (let tileY = 0; tileY < rows; tileY++) {
     for (const tileX of columns) tiles.push({ tileX, tileY });
   }
@@ -486,12 +525,22 @@ export function runWave(
   const defs = buildDefIndex(data);
   const lane = state.lanes.lane!;
 
-  if (options.wakeTheFortress !== true) silence(lane);
+  const wall = options.atWall ?? options.stance === 'wall';
+  if (options.wakeTheFortress !== true && !wall) silence(lane);
+  if (wall) {
+    lane.fortress.activeAura = options.aura ?? null;
+    // Measured, not survived: a wall that fell would end the match mid-wave.
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    lane.fortress.hp = lane.fortress.maxHp;
+  }
 
-  const placed = layOut(data, builderId, shopping);
+  const placed = layOut(data, builderId, shopping, options.stance ?? 'forward');
   const energyMax = stat(data.abilities.energy.max);
   for (const p of placed) lane.units.push(createUnit(state, p.def, p.tileX, p.tileY, energyMax));
   Object.assign(lane.economy.tech, options.tech ?? {});
+  for (const send of options.incoming ?? []) {
+    lane.incomingSends.push({ defId: send.defId, fromTeamId: 'elsewhere', sendId: send.sendId });
+  }
   recomputeUnitBuffs(data, defs, lane);
   // By id, so a summon added mid-fight is never mistaken for a body that was
   // paid for, and so the ledger below can be built from the same list.
@@ -500,7 +549,12 @@ export function runWave(
   // The bodies the player PAID for, by id. A builder that summons adds units
   // to the lane mid-fight, and those are not what the gold bought.
   const paidFor = new Set(bought.keys());
-  const waveHp = waveHitPoints(data, seed, wave);
+  const waveHp =
+    waveHitPoints(data, seed, wave) +
+    (options.incoming ?? []).reduce((sum, send) => {
+      const def = defs.monsters.get(send.defId);
+      return sum + (def ? resolveMonsterStats(data, def, wave).hp : 0);
+    }, 0);
   const line = leakLine(data);
 
   // Hand the match the build phase that ends with this wave walking in. The
@@ -519,7 +573,7 @@ export function runWave(
     // Taken off the board the tick they cross, so the health written down is
     // the health they would have carried to the wall.
     for (const monster of lane.monsters) {
-      if (!monster.alive || monster.pos.y < line) continue;
+      if (wall || !monster.alive || monster.pos.y < line) continue;
       leaked++;
       leakedHp += Math.max(0, monster.hp);
       monster.hp = 0;
@@ -589,6 +643,7 @@ export function runWave(
     unitsLost: placed.length - living,
     seconds: ticks / TICKS_PER_SECOND,
     timedOut: ticks >= maxTicks,
+    fortressDamage: wall ? Number.MAX_SAFE_INTEGER - lane.fortress.hp : 0,
     lines: ledger,
   };
 }

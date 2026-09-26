@@ -39,7 +39,7 @@
  * table sends at whoever is richest.
  */
 
-import type { DamageType, GameData, UnitDef } from '../data/schema.ts';
+import type { AuraType, DamageType, GameData, UnitDef } from '../data/schema.ts';
 import { isMelee } from '../data/roster.ts';
 import {
   applyCommand,
@@ -175,6 +175,33 @@ export interface RunOptions {
   maxBuysPerPhase?: number;
   /** Called after every tick, for reading a run back when it disagrees with the sandbox. */
   trace?: (state: MatchState, lane: Lane) => void;
+  /**
+   * The table sends at you as much as you send at it: every send you make
+   * also lands in your own next wave. What a real table of economy players
+   * does on average, and what the default rival - which never sends - hides.
+   */
+  mirrorSends?: boolean;
+  /**
+   * The only lines (rungs) the player may buy. Everything otherwise, for a
+   * player who plays well; one rung, for a player who found one unit and
+   * spams it - which is how a real player looks for what is broken.
+   */
+  lines?: readonly number[];
+  /**
+   * Where the army stands: forward (the sweep's stance) or at the wall, in
+   * the fortress's aura and under its gun. At the wall a fight is judged by
+   * what reaches the fortress rather than by what crosses the leak line.
+   */
+  stance?: 'forward' | 'wall';
+  /** The aura to run at the wall. */
+  aura?: AuraType;
+  /**
+   * Send like the game's auto-send does: each send type at most once every
+   * half second (`BuildBar.ARMED_COOLDOWN_MS`), income sends only, cheapest
+   * per income first. Unlimited otherwise - which is not what a player's
+   * thumb can do, and at a late gem rate is twice what the button allows.
+   */
+  uiSendRate?: boolean;
 }
 
 const YOU = 'you';
@@ -323,15 +350,55 @@ class Player {
 
   /** Spend every gem on income, the moment there is enough for a send. */
   autoSend(): void {
+    if (this.options.uiSendRate) {
+      this.autoSendLikeTheButton();
+      return;
+    }
     const send = this.data.sends.sends.find((s) => s.id === this.sendId)!;
     while (this.lane.economy.gems >= num(send.gemCost)) {
-      const ok = this.apply({ kind: 'send', teamId: YOU, targetTeamId: RIVAL, sendId: send.id });
-      if (!ok) break;
+      if (!this.sendOne(send.id)) break;
     }
+  }
+
+  /** Cooldown ticks left per send type, for `uiSendRate`. */
+  private readonly armed = new Map<string, number>();
+
+  /**
+   * The three best income-per-gem sends armed, each firing at most once every
+   * half second - what a player holding auto-send on gets.
+   */
+  private autoSendLikeTheButton(): void {
+    const cooldown = Math.round(TICKS_PER_SECOND / 2);
+    const byIncome = [...this.data.sends.sends]
+      .sort(
+        (a, b) =>
+          num(b.incomeGranted) / Math.max(1, num(b.gemCost)) -
+          num(a.incomeGranted) / Math.max(1, num(a.gemCost)),
+      )
+      .slice(0, 3);
+    for (const send of byIncome) {
+      const left = (this.armed.get(send.id) ?? 0) - 1;
+      this.armed.set(send.id, left);
+      if (left > 0 || this.lane.economy.gems < num(send.gemCost)) continue;
+      if (this.sendOne(send.id)) this.armed.set(send.id, cooldown);
+    }
+  }
+
+  private sendOne(sendId: string): boolean {
+    const ok = this.apply({ kind: 'send', teamId: YOU, targetTeamId: RIVAL, sendId });
+    if (!ok) return false;
+    if (this.options.mirrorSends) {
+      const send = this.data.sends.sends.find((s) => s.id === sendId)!;
+      for (const defId of send.monsters) {
+        this.lane.incomingSends.push({ defId, fromTeamId: RIVAL, sendId });
+      }
+    }
+    return true;
   }
 
   buildPhase(wave: number): void {
     this.aimTheWall(wave);
+    if (this.options.aura) this.apply({ kind: 'setAura', teamId: YOU, aura: this.options.aura });
     const enough = this.plan.armyFirst;
     if (enough === undefined) {
       this.buyEconomy(wave);
@@ -507,11 +574,20 @@ class Player {
     tech: Readonly<Record<string, number>> = this.lane.economy.tech,
   ): number {
     if (buys.length === 0) return -4;
+    const wall = this.options.stance === 'wall';
     const out = runWave(this.data, this.builderId, { buys, gold: 0, supply: 0 }, wave, this.seed, {
       maxTicks: TICKS_PER_SECOND * 120,
       tech,
+      // What a player sees coming in the preview: the sends already queued.
+      incoming: this.lane.incomingSends,
+      ...(wall
+        ? { stance: 'wall' as const, ...(this.options.aura ? { aura: this.options.aura } : {}) }
+        : {}),
     });
-    return judge(out);
+    // At the wall nothing leaks; what reaches the fortress is the leak, and it
+    // weighs the same four times over, as a share of the fortress standing.
+    const hurt = wall ? out.fortressDamage / Math.max(1, this.lane.fortress.maxHp) : 0;
+    return judge(out) - LEAK_WEIGHT * hurt;
   }
 
   /**
@@ -556,7 +632,8 @@ class Player {
 
       // New Mark I bodies of each line.
       if (units.length < tiles) {
-        for (const [, chain] of this.chains) {
+        for (const [rung, chain] of this.chains) {
+          if (this.options.lines && !this.options.lines.includes(rung)) continue;
           const def = chain[0]!;
           const n = lots(num(def.goldCost), tiles - units.length);
           consider(
@@ -670,7 +747,12 @@ class Player {
    */
   private rehome(): void {
     const units = this.army();
-    const placed = layOut(this.data, this.builderId, this.shopping(units));
+    const placed = layOut(
+      this.data,
+      this.builderId,
+      this.shopping(units),
+      this.options.stance ?? 'forward',
+    );
     const free = new Map<string, { tileX: number; tileY: number }[]>();
     for (const p of placed) {
       const list = free.get(p.def.id) ?? [];

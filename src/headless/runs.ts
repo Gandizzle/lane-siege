@@ -10,11 +10,13 @@
  *
  *   npm run runs
  *   npm run runs -- --waves 10 --plans army,smart --builders pyre
+ *   npm run runs -- --waves 25 --mirror      the table sends back
  */
 
 import os from 'node:os';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import type { AuraType } from '../data/schema.ts';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { ECONOMY_PLANS, playRun, type RunResult } from '../balance/run.ts';
 
@@ -32,29 +34,59 @@ function listFlag(name: string): string[] | undefined {
 }
 
 const waves = Number(flag('waves') ?? 10);
+// `--mirror`: the table sends at you as much as you send (run.ts `mirrorSends`).
+const mirrorSends = process.argv.includes('--mirror');
+// `--wall` stands at the fortress, `--aura <type>` runs that aura there, and
+// `--ui-sends` sends at the auto-send button's rate.
+const stance: 'forward' | 'wall' = process.argv.includes('--wall') ? 'wall' : 'forward';
+const aura = flag('aura') as AuraType | undefined;
+const uiSendRate = process.argv.includes('--ui-sends');
+const setting = [
+  mirrorSends ? 'sends mirrored' : '',
+  stance === 'wall' ? `at the wall${aura ? ` (${aura})` : ''}` : '',
+  uiSendRate ? 'button-rate sends' : '',
+]
+  .filter(Boolean)
+  .map((s) => `, ${s}`)
+  .join('');
 const seed = Number(flag('seed') ?? 1);
 const builders =
   listFlag('builders') ?? data.units.builders.filter((b) => b.complete).map((b) => b.id);
 const plans = ECONOMY_PLANS.filter((p) =>
   (listFlag('plans') ?? ECONOMY_PLANS.map((q) => q.id)).includes(p.id),
 );
+// `--spam`: every builder's every line on its own, one plan each - the player
+// who found one unit and buys nothing else.
+const spam = process.argv.includes('--spam');
 const jobsList = builders.flatMap((builderId) =>
-  plans.map((plan) => ({ builderId, planId: plan.id })),
+  plans.flatMap((plan) =>
+    spam
+      ? [1, 2, 3, 4, 5, 6].map((rung) => ({ builderId, planId: plan.id, rung }))
+      : [{ builderId, planId: plan.id, rung: 0 }],
+  ),
 );
 
 const shard = flag('shard');
 if (shard) {
   const [i, n] = shard.split('/').map(Number) as [number, number];
   const mine = jobsList.filter((_, k) => k % n === i);
-  const out = mine.map((job) =>
-    playRun(
+  const out = mine.map((job) => {
+    const run = playRun(
       data,
       job.builderId,
       plans.find((p) => p.id === job.planId)!,
       waves,
-      { seed },
-    ),
-  );
+      {
+        seed,
+        mirrorSends,
+        stance,
+        uiSendRate,
+        ...(aura ? { aura } : {}),
+        ...(job.rung > 0 ? { lines: [job.rung] } : {}),
+      },
+    );
+    return job.rung > 0 ? { ...run, planId: `${run.planId} r${job.rung}` } : run;
+  });
   process.stdout.write(JSON.stringify(out), () => process.exit(0));
 } else {
   await whole();
@@ -65,7 +97,7 @@ async function whole(): Promise<void> {
   const jobs = Math.max(1, Math.min(os.cpus().length, jobsList.length));
   console.log(
     `\n${jobsList.length} runs: ${builders.length} builders x ${plans.length} plans, ` +
-      `waves 1-${waves}, seed ${seed}, on ${jobs} processes.\n`,
+      `waves 1-${waves}, seed ${seed}${setting}, on ${jobs} processes.\n`,
   );
   const results = (await shardRuns(jobs)).sort(
     (a, b) =>
@@ -126,7 +158,7 @@ function rule(title: string): void {
 function summary(results: RunResult[]): void {
   rule("WHERE EACH RUN ENDED - the design's line is output 20 and rate 2 by wave 10");
   console.log(
-    `  ${'builder'.padEnd(12)}${'plan'.padEnd(8)}${'reached'.padStart(8)}${'lowest'.padStart(8)}` +
+    `  ${'builder'.padEnd(12)}${'plan'.padEnd(11)}${'reached'.padStart(8)}${'lowest'.padStart(8)}` +
       `${'output'.padStart(8)}${'rate'.padStart(6)}${'gem/s'.padStart(7)}${'income'.padStart(8)}` +
       `${'army$'.padStart(8)}${'eco$'.padStart(7)}${'tech$'.padStart(7)}${'banked'.padStart(8)}`,
   );
@@ -138,7 +170,7 @@ function summary(results: RunResult[]): void {
     const ten = r.waves.find((w) => w.wave === 10);
     const over = ten && r.reached >= 10 && ten.output >= 20 && ten.rate >= 2;
     console.log(
-      `  ${r.builderId.padEnd(12)}${r.planId.padEnd(8)}` +
+      `  ${r.builderId.padEnd(12)}${r.planId.padEnd(11)}` +
         `${(r.survived ? `${r.reached}` : `died ${last?.wave ?? '?'}`).padStart(8)}` +
         `${`${Math.round(lowest * 100)}%`.padStart(8)}` +
         `${String(last?.output ?? 0).padStart(8)}${String(last?.rate ?? 0).padStart(6)}` +
