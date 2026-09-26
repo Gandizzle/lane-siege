@@ -140,6 +140,38 @@ describe('sends (§11.5)', () => {
     ).toBe('insufficient-gems');
   });
 
+  it('holds each send to its own cooldown, whoever presses it (sends.json)', () => {
+    const { state, ctx } = fourPlayerMatch();
+    fund(state, 'a', 5000);
+    const grub = data.sends.sends.find((s) => s.id === 'grub')!;
+    const send = (sendId: string, targetTeamId = 'b') =>
+      applyCommand(ctx, state, { kind: 'send', teamId: 'a', targetTeamId, sendId });
+
+    expect(send('grub').ok).toBe(true);
+    // Straight away again: refused, at the same target or another, and
+    // nothing is charged for being refused.
+    const gems = state.lanes.a!.economy.gems;
+    expect(send('grub').rejection).toBe('on-cooldown');
+    expect(send('grub', 'c').rejection).toBe('on-cooldown');
+    expect(state.lanes.a!.economy.gems).toBe(gems);
+    // A different send has its own clock, and so does a different player.
+    expect(send('swarmling').ok).toBe(true);
+    fund(state, 'c', 5000);
+    expect(
+      applyCommand(ctx, state, { kind: 'send', teamId: 'c', targetTeamId: 'b', sendId: 'grub' }).ok,
+    ).toBe(true);
+
+    // The player sees the clock running down (view.ts), and it runs out on
+    // exactly the tick the cooldown says.
+    const ticks = grub.cooldownSeconds * 20;
+    expect(viewFor(ctx, state, 'a').lane!.economy!.sendCooldowns.grub).toBe(ticks);
+    for (let t = 0; t < ticks - 1; t++) step(ctx, state);
+    expect(send('grub').rejection).toBe('on-cooldown');
+    step(ctx, state);
+    expect(viewFor(ctx, state, 'a').lane!.economy!.sendCooldowns.grub).toBeUndefined();
+    expect(send('grub').ok).toBe(true);
+  });
+
   it('can be bought mid-combat, and still lands on the NEXT wave', () => {
     // A send aims at the target's next wave whenever it is bought, so the
     // build-phase restriction only ever decided when the player was allowed to

@@ -8,7 +8,7 @@ import {
   sendBounty,
   sendPrice,
 } from './waves.ts';
-import { createContext, createMatch, step } from './index.ts';
+import { createContext, createMatch, createMonster, step } from './index.ts';
 
 const { data } = loadDataFromDisk();
 
@@ -260,11 +260,9 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
 
   it('prices a sent monster against the gems its sender spent, not the pool', () => {
     const per10 = data.economy.sendBountyPerTenGems ?? 0;
-    for (const wave of [1, 12]) {
-      for (const send of data.sends.sends) {
-        const paid = sendPrice(data, send.id, wave).gems;
-        expect(sendBounty(data, send.id, wave), send.id).toBeCloseTo((paid * per10) / 10, 6);
-      }
+    for (const send of data.sends.sends) {
+      const paid = sendPrice(data, send.id).gems;
+      expect(sendBounty(data, send.id), send.id).toBeCloseTo((paid * per10) / 10, 6);
     }
     // A dearer send hands its target more gold: that is the trade.
     const cheapest = data.sends.sends.reduce((a, b) =>
@@ -273,25 +271,49 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
     const dearest = data.sends.sends.reduce((a, b) =>
       (a.gemCost ?? 0) >= (b.gemCost ?? 0) ? a : b,
     );
-    expect(sendBounty(data, dearest.id, 1)).toBeGreaterThan(sendBounty(data, cheapest.id, 1));
-    expect(sendBounty(data, 'no-such-send', 1)).toBe(0);
+    expect(sendBounty(data, dearest.id)).toBeGreaterThan(sendBounty(data, cheapest.id));
+    expect(sendBounty(data, 'no-such-send')).toBe(0);
   });
 
-  it('prices a send for the wave it lands in, and leaves income per gem alone', () => {
-    const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
+  it('prices a send as written, in tens, whatever the wave', () => {
     for (const send of data.sends.sends) {
-      // Wave 1 is the price as written.
-      expect(sendPrice(data, send.id, 1).gems, send.id).toBe(send.gemCost);
-      expect(sendPrice(data, send.id, 1).income, send.id).toBe(send.incomeGranted);
-      const perGem = (send.incomeGranted ?? 0) / (send.gemCost ?? 1);
-      for (const wave of [5, 12, 20]) {
-        const price = sendPrice(data, send.id, wave);
-        // It grows with the bodies it delivers...
-        const growth = resolveMonsterStats(data, grub, wave).hp / grub.hp!;
-        expect(price.gems, `${send.id} at ${wave}`).toBe(Math.round((send.gemCost ?? 0) * growth));
-        // ...and the economy does not notice.
-        expect(price.income / price.gems).toBeCloseTo(perGem, 9);
+      const price = sendPrice(data, send.id);
+      expect(price.gems, send.id).toBe(send.gemCost);
+      expect(price.gems % 10, send.id).toBe(0);
+      expect(price.income, send.id).toBe(send.incomeGranted);
+    }
+    expect(sendPrice(data, 'no-such-send')).toEqual({ gems: 0, income: 0 });
+  });
+
+  it('delivers a body the same size at every wave, as its send says', () => {
+    // The price does not grow, so neither does what it buys (sends.json
+    // `_bodies`). A monster walking in with the wave still grows.
+    const ctx = createContext(data);
+    for (const wave of [1, 12, 22]) {
+      const state = createMatch(data, { seed: 1, teams: [{ id: 'a', playerIds: ['a'] }] });
+      for (const send of data.sends.sends) {
+        const monster = createMonster(
+          state,
+          data,
+          ctx.defs,
+          { defId: send.monsters[0]!, waveNumber: wave, sendId: send.id },
+          { x: 1, y: -1 },
+        )!;
+        expect(monster.maxHp, `${send.id} at ${wave}`).toBe(send.hp);
+        expect(monster.damage, `${send.id} at ${wave}`).toBe(send.damage);
       }
+      const walkedIn = createMonster(
+        state,
+        data,
+        ctx.defs,
+        { defId: 'grub', waveNumber: wave },
+        {
+          x: 1,
+          y: -1,
+        },
+      )!;
+      const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
+      expect(walkedIn.maxHp).toBe(resolveMonsterStats(data, grub, wave).hp);
     }
   });
 });
@@ -303,23 +325,47 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
  * budget a fiction.
  */
 describe('the send ladder', () => {
-  it('makes the cheapest send the best rate and nothing else as good', () => {
-    const rates = data.sends.sends
-      .filter((s) => (s.incomeGranted ?? 0) > 0)
-      .map((s) => ({
-        id: s.id,
-        gems: s.gemCost ?? 0,
-        rate: (s.gemCost ?? 0) / (s.incomeGranted ?? 1),
-      }))
-      .sort((a, b) => a.gems - b.gems);
+  const rate = (s: (typeof data.sends.sends)[number]) =>
+    (s.incomeGranted ?? 0) / Math.max(1, s.gemCost ?? 0);
 
-    expect(rates.length).toBeGreaterThan(1);
-    for (let i = 1; i < rates.length; i++) {
-      // Strictly worse per income as it gets dearer: what you pay extra for is
-      // the body and the ability, never a better rate.
-      expect(rates[i]!.rate, `${rates[i]!.id} vs ${rates[i - 1]!.id}`).toBeGreaterThan(
-        rates[i - 1]!.rate,
-      );
+  it('runs fifteen sends from 10 gems to 500, every price a multiple of ten', () => {
+    const costs = data.sends.sends.map((s) => s.gemCost ?? 0);
+    expect(costs).toHaveLength(15);
+    expect(Math.min(...costs)).toBe(10);
+    expect(Math.max(...costs)).toBe(500);
+    expect(data.sends.sends.find((s) => s.gemCost === 10)!.id).toBe('swarmling');
+    for (const cost of costs) expect(cost % 10).toBe(0);
+  });
+
+  it('pays the best rate on three economy sends and less on every other', () => {
+    const economic = data.sends.sends.filter((s) => s.economic === true);
+    expect(economic.map((s) => s.id).sort()).toEqual(['grub', 'husk', 'swarmling']);
+    const best = rate(economic[0]!);
+    for (const send of economic) expect(rate(send), send.id).toBeCloseTo(best, 9);
+    for (const send of data.sends.sends.filter((s) => s.economic !== true)) {
+      // What you pay extra for is the body and the ability, never the rate.
+      expect(rate(send), send.id).toBeLessThan(best);
+    }
+  });
+
+  it('buys more body a gem the dearer the attack', () => {
+    const attacks = data.sends.sends
+      .filter((s) => s.economic !== true)
+      .sort((a, b) => (a.gemCost ?? 0) - (b.gemCost ?? 0));
+    const perGem = (s: (typeof attacks)[number]) => (s.hp ?? 0) / (s.gemCost ?? 1);
+    const cheapest = attacks[0]!;
+    const dearest = attacks[attacks.length - 1]!;
+    expect(perGem(dearest)).toBeGreaterThan(perGem(cheapest));
+    // And an attack buys more body a gem than an economy send does.
+    for (const eco of data.sends.sends.filter((s) => s.economic === true)) {
+      expect(perGem(cheapest), `${cheapest.id} vs ${eco.id}`).toBeGreaterThan(perGem(eco));
+    }
+  });
+
+  it('holds every send to a cooldown of one to ten seconds', () => {
+    for (const send of data.sends.sends) {
+      expect(send.cooldownSeconds, send.id).toBeGreaterThanOrEqual(1);
+      expect(send.cooldownSeconds, send.id).toBeLessThanOrEqual(10);
     }
   });
 });

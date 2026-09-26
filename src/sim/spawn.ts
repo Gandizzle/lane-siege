@@ -201,6 +201,11 @@ export function createMonster(
   if (!def) return null;
 
   const stats = resolveMonsterStats(data, def, spec.waveNumber);
+  // A sent body is the size its send says, at every wave (sends.json
+  // `_bodies`): the price does not grow, so neither does what it buys.
+  const send = spec.sendId ? defs.sends.get(spec.sendId) : undefined;
+  if (send?.hp !== undefined) stats.hp = send.hp;
+  if (send?.damage !== undefined) stats.damage = send.damage;
 
   return {
     id: nextId(state),

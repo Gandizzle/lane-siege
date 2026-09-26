@@ -436,6 +436,13 @@ export interface Lane {
    */
   sendLog: { sendId: string; fromTeamId: TeamId }[];
   /**
+   * Ticks before this lane may buy each send again, by send id. Absent or zero
+   * is ready. Set by a send and counted down every tick (tick.ts), whatever
+   * the phase, so a cooldown that started in combat is still running at the
+   * start of the build phase.
+   */
+  sendCooldowns: Record<string, number>;
+  /**
    * Blows landed on THIS tick, cleared at the top of the next one. Written by
    * the combat stages and read by nothing in the simulation - see `Attack`.
    */

@@ -515,23 +515,69 @@ describe('a real roster applies its real abilities', () => {
     toCombat(ctx, state);
 
     const lane = state.lanes.lane1!;
-    lane.incomingSends.push({ defId: 'husk', fromTeamId: 'lane1', sendId: 'husk' });
+    lane.incomingSends.push({ defId: 'carapace', fromTeamId: 'lane1', sendId: 'carapace' });
 
     let arrived = false;
     let braced = false;
     for (let t = 0; t < 4000 && !braced; t++) {
       step(ctx, state);
       for (const monster of lane.monsters) {
-        if (monster.sendId !== 'husk') continue;
+        if (monster.sendId !== 'carapace') continue;
         arrived = true;
-        // A husk that walked in with a wave has nothing. This one was paid
-        // for, so it arrives braced - and the ability is the SEND's, not a
-        // second husk definition's.
+        // A carapace that walks in with a wave has its shell and nothing else.
+        // This one was paid for, so it arrives braced as well - and the
+        // ability is the SEND's, not a second carapace definition's.
         if (monster.statuses.some((s) => s.abilityId === 'siegework')) braced = true;
       }
     }
-    expect(arrived, 'the paid husk reached the lane').toBe(true);
+    expect(arrived, 'the paid carapace reached the lane').toBe(true);
     expect(braced, 'and arrived braced').toBe(true);
+  });
+});
+
+describe('send auras never stack (sends.json `_auras`)', () => {
+  it('gives a body inside two of one aura that aura once, and each aura its own stat', () => {
+    const { state, ctx } = match('ironvow');
+    toCombat(ctx, state);
+    const lane = state.lanes.lane1!;
+    lane.monsters.length = 0;
+    const spawn = (defId: string, sendId: string | undefined, x: number) => {
+      const monster = createMonster(
+        state,
+        data,
+        ctx.defs,
+        { defId, waveNumber: state.wave, ...(sendId ? { sendId } : {}) },
+        { x, y: -1.5 },
+      )!;
+      lane.monsters.push(monster);
+      return monster;
+    };
+    // Two of every aura send, and one plain grub in the middle of them all.
+    const grub = spawn('grub', undefined, 4);
+    for (const x of [3.6, 4.4]) {
+      spawn('warden', 'warden', x);
+      spawn('mender', 'mender', x);
+      spawn('herald', 'herald', x);
+      spawn('bastion', 'bastion', x);
+    }
+    step(ctx, state);
+
+    const count = (id: string) => grub.statuses.filter((s) => s.abilityId === id).length;
+    // One Bulwark, not two - and the same for each of the other three - but all
+    // four at once, because each is a different stat.
+    for (const aura of ['bulwark', 'war_cry', 'iron_will']) {
+      expect(count(aura), aura).toBeGreaterThan(0);
+    }
+    expect(count('bulwark')).toBe(1);
+    expect(count('iron_will')).toBe(1);
+    expect(count('rejuvenation')).toBe(1);
+    // War Cry is two effects, one status each, never two of either.
+    expect(count('war_cry')).toBe(2);
+
+    const mods = modifiersOf(grub);
+    expect(mods.damageTakenMul).toBeCloseTo(0.8, 6);
+    expect(mods.moveSpeedMul).toBeCloseTo(1.25, 6);
+    expect(mods.attackSpeedMul).toBeCloseTo(1.2, 6);
   });
 });
 

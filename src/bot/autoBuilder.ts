@@ -304,9 +304,10 @@ export class AutoBuilder {
    * The most expensive send it can afford, aimed at the healthiest opponent.
    *
    * Most expensive rather than cheapest because the catalogue is ordered by
-   * weight: spending 90 gems on the biggest thing available beats dribbling
-   * five probes at somebody, and it gives a practice match something to react
-   * to rather than a constant trickle.
+   * weight: spending the gems on the biggest thing available beats dribbling
+   * probes at somebody, and it gives a practice match something to react to
+   * rather than a constant trickle. One that is cooling down is skipped, so a
+   * build phase of gems walks down the ladder instead of waiting on the top.
    */
   private planSend(state: MatchState, gems: number): { command: Command; cost: number } | null {
     if (state.phase === 'showdown') return null;
@@ -325,9 +326,11 @@ export class AutoBuilder {
     }
     if (!leader) return null;
 
-    const price = (id: string) => sendPrice(this.data, id, state.wave + 1).gems;
+    const price = (id: string) => sendPrice(this.data, id).gems;
+    // A send still cooling down would only be refused (apply.ts).
+    const cooling = state.lanes[this.teamId]?.sendCooldowns ?? {};
     const affordable = this.data.sends.sends
-      .filter((send) => price(send.id) <= gems)
+      .filter((send) => price(send.id) <= gems && (cooling[send.id] ?? 0) <= 0)
       .sort((a, b) => price(b.id) - price(a.id));
 
     const choice = affordable[0];

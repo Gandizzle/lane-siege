@@ -131,6 +131,41 @@ function checkBuilderCoverage(data: GameData, errors: string[], notes: string[])
   }
 }
 
+/**
+ * §11.5, amended: the send ladder's three rules (sends.json).
+ *
+ *   - Every price a multiple of ten, from 10 to 500.
+ *   - Every cooldown one to ten seconds.
+ *   - The economy sends share the best income per gem, and every other send
+ *     pays strictly less - an attack send that also paid the top rate would be
+ *     an economy send with a free body.
+ */
+function checkSends(data: GameData, errors: string[]): void {
+  const rate = (send: (typeof data.sends.sends)[number]): number =>
+    (send.incomeGranted ?? 0) / Math.max(1, send.gemCost ?? 0);
+  const economic = data.sends.sends.filter((s) => s.economic === true);
+  const best = Math.max(0, ...economic.map(rate));
+
+  for (const send of data.sends.sends) {
+    const cost = send.gemCost ?? 0;
+    if (cost < 10 || cost > 500 || cost % 10 !== 0) {
+      errors.push(`send '${send.id}' costs ${cost} gems: a send is 10 to 500, in tens`);
+    }
+    if (!(send.cooldownSeconds >= 1 && send.cooldownSeconds <= 10)) {
+      errors.push(`send '${send.id}' cools down for ${send.cooldownSeconds}s: 1 to 10`);
+    }
+    const r = rate(send);
+    if (send.economic === true && Math.abs(r - best) > 1e-9) {
+      errors.push(
+        `economy send '${send.id}' pays ${r.toFixed(3)} a gem, not the best rate ${best}`,
+      );
+    }
+    if (send.economic !== true && r >= best) {
+      errors.push(`send '${send.id}' pays the economy rate without being an economy send`);
+    }
+  }
+}
+
 /** Every monster named in a wave must actually exist (§9.2). */
 function checkWaveReferences(data: GameData, errors: string[]): void {
   const known = new Set([
@@ -541,6 +576,7 @@ export function validateData(raw: Record<string, unknown>): {
   checkMatrix(data, errors);
   checkBuilderCoverage(data, errors, notes);
   checkWaveReferences(data, errors);
+  checkSends(data, errors);
   checkUpgradeChain(data, errors);
   checkShapes(data, errors);
   checkAbilities(data, errors, notes);

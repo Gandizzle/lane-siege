@@ -217,6 +217,18 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
     ]),
   ],
 
+  // A loaf: a high dome over a flat, soft-cornered base. The heavy one that is
+  // still flesh - round on top, where an octagon would be angular all round.
+  loaf: () => [
+    poly(
+      [
+        ...arc(0, 0.05, 1, rad(180), rad(360), 22).map((v, i) => (i % 2 === 1 ? v * 0.85 : v)),
+        ...arc(0.78, 0.36, 0.22, rad(0), rad(90), 6),
+        ...arc(-0.78, 0.36, 0.22, rad(90), rad(180), 6),
+      ].map((v) => v * 0.92),
+    ),
+  ],
+
   // ---- Plate: angular. Straight edges, corners.
   hexagon: () => [poly(regular(6))],
   pentagon: () => [poly(regular(5))],
@@ -240,6 +252,8 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
       ].map((v) => v * 0.82),
     ),
   ],
+  // Eight flat sides: a tower seen from above.
+  octagon: () => [poly(regular(8, UP + Math.PI / 8))],
 
   // ---- Ward: pointed. Tips, stars, symmetry.
   diamond: () => [poly([0, -1, 1, 0, 0, 1, -1, 0])],
@@ -268,6 +282,11 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
         (v) => v * 0.88,
       ),
     ),
+  ],
+
+  // A swallow-tailed flag on its pole: the one the pack follows.
+  pennant: () => [
+    poly([-0.62, -0.78, 0.78, -0.5, 0.2, -0.12, 0.78, 0.26, -0.48, 0.26, -0.48, 0.78, -0.62, 0.78]),
   ],
 
   // ---- Swarm: many small things.

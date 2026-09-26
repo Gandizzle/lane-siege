@@ -140,6 +140,7 @@ export type ShapeId =
   | 'pebble'
   | 'cloud'
   | 'spindle'
+  | 'loaf'
   // Plate: angular.
   | 'hexagon'
   | 'pentagon'
@@ -149,6 +150,7 @@ export type ShapeId =
   | 'wedge'
   | 'chevron'
   | 'keep'
+  | 'octagon'
   // Ward: pointed.
   | 'diamond'
   | 'kite'
@@ -160,6 +162,7 @@ export type ShapeId =
   | 'spear'
   | 'dart'
   | 'crown'
+  | 'pennant'
   // Swarm: many small things.
   | 'cluster3'
   | 'dots3'
@@ -186,6 +189,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
   pebble: 'flesh',
   cloud: 'flesh',
   spindle: 'flesh',
+  loaf: 'flesh',
   hexagon: 'plate',
   pentagon: 'plate',
   slab: 'plate',
@@ -194,6 +198,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
   wedge: 'plate',
   chevron: 'plate',
   keep: 'plate',
+  octagon: 'plate',
   diamond: 'ward',
   kite: 'ward',
   star4: 'ward',
@@ -204,6 +209,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
   spear: 'ward',
   dart: 'ward',
   crown: 'ward',
+  pennant: 'ward',
   cluster3: 'swarm',
   dots3: 'swarm',
   dots4: 'swarm',
@@ -558,9 +564,29 @@ export interface FortressFile {
 export interface SendDef {
   id: string;
   name: string;
+  /** Always a multiple of ten, and never climbs with the waves (sends.json). */
   gemCost: Unfilled<number>;
+  /**
+   * Seconds before this player can buy this send again, 1 to 10. Per player
+   * and per send, and held by the simulation rather than the button, so a tap,
+   * auto-send and a bot all wait the same time (apply.ts).
+   */
+  cooldownSeconds: number;
+  /**
+   * An economy send: it pays the best income per gem in the game. Every send
+   * that is not one pays less, because it is buying a body or an ability.
+   */
+  economic?: boolean;
   /** Monster ids added to the target's next wave. */
   monsters: string[];
+  /**
+   * The delivered body's health and damage, replacing the monster's own and
+   * NOT grown with the wave: a sent body is the same size whenever it lands
+   * (sends.json `_bodies`). Absent: the monster's own, grown with the wave
+   * like any other.
+   */
+  hp?: number;
+  damage?: number;
   /** Permanent gold per wave granted to the sender (§11.5). */
   incomeGranted: Unfilled<number>;
   grantsVision: boolean;

@@ -1040,24 +1040,41 @@ pack under a product name — "Swarm Probe", eighteen gems, six Swarmlings —
 which made every send a decision about a pack rather than about a monster, made
 the cheapest button the one that dropped the most bodies, and left the button
 saying its own name and then the monster's underneath it. Each send now
-delivers exactly one body and is CALLED that body: Swarmling, Grub, Husk,
-Revenant, Bloater. Cost and income were divided by the old pack sizes, so the
-gems and the gold per monster are unchanged. A send id therefore matches the
-monster id it delivers, which is the same word in two separate namespaces
+delivers exactly one body and is CALLED that body. A send id therefore matches
+the monster id it delivers, which is the same word in two separate namespaces
 (`defs.sends` and `defs.monsters`) and reads correctly in both.
 
-So a button is a name, a price, and **what that monster will do when it gets
-there** — "Husk / 15 gem → +4g/wave / Siegework" over a hexagon. The icon is
-the monster because a send _is_ that monster: the same shape, armour family and
-damage-type fill that §14.2 draws in the lane, in the wave preview and on a
-unit button. All five draw a different picture, and a test in
-`src/render/ui/sends.test.ts` keeps it that way.
+**Fifteen sends, 10 to 500 gems, five to a page.** The ladder is in
+`data/sends.json` and `validate.ts` holds it to its rules: every price a
+multiple of ten, every cooldown one to ten seconds, three economy sends at the
+best income per gem and every other send strictly below it. Five sends stand in
+the grid at a time, and the grid's sixth cell holds the page control — ◀, the
+page number, ▶ — because five sends leave that cell empty in both the
+three-by-two portrait grid and the two-by-three landscape one, so paging costs
+no height on a short phone. Every page stands in the same five places.
+
+So a button is a name, a price, and **what the send is for** — "Carapace /
+120gem → +7g/wave / Siegework" over a slab, or "economy" for the three that pay
+the best rate. The icon is the monster because a send _is_ that monster: the
+same shape, armour family and damage-type fill that §14.2 draws in the lane, in
+the wave preview and on a unit button. All fifteen draw a different picture,
+and a test in `src/render/ui/sends.test.ts` keeps it that way.
 
 The ability named is **the send's own where it has one, the monster's
-otherwise**. `husk` grants Siegework to a husk that has nothing of its own and
-that IS the purchase; `bloater` grants Volatile Cargo to a Bloater that already
-ruptures. Sight follows it on the same line, because the price line is the two
-numbers a send is weighed by and must never be the line that gets cut.
+otherwise**. `carapace` grants Siegework to a Carapace that already has its
+shell and that IS the purchase; `herald` grants nothing and the Herald's own
+War Cry is named. Sight follows it on the same line, because the price line is
+the two numbers a send is weighed by and must never be the line that gets cut.
+
+**Every send has a cooldown, and the simulation holds it.** One to ten seconds,
+per player and per send, in `lane.sendCooldowns`: `apply.ts` refuses a send
+still cooling (`on-cooldown`) and `tick.ts` counts every clock down each tick.
+The rule lives there and not on the button so that a tap, a held auto-send and
+a bot all wait the same time, and so that a client cannot skip it. The view and
+the wire carry your own clocks (`sendCooldowns`, `sc`), and the button draws
+what is left as a dark shade over the part still waiting, with a bright edge,
+sweeping off to the right as it runs out — a timer that is read at a glance and
+never has to be read as a number.
 
 **The grid fits its box, and the columns are chosen against it.** `grid` used
 to draw each button at least a touch target tall while spacing the rows at the
@@ -1078,11 +1095,14 @@ opponents each time, so it can never aim at somebody already out, and the
 command that leaves the client still names one concrete lane, which is what
 keeps the simulation deterministic (§15.1).
 
-**Press and hold a send for a second to arm it**, and it fires every 500ms for
-as long as the gems are there. The button fills a bar along its bottom edge
-while the hold counts, so the gesture explains itself; an armed send wears an
-accent ring and says `auto · every 0.5s`. It keeps firing while the player is
-on another tab, because that is the point of arming it. A send you cannot yet
+**Press and hold a send for a second to arm it**, and it fires every time its
+cooldown runs out for as long as the gems are there. The button fills a bar
+along its bottom edge while the hold counts, so the gesture explains itself; an
+armed send wears an accent ring and says `auto`. It keeps firing while the
+player is on another tab or another page, because that is the point of arming
+it. After firing it holds off for the send's own cooldown locally as well, so a
+send fired on this frame is not fired again before the view says it is
+cooling. A send you cannot yet
 afford is dimmed but still takes the hold — "fire this as soon as I can afford
 it" is exactly the case auto-send is for — which is why `GridButton` separates
 `enabled` (dimmed, taps do nothing) from `interactive` (takes events at all).

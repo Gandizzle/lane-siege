@@ -63,7 +63,7 @@ import { auraColour } from '../aura.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { DamagePanel } from './damagePanel.ts';
 import { GridButton } from './gridButton.ts';
-import { pickSendTarget, sendIcon } from './sends.ts';
+import { SENDS_PER_PAGE, pickSendTarget, sendIcon } from './sends.ts';
 import type { EntityStyle } from '../shapes.ts';
 import { centreOn, label, wrapped } from './text.ts';
 import { AbilityChips, type Chip } from './abilityChips.ts';
@@ -276,6 +276,19 @@ export class BuildBar extends Container {
   private readonly auraButtons: { id: AuraType; button: GridButton }[] = [];
 
   private readonly sendButtons: { sendId: string; button: GridButton }[] = [];
+  /** Which page of the send catalogue is showing, five sends a page. */
+  private sendPage = 0;
+  private readonly pagePrev: GridButton;
+  private readonly pageNext: GridButton;
+  private readonly pageLabel: Text;
+  /** Where the page number is centred, and whether it must be short, set by `setLayout`. */
+  private pageLabelAt = { x: 0, y: 0 };
+  private pageLabelShort = false;
+  /**
+   * Ticks left on each send's cooldown, from the last view: what a tap and
+   * auto-send check before firing, and what the shade on each button draws.
+   */
+  private sendCooldowns: Record<string, number> = {};
   private readonly targetButtons: GridButton[] = [];
   private readonly randomButton: GridButton;
   /**
@@ -297,13 +310,17 @@ export class BuildBar extends Container {
   /** Which team each target chip currently stands for, in chip order. */
   private targetIds: (string | null)[] = [null, null, null];
   /**
-   * Sends the player has armed, and the milliseconds left on each cooldown.
+   * Sends the player has armed, and how long to hold off after firing one.
    *
-   * Held here rather than in the simulation because it is a way of pressing
-   * the button, not a rule of the game: what leaves this class is the same
-   * `send` command a tap produces (§15.1). It keeps running while the player
-   * is on another tab - `render` is called every frame whichever panel is
-   * showing - because that is the whole point of arming it.
+   * Arming is held here rather than in the simulation because it is a way of
+   * pressing the button, not a rule of the game: what leaves this class is the
+   * same `send` command a tap produces (§15.1), and the simulation's cooldown
+   * holds it exactly as it holds a tap. The hold-off is the send's own
+   * cooldown, counted locally, so a send fired on this frame is not fired
+   * again before the view has caught up and says it is cooling. It keeps
+   * running while the player is on another tab or another page - `render` is
+   * called every frame whichever panel is showing - because that is the whole
+   * point of arming it.
    */
   private readonly armed = new Map<string, number>();
 
@@ -415,6 +432,11 @@ export class BuildBar extends Container {
       this.sendButtons.push({ sendId: send.id, button });
       this.panels.send.addChild(button);
     }
+    // Five a page, and the arrows either side of the page number turn them.
+    this.pagePrev = new GridButton(() => this.turnPage(-1));
+    this.pageNext = new GridButton(() => this.turnPage(1));
+    this.pageLabel = label('', 10, UI.textMuted, '700');
+    this.panels.send.addChild(this.pagePrev, this.pageNext, this.pageLabel);
 
     this.upgradeTitle = label('', 13, UI.text, '700');
     this.upgradeSubtitle = label('', 9, UI.textMuted);
@@ -457,6 +479,8 @@ export class BuildBar extends Container {
       ...this.auraButtons.map((a) => a.button),
       ...this.targetButtons,
       ...this.sendButtons.map((s) => s.button),
+      this.pagePrev,
+      this.pageNext,
       this.upgradeButton,
       this.sellButton,
     ];
@@ -475,23 +499,41 @@ export class BuildBar extends Container {
     this.setLayout(layout);
   }
 
-  /**
-   * How long an armed send waits between shots, in milliseconds.
-   *
-   * Half a second, as asked. Slow enough that a full purse does not empty in
-   * one frame, fast enough that arming it is genuinely less work than tapping.
-   */
-  private static readonly ARMED_COOLDOWN_MS = 500;
-
-  /** New match: nothing is armed and nobody is targeted. */
+  /** New match: nothing is armed, nobody is targeted, and the first page shows. */
   reset(): void {
     this.armed.clear();
     this.sendAtRandom = false;
     this.sendTarget = null;
+    this.sendPage = 0;
+    this.sendCooldowns = {};
   }
 
-  /** One send, now, at whoever is selected. Blinks so the tap is acknowledged. */
+  private get sendPages(): number {
+    return Math.max(1, Math.ceil(this.sendButtons.length / SENDS_PER_PAGE));
+  }
+
+  /** One page back or forward, stopping at either end. */
+  private turnPage(delta: number): void {
+    this.sendPage = Math.min(this.sendPages - 1, Math.max(0, this.sendPage + delta));
+  }
+
+  /** Whether the simulation would refuse this send for its cooldown. */
+  private cooling(sendId: string): boolean {
+    return (this.sendCooldowns[sendId] ?? 0) > 0;
+  }
+
+  /** The send's own cooldown, in milliseconds. */
+  private cooldownMs(sendId: string): number {
+    const def = this.data.sends.sends.find((s) => s.id === sendId);
+    return (def?.cooldownSeconds ?? 1) * 1000;
+  }
+
+  /**
+   * One send, now, at whoever is selected. Blinks so the tap is acknowledged.
+   * A send still cooling down does nothing: the shade on it says why.
+   */
   private sendOnce(sendId: string): void {
+    if (this.cooling(sendId)) return;
     const target = this.resolveTarget();
     if (!target) return;
     this.handlers.onSend(sendId, target);
@@ -501,8 +543,8 @@ export class BuildBar extends Container {
   /**
    * Arm or disarm a send (press and hold).
    *
-   * Armed with the cooldown already expired, so the first shot leaves on the
-   * next frame rather than half a second after the thumb comes off.
+   * Armed with no hold-off, so the first shot leaves on the next frame the
+   * send is ready rather than a whole cooldown after the thumb comes off.
    */
   private toggleArmed(sendId: string): void {
     if (this.armed.has(sendId)) this.armed.delete(sendId);
@@ -558,14 +600,17 @@ export class BuildBar extends Container {
       return;
     }
 
+    this.sendCooldowns = view.lane?.economy?.sendCooldowns ?? {};
     let purse = gems;
     for (const [sendId, left] of this.armed) {
       const next = Math.max(0, left - deltaMs);
       this.armed.set(sendId, next);
-      if (next > 0) continue;
+      // Two clocks, and both must be run out: the simulation's, which is the
+      // rule, and the local one, which only stops a send fired on this frame
+      // from being fired again before the view says it is cooling.
+      if (next > 0 || this.cooling(sendId)) continue;
 
-      // Priced for the wave it lands in (waves.ts `sendPrice`).
-      const cost = sendPrice(this.data, sendId, view.wave + 1).gems;
+      const cost = sendPrice(this.data, sendId).gems;
       if (purse < cost) continue;
       const target = this.resolveTarget();
       if (!target) continue;
@@ -573,7 +618,7 @@ export class BuildBar extends Container {
       purse -= cost;
       this.handlers.onSend(sendId, target);
       this.blink(sendId);
-      this.armed.set(sendId, BuildBar.ARMED_COOLDOWN_MS);
+      this.armed.set(sendId, this.cooldownMs(sendId));
     }
   }
 
@@ -646,21 +691,37 @@ export class BuildBar extends Container {
     const chipRows = Math.ceil(this.targetButtons.length / chipCols);
     const chipH = 38 * chipRows + 6 * (chipRows - 1);
     grid(this.targetButtons, chipCols, chipRows, 6, left, top, inner, chipH);
-    // Columns chosen against the box rather than fixed, so the last row is
-    // never drawn past the bottom of the bar (`columnsThatFit`).
+    // One page of sends under the chips, and the page control in the grid's
+    // SIXTH cell: five sends on a page leave one cell of a three-by-two or a
+    // two-by-three grid empty, and the control fits there without taking a row
+    // from a short portrait bar. Columns are chosen against the box rather than
+    // fixed, so the last row is never drawn past the bottom of the bar
+    // (`columnsThatFit`), and every page stands in the same five places, so
+    // turning it changes what the buttons say and nothing else.
     const sendTop = top + chipH + 6;
     const sendHeight = height - chipH - 6;
-    const sendCols = columnsThatFit(this.sendButtons.length, inner, sendHeight, MIN_SEND_WIDTH, 6);
-    grid(
-      this.sendButtons.map((s) => s.button),
-      sendCols,
-      Math.ceil(this.sendButtons.length / sendCols),
-      6,
-      left,
-      sendTop,
-      inner,
-      sendHeight,
-    );
+    const cells = SENDS_PER_PAGE + 1;
+    const sendCols = columnsThatFit(cells, inner, sendHeight, MIN_SEND_WIDTH, 6);
+    const sendRows = Math.ceil(cells / sendCols);
+    for (let first = 0; first < this.sendButtons.length; first += SENDS_PER_PAGE) {
+      grid(
+        this.sendButtons.slice(first, first + SENDS_PER_PAGE).map((s) => s.button),
+        sendCols,
+        sendRows,
+        6,
+        left,
+        sendTop,
+        inner,
+        sendHeight,
+      );
+    }
+    const nav = gridCell(SENDS_PER_PAGE, sendCols, sendRows, 6, left, sendTop, inner, sendHeight);
+    const arrowW = Math.min(44, nav.width / 3);
+    this.pagePrev.layout(nav.x, nav.y, arrowW, nav.height);
+    this.pageNext.layout(nav.x + nav.width - arrowW, nav.y, arrowW, nav.height);
+    this.pageLabelAt = { x: nav.x + nav.width / 2, y: nav.y + nav.height / 2 - 6 };
+    // "Page 2 of 3" where there is room between the arrows, "2/3" where not.
+    this.pageLabelShort = nav.width - 2 * arrowW < 72;
 
     this.damagePanel.layout(bar, top, height);
 
@@ -882,19 +943,30 @@ export class BuildBar extends Container {
 
     const gems = economy.gems;
     const aimed = this.resolveTarget() !== null;
-    for (const { sendId, button } of this.sendButtons) {
+    this.sendCooldowns = economy.sendCooldowns;
+    const perPage = SENDS_PER_PAGE;
+    this.sendPage = Math.min(this.sendPage, this.sendPages - 1);
+    this.sendButtons.forEach(({ sendId, button }, index) => {
+      // Only this page's five. The rest keep their places, and their armed
+      // state: a send armed on page one keeps firing while page three shows.
+      button.visible = Math.floor(index / perPage) === this.sendPage;
+      if (!button.visible) return;
       const def = this.data.sends.sends.find((s) => s.id === sendId);
-      if (!def) continue;
+      if (!def) return;
 
-      // What it costs now: a send is priced for the wave it lands in, so it
-      // climbs with the waves and so does what it grants (waves.ts).
-      const price = sendPrice(this.data, sendId, view.wave + 1);
+      // What it costs: the price as written, which never climbs (waves.ts).
+      const price = sendPrice(this.data, sendId);
       const cost = price.gems;
       const income = Number.isInteger(price.income)
         ? price.income
         : Number(price.income.toFixed(1));
       const icon = sendIcon(this.data, sendId);
       const armed = this.armed.has(sendId);
+      // How much of its cooldown is left, as a share of the whole: the shade
+      // over the button, and no number (gridButton.ts).
+      const ticksLeft = this.sendCooldowns[sendId] ?? 0;
+      const cooldown =
+        ticksLeft > 0 ? ticksToSeconds(ticksLeft) / Math.max(0.001, def.cooldownSeconds) : 0;
 
       // The monster's own silhouette, its own name, and what it will do when it
       // arrives: a send delivers one of that monster (§11.5), and the shape
@@ -908,20 +980,24 @@ export class BuildBar extends Container {
         // The price line is cost and income and nothing else, so it is never
         // the line that gets cut: they are the two numbers a send is weighed
         // by (§11.5).
-        detail: `${cost} gem → +${income}g/wave`,
-        // ONE NAME PER BUTTON. This line used to repeat the monster - "Swarm
-        // Probe" over "Swarmling" - which is the send's name said twice, since
-        // a send now delivers exactly one monster and is named after it
-        // (sends.json). What is worth the line is what that monster DOES, and
-        // then whether the gems also buy a look at the lane (§12). In that
-        // order, because a button too narrow for both loses its tail and the
-        // ability is the half that decides the purchase.
+        // Written tight - no space before "gem" - so a 500-gem send's line
+        // still fits a phone-width button whole.
+        detail: `${cost}gem → +${income}g/wave`,
+        // ONE NAME PER BUTTON. What is worth the line is what the send is FOR:
+        // the economy for the three that pay the best rate, and otherwise what
+        // the monster DOES and whether the gems also buy a look at the lane
+        // (§12). In that order, because a button too narrow for both loses its
+        // tail and the ability is the half that decides the purchase.
         note: armed
-          ? `auto · every ${(BuildBar.ARMED_COOLDOWN_MS / 1000).toFixed(1)}s`
-          : [icon?.abilityName ?? null, def.grantsVision ? 'sight' : null]
+          ? 'auto'
+          : [
+              def.economic === true ? 'economy' : (icon?.abilityName ?? null),
+              def.grantsVision ? 'sight' : null,
+            ]
               .filter((part) => part !== null)
               .join(' · '),
-        noteColour: armed ? UI.accent : UI.textMuted,
+        noteColour: armed || def.economic === true ? UI.accent : UI.textMuted,
+        cooldown,
         enabled: canAct && aimed && gems >= cost,
         // Dimmed when the gems are not there, but still able to take a HOLD:
         // arming a send you cannot yet afford is exactly the case auto-send is
@@ -930,7 +1006,23 @@ export class BuildBar extends Container {
         selected: armed,
         selectedColour: UI.accent,
       });
-    }
+    });
+
+    // The page row: the arrows dim at either end, and between them which page
+    // this is and how many there are.
+    const pages = this.sendPages;
+    this.pagePrev.update({ title: '◀', detail: '', centred: true, enabled: this.sendPage > 0 });
+    this.pageNext.update({
+      title: '▶',
+      detail: '',
+      centred: true,
+      enabled: this.sendPage < pages - 1,
+    });
+    const text = this.pageLabelShort
+      ? `${this.sendPage + 1}/${pages}`
+      : `Page ${this.sendPage + 1} of ${pages}`;
+    if (this.pageLabel.text !== text) this.pageLabel.text = text;
+    centreOn(this.pageLabel, this.pageLabelAt.x, this.pageLabelAt.y);
   }
 
   private renderUnits(
@@ -1400,6 +1492,27 @@ function glyphOf(def: UnitDef): EntityStyle {
  * column count with `columnsThatFit` so the clamp below is a floor of last
  * resort rather than something that happens.
  */
+/** Where cell `index` of a `grid` with these arguments is drawn. */
+function gridCell(
+  index: number,
+  cols: number,
+  rows: number,
+  gap: number,
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): { x: number; y: number; width: number; height: number } {
+  const w = (width - gap * (cols - 1)) / cols;
+  const h = Math.max(MIN_ROW_HEIGHT, (height - gap * (rows - 1)) / rows);
+  return {
+    x: left + (index % cols) * (w + gap),
+    y: top + Math.floor(index / cols) * (h + gap),
+    width: w,
+    height: h,
+  };
+}
+
 function grid(
   buttons: GridButton[],
   cols: number,
@@ -1411,11 +1524,8 @@ function grid(
   width: number,
   height: number,
 ): void {
-  const w = (width - gap * (cols - 1)) / cols;
-  const h = Math.max(MIN_ROW_HEIGHT, (height - gap * (rows - 1)) / rows);
   buttons.forEach((button, i) => {
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    button.layout(left + col * (w + gap), top + row * (h + gap), w, h);
+    const cell = gridCell(i, cols, rows, gap, left, top, width, height);
+    button.layout(cell.x, cell.y, cell.width, cell.height);
   });
 }

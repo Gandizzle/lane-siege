@@ -36,6 +36,13 @@ import { refId } from '../../data/schema.ts';
 import type { OpponentView } from '../../sim/index.ts';
 import type { EntityStyle } from '../shapes.ts';
 
+/**
+ * How many sends one page of the tab shows. Five, which with the page control
+ * fills a three-by-two grid on a phone held upright and a two-by-three one on
+ * a phone held sideways (buildBar.ts).
+ */
+export const SENDS_PER_PAGE = 5;
+
 /** Everything a send button draws about what it throws. */
 export interface SendIcon {
   /** The body, drawn by the same `drawEntity` the lane uses. */

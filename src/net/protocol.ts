@@ -114,6 +114,8 @@ export interface WireLane {
   a: number[];
   /** Own lane only: `[gold, gems, supplyUsed, supplyCap, passiveIncome]`. */
   e?: [number, number, number, number, number];
+  /** Own lane only: `[sendIndex, ticksLeft]` for every send still cooling down. */
+  sc?: [number, number][];
   /**
    * Own lane only: what each unit cost, flat and parallel to `u`: gold spent
    * this build phase, gold spent earlier, next unit's, ... Two numbers rather
@@ -492,6 +494,9 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
     out.up = Object.entries(e.upgrades).map(
       ([id, level]) => [tables.fortressUpgradeIds.indexOf(id), level] as [number, number],
     );
+    out.sc = Object.entries(e.sendCooldowns).map(
+      ([id, ticks]) => [tables.sendIds.indexOf(id), ticks] as [number, number],
+    );
     out.sp = flattenSpend(lane.unitSpend);
     out.dm = flattenDamage(lane.unitDamage, tables.unitIndex);
   }
@@ -518,6 +523,11 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
           (wire.up ?? [])
             .filter(([index]) => index >= 0)
             .map(([index, level]) => [tables.fortressUpgradeIds[index]!, level]),
+        ),
+        sendCooldowns: Object.fromEntries(
+          (wire.sc ?? [])
+            .filter(([index]) => index >= 0)
+            .map(([index, ticks]) => [tables.sendIds[index]!, ticks]),
         ),
       }
     : null;

@@ -39,7 +39,7 @@
  * table sends at whoever is richest.
  */
 
-import type { AuraType, DamageType, GameData, UnitDef } from '../data/schema.ts';
+import type { AuraType, DamageType, GameData, SendDef, UnitDef } from '../data/schema.ts';
 import { isMelee } from '../data/roster.ts';
 import {
   applyCommand,
@@ -202,10 +202,8 @@ export interface RunOptions {
    */
   maxAura?: boolean;
   /**
-   * Send like the game's auto-send does: each send type at most once every
-   * half second (`BuildBar.ARMED_COOLDOWN_MS`), income sends only, cheapest
-   * per income first. Unlimited otherwise - which is not what a player's
-   * thumb can do, and at a late gem rate is twice what the button allows.
+   * Send only the three economy sends, as a player holding their auto-send
+   * buttons does. Otherwise what they cannot take goes on the next-best rate.
    */
   uiSendRate?: boolean;
 }
@@ -326,7 +324,6 @@ export function playRun(
 class Player {
   private readonly chains: Map<number, UnitDef[]>;
   private readonly defs: Map<string, UnitDef>;
-  private readonly sendId: string;
   private economyGold = 0;
   private techGold = 0;
 
@@ -342,19 +339,30 @@ class Player {
   ) {
     this.chains = lines(data, builderId);
     this.defs = new Map(data.units.units.map((u) => [u.id, u]));
-    // The best income per gem: that is what building an economy means.
-    this.sendId = [...data.sends.sends].sort(
-      (a, b) =>
-        num(a.gemCost) / Math.max(1, num(a.incomeGranted)) -
-        num(b.gemCost) / Math.max(1, num(b.incomeGranted)),
-    )[0]!.id;
+    // The best income per gem first: that is what building an economy means.
+    const rate = (send: SendDef): number =>
+      num(send.incomeGranted) / Math.max(1, num(send.gemCost));
+    const byRate = [...data.sends.sends].sort(
+      (a, b) => rate(b) - rate(a) || num(a.gemCost) - num(b.gemCost),
+    );
+    this.economySends = byRate.filter((send) => send.economic === true);
+    this.otherSends = byRate.filter((send) => send.economic !== true);
+    // Past this many gems, what the economy sends cannot take (their cooldowns
+    // hold them to about thirty a second) goes on the next-best rate: three
+    // rounds of all three, so a cooling economy send is waited for rather than
+    // outbid by a worse one on every tick.
+    this.reserve = 3 * this.economySends.reduce((sum, send) => sum + num(send.gemCost), 0);
   }
+
+  private readonly economySends: SendDef[];
+  private readonly otherSends: SendDef[];
+  private readonly reserve: number;
 
   private apply(command: Command): boolean {
     return applyCommand(this.ctx, this.state, command).ok;
   }
 
-  /** Spend every gem on income, the moment there is enough for a send. */
+  /** Spend gems on income, the moment there is enough and a send is ready. */
   autoSend(): void {
     if (this.options.maxAura) {
       let bought = true;
@@ -366,12 +374,15 @@ class Player {
       }
       if (!this.auraMaxed()) return;
     }
-    if (this.options.uiSendRate) {
-      this.autoSendLikeTheButton();
-      return;
+    // The economy sends whenever their cooldowns allow (apply.ts holds them).
+    for (const send of this.economySends) {
+      if (this.lane.economy.gems >= this.price(send.id)) this.sendOne(send.id);
     }
-    while (this.lane.economy.gems >= this.price(this.sendId)) {
-      if (!this.sendOne(this.sendId)) break;
+    if (this.options.uiSendRate) return;
+    // And what they cannot take, above a reserve, on the next-best rate.
+    for (const send of this.otherSends) {
+      if (this.lane.economy.gems - this.price(send.id) < this.reserve) continue;
+      this.sendOne(send.id);
     }
   }
 
@@ -384,33 +395,9 @@ class Player {
     );
   }
 
-  /** Cooldown ticks left per send type, for `uiSendRate`. */
-  private readonly armed = new Map<string, number>();
-
-  /**
-   * The three best income-per-gem sends armed, each firing at most once every
-   * half second - what a player holding auto-send on gets.
-   */
-  private autoSendLikeTheButton(): void {
-    const cooldown = Math.round(TICKS_PER_SECOND / 2);
-    const byIncome = [...this.data.sends.sends]
-      .sort(
-        (a, b) =>
-          num(b.incomeGranted) / Math.max(1, num(b.gemCost)) -
-          num(a.incomeGranted) / Math.max(1, num(a.gemCost)),
-      )
-      .slice(0, 3);
-    for (const send of byIncome) {
-      const left = (this.armed.get(send.id) ?? 0) - 1;
-      this.armed.set(send.id, left);
-      if (left > 0 || this.lane.economy.gems < this.price(send.id)) continue;
-      if (this.sendOne(send.id)) this.armed.set(send.id, cooldown);
-    }
-  }
-
-  /** Gems a send costs now: priced for the wave it lands in. */
+  /** Gems a send costs. */
   private price(sendId: string): number {
-    return sendPrice(this.data, sendId, this.state.wave + 1).gems;
+    return sendPrice(this.data, sendId).gems;
   }
 
   private sendOne(sendId: string): boolean {

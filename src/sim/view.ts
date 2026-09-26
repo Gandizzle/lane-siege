@@ -197,6 +197,8 @@ export interface EconomyView {
   tech: Record<string, number>;
   /** Fortress upgrade levels, which are a purchase record like any other. */
   upgrades: Record<string, number>;
+  /** Ticks before each send can be bought again. Absent is ready (apply.ts). */
+  sendCooldowns: Record<string, number>;
 }
 
 export interface LaneView {
@@ -447,6 +449,7 @@ function laneView(ctx: SimContext, lane: Lane, own: boolean): LaneView {
           passiveIncome: lane.economy.passiveIncome,
           tech: { ...lane.economy.tech },
           upgrades: { ...lane.fortress.upgrades },
+          sendCooldowns: { ...lane.sendCooldowns },
         }
       : null,
     reserveCount: lane.reserve.length,

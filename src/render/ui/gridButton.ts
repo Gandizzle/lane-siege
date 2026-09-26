@@ -29,6 +29,16 @@ export class GridButton extends Container {
   private readonly bg = new Graphics();
   private readonly ring = new Graphics();
   private readonly swatch = new Graphics();
+  /**
+   * The cooldown: a shade over the part of the button still waiting, drawn
+   * from the right and shrinking towards it as the time runs out. A sweep and
+   * not a number, so it reads at a glance and never has to be read at all.
+   */
+  private readonly shade = new Graphics();
+  /** The button's own rounded outline, so the shade never spills past a corner. */
+  private readonly shadeMask = new Graphics();
+  /** The fraction last drawn, so a shade that has not moved is not redrawn. */
+  private shadeDrawn = 0;
   private readonly pulse = new Graphics();
   private readonly title: Text;
   private readonly detail: Text;
@@ -54,7 +64,18 @@ export class GridButton extends Container {
     this.title = label('', 11, UI.text, '700');
     this.detail = label('', 9, UI.textMuted);
     this.note = label('', 9, UI.textMuted, '700');
-    this.addChild(this.bg, this.swatch, this.ring, this.pulse, this.title, this.detail, this.note);
+    this.shade.mask = this.shadeMask;
+    this.addChild(
+      this.bg,
+      this.swatch,
+      this.shadeMask,
+      this.shade,
+      this.ring,
+      this.pulse,
+      this.title,
+      this.detail,
+      this.note,
+    );
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -140,6 +161,10 @@ export class GridButton extends Container {
     this.ring.roundRect(0, 0, width, height, 8).stroke({ width: 2, color: UI.selected });
     this.ring.visible = false;
 
+    this.shadeMask.clear();
+    this.shadeMask.roundRect(0, 0, width, height, 8).fill({ color: 0xffffff });
+    this.drawShade(this.shadeDrawn);
+
     // Detail and note hang off the BOTTOM, so a tall grid tile has its price
     // where the eye lands rather than crowding the name. A short button - the
     // 44px action row in the selected-unit panel - has no such room, and the
@@ -179,11 +204,29 @@ export class GridButton extends Container {
     drawEntity(this.swatch, mark, this.w - size / 2 - 8, 7 + size / 2 - radius * 0.3, radius);
   }
 
+  /**
+   * Shade the part of the button still cooling down: 1 is the whole button,
+   * just bought; 0 is ready. The edge of the shade carries a bright line, so
+   * the sweep is visible even over a dark swatch.
+   */
+  private drawShade(fraction: number): void {
+    this.shade.clear();
+    this.shadeDrawn = fraction;
+    if (fraction <= 0) return;
+    const x = this.w * (1 - fraction);
+    this.shade.rect(x, 0, this.w - x, this.h).fill({ color: 0x000000, alpha: 0.55 });
+    this.shade.rect(x, 0, 2, this.h).fill({ color: UI.accent, alpha: 0.9 });
+  }
+
   update(opts: {
     title: string;
     detail: string;
     note?: string;
     noteColour?: number;
+    /** Cooldown still to run, as a fraction of the whole: 0 or absent is ready. */
+    cooldown?: number;
+    /** The title alone, in the middle of the button: an arrow, a glyph. */
+    centred?: boolean;
     /** Dimmed and unresponsive to taps when false. */
     enabled: boolean;
     /**
@@ -208,10 +251,19 @@ export class GridButton extends Container {
     const detail = fit(opts.detail, room, this.detail.style.fontSize as number);
     if (this.title.text !== title) this.title.text = title;
     if (this.detail.text !== detail) this.detail.text = detail;
+    if (opts.centred === true) {
+      this.title.x = (this.w - this.title.width) / 2;
+      this.title.y = (this.h - this.title.height) / 2;
+    } else {
+      this.title.x = 8;
+      this.title.y = 6;
+    }
 
     const note = fit(opts.note ?? '', room, this.note.style.fontSize as number);
     if (this.note.text !== note) this.note.text = note;
-    this.note.visible = note.length > 0;
+    // Only where it fits: on a short button the third line would be drawn
+    // across the bottom edge and into the row below it.
+    this.note.visible = note.length > 0 && this.note.y + 11 <= this.h;
     if (note.length > 0) this.note.style.fill = opts.noteColour ?? UI.textMuted;
 
     this.ring.visible = opts.selected === true;
@@ -221,6 +273,11 @@ export class GridButton extends Container {
         .roundRect(0, 0, this.w, this.h, 8)
         .stroke({ width: 2, color: opts.selectedColour ?? UI.selected });
     }
+
+    // Redrawn in hundredths: a smooth sweep, and nothing at all on the frames
+    // where it has not moved.
+    const cooldown = Math.round(Math.min(1, Math.max(0, opts.cooldown ?? 0)) * 100) / 100;
+    if (cooldown !== this.shadeDrawn) this.drawShade(cooldown);
 
     this.alpha = opts.enabled ? 1 : 0.42;
     const interactive = opts.interactive ?? opts.enabled;

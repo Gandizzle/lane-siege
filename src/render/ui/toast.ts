@@ -18,6 +18,7 @@ const MESSAGES: Record<CommandRejection, string> = {
   'tile-out-of-bounds': 'Outside the build zone',
   'insufficient-gold': 'Not enough gold',
   'insufficient-gems': 'Not enough gems',
+  'on-cooldown': 'Not ready yet',
   'insufficient-supply': 'Not enough supply',
   'unknown-definition': 'Not available yet',
   'no-such-unit': 'That unit is gone',

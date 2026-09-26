@@ -334,6 +334,10 @@ function send(
   const def = ctx.defs.sends.get(sendId);
   if (!def) return fail('unknown-definition');
 
+  // Per player and per send, and here rather than on the button, so a tap,
+  // a held auto-send and a bot all wait the same time (sends.json `_cooldown`).
+  if ((lane.sendCooldowns[sendId] ?? 0) > 0) return fail('on-cooldown');
+
   // Sending at yourself would be a way to farm your own income grant.
   if (targetTeamId === lane.teamId) return fail('invalid-target');
 
@@ -344,12 +348,12 @@ function send(
   const targetLane = state.lanes[targetTeamId];
   if (!targetLane) return fail('invalid-target');
 
-  // Priced for the wave it lands in, which is always the next one (waves.ts).
-  const price = sendPrice(ctx.data, sendId, state.wave + 1);
+  const price = sendPrice(ctx.data, sendId);
   if (lane.economy.gems < price.gems) return fail('insufficient-gems');
 
   lane.economy.gems -= price.gems;
   lane.economy.passiveIncome += price.income;
+  lane.sendCooldowns[sendId] = secondsToTicks(def.cooldownSeconds);
 
   for (const monsterId of def.monsters) {
     targetLane.incomingSends.push({ defId: monsterId, fromTeamId: lane.teamId, sendId: def.id });

@@ -94,6 +94,8 @@ export type CommandRejection =
   | 'tile-out-of-bounds'
   | 'insufficient-gold'
   | 'insufficient-gems'
+  /** That send was bought too recently: its cooldown is still running. */
+  | 'on-cooldown'
   | 'insufficient-supply'
   | 'unknown-definition'
   | 'no-such-unit'

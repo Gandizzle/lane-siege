@@ -87,6 +87,7 @@ function createLane(data: GameData, teamId: TeamId, builderId: string, missing: 
     reserve: [],
     incomingSends: [],
     sendLog: [],
+    sendCooldowns: {},
     attacks: [],
     fortress: {
       hp: maxHp,

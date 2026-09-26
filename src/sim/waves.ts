@@ -298,9 +298,8 @@ export function shareOutTheWavePool(data: GameData, specs: SpawnSpec[]): void {
  * with gems and the bounty is paid in gold, which is the one place in the game
  * the two currencies touch; `sendBountyPerTenGems` is that exchange rate.
  */
-export function sendBounty(data: GameData, sendId: string, wave: number): number {
-  const price = sendPrice(data, sendId, wave);
-  return (price.gems * num(data.economy.sendBountyPerTenGems)) / 10;
+export function sendBounty(data: GameData, sendId: string): number {
+  return (sendPrice(data, sendId).gems * num(data.economy.sendBountyPerTenGems)) / 10;
 }
 
 /**
@@ -316,32 +315,19 @@ export function monsterGrowth(data: GameData, wave: number): number {
 }
 
 /**
- * What a send costs, and the income it grants, bought for the wave it lands in.
+ * What a send costs, and the income it grants: the price as written.
  *
- * PRICED AT THE STRENGTH OF THE BODY. A send used to cost the same 10 gems at
- * wave 20 as at wave 1, while the body it delivers grows with the wave like any
- * other: a 12-health Swarmling at wave 1 and a 223-health one at wave 20. Every
- * player auto-sends, so a lane receives about what it sends, and a table of
- * medium economies was flooding itself with a hundred-odd wave-scaled bodies
- * a wave by the late game - more than the wave. Played whole with the sends
- * coming back, every economy plan died around wave 10.
- *
- * Price and income grow together, so income per gem - the economy - is exactly
- * what it was; what shrinks is how many BODIES a gem buys as they get stronger.
- * The flood now grows with the gem income and not with the gem income times
- * the monster curve. The bounty the defender takes is a share of the price, so
- * it grows with it.
+ * It USED to climb with the monster curve, because the body it delivered did -
+ * a send cost the same 10 gems at wave 20 as at wave 1 for a body twenty-four
+ * times the size, and a table sending at itself drowned. The fix now lives in
+ * the body instead: a sent body is the size its send says at every wave
+ * (sends.json `_bodies`), so a gem buys the same pressure whenever it is spent
+ * and the price can be the number on the button.
  */
-export function sendPrice(
-  data: GameData,
-  sendId: string,
-  wave: number,
-): { gems: number; income: number } {
+export function sendPrice(data: GameData, sendId: string): { gems: number; income: number } {
   const send = data.sends.sends.find((s) => s.id === sendId);
   if (!send) return { gems: 0, income: 0 };
-  const base = num(send.gemCost);
-  const gems = Math.max(1, Math.round(base * monsterGrowth(data, Math.max(1, wave))));
-  return { gems, income: base > 0 ? (num(send.incomeGranted) * gems) / base : 0 };
+  return { gems: num(send.gemCost), income: num(send.incomeGranted) };
 }
 
 /**

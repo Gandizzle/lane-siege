@@ -289,6 +289,21 @@ describe('a frame survives the round trip', () => {
     expect(decoded.lane!.sendLog).toEqual([{ sendId: 'grub', fromTeamId: 'b' }]);
   });
 
+  it('carries your own send cooldowns, and nobody else sees them', () => {
+    const { state, ctx } = match();
+    state.lanes.a!.economy.gems = 500;
+    applyCommand(ctx, state, { kind: 'send', teamId: 'a', targetTeamId: 'b', sendId: 'grub' });
+    applyCommand(ctx, state, { kind: 'send', teamId: 'a', targetTeamId: 'b', sendId: 'mite' });
+    step(ctx, state);
+
+    const { original, decoded } = roundTrip(state, ctx, 'a');
+    expect(Object.keys(decoded.lane!.economy!.sendCooldowns).sort()).toEqual(['grub', 'mite']);
+    expect(decoded.lane!.economy!.sendCooldowns).toEqual(original.lane!.economy!.sendCooldowns);
+    // A lane you are only watching carries no economy, so no clocks either.
+    const theirs = roundTrip(state, ctx, 'b').decoded;
+    expect(theirs.lane!.economy!.sendCooldowns).toEqual({});
+  });
+
   it('carries the opponents and, when you have sight, their lanes', () => {
     const { state, ctx } = match();
     state.lanes.a!.economy.gems = 500;

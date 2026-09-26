@@ -2091,6 +2091,236 @@
         }
       ],
       "_note": "A share of the Bloater's own hit rather than a flat 110, like Rupture: a flat number stops mattering as the waves grow, and a Bloater sent at wave 20 burst for a thirtieth of what one hits for. 2.9 is the old burst at the Bloater's wave-1 hit."
+    },
+    {
+      "id": "flicker",
+      "name": "Flicker",
+      "text": "Hard to pin down: a share of the blows aimed at it find nothing.",
+      "role": "defence",
+      "numbers": {
+        "evasion": 0.3
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "evasion",
+          "mode": "percent",
+          "amount": "@evasion"
+        }
+      ]
+    },
+    {
+      "id": "hamstring",
+      "name": "Hamstring",
+      "text": "Whatever it bites swings slower for a while.",
+      "role": "control",
+      "numbers": {
+        "slow": -0.25,
+        "duration": 3
+      },
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "attackSpeed",
+          "mode": "percent",
+          "amount": "@slow",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "corrode",
+      "name": "Corrode",
+      "text": "Its spit eats armour: what it hits takes more from everything.",
+      "role": "offence",
+      "numbers": {
+        "vulnerable": 0.15,
+        "duration": 4
+      },
+      "trigger": {
+        "when": "onAttack"
+      },
+      "target": {
+        "what": "attackTarget"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@vulnerable",
+          "durationSeconds": "@duration"
+        }
+      ]
+    },
+    {
+      "id": "bulwark",
+      "name": "Bulwark",
+      "text": "The pack around it takes every blow a little softer.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.2,
+        "reduction": -0.2
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "includeSelf": true
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@reduction"
+        }
+      ]
+    },
+    {
+      "id": "rejuvenation",
+      "name": "Rejuvenation",
+      "text": "The pack around it closes its wounds as it walks.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.5,
+        "rate": 0.01
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "includeSelf": true
+      },
+      "effects": [
+        {
+          "kind": "regen",
+          "ofMaxHealth": "@rate"
+        }
+      ]
+    },
+    {
+      "id": "war_cry",
+      "name": "War Cry",
+      "text": "The pack around it marches faster and swings faster.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.5,
+        "haste": 0.25,
+        "fury": 0.2
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "includeSelf": true
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "moveSpeed",
+          "mode": "percent",
+          "amount": "@haste"
+        },
+        {
+          "kind": "modify",
+          "stat": "attackSpeed",
+          "mode": "percent",
+          "amount": "@fury"
+        }
+      ]
+    },
+    {
+      "id": "iron_will",
+      "name": "Iron Will",
+      "text": "Nothing near it can be slowed, held or stunned.",
+      "role": "support",
+      "numbers": {
+        "radius": 2.5
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "alliesInRadius",
+        "radius": "@radius",
+        "includeSelf": true
+      },
+      "effects": [
+        {
+          "kind": "immunity",
+          "immuneTo": "control"
+        }
+      ]
+    },
+    {
+      "id": "trample",
+      "name": "Trample",
+      "text": "Every few steps it stamps, and everything under it is hurt.",
+      "role": "offence",
+      "numbers": {
+        "period": 4,
+        "radius": 1.6,
+        "targets": 6,
+        "share": 1.0
+      },
+      "trigger": {
+        "when": "interval",
+        "everySeconds": "@period"
+      },
+      "target": {
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
+      },
+      "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share",
+          "damageType": "blast"
+        }
+      ]
+    },
+    {
+      "id": "thick_hide",
+      "name": "Thick Hide",
+      "text": "Too much of it to hurt properly: blows land softer.",
+      "role": "defence",
+      "numbers": {
+        "reduction": -0.2
+      },
+      "trigger": {
+        "when": "passive"
+      },
+      "target": {
+        "what": "self"
+      },
+      "effects": [
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@reduction"
+        }
+      ]
     }
   ],
   "planned": [

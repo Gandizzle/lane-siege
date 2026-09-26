@@ -21,6 +21,7 @@ import { refId } from '../../data/schema.ts';
 import { computeLayout } from '../layout.ts';
 import type { StatMods } from '../../sim/index.ts';
 import { layOutChips } from './abilityChips.ts';
+import { SENDS_PER_PAGE } from './sends.ts';
 import {
   MIN_ROW_HEIGHT,
   NOTHING_SPECIAL,
@@ -446,6 +447,9 @@ describe('a stat cell shows what the body is actually fighting with', () => {
 });
 
 describe('a grid of buttons fits the box it is given', () => {
+  /** One page of sends and the page control beside them (buildBar.ts). */
+  const SEND_CELLS = SENDS_PER_PAGE + 1;
+
   /** The send tab's box, as `setLayout` computes it. */
   function sendBox(width: number, height: number) {
     const l = computeLayout(width, height, data.lane);
@@ -477,8 +481,8 @@ describe('a grid of buttons fits the box it is given', () => {
       [1400, 800],
     ] as const) {
       const box = sendBox(w, h);
-      const cols = columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6);
-      const rows = Math.ceil(data.sends.sends.length / cols);
+      const cols = columnsThatFit(SEND_CELLS, box.width, box.height, 110, 6);
+      const rows = Math.ceil(SEND_CELLS / cols);
       const rowHeight = Math.max(MIN_ROW_HEIGHT, (box.height - 6 * (rows - 1)) / rows);
       const bottom = box.y + (rows - 1) * (rowHeight + 6) + rowHeight;
       expect(bottom, `${w}x${h}`).toBeLessThanOrEqual(box.barBottom + 0.5);
@@ -487,22 +491,22 @@ describe('a grid of buttons fits the box it is given', () => {
 
   it('gives a phone three columns rather than two half-height ones', () => {
     const box = sendBox(412, 915);
-    expect(columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6)).toBe(3);
+    expect(columnsThatFit(SEND_CELLS, box.width, box.height, 110, 6)).toBe(3);
   });
 
   it('fills a landscape column rather than leaving a gap beside the last row', () => {
-    // Two across and three down, not one across and five down: the column is
+    // Two across and three down, not one across and six down: the column is
     // tall enough for either and two makes the buttons twice the height.
     const box = sendBox(915, 412);
-    expect(columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6)).toBe(2);
+    expect(columnsThatFit(SEND_CELLS, box.width, box.height, 110, 6)).toBe(2);
   });
 
   it('would rather shorten a row than make a button unreadable', () => {
-    // 360x640 leaves the send grid 74 pixels. Five columns would fit one tall
-    // row and leave each button 65 pixels wide, which is not a name; three
+    // 360x640 leaves the send grid 74 pixels. Six columns would fit one tall
+    // row and leave each button 54 pixels wide, which is not a name; three
     // columns of 34-pixel rows are still tappable and still readable.
     const box = sendBox(360, 640);
-    expect(columnsThatFit(data.sends.sends.length, box.width, box.height, 110, 6)).toBe(3);
+    expect(columnsThatFit(SEND_CELLS, box.width, box.height, 110, 6)).toBe(3);
   });
 });
 

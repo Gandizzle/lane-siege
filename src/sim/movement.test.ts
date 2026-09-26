@@ -820,17 +820,12 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
         });
       }
     }
-    // Counted in MONSTERS, not in taps. A send used to deliver a pack and now
-    // delivers one body (sends.json), and a fixture that counts taps measures
-    // a number in the data file rather than the pressure it meant to apply.
-    const pack = Math.max(1, d.sends.sends.find((x) => x.id === 'grub')!.monsters.length);
-    for (let i = 0; i < Math.ceil(monsters / pack); i++) {
-      applyCommand(ctx, state, {
-        kind: 'send',
-        teamId: 'l2',
-        targetTeamId: 'l1',
-        sendId: 'grub',
-      });
+    // Counted in MONSTERS, and queued straight onto the lane rather than
+    // bought: a send has a cooldown now (apply.ts), and a fixture that had to
+    // wait out three hundred of them would be measuring the clock rather than
+    // the crowd it meant to build.
+    for (let i = 0; i < monsters; i++) {
+      state.lanes.l1!.incomingSends.push({ defId: 'grub', fromTeamId: 'l2', sendId: 'grub' });
     }
     while (state.phase !== 'combat') step(ctx, state);
     return { state, ctx, d };
