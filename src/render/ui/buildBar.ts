@@ -48,7 +48,13 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { AuraType, DamageType, GameData, MonsterDef, UnitDef } from '../../data/schema.ts';
 import { buildableUnits } from '../../data/roster.ts';
-import { resolveMonsterStats, sellValue, sendPrice, ticksToSeconds } from '../../sim/index.ts';
+import {
+  resolveMonsterStats,
+  sellValue,
+  sendOpen,
+  sendPrice,
+  ticksToSeconds,
+} from '../../sim/index.ts';
 import type {
   EconomyView,
   EntityView,
@@ -289,6 +295,8 @@ export class BuildBar extends Container {
    * auto-send check before firing, and what the shade on each button draws.
    */
   private sendCooldowns: Record<string, number> = {};
+  /** The wave a send bought now would land in, from the last view. */
+  private landsIn = 1;
   private readonly targetButtons: GridButton[] = [];
   private readonly randomButton: GridButton;
   /**
@@ -534,6 +542,8 @@ export class BuildBar extends Container {
    */
   private sendOnce(sendId: string): void {
     if (this.cooling(sendId)) return;
+    const def = this.data.sends.sends.find((s) => s.id === sendId);
+    if (!def || !sendOpen(def, this.landsIn)) return;
     const target = this.resolveTarget();
     if (!target) return;
     this.handlers.onSend(sendId, target);
@@ -609,6 +619,8 @@ export class BuildBar extends Container {
       // rule, and the local one, which only stops a send fired on this frame
       // from being fired again before the view says it is cooling.
       if (next > 0 || this.cooling(sendId)) continue;
+      const def = this.data.sends.sends.find((s) => s.id === sendId);
+      if (!def || !sendOpen(def, view.wave + 1)) continue;
 
       const cost = sendPrice(this.data, sendId).gems;
       if (purse < cost) continue;
@@ -944,6 +956,7 @@ export class BuildBar extends Container {
     const gems = economy.gems;
     const aimed = this.resolveTarget() !== null;
     this.sendCooldowns = economy.sendCooldowns;
+    this.landsIn = view.wave + 1;
     const perPage = SENDS_PER_PAGE;
     this.sendPage = Math.min(this.sendPage, this.sendPages - 1);
     this.sendButtons.forEach(({ sendId, button }, index) => {
@@ -962,6 +975,9 @@ export class BuildBar extends Container {
         : Number(price.income.toFixed(1));
       const icon = sendIcon(this.data, sendId);
       const armed = this.armed.has(sendId);
+      // Not open until a later wave (sends.json `_unlock`): dimmed, and it
+      // says which wave.
+      const open = sendOpen(def, this.landsIn);
       // How much of its cooldown is left, as a share of the whole: the shade
       // over the button, and no number (gridButton.ts).
       const ticksLeft = this.sendCooldowns[sendId] ?? 0;
@@ -988,17 +1004,19 @@ export class BuildBar extends Container {
         // the monster DOES and whether the gems also buy a look at the lane
         // (§12). In that order, because a button too narrow for both loses its
         // tail and the ability is the half that decides the purchase.
-        note: armed
-          ? 'auto'
-          : [
-              def.economic === true ? 'economy' : (icon?.abilityName ?? null),
-              def.grantsVision ? 'sight' : null,
-            ]
-              .filter((part) => part !== null)
-              .join(' · '),
-        noteColour: armed || def.economic === true ? UI.accent : UI.textMuted,
+        note: !open
+          ? `opens wave ${def.fromWave ?? 1}`
+          : armed
+            ? 'auto'
+            : [
+                def.economic === true ? 'economy' : (icon?.abilityName ?? null),
+                def.grantsVision ? 'sight' : null,
+              ]
+                .filter((part) => part !== null)
+                .join(' · '),
+        noteColour: open && (armed || def.economic === true) ? UI.accent : UI.textMuted,
         cooldown,
-        enabled: canAct && aimed && gems >= cost,
+        enabled: canAct && aimed && open && gems >= cost,
         // Dimmed when the gems are not there, but still able to take a HOLD:
         // arming a send you cannot yet afford is exactly the case auto-send is
         // for (gridButton.ts).

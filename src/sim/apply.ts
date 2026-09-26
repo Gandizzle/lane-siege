@@ -20,7 +20,7 @@ import { inBounds, tileOccupiedByUnit } from './grid.ts';
 import { createUnit } from './spawn.ts';
 import { recomputeUnitBuffs } from './buffs.ts';
 import { gemPayoutTicks } from './state.ts';
-import { sendPrice } from './waves.ts';
+import { sendOpen, sendPrice } from './waves.ts';
 import type { UpgradeLevel } from '../data/schema.ts';
 import type { GameData } from '../data/schema.ts';
 import type { Lane, MatchState, UnitSpend } from './types.ts';
@@ -337,6 +337,9 @@ function send(
   // Per player and per send, and here rather than on the button, so a tap,
   // a held auto-send and a bot all wait the same time (sends.json `_cooldown`).
   if ((lane.sendCooldowns[sendId] ?? 0) > 0) return fail('on-cooldown');
+  // A send lands in the next wave, and the dear ones only open at a later one
+  // (sends.json `_unlock`).
+  if (!sendOpen(def, state.wave + 1)) return fail('send-locked');
 
   // Sending at yourself would be a way to farm your own income grant.
   if (targetTeamId === lane.teamId) return fail('invalid-target');

@@ -19,6 +19,7 @@ const MESSAGES: Record<CommandRejection, string> = {
   'insufficient-gold': 'Not enough gold',
   'insufficient-gems': 'Not enough gems',
   'on-cooldown': 'Not ready yet',
+  'send-locked': 'Opens at a later wave',
   'insufficient-supply': 'Not enough supply',
   'unknown-definition': 'Not available yet',
   'no-such-unit': 'That unit is gone',

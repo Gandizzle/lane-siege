@@ -47,6 +47,7 @@ import {
   createMatch,
   generateWave,
   resolveMonsterStats,
+  sendOpen,
   sendPrice,
   step,
   TICKS_PER_SECOND,
@@ -379,8 +380,10 @@ class Player {
       if (this.lane.economy.gems >= this.price(send.id)) this.sendOne(send.id);
     }
     if (this.options.uiSendRate) return;
-    // And what they cannot take, above a reserve, on the next-best rate.
+    // And what they cannot take, above a reserve, on the next-best rate that
+    // is open yet (sends.json `_unlock`).
     for (const send of this.otherSends) {
+      if (!sendOpen(send, this.state.wave + 1)) continue;
       if (this.lane.economy.gems - this.price(send.id) < this.reserve) continue;
       this.sendOne(send.id);
     }

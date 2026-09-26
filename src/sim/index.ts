@@ -27,6 +27,7 @@ export {
   summariseWave,
   isBossWave,
   resolveMonsterStats,
+  sendOpen,
   sendPrice,
   monsterGrowth,
 } from './waves.ts';

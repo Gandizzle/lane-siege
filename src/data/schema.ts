@@ -577,6 +577,12 @@ export interface SendDef {
    * that is not one pays less, because it is buying a body or an ability.
    */
   economic?: boolean;
+  /**
+   * The first wave this send may land in. Absent is wave 1. A sent body is the
+   * same size at every wave, so the dear ones open as the game reaches them
+   * rather than being saved up for and dropped on wave 6 (sends.json).
+   */
+  fromWave?: number;
   /** Monster ids added to the target's next wave. */
   monsters: string[];
   /**

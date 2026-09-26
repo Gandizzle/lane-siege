@@ -136,6 +136,7 @@ function checkBuilderCoverage(data: GameData, errors: string[], notes: string[])
  *
  *   - Every price a multiple of ten, from 10 to 500.
  *   - Every cooldown one to ten seconds.
+ *   - Every send opens at a real wave, and the economy sends at the first.
  *   - The economy sends share the best income per gem, and every other send
  *     pays strictly less - an attack send that also paid the top rate would be
  *     an economy send with a free body.
@@ -153,6 +154,13 @@ function checkSends(data: GameData, errors: string[]): void {
     }
     if (!(send.cooldownSeconds >= 1 && send.cooldownSeconds <= 10)) {
       errors.push(`send '${send.id}' cools down for ${send.cooldownSeconds}s: 1 to 10`);
+    }
+    const from = send.fromWave ?? 1;
+    if (!Number.isInteger(from) || from < 1 || from > data.waves.showdown.afterWave) {
+      errors.push(`send '${send.id}' opens at wave ${from}, which is not a wave`);
+    }
+    if (send.economic === true && from !== 1) {
+      errors.push(`economy send '${send.id}' must be open from the start`);
     }
     const r = rate(send);
     if (send.economic === true && Math.abs(r - best) > 1e-9) {

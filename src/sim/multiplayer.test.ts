@@ -172,6 +172,35 @@ describe('sends (§11.5)', () => {
     expect(send('grub').ok).toBe(true);
   });
 
+  it('opens the dear sends only as the game reaches them (sends.json `_unlock`)', () => {
+    const { state, ctx } = fourPlayerMatch();
+    fund(state, 'a', 5000);
+    const behemoth = data.sends.sends.find((s) => s.id === 'behemoth')!;
+    const send = () =>
+      applyCommand(ctx, state, {
+        kind: 'send',
+        teamId: 'a',
+        targetTeamId: 'b',
+        sendId: 'behemoth',
+      });
+
+    // A send lands in the next wave, so it opens the build phase before it.
+    state.wave = (behemoth.fromWave ?? 1) - 2;
+    expect(send().rejection).toBe('send-locked');
+    expect(state.lanes.a!.economy.gems).toBe(5000);
+    state.wave = (behemoth.fromWave ?? 1) - 1;
+    expect(send().ok).toBe(true);
+    // The economy is open from the first build phase.
+    state.wave = 0;
+    for (const eco of data.sends.sends.filter((s) => s.economic === true)) {
+      expect(
+        applyCommand(ctx, state, { kind: 'send', teamId: 'a', targetTeamId: 'c', sendId: eco.id })
+          .ok,
+        eco.id,
+      ).toBe(true);
+    }
+  });
+
   it('can be bought mid-combat, and still lands on the NEXT wave', () => {
     // A send aims at the target's next wave whenever it is bought, so the
     // build-phase restriction only ever decided when the player was allowed to
@@ -232,6 +261,8 @@ describe('sends (§11.5)', () => {
     // decision (sends.json `_vision`) and has moved once already.
     const blind = data.sends.sends.find((s) => !s.grantsVision)!;
     const seeing = data.sends.sends.find((s) => s.grantsVision)!;
+    // Late enough that both are open (sends.json `_unlock`).
+    state.wave = Math.max(blind.fromWave ?? 1, seeing.fromWave ?? 1) - 1;
 
     applyCommand(ctx, state, {
       kind: 'send',
@@ -289,6 +320,8 @@ describe('fog of war (§12)', () => {
   it('reveals a lane you bought sight of, but never its wallet', () => {
     const { state, ctx } = fourPlayerMatch();
     fund(state, 'a', 500);
+    const seeing = data.sends.sends.find((s) => s.grantsVision)!;
+    state.wave = (seeing.fromWave ?? 1) - 1;
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'b',
@@ -300,7 +333,7 @@ describe('fog of war (§12)', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      sendId: data.sends.sends.find((s) => s.grantsVision)!.id,
+      sendId: seeing.id,
     });
 
     const view = viewFor(ctx, state, 'a');

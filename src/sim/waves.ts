@@ -324,6 +324,11 @@ export function monsterGrowth(data: GameData, wave: number): number {
  * (sends.json `_bodies`), so a gem buys the same pressure whenever it is spent
  * and the price can be the number on the button.
  */
+/** Whether a send may land in `wave` (sends.json `_unlock`). */
+export function sendOpen(send: { fromWave?: number }, wave: number): boolean {
+  return wave >= (send.fromWave ?? 1);
+}
+
 export function sendPrice(data: GameData, sendId: string): { gems: number; income: number } {
   const send = data.sends.sends.find((s) => s.id === sendId);
   if (!send) return { gems: 0, income: 0 };

@@ -28,7 +28,7 @@
 
 import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
 import { buildableUnits } from '../data/roster.ts';
-import { damageMultiplier, previewWave, sendPrice } from '../sim/index.ts';
+import { damageMultiplier, previewWave, sendOpen, sendPrice } from '../sim/index.ts';
 import type { Command, MatchState, TeamId } from '../sim/index.ts';
 
 /**
@@ -330,7 +330,10 @@ export class AutoBuilder {
     // A send still cooling down would only be refused (apply.ts).
     const cooling = state.lanes[this.teamId]?.sendCooldowns ?? {};
     const affordable = this.data.sends.sends
-      .filter((send) => price(send.id) <= gems && (cooling[send.id] ?? 0) <= 0)
+      .filter(
+        (send) =>
+          price(send.id) <= gems && (cooling[send.id] ?? 0) <= 0 && sendOpen(send, state.wave + 1),
+      )
       .sort((a, b) => price(b.id) - price(a.id));
 
     const choice = affordable[0];

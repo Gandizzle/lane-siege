@@ -2298,29 +2298,6 @@
           "damageType": "blast"
         }
       ]
-    },
-    {
-      "id": "thick_hide",
-      "name": "Thick Hide",
-      "text": "Too much of it to hurt properly: blows land softer.",
-      "role": "defence",
-      "numbers": {
-        "reduction": -0.2
-      },
-      "trigger": {
-        "when": "passive"
-      },
-      "target": {
-        "what": "self"
-      },
-      "effects": [
-        {
-          "kind": "modify",
-          "stat": "damageTaken",
-          "mode": "percent",
-          "amount": "@reduction"
-        }
-      ]
     }
   ],
   "planned": [

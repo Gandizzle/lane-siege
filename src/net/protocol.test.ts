@@ -27,6 +27,17 @@ function match(): { state: MatchState; ctx: SimContext } {
 
 const tables = buildTables(data, TEAMS, SEED);
 
+/**
+ * Whichever send carries sight, with the match moved on to the wave it opens
+ * at (sends.json `_unlock`): which send that is is a pricing decision
+ * (sends.json `_vision`) and has moved once already.
+ */
+function sightSend(state: MatchState): string {
+  const send = data.sends.sends.find((x) => x.grantsVision)!;
+  state.wave = Math.max(state.wave, (send.fromWave ?? 1) - 1);
+  return send.id;
+}
+
 function roundTrip(state: MatchState, ctx: SimContext, teamId: string) {
   const original = viewFor(ctx, state, teamId);
   const decoded = decodeFrame(encodeFrame(original, tables), tables);
@@ -318,9 +329,7 @@ describe('a frame survives the round trip', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      // Whichever send carries sight: which one that is is a pricing decision
-      // (sends.json `_vision`) and has moved once already.
-      sendId: data.sends.sends.find((x) => x.grantsVision)!.id,
+      sendId: sightSend(state),
     });
 
     const { original, decoded } = roundTrip(state, ctx, 'a');
@@ -340,9 +349,7 @@ describe('a frame cannot leak what the view withheld', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      // Whichever send carries sight: which one that is is a pricing decision
-      // (sends.json `_vision`) and has moved once already.
-      sendId: data.sends.sends.find((x) => x.grantsVision)!.id,
+      sendId: sightSend(state),
     });
 
     const frame = encodeFrame(viewFor(ctx, state, 'a'), tables);
@@ -371,9 +378,7 @@ describe('a frame cannot leak what the view withheld', () => {
       kind: 'send',
       teamId: 'a',
       targetTeamId: 'b',
-      // Whichever send carries sight: which one that is is a pricing decision
-      // (sends.json `_vision`) and has moved once already.
-      sendId: data.sends.sends.find((x) => x.grantsVision)!.id,
+      sendId: sightSend(state),
     });
 
     const decoded = decodeFrame(encodeFrame(viewFor(ctx, state, 'a'), tables), tables);

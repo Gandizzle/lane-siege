@@ -225,8 +225,8 @@
       "moveSpeed": 0.5,
       "bounty": 50,
       "bodyRadius": 0.38,
-      "abilities": ["trample", "thick_hide"],
-      "_note": "SENT, never spawned by a wave. The top of the send ladder: the most body a gem buys, and it stamps on whatever stands in front of it."
+      "abilities": ["trample"],
+      "_note": "SENT, never spawned by a wave. The top of the send ladder: the most body a gem buys, and it stamps on whatever stands in front of it. Opens at wave 10 (sends.json `_unlock`)."
     }
   ],
   "bosses": [

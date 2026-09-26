@@ -362,6 +362,20 @@ describe('the send ladder', () => {
     }
   });
 
+  it('opens the economy from the start and the dearest send last', () => {
+    const from = (s: (typeof data.sends.sends)[number]) => s.fromWave ?? 1;
+    for (const eco of data.sends.sends.filter((s) => s.economic === true)) {
+      expect(from(eco), eco.id).toBe(1);
+    }
+    const dearest = data.sends.sends.reduce((a, b) =>
+      (a.gemCost ?? 0) >= (b.gemCost ?? 0) ? a : b,
+    );
+    for (const send of data.sends.sends) {
+      expect(from(send), send.id).toBeLessThanOrEqual(from(dearest));
+    }
+    expect(from(dearest)).toBeGreaterThan(1);
+  });
+
   it('holds every send to a cooldown of one to ten seconds', () => {
     for (const send of data.sends.sends) {
       expect(send.cooldownSeconds, send.id).toBeGreaterThanOrEqual(1);
