@@ -1,5 +1,6 @@
 /**
- * Attack animations. DESIGN.md §14.2, §15.1.
+ * Attack animations, and the pop a body leaves when it dies. DESIGN.md §14.2,
+ * §15.1.
  *
  * The simulation records who hit what on each tick (`LaneView.attacks`) and
  * this layer turns that into something to look at. Nothing here can affect the
@@ -47,12 +48,14 @@
  */
 
 import { Container, Graphics } from 'pixi.js';
-import type { DefIndex, LaneView } from '../sim/index.ts';
+import type { DefIndex, EntityView, LaneView } from '../sim/index.ts';
 import { FORTRESS_ID } from '../sim/index.ts';
 import type { GameData } from '../data/schema.ts';
 import { stat } from '../sim/defs.ts';
 import type { Camera } from './layout.ts';
 import { attackStyle, type AttackStyle } from './attackStyle.ts';
+import { DAMAGE_COLOURS } from './palette.ts';
+import { drawEntity, type EntityStyle } from './shapes.ts';
 
 /**
  * Melee happens ON TOP of the bodies, and an attacker's own colour is the
@@ -75,6 +78,12 @@ const SWING_MS = 170;
 const SPARK_MS = 150;
 /** How long a projectile's arrival flash lasts. */
 const IMPACT_MS = 130;
+/** How long a body's death pop lasts: a beat, not a scene. */
+export const DEATH_MS = 320;
+/** How many shards a death throws. */
+const DEATH_SHARDS = 7;
+/** A death's core flash sits nearly all the way to white. */
+const DEATH_FLASH_LIGHTEN = 0.85;
 
 /**
  * A ceiling on live effects, so a pathological tick cannot turn into a frame
@@ -128,7 +137,38 @@ interface Impact extends BaseEffect {
   size: number;
 }
 
-type Effect = Swing | Spark | Projectile | Impact;
+/**
+ * A body that has just died, drawn where it was last seen.
+ *
+ * Built from the body's own silhouette, colour, size and mark, so every unit
+ * and monster there is - and every one added later - dies the same way with
+ * no animation of its own to author. The simulation has already removed it:
+ * nothing collides with this, nothing targets it, and it is gone from the
+ * view. It swells a little and fades while its shards fly apart.
+ */
+interface Death extends BaseEffect {
+  kind: 'death';
+  at: Vec;
+  /** Body radius in tiles. */
+  radius: number;
+  style: EntityStyle;
+  /** Where the first shard points, so a crowd dying at once does not all match. */
+  spin: number;
+}
+
+type Effect = Swing | Spark | Projectile | Impact | Death;
+
+/**
+ * Which disappearances are deaths, since the view only says what is there.
+ *
+ *   `all`      - anything that leaves the board died (a lane in combat, the
+ *                Final Showdown).
+ *   `monsters` - a unit leaving in the build phase was SOLD, and a sale is not
+ *                a death; a monster only ever leaves by dying.
+ *   `none`     - nothing leaving means anything: the armies walking out of
+ *                their lanes into the showdown, say.
+ */
+export type DeathRule = 'all' | 'monsters' | 'none';
 
 export class EffectsLayer extends Container {
   private readonly graphics = new Graphics();
@@ -178,7 +218,8 @@ export class EffectsLayer extends Container {
    * `incoming` is the lane as it is now; `outgoing` is the lane it replaced,
    * consulted only for bodies that have since died.
    */
-  spawn(incoming: LaneView, outgoing: LaneView | null): void {
+  spawn(incoming: LaneView, outgoing: LaneView | null, deaths: DeathRule = 'all'): void {
+    this.spawnDeaths(incoming, outgoing, deaths);
     for (const attack of incoming.attacks) {
       if (this.live.length >= MAX_EFFECTS) return;
 
@@ -240,6 +281,52 @@ export class EffectsLayer extends Container {
     }
   }
 
+  /**
+   * A pop for every body that was on the board last tick and is not now.
+   *
+   * Only when both views are of the SAME board: switching which lane is on
+   * screen swaps every body at once, and none of them died.
+   */
+  private spawnDeaths(incoming: LaneView, outgoing: LaneView | null, rule: DeathRule): void {
+    if (!outgoing || rule === 'none' || outgoing.teamId !== incoming.teamId) return;
+    const present = new Set<number>();
+    for (const body of incoming.units) present.add(body.id);
+    for (const body of incoming.monsters) present.add(body.id);
+
+    for (const monster of outgoing.monsters) {
+      if (present.has(monster.id)) continue;
+      const shape = this.defs.monsters.get(monster.defId)?.shape ?? 'orb';
+      this.spawnDeath(monster, { shape, damageType: monster.damageType, mark: 1, outlined: true });
+    }
+    if (rule !== 'all') return;
+    for (const unit of outgoing.units) {
+      if (present.has(unit.id)) continue;
+      const def = this.defs.units.get(unit.defId);
+      this.spawnDeath(unit, {
+        shape: def?.shape ?? 'orb',
+        damageType: unit.damageType,
+        mark: def?.mark ?? 1,
+        outlined: false,
+      });
+    }
+  }
+
+  private spawnDeath(body: EntityView, style: EntityStyle): void {
+    if (this.live.length >= MAX_EFFECTS) return;
+    this.live.push({
+      kind: 'death',
+      age: 0,
+      life: DEATH_MS,
+      colour: DAMAGE_COLOURS[style.damageType],
+      at: { x: body.x, y: body.y },
+      radius: body.radius,
+      style,
+      // From the id rather than a roll: the renderer may use randomness, but
+      // there is no need to, and a replay then dies the same way twice.
+      spin: (body.id * 2.399963) % (Math.PI * 2),
+    });
+  }
+
   /** Advance every effect by one frame of wall time and drop the finished ones. */
   update(deltaMs: number): void {
     for (let i = this.live.length - 1; i >= 0; i--) {
@@ -279,6 +366,9 @@ export class EffectsLayer extends Container {
           break;
         case 'impact':
           this.drawImpact(effect);
+          break;
+        case 'death':
+          this.drawDeath(effect);
           break;
       }
     }
@@ -464,6 +554,65 @@ export class EffectsLayer extends Container {
       points.push(at.x + Math.cos(a) * radius, at.y + Math.sin(a) * radius);
     }
     this.fillShape(points, effect.colour, 0.75 * (1 - t));
+  }
+
+  /**
+   * A death: the body's own silhouette swelling and fading, a bright core
+   * blinking out at its centre, and shards of its colour flying apart.
+   *
+   * Everything eases out - fast at the moment of death, settling as it fades -
+   * so the pop reads in the first few frames and is gone before it can be
+   * mistaken for a body still standing there.
+   */
+  private drawDeath(effect: Death): void {
+    const t = Math.min(1, effect.age / effect.life);
+    const out = 1 - (1 - t) * (1 - t);
+    const at = this.toPixel(effect.at);
+    const r = effect.radius * this.layout.tileSize;
+    const bright = lighten(effect.colour, FLASH_LIGHTEN);
+
+    // The body, a touch larger each frame and nearly gone by halfway.
+    const ghost = Math.max(0, 1 - t * 1.8);
+    if (ghost > 0.01) {
+      drawEntity(this.graphics, effect.style, at.x, at.y, r * (1 + 0.35 * out), 0.85 * ghost);
+    }
+
+    // The flash at its heart: near white, full size at the moment of death and
+    // shrinking to nothing by two fifths of the way through.
+    const flash = Math.max(0, 1 - t * 2.5);
+    if (flash > 0.01) {
+      const core = r * 0.6 * Math.sqrt(flash);
+      this.graphics
+        .moveTo(at.x + core, at.y)
+        .circle(at.x, at.y, core)
+        .fill({ color: lighten(effect.colour, DEATH_FLASH_LIGHTEN), alpha: flash });
+    }
+
+    // The shards: slivers pointing outward, thrown to about twice the radius.
+    const reach = r * (0.4 + 1.6 * out);
+    const length = Math.max(1, r * 0.55 * (1 - t));
+    const width = Math.max(0.6, r * 0.2 * (1 - t));
+    for (let i = 0; i < DEATH_SHARDS; i++) {
+      const a = effect.spin + (Math.PI * 2 * i) / DEATH_SHARDS;
+      const cos = Math.cos(a);
+      const sin = Math.sin(a);
+      const baseX = at.x + cos * reach;
+      const baseY = at.y + sin * reach;
+      this.fillShape(
+        [
+          baseX - sin * width,
+          baseY + cos * width,
+          baseX + cos * length,
+          baseY + sin * length,
+          baseX + sin * width,
+          baseY - cos * width,
+          baseX - cos * length * 0.35,
+          baseY - sin * length * 0.35,
+        ],
+        i % 2 === 0 ? bright : effect.colour,
+        0.95 * (1 - t),
+      );
+    }
   }
 
   /**

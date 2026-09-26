@@ -863,6 +863,22 @@ Effects run on wall time rather than ticks — a 170ms swing is ten frames at
 mid-flight carries them with everything else. They are capped at 256 live, an
 order of magnitude above what a busy tick produces.
 
+**A death is a pop, drawn after the fact.** The simulation removes a dead body
+on the tick it dies, and nothing about that changes: it is gone from collision,
+targeting and the view at once. The renderer notices a body that was in the
+last view and is not in this one and leaves a 320ms pop where it stood — its
+own silhouette swelling and fading, a near-white flash at its heart, and seven
+shards of its colour thrown to about twice its radius. Every channel is read
+off the body (shape, damage-type colour, radius, mark, outlined or filled), so
+a new unit or monster dies correctly with nothing to author.
+
+The view only says what is there, so which disappearances count as deaths is
+the caller's call (`DeathRule`): in combat and in the arena, all of them; in the
+build phase only monsters, because a unit leaving then was sold; at the start
+of the showdown none, because the armies have walked out to the arena. Switching
+which lane is on screen swaps every body at once, so nothing pops unless both
+views are of the same team's board.
+
 ### The fortress aura, drawn
 
 §10.1 sells two upgrades and offers one choice — Aura Power, Aura Radius, and

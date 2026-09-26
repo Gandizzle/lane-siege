@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { buildDefIndex, FORTRESS_ID, type LaneView } from '../sim/index.ts';
 import { computeLayout } from './layout.ts';
-import { EffectsLayer } from './effects.ts';
+import { DEATH_MS, EffectsLayer } from './effects.ts';
 import { attackStyle, RANGED_MIN_TILES } from './attackStyle.ts';
 import { DAMAGE_COLOURS } from './palette.ts';
 
@@ -194,7 +194,8 @@ describe('effects are spawned from blows that already landed', () => {
       attacks: [{ attackerId: 1, targetId: 2 }],
     });
     layer.spawn(after, before);
-    expect(layer.liveKinds()).toEqual(['projectile']);
+    // And the body it killed pops where it stood.
+    expect(layer.liveKinds().sort()).toEqual(['death', 'projectile']);
   });
 
   it('skips a blow whose attacker cannot be found at all', () => {
@@ -283,5 +284,68 @@ describe('nothing accumulates', () => {
     );
     layer.reset();
     expect(layer.liveCount).toBe(0);
+  });
+});
+
+describe('a body that dies leaves a short pop, and nothing else', () => {
+  const grub = body(2, 'grub', 4, 5);
+  const pledge = body(1, MELEE_UNIT, 4, 8);
+
+  it('pops a monster and a unit that left the board in combat', () => {
+    const layer = layerFor();
+    layer.spawn(lane(), lane({ units: [pledge], monsters: [grub] }), 'all');
+    expect(layer.liveKinds()).toEqual(['death', 'death']);
+  });
+
+  it('does not pop a unit that was sold, only a monster that died', () => {
+    const layer = layerFor();
+    layer.spawn(lane(), lane({ units: [pledge], monsters: [grub] }), 'monsters');
+    expect(layer.liveKinds()).toEqual(['death']);
+  });
+
+  it('pops nothing when the rule says nothing left by dying', () => {
+    const layer = layerFor();
+    layer.spawn(lane(), lane({ units: [pledge], monsters: [grub] }), 'none');
+    expect(layer.liveCount).toBe(0);
+  });
+
+  it('pops nothing when the board on screen is a different lane', () => {
+    // Switching which lane is watched swaps every body at once; none died.
+    const layer = layerFor();
+    layer.spawn(lane({ teamId: 'lane2' }), lane({ units: [pledge], monsters: [grub] }), 'all');
+    expect(layer.liveCount).toBe(0);
+  });
+
+  it('pops nothing for a body that is still there', () => {
+    const layer = layerFor();
+    layer.spawn(lane({ monsters: [grub] }), lane({ monsters: [grub] }), 'all');
+    expect(layer.liveCount).toBe(0);
+  });
+
+  it('is short, and gone once its time is up', () => {
+    const layer = layerFor();
+    layer.spawn(lane(), lane({ monsters: [grub] }), 'all');
+    expect(DEATH_MS).toBeLessThanOrEqual(400);
+    layer.update(DEATH_MS - 1);
+    expect(layer.liveCount).toBe(1);
+    layer.render();
+    layer.update(2);
+    expect(layer.liveCount).toBe(0);
+  });
+
+  it('draws every silhouette there is, so a new body needs no animation of its own', () => {
+    const layer = layerFor();
+    const everyone = lane({
+      units: data.units.units.map((u, i) => body(100 + i, u.id, 1 + (i % 7), 1 + (i % 9))),
+      monsters: [...data.monsters.monsters, ...data.monsters.bosses].map((m, i) =>
+        body(500 + i, m.id, 1 + (i % 7), -1),
+      ),
+    });
+    layer.spawn(lane(), everyone, 'all');
+    expect(layer.liveCount).toBe(everyone.units.length + everyone.monsters.length);
+    for (const ms of [0, 40, 120, 250]) {
+      layer.update(ms === 0 ? 0 : 40);
+      expect(() => layer.render()).not.toThrow();
+    }
   });
 });

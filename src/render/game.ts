@@ -443,7 +443,12 @@ export class Game extends Container {
       // Blows landed on this tick become effects, for the board on screen
       // only: a fight you cannot see does not need animating.
       const incoming = this.shownLane();
-      if (incoming) this.effectsLayer.spawn(incoming, outgoing);
+      // A body leaving the board is a death in combat; in the build phase a
+      // unit leaving was sold, and in the showdown the armies have walked
+      // out to the arena, which draws its own (effects.ts `DeathRule`).
+      const phase = this.view?.phase;
+      const deaths = phase === 'combat' ? 'all' : phase === 'build' ? 'monsters' : 'none';
+      if (incoming) this.effectsLayer.spawn(incoming, outgoing, deaths);
       const incomingArena = this.arenaLane();
       if (incomingArena) this.arena.spawnEffects(incomingArena, outgoingArena);
     }

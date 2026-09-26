@@ -349,6 +349,8 @@ export function drawEntity(
   cx: number,
   cy: number,
   baseRadius: number,
+  /** For a body that is fading, like the pop a death leaves behind (effects.ts). */
+  alpha = 1,
 ): Graphics {
   const radius = baseRadius * (1 + (style.mark - 1) * 0.15);
   const colour = DAMAGE_COLOURS[style.damageType];
@@ -368,12 +370,20 @@ export function drawEntity(
   }
 
   if (style.outlined) {
-    g.stroke({ width: Math.max(1.5, radius * 0.16), color: colour, alignment: 0.5 });
+    g.stroke({ width: Math.max(1.5, radius * 0.16), color: colour, alignment: 0.5, alpha });
   } else {
-    g.fill({ color: colour });
+    g.fill({ color: colour, alpha });
   }
 
-  drawMarkPips(g, style.mark, cx, cy + radius + baseRadius * 0.38, baseRadius * 0.13, colour);
+  drawMarkPips(
+    g,
+    style.mark,
+    cx,
+    cy + radius + baseRadius * 0.38,
+    baseRadius * 0.13,
+    colour,
+    alpha,
+  );
   return g;
 }
 
@@ -396,13 +406,14 @@ export function drawMarkPips(
   cy: number,
   pipRadius: number,
   colour: number,
+  alpha = 1,
 ): void {
   const pips = markPipCount(mark);
   if (pips <= 0) return;
   const spacing = pipRadius * 3;
   const start = cx - (spacing * (pips - 1)) / 2;
   for (let i = 0; i < pips; i++) {
-    g.circle(start + i * spacing, cy, pipRadius).fill({ color: colour });
+    g.circle(start + i * spacing, cy, pipRadius).fill({ color: colour, alpha });
   }
 }
 

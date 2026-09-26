@@ -157,7 +157,8 @@ export class ArenaStage extends Container {
   }
 
   spawnEffects(incoming: LaneView, outgoing: LaneView | null): void {
-    this.effectsLayer.spawn(incoming, outgoing);
+    // Nothing leaves the arena but by dying.
+    this.effectsLayer.spawn(incoming, outgoing, 'all');
   }
 
   update(deltaMs: number): void {
