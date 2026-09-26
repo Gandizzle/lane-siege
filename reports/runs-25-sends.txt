@@ -1,0 +1,223 @@
+
+> lane-siege@0.0.1 runs
+> tsx src/headless/runs.ts --waves 25 --plans steady,strong --mirror
+
+
+8 runs: 4 builders x 2 plans, waves 1-25, seed 1, sends mirrored, on 4 processes.
+
+8 runs in 1365s.
+
+==============================================================================
+WHERE EACH RUN ENDED - the design's line is output 20 and rate 2 by wave 10
+==============================================================================
+  builder     plan        reached  lowest  output  rate  gem/s  income   army$   eco$  tech$  banked
+  ironvow     steady       died 6      0%       4     0    2.5      61    1060    218      0     189
+  ironvow     strong      died 25      0%      25     5   47.3    3458   19068   3725   6541    5835
+  pyre        steady           25    100%      23     4   36.9    1940   15467   2959   3145     796
+  pyre        strong           25    100%      25     5   47.3    2786   19391   3775   7392     974
+  thornweald  steady           25    100%      24     4   38.5    2477   15580   3103   6486    1020
+  thornweald  strong           25     13%      25     5   47.3    3008   23807   3700   6974     886
+  gloomtide   steady      died 25      0%      22     4   35.4    2198   13284   2893   6816     737
+  gloomtide   strong       died 5      0%       4     1    3.7      62     801    318      0     158
+
+==============================================================================
+ironvow - Steady (the budget model, played sensibly)
+==============================================================================
+  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs
+     1  100%    100%    210       1    0    0    0.5     243      0      0       3    4/25     9  r1m1 r2m1 r3m1
+     2  100%    100%    214       6    1    0    1.0     401     50      0       5    7/25    14  r1m1x2 r1m2 r2m1 r3m1
+     3  100%    100%    234      14    2    0    1.5     554    103      0       5    8/25    21  r1m1 r1m2x2 r2m2 r3m1
+     4  100%    100%    290      21    2    0    1.5     735    103      0       6    9/25    23  r1m2x4 r2m2 r3m1
+     5  100%    100%    235      46    4    0    2.5     848    218      0       7   12/25    69  r1m2x5 r2m2 r3m1
+     6    0%      0%    189      61    4    0    2.5    1060    218      0       7   12/25    29   LOST  r1m2x5 r2m2 r3m2
+
+==============================================================================
+ironvow - Strong (half again the steady line, army first)
+==============================================================================
+  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs
+     1  100%    100%    210       1    0    0    0.5     243      0      0       3    4/25     9  r1m1 r2m1 r3m1
+     2  100%    100%    224       8    2    0    1.5     344    103      0       5    8/25    16  r1m1x2 r2m1x2 r3m1
+     3  100%    100%    239      16    2    0    1.5     559    103      0       6    9/25    17  r1m1x3 r2m2x2 r3m1
+     4  100%    100%    339      22    2    0    1.5     695    103      0       6    9/25    17  r1m1 r1m2x2 r2m2x2 r3m1
+     5  100%    100%    508      48    4    1    3.7     785    318      0       8   13/25    40  r1m1x3 r1m2x2 r2m2x2 r3m1
+     6  100%    100%    357      75    5    1    4.4    1207    380      0       9   16/25    31  r1m1x2 r1m2x3 r2m2x2 r3m1 r3m2
+     7  100%    100%    407     103    7    1    5.9    1391    513      0      10   20/25    16  r1m1x3 r1m2x2 r1m3 r2m2x2 r3m1 r3m2
+     8  100%    100%    415     151    9    1    7.4    1651    658      0      11   23/25    34  r1m2x5 r1m3 r2m1 r2m2x2 r3m1 r3m2
+     9  100%    100%    900     189    9    1    7.4    1651    658      0      11   23/25    22  r1m2x5 r1m3 r2m1 r2m2x2 r3m1 r3m2
+    10  100%    100%    860     271   12    2   13.0    2030   1123      0      12   28/30    34  r1m2x5 r1m3 r2m1 r2m2x2 r3m1 r3m2x2
+    11  100%    100%    822     371   15    2   16.0    2406   1415    150      12   32/35    32  r1m2x4 r1m3x2 r2m1 r2m2x2 r3m2x3 | hp1
+    12  100%    100%    987     509   17    3   22.5    2573   1908    270      13   36/40    32  r1m2x4 r1m3x2 r2m1 r2m2x2 r3m1 r3m2x3 | hp1 blast1
+    13  100%    100%   1178     664   18    3   23.8    3307   2009    390      17   44/45    36  r1m2x4 r1m3x2 r2m1x2 r2m2x3 r3m1 r3m2x3 r4m1 r5m1 | hp1 blast1 pierce1
+    14  100%    100%   2323     794   18    3   23.8    3474   2009    390      18   46/50    24  r1m2x4 r1m3x2 r2m1x2 r2m2x3 r3m1x2 r3m2x3 r4m1 r5m1 | hp1 blast1 pierce1
+    15  100%    100%   1716     948   21    3   27.5    5084   2330    690      19   56/60    27  r1m2x4 r1m3x2 r2m2x3 r2m3x2 r3m1x2 r3m2x2 r3m3 r4m2 r5m1x2 | hp1 blast1 pierce1 speed1 arcane1
+    16  100%    100%   1670    1122   23    4   36.9    5741   2959   1110      20   60/60    24  r1m2x4 r1m3x2 r2m2x3 r2m3x2 r3m1 r3m2x3 r3m3 r4m2x2 r5m1x2 | hp1 blast2 pierce2 speed1 arcane1
+    17  100%    100%   1936    1286   24    4   38.5    6962   3103   1380      21   66/70    15  r1m2x4 r1m3x2 r2m2x2 r2m3x3 r3m1 r3m2x3 r3m3 r4m2x2 r4m3 r5m1x2 | hp2 blast2 pierce2 speed1 arcane1
+    18  100%    100%   2336    1490   25    4   40.0    8486   3225   1380      22   75/75    24  r1m2x4 r1m3x2 r2m2 r2m3x4 r3m1 r3m2x2 r3m3x2 r4m2 r4m3x2 r5m1x3 | hp2 blast2 pierce2 speed1 arcane1
+    19  100%    100%   4760    1792   25    4   40.0    8486   3225   1380      22   75/75    50  r1m2x4 r1m3x2 r2m2 r2m3x4 r3m1 r3m2x2 r3m3x2 r4m2 r4m3x2 r5m1x3 | hp2 blast2 pierce2 speed1 arcane1
+    20  100%    100%   3137    2051   25    5   47.3   12622   3725   1500      27   89/90    31  r1m2x4 r1m3x2 r2m3x5 r3m1x4 r3m2x3 r3m3x2 r4m3x3 r5m2x3 r6m2 | hp2 blast2 pierce2 speed1 arcane1 impact1
+    21  100%    100%   4080    2286   25    5   47.3   14198   3725   2043      32  97/100    25  r1m1x5 r1m2x4 r1m3x2 r2m3x5 r3m1x4 r3m2x3 r3m3x2 r4m3x3 r5m2x3 r6m3 | hp2 blast2 pierce2 speed2 arcane1 impact2
+    22  100%    100%   3359    2539   25    5   47.3   16492   3725   3723      32 106/110    29  r1m1x5 r1m3x6 r2m3x5 r3m1x3 r3m2x3 r3m3x3 r4m3x3 r5m2x2 r5m3 r6m3 | hp3 blast2 pierce2 speed3 arcane2 impact3
+    23  100%    100%   4056    2757   25    5   47.3   16492   3725   6541      32 106/110    21  r1m1x5 r1m3x6 r2m3x5 r3m1x3 r3m2x3 r3m3x3 r4m3x3 r5m2x2 r5m3 r6m3 | hp5 blast2 pierce3 speed3 arcane2 impact3
+    24  100%    100%   7760    3022   25    5   47.3   16492   3725   6541      32 106/110    32  r1m1x5 r1m3x6 r2m3x5 r3m1x3 r3m2x3 r3m3x3 r4m3x3 r5m2x2 r5m3 r6m3 | hp5 blast2 pierce3 speed3 arcane2 impact3
+    25    0%      0%   5835    3458   25    5   47.3   19068   3725   6541      32 113/115    70   LOST  r1m1x5 r1m3x6 r2m3x5 r3m2x4 r3m3x5 r4m3x3 r5m2 r5m3x2 r6m3 | hp5 blast2 pierce3 speed3 arcane2 impact3
+
+==============================================================================
+pyre - Steady (the budget model, played sensibly)
+==============================================================================
+  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs
+     1  100%    100%    232       3    0    0    0.5     223      0      0       2    3/25    38  r1m1 r4m1
+     2  100%    100%    234       5    0    0    0.5     432      0      0       3    4/25    18  r1m2 r2m2 r4m1
+     3  100%    100%    246      15    2    0    1.5     544    103      0       5    8/25    32  r1m2 r2m1x2 r2m2 r4m1
+     4  100%    100%    291      22    2    0    1.5     739    103      0       6   10/25    18  r1m3 r2m1x3 r2m2 r4m1
+     5  100%    100%    503      35    4    0    2.5     869    218      0       7   13/25    22  r1m1 r1m3 r2m1x2 r2m2x2 r4m1
+     6  100%    100%    289      47    4    0    2.5    1356    218      0       8   15/25    19  r1m1x2 r1m3 r2m1x2 r2m2 r2m3 r4m2
+     7  100%    100%    324      69    6    1    5.2    1401    445      0       9   18/25    14  r1m1x3 r1m3 r2m1x2 r2m2 r2m3 r4m2
+     8  100%    100%    391     105    7    1    5.9    1621    513      0      10   21/25    30  r1m1x4 r1m3 r2m1x2 r2m3x2 r4m2
+     9  100%    100%    695     145    7    1    5.9    1734    513      0      11   22/25    37  r1m1x4 r1m2 r1m3 r2m1x2 r2m3x2 r4m2
+    10  100%    100%    737     182    9    1    7.4    2039    658    180      12   26/30    19  r1m1x4 r1m3x2 r2m1x2 r2m2 r2m3x2 r4m2 | speed1
+    11  100%    100%    542     236   10    2   11.0    2333    935    330      13   28/30    20  r1m1x3 r1m2 r1m3x2 r2m1 r2m2x3 r2m3x2 r4m2 | speed1 hp1
+    12  100%    100%    687     309   11    2   12.0    2735   1015    330      17   34/35    31  r1m1x5 r1m2 r1m3x2 r2m1x3 r2m2x2 r2m3x3 r4m2 | speed1 hp1
+    13  100%    100%    738     377   12    2   13.0    3332   1098    330      18   38/40    22  r1m1x4 r1m2x2 r1m3x2 r2m1 r2m2x4 r2m3x3 r4m2 r5m1 | speed1 hp1
+    14  100%    100%   1498     428   12    2   13.0    3332   1098    330      18   38/40     9  r1m1x4 r1m2x2 r1m3x2 r2m1 r2m2x4 r2m3x3 r4m2 r5m1 | speed1 hp1
+    15  100%    100%   1068     499   14    2   15.0    4600   1298    330      21   47/50    17  r1m1x4 r1m2x2 r1m3x2 r2m2x5 r2m3x3 r3m2 r4m2x2 r5m1x2 | speed1 hp1
+    16  100%    100%   1025     596   15    3   20.0    5221   1690    330      22   51/55    19  r1m1x5 r1m2x2 r1m3x2 r2m2x5 r2m3x3 r3m2 r4m2 r4m3 r5m1x2 | speed1 hp1
+    17  100%    100%   1190     675   16    3   21.3    5914   1785    450      24   58/60     8  r1m1x5 r1m2x2 r1m3x2 r2m2x5 r2m3x3 r3m2 r4m2 r4m3 r5m1x4 | speed1 hp1 blast1
+    18  100%    100%   1268     792   17    3   22.5    6630   1883    720      26   63/65    22  r1m1x4 r1m2x3 r1m3x2 r2m2x5 r2m3x3 r3m2 r4m1 r4m2x2 r4m3 r5m1x4 | speed1 hp2 blast1
+    19  100%    100%   2150     950   17    3   22.5    7132   1883    720      26   63/65    39  r1m1x4 r1m2x3 r1m3x2 r2m2x5 r2m3x3 r3m2 r4m1 r4m2x2 r4m3 r5m1x3 r5m2 | speed1 hp2 blast1
+    20  100%    100%   1871    1081   19    3   25.0    8777   2088    960      27   70/70    22  r1m1x4 r1m2x3 r1m3x2 r2m2x5 r2m3x4 r3m2 r4m2x3 r4m3 r5m1x3 r5m3 | speed1 hp2 blast1 arcane1 impact1
+    21  100%    100%   1768    1227   20    4   32.3   10102   2620    960      28   76/80    17  r1m1x4 r1m2x3 r1m3x2 r2m2x5 r2m3x4 r3m3 r4m2x3 r4m3 r5m1x3 r5m2 r5m3 | speed1 hp2 blast1 arcane1 impact1
+    22  100%    100%   2002    1400   21    4   33.8   11652   2730    960      29   83/85    23  r1m1x3 r1m2x4 r1m3x2 r2m2x5 r2m3x4 r3m3 r4m2x3 r4m3 r5m1x3 r5m3x2 r6m1 | speed1 hp2 blast1 arcane1 impact1
+    23  100%    100%   2421    1528   22    4   35.4   13194   2843    960      31   92/95     9  r1m1x3 r1m2x4 r1m3x2 r2m1 r2m2x5 r2m3x4 r3m3 r4m2 r4m3x3 r5m1x4 r5m3x2 r6m1 | speed1 hp2 blast1 arcane1 impact1
+    24  100%    100%   4602    1703   22    4   35.4   13194   2843    960      31   92/95    21  r1m1x3 r1m2x4 r1m3x2 r2m1 r2m2x5 r2m3x4 r3m3 r4m2 r4m3x3 r5m1x4 r5m3x2 r6m1 | speed1 hp2 blast1 arcane1 impact1
+    25  100%    100%    796    1940   23    4   36.9   15467   2959   3145      32  99/100    38  r1m2x7 r1m3x2 r2m2x6 r2m3x4 r3m3 r4m2 r4m3x3 r5m1x3 r5m3x3 r6m1x2 | speed3 hp3 blast2 arcane2 impact1 pierce2
+
+==============================================================================
+pyre - Strong (half again the steady line, army first)
+==============================================================================
+  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs
+     1  100%    100%    232       3    0    0    0.5     223      0      0       2    3/25    38  r1m1 r4m1
+     2  100%    100%    234       5    0    0    0.5     432      0      0       3    4/25    18  r1m2 r2m2 r4m1
+     3  100%    100%    251      18    3    0    2.0     488    159      0       4    8/25    32  r1m2 r2m1 r2m2 r4m1
+     4  100%    100%    371      29    3    0    2.0     623    159      0       7   11/25    26  r1m1x3 r1m2 r2m1 r2m2 r4m1
+     5  100%    100%    502      46    3    1    3.0     866    259      0       7   12/25    27  r1m1x2 r1m2x2 r2m1 r2m3 r4m1
+     6  100%    100%    338      73    6    1    5.2    1163    445      0       9   18/25    22  r1m1x3 r1m2x2 r1m3 r2m1 r2m3 r4m1
+     7  100%    100%    411     101    8    1    6.7    1316    584      0       9   20/25    13  r1m1x2 r1m2x3 r1m3 r2m2 r2m3 r4m1
+     8  100%    100%    455     158    8    2    9.0    1500    784      0      10   22/25    34  r1m1x3 r1m2x2 r1m3x2 r2m2 r2m3 r4m1
+     9  100%    100%    667     210    8    2    9.0    1812    784      0      11   23/25    28  r1m1x4 r1m2x2 r1m3x2 r2m2 r2m3 r4m2
+    10  100%    100%    877     297   14    2   15.0    1950   1298      0      12   30/30    29  r1m1x4 r1m2x3 r1m3x2 r2m2 r2m3 r4m2
+    11  100%    100%    787     378   15    2   16.0    2706   1390      0      15   37/40    21  r1m1x4 r1m2x3 r1m3x2 r2m1 r2m2 r2m3x2 r4m2 r5m1
+    12  100%    100%    997     496   17    3   22.5    2751   1883    150      16   40/40    23  r1m1x5 r1m2x3 r1m3x2 r2m1 r2m2 r2m3x2 r4m2 r5m1 | hp1
+    13  100%    100%   1167     625   18    3   23.8    3431   2009    270      16   41/45    23  r1m1x4 r1m2x4 r1m3x2 r2m2x2 r2m3x2 r4m2 r5m2 | hp1 arcane1
+    14  100%    100%   2357     740   18    3   23.8    3431   2009    270      16   41/45    18  r1m1x4 r1m2x4 r1m3x2 r2m2x2 r2m3x2 r4m2 r5m2 | hp1 arcane1
+    15  100%    100%   1542     854   21    3   27.5    5251   2330    450      16   50/50    12  r1m1x3 r1m2x4 r1m3x3 r2m2x2 r2m3x2 r4m3 r5m3 | hp1 arcane1 speed1
+    16  100%    100%   1603     995   23    4   36.9    5896   2984    570      17   55/55    12  r1m1x3 r1m2x4 r1m3x3 r2m2 r2m3x3 r4m2 r4m3 r5m3 | hp1 arcane1 speed1 impact1
+    17  100%    100%   1657    1129   24    4   38.5    6886   3128   1050      17   60/60     9  r1m1 r1m2x4 r1m3x5 r2m2 r2m3x3 r4m3x2 r5m3 | hp2 arcane2 speed1 impact1
+    18  100%    100%   1871    1319   25    4   40.0    7887   3275   1536      21   68/70    20  r1m2x4 r1m3x6 r2m1x2 r2m2 r2m3x5 r4m3x2 r5m3 | hp3 arcane2 speed1 impact1
+    19  100%    100%   4005    1534   25    4   40.0    7887   3275   1536      21   68/70    26  r1m2x4 r1m3x6 r2m1x2 r2m2 r2m3x5 r4m3x2 r5m3 | hp3 arcane2 speed1 impact1
+    20  100%    100%   3170    1745   25    5   47.3    9656   3775   2741      22   74/75    19  r1m2x4 r1m3x6 r2m3x8 r4m3x2 r5m3 r6m2 | hp4 arcane2 speed1 impact1 blast2
+    21  100%    100%   2707    1925   25    5   47.3   12714   3775   2741      24   85/85    12  r1m2x3 r1m3x7 r2m3x8 r4m3x3 r5m3x2 r6m2 | hp4 arcane2 speed1 impact1 blast2
+    22  100%    100%   2797    2121   25    5   47.3   14180   3775   3900      26   92/95    16  r1m2x3 r1m3x7 r2m3x8 r4m3x4 r5m3x2 r6m1 r6m2 | hp4 arcane2 speed3 impact2 blast2
+    23  100%    100%   3349    2296   25    5   47.3   16556   3775   3900      29 103/105    11  r1m2x3 r1m3x7 r2m3x8 r4m3x6 r5m1 r5m3x2 r6m1 r6m2 | hp4 arcane2 speed3 impact2 blast2
+    24  100%    100%   6439    2504   25    5   47.3   16556   3775   3900      29 103/105    18  r1m2x3 r1m3x7 r2m3x8 r4m3x6 r5m1 r5m3x2 r6m1 r6m2 | hp4 arcane2 speed3 impact2 blast2
+    25  100%    100%    974    2786   25    5   47.3   19391   3775   7392      32 111/115    36  r1m2x4 r1m3x9 r2m3x8 r4m3x6 r5m3x3 r6m2x2 | hp4 arcane2 speed4 impact2 blast4 pierce4
+
+==============================================================================
+thornweald - Steady (the budget model, played sensibly)
+==============================================================================
+  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs
+     1  100%    100%    221       3    0    0    0.5     234      0      0       2    3/25    35  r2m1 r4m1
+     2  100%    100%    249       9    1    0    1.0     375     50      0       3    5/25    28  r2m1 r2m2 r4m1
+     3  100%    100%    342      17    2    0    1.5     460    103      0       3    6/25    26  r2m2x2 r4m1
+     4  100%    100%    445      29    2    0    1.5     602    103      0       4    8/25    52  r2m2x2 r3m1 r4m1
+     5  100%    100%    506      43    4    0    2.5     901    218      0       7   13/25    23  r1m1 r1m2 r2m2x3 r3m1 r4m1
+     6  100%    100%    300      65    4    1    3.7    1304    318      0      11   17/25    32  r1m1x4 r1m2 r2m1 r2m2x3 r3m2 r4m1
+     7  100%    100%    375      87    6    1    5.2    1445    445      0      12   20/25    12  r1m1x4 r1m2 r2m1 r2m2x4 r3m2 r4m1
+     8  100%    100%    391     124    7    1    5.9    1733    513      0      13   23/25    32  r1m1x4 r1m2x2 r2m1 r2m2x3 r2m3 r3m2 r4m1
+     9  100%    100%    437     154    7    1    5.9    2113    513      0      14   24/25    21  r1m1x4 r1m2x3 r2m1 r2m2x3 r2m3 r3m2 r4m2
+    10  100%    100%    727     197    9    1    7.4    2345    683      0      14   27/30    29  r1m1x3 r1m2x3 r1m3 r2m1 r2m2x3 r2m3 r3m2 r4m2
+    11  100%    100%    661     265   10    2   11.0    2435    960    270      16   30/30    32  r1m1x5 r1m2x3 r1m3 r2m1 r2m2x3 r2m3 r3m2 r4m2 | hp1 impact1
+    12  100%    100%    684     339   11    2   12.0    3015   1065    270      17   34/35    33  r1m1x3 r1m2x5 r1m3 r2m2x4 r2m3 r3m2 r4m2 r5m1 | hp1 impact1
+    13  100%    100%    895     426   12    2   13.0    3383   1148    390      17   36/40    37  r1m2x7 r1m3x2 r2m2x4 r2m3 r3m2 r4m2 r5m1 | hp1 impact1 pierce1
+    14  100%    100%   1523     486   12    2   13.0    3495   1148    510      19   38/40    16  r1m2x7 r1m3x2 r2m1x2 r2m2x4 r2m3 r3m2 r4m2 r5m1 | hp1 impact1 pierce1 arcane1
+    15  100%    100%   1482     588   14    2   15.0    4213   1348    780      20   44/45    37  r1m2x7 r1m3x2 r2m1x2 r2m2x4 r2m3 r3m1 r3m2 r4m3 r5m1 | hp2 impact1 pierce1 arcane1
+    16  100%    100%   1316     709   15    3   20.0    5126   1740    780      23   52/55    31  r1m1x2 r1m2x7 r1m3x2 r2m1x2 r2m2x4 r2m3 r3m1 r3m3 r4m3 r5m1x2 | hp2 impact1 pierce1 arcane1
+    17  100%    100%   1344     802   16    3   21.3    6077   1835    960      24   56/60    14  r1m2x9 r1m3x2 r2m2x5 r2m3x2 r3m1 r3m3 r4m2 r4m3 r5m1x2 | hp2 impact1 pierce1 arcane1 speed1
+    18  100%    100%   1449     949   17    3   22.5    7215   1933    960      24   61/65    35  r1m2x9 r1m3x2 r2m2x3 r2m3x4 r3m2 r3m3 r4m3x2 r5m1x2 | hp2 impact1 pierce1 arcane1 speed1
+    19  100%    100%   3002    1203   17    3   22.5    7357   1933    960      25   63/65    83  r1m2x9 r1m3x2 r2m2x3 r2m3x4 r3m1 r3m2 r3m3 r4m3x2 r5m1x2 | hp2 impact1 pierce1 arcane1 speed1
+    20  100%    100%   4074    1403   19    3   25.0    8075   2138   1290      27   71/75    49  r1m2x9 r1m3x2 r2m2x3 r2m3x4 r3m1 r3m2 r3m3 r4m3x2 r5m1x4 | hp2 impact1 pierce2 arcane1 speed1 blast1
+    21  100%    100%   2284    1585   20    4   32.3   10885   2645   1986      32   82/85    28  r1m2x9 r1m3x2 r2m1x5 r2m2x3 r2m3x4 r3m1 r3m3x2 r4m3x2 r5m1x2 r5m2 r5m3 | hp3 impact1 pierce2 arcane2 speed1 blast1
+    22  100%    100%   2386    1774   21    4   33.8   11562   2755   3439      32   84/85    29  r1m2x9 r1m3x2 r2m1x5 r2m2x2 r2m3x5 r3m1 r3m3x2 r4m3x2 r5m1 r5m2x2 r5m3 | hp4 impact3 pierce2 arcane2 speed1 blast1
+    23  100%    100%   2678    1934   22    4   35.4   13091   2868   4017      32   88/90    17  r1m2x9 r1m3x2 r2m1x2 r2m2x5 r2m3x5 r3m2 r3m3x2 r4m3x2 r5m1 r5m2 r5m3x2 | hp4 impact3 pierce2 arcane3 speed1 blast2
+    24  100%    100%   5365    2143   22    4   35.4   13091   2868   4017      32   88/90    31  r1m2x9 r1m3x2 r2m1x2 r2m2x5 r2m3x5 r3m2 r3m3x2 r4m3x2 r5m1 r5m2 r5m3x2 | hp4 impact3 pierce2 arcane3 speed1 blast2
+    25  100%    100%   1020    2477   24    4   38.5   15580   3103   6486      32 100/100    62  r1m2x7 r1m3x4 r2m2 r2m3x11 r3m3x3 r4m3x2 r5m2x2 r5m3x2 | hp4 impact3 pierce2 arcane5 speed2 blast3
+
+==============================================================================
+thornweald - Strong (half again the steady line, army first)
+==============================================================================
+  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs
+     1  100%    100%    221       3    0    0    0.5     234      0      0       2    3/25    35  r2m1 r4m1
+     2  100%    100%    249       9    1    0    1.0     375     50      0       3    5/25    28  r2m1 r2m2 r4m1
+     3  100%    100%    293      20    3    0    2.0     460    159      0       3    7/25    28  r2m2x2 r4m1
+     4  100%    100%    411      38    3    0    2.0     602    159      0       4    9/25    58  r2m2x2 r3m1 r4m1
+     5  100%    100%    518      64    5    1    4.4     788    380      0       6   13/25    29  r1m1 r2m2x3 r3m1 r4m1
+     6   13%     13%    373      95    5    1    4.4    1246    380      0       8   17/25    39  r1m2 r2m1 r2m2x3 r3m1 r4m1 r5m1
+     7   34%     13%    459     127    9    1    7.4    1291    658      0       9   22/25    12  r1m1 r1m2 r2m1 r2m2x3 r3m1 r4m1 r5m1
+     8   75%     34%    536     208    9    2   10.0    1498    858      0       9   23/25    52  r1m2 r1m3 r2m1 r2m2x3 r3m1 r4m1 r5m1
+     9  100%     75%    690     285    9    2   10.0    1989    858      0       9   24/25    47  r1m3x2 r2m2x4 r3m1 r4m2 r5m1
+    10  100%    100%    984     375   14    2   15.0    2237   1298      0      11   32/35    30  r1m3x2 r2m1 r2m2x4 r3m1x2 r4m2 r5m1
+    11  100%    100%    937     478   15    2   16.0    2788   1390    270      11   35/35    36  r1m3x2 r2m1 r2m2x4 r3m1x2 r4m3 r5m1 | arcane1 hp1
+    12  100%    100%   1164     707   17    3   22.5    3217   1883    270      13   41/45    72  r1m1 r1m3x2 r2m1 r2m2x4 r3m1x2 r4m3 r5m1x2 | arcane1 hp1
+    13  100%    100%   1551     847   18    3   23.8    4246   1984    270      17   48/50    29  r1m1 r1m3x2 r2m1x4 r2m2x4 r3m1x2 r4m3 r5m1x2 r5m2 | arcane1 hp1
+    14  100%    100%   2993     956   18    3   23.8    4246   1984    270      17   48/50    15  r1m1 r1m3x2 r2m1x4 r2m2x4 r3m1x2 r4m3 r5m1x2 r5m2 | arcane1 hp1
+    15  100%    100%   3062    1089   21    3   27.5    5181   2330    660      17   51/55    19  r1m2 r1m3x2 r2m2x8 r3m1x2 r4m3 r5m1 r5m2x2 | arcane2 hp1 speed1
+    16  100%    100%   3246    1242   23    4   36.9    5840   2959    930      19   59/60    17  r1m2 r1m3x2 r2m2x6 r2m3x2 r3m1x4 r4m3 r5m1 r5m2x2 | arcane2 hp2 speed1
+    17  100%    100%   1975    1388   24    4   38.5    8593   3078   1263      25   76/80     9  r1m1 r1m2 r1m3x2 r2m2x4 r2m3x4 r3m1x7 r4m3x2 r5m1 r5m2x3 | arcane2 hp2 speed2
+    18  100%    100%   2285    1564   25    4   40.0    9013   3200   2487      26   80/80    17  r1m1 r1m2 r1m3x2 r2m2x4 r2m3x4 r3m1x7 r4m3x2 r5m1 r5m2x3 r6m1 | arcane3 hp2 speed3 blast1 impact1
+    19  100%    100%   4617    1754   25    4   40.0    9013   3200   2487      26   80/80    22  r1m1 r1m2 r1m3x2 r2m2x4 r2m3x4 r3m1x7 r4m3x2 r5m1 r5m2x3 r6m1 | arcane3 hp2 speed3 blast1 impact1
+    20  100%    100%   2842    1964   25    5   47.3   10978   3700   4611      27   83/85    18  r1m2x2 r1m3x2 r2m2x3 r2m3x5 r3m1x6 r3m2x2 r4m3x2 r5m2x4 r6m2 | arcane4 hp4 speed3 blast1 impact1 pierce1
+    21  100%    100%   3288    2172   25    5   47.3   13150   3700   4821      29   95/95    18  r1m3x4 r2m2x3 r2m3x5 r3m1x5 r3m2 r3m3x2 r4m3x2 r5m1 r5m2x4 r6m1 r6m2 | arcane4 hp4 speed3 blast2 impact1 pierce1
+    22  100%    100%   3092    2364   25    5   47.3   16368   3700   4821      32 104/105    15  r1m3x4 r2m1x2 r2m2x4 r2m3x5 r3m1x4 r3m2x2 r3m3x2 r4m3x2 r5m1 r5m2x2 r5m3x2 r6m2x2 | arcane4 hp4 speed3 blast2 impact1 pierce1
+    23  100%    100%   3622    2543   25    5   47.3   17430   3700   6396      32 107/110    12  r1m3x4 r2m1x2 r2m2x4 r2m3x5 r3m1x4 r3m2x2 r3m3x2 r4m3x2 r5m1 r5m2 r5m3x3 r6m2x2 | arcane4 hp5 speed3 blast2 impact1 pierce1
+    24  100%    100%   6973    2755   25    5   47.3   17430   3700   6396      32 107/110    19  r1m3x4 r2m1x2 r2m2x4 r2m3x5 r3m1x4 r3m2x2 r3m3x2 r4m3x2 r5m1 r5m2 r5m3x3 r6m2x2 | arcane4 hp5 speed3 blast2 impact1 pierce1
+    25  100%    100%    886    3008   25    5   47.3   23807   3700   6974      32 122/125    28  r1m3x4 r2m1 r2m2x3 r2m3x7 r3m2x4 r3m3x4 r4m3x2 r5m2 r5m3x4 r6m3x2 | arcane4 hp5 speed3 blast2 impact1 pierce3
+
+==============================================================================
+gloomtide - Steady (the budget model, played sensibly)
+==============================================================================
+  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs
+     1  100%    100%    229       1    0    0    0.5     224      0      0       4    4/25     6  r2m1x4
+     2  100%    100%    216       6    1    0    1.0     399     50      0       6    7/25    13  r1m1x2 r2m1x3 r2m2
+     3  100%    100%    230      13    2    0    1.5     557    103      0       8   10/25    18  r1m1x3 r1m2 r2m1x3 r2m2
+     4  100%    100%    371      22    2    0    1.5     642    103      0       8   10/25    34  r1m1x3 r1m2 r2m1x2 r2m2x2
+     5  100%    100%    491      35    4    0    2.5     868    218      0       9   13/25    23  r1m1x3 r1m2 r2m1 r2m2x4
+     6  100%    100%    281      50    5    0    3.0    1294    280      0      12   20/25    20  r1m1x3 r1m2 r2m1 r2m2x4 r3m1x3
+     7  100%    100%    318      71    6    1    5.2    1407    445      0      13   22/25    10  r1m1x3 r1m2x2 r2m1 r2m2x4 r3m1x3
+     8  100%    100%    396     109    7    1    5.9    1616    513      0      14   24/25    34  r1m1x2 r1m2x3 r2m1 r2m2x5 r3m1x3
+     9  100%    100%    524     139    7    1    5.9    1783    513    120      15   26/30    21  r1m1x2 r1m2x3 r2m1 r2m2x5 r3m1x4 | blast1
+    10  100%    100%    669     180    9    1    7.4    2141    683    120      20   34/35    26  r1m1x5 r1m2x3 r2m1x2 r2m2x5 r3m1x5 | blast1
+    11  100%    100%    559     242    9    2   10.0    2591    883    120      20   34/35    32  r1m1x4 r1m2x4 r2m2x7 r3m1x4 r3m2 | blast1
+    12  100%    100%    687     323   11    2   12.0    2965   1040    120      24   41/45    37  r1m1x6 r1m2x4 r2m1 r2m2x7 r3m1x4 r3m2 r4m1 | blast1
+    13  100%    100%    779     402   12    2   13.0    3558   1123    120      27   48/50    31  r1m1x6 r1m2x4 r2m1x2 r2m2x7 r3m1x4 r3m2 r4m1x2 r5m1 | blast1
+    14  100%    100%   1594     457   12    2   13.0    3558   1123    120      27   48/50    13  r1m1x6 r1m2x4 r2m1x2 r2m2x7 r3m1x4 r3m2 r4m1x2 r5m1 | blast1
+    15  100%    100%   1085     533   14    2   15.0    4801   1298    270      29   58/60    20  r1m1x6 r1m2x4 r2m1x2 r2m2x7 r3m1x4 r3m3 r4m1x2 r5m1x2 r6m1 | blast1 hp1
+    16  100%    100%   1043     626   15    3   20.0    5335   1690    390      29   59/60    18  r1m1x6 r1m2x4 r2m1x2 r2m2x7 r3m1x4 r3m3 r4m2x2 r5m1x2 r6m1 | blast1 hp1 pierce1
+    17  100%    100%   1122     712   16    3   21.3    5335   1785   1326      29   60/60    11  r1m1x6 r1m2x4 r2m1x2 r2m2x7 r3m1x4 r3m3 r4m2x2 r5m1x2 r6m1 | blast1 hp3 pierce1 speed1
+    18  100%    100%   1401     834   17    3   22.5    6050   1908   1446      29   64/65    25  r1m1x6 r1m2x3 r1m3 r2m1x2 r2m2x7 r3m1x4 r3m3 r4m2 r4m3 r5m1x2 r6m1 | blast1 hp3 pierce1 speed1 impact1
+    19  100%    100%   2875    1030   17    3   22.5    6050   1908   1446      29   64/65    55  r1m1x6 r1m2x3 r1m3 r2m1x2 r2m2x7 r3m1x4 r3m3 r4m2 r4m3 r5m1x2 r6m1 | blast1 hp3 pierce1 speed1 impact1
+    20  100%    100%   2010    1180   19    3   25.0    8276   2113   1866      32   72/75    30  r1m1x9 r1m2x3 r1m3 r2m1x2 r2m2x7 r3m1x4 r3m3 r4m2 r4m3 r5m2 r5m3 r6m1 | blast2 hp3 pierce2 speed1 impact1
+    21  100%    100%   2049    1356   20    4   32.3    9626   2620   1866      32   75/75    25  r1m1x9 r1m2x3 r1m3 r2m2x9 r3m1x4 r3m3 r4m3x2 r5m2 r5m3 r6m2 | blast2 hp3 pierce2 speed1 impact1
+    22  100%    100%   2096    1537   21    4   33.8   11107   2755   2319      32   80/80    28  r1m1x8 r1m2x3 r1m3x2 r2m2x9 r3m1x3 r3m2 r3m3 r4m3x2 r5m3x2 r6m2 | blast2 hp3 pierce2 speed2 impact1 arcane1
+    23  100%    100%   2745    1697   22    4   35.4   11519   2893   3404      32   82/85    18  r1m1x8 r1m2x3 r1m3x2 r2m2x8 r2m3 r3m1x2 r3m2x2 r3m3 r4m3x2 r5m3x2 r6m2 | blast2 hp4 pierce2 speed2 impact1 arcane2
+    24  100%    100%   5182    1891   22    4   35.4   11519   2893   3404      32   82/85    26  r1m1x8 r1m2x3 r1m3x2 r2m2x8 r2m3 r3m1x2 r3m2x2 r3m3 r4m3x2 r5m3x2 r6m2 | blast2 hp4 pierce2 speed2 impact1 arcane2
+    25    0%      0%    737    2198   22    4   35.4   13284   2893   6816      32   87/90    59   LOST  r1m1x8 r1m2x3 r1m3x2 r2m2x8 r2m3 r3m1x2 r3m2 r3m3x2 r4m3x2 r5m3x2 r6m3 | blast2 hp5 pierce2 speed3 impact2 arcane4
+
+==============================================================================
+gloomtide - Strong (half again the steady line, army first)
+==============================================================================
+  wave  fort  lowest   gold  income  out rate  gem/s   army$   eco$  tech$  bodies  supply  secs
+     1  100%    100%    229       1    0    0    0.5     224      0      0       4    4/25     6  r2m1x4
+     2  100%    100%    216       6    1    0    1.0     399     50      0       6    7/25    13  r1m1x2 r2m1x3 r2m2
+     3  100%    100%    249      16    3    0    2.0     489    159      0       8   11/25    24  r1m1x4 r2m1x3 r2m2
+     4  100%    100%    268      26    3    0    2.0     716    159      0       9   13/25    20  r1m1x4 r2m1x2 r2m2x2 r3m1
+     5    0%      0%    158      62    4    1    3.7     801    318      0       9   14/25    66   LOST  r1m1x4 r2m1 r2m2x3 r3m1
+

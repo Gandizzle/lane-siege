@@ -1067,6 +1067,12 @@ buys a gem upgrade before the boss that its own returning sends then make it
 pay for — the harness playing the plan too literally rather than a send out of
 line.
 
+Played to the council with the finished ladder (`reports/runs-25-sends.txt`,
+seed 1), **four of eight beat it and two more die there** — Pyre and Thornweald
+on both plans; Ironvow's strong economy and Gloomtide's steady one reach it.
+That is the best a table that sends back has managed: three of eight beat the
+council with sends priced by wave, none with the old flat prices.
+
 ## 5. The phases
 
 **Phase 0 — instrumentation.** _Done._ Vocabulary settled, the budget computed
