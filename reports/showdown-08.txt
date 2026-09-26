@@ -1,0 +1,221 @@
+
+> lane-siege@0.0.1 showdown
+> tsx src/headless/showdown.ts --duels 20 --ffa 40 --mirrors 0
+
+
+280 fights: 0 mirrors a builder, 20 duels a pair (both seatings), 40 four-ways. seed 20260920.
+running on 4 processes...
+
+shard 0: 5/70
+shard 1: 5/70
+shard 2: 5/70
+shard 3: 5/70
+shard 2: 10/70
+shard 3: 10/70
+shard 0: 10/70
+shard 1: 10/70
+shard 2: 15/70
+shard 3: 15/70
+shard 0: 15/70
+shard 2: 20/70
+shard 1: 15/70
+shard 3: 20/70
+shard 0: 20/70
+shard 2: 25/70
+shard 3: 25/70
+shard 1: 20/70
+shard 2: 30/70
+shard 3: 30/70
+shard 0: 25/70
+shard 1: 25/70
+shard 3: 35/70
+shard 2: 35/70
+shard 0: 30/70
+shard 1: 30/70
+shard 3: 40/70
+shard 0: 35/70
+shard 2: 40/70
+shard 1: 35/70
+shard 3: 45/70
+shard 0: 40/70
+shard 2: 45/70
+shard 1: 40/70
+shard 0: 45/70
+shard 1: 45/70
+shard 3: 50/70
+shard 2: 50/70
+shard 0: 50/70
+shard 3: 55/70
+shard 1: 50/70
+shard 2: 55/70
+shard 0: 55/70
+shard 3: 60/70
+shard 2: 60/70
+shard 1: 55/70
+shard 0: 60/70
+shard 1: 60/70
+shard 2: 65/70
+shard 3: 65/70
+shard 1: 65/70
+shard 0: 65/70
+shard 2: 70/70
+shard 3: 70/70
+shard 1: 70/70
+shard 0: 70/70
+
+280 fights in 219s. Mean fight 24s of game time. 0 hit the tick cap.
+Every seat got 20,491 gold and 95 supply.
+Line of sight across the arena's corners: BLOCKED. Walking at 2.5x lane speed. The centre deals +0.5, takes -0.5.
+
+==============================================================================
+CONTROLS - if these are not flat, nothing below them means anything
+==============================================================================
+
+MIRROR: four copies of one builder, one build. 25% a seat is correct.
+                 fights   win rate        margin   mean place
+  -> nothing to compare
+
+SEATS: win rate by spoke across the four-ways, seating shuffled.
+                 fights   win rate        margin   mean place
+  seat 0             40    30.0% ± 7.2%   19.4%        2.33
+  seat 1             40    27.5% ± 7.1%   16.1%        2.45
+  seat 2             40    25.0% ± 6.8%   11.3%        2.48
+  seat 3             40    17.5% ± 6.0%    9.8%        2.75
+  -> chi-square 1.40 on 3 df - even, within chance
+
+==============================================================================
+DUELS - the primary signal for builder parity
+==============================================================================
+
+By builder, across every duel.
+                 fights   win rate        margin   mean place
+  thornweald        120    53.3% ± 4.6%   34.4%        1.47
+  gloomtide         120    50.8% ± 4.6%   38.1%        1.49
+  pyre              120    48.3% ± 4.6%   32.4%        1.52
+  ironvow           120    47.5% ± 4.6%   32.3%        1.52
+
+By matchup. 40/60 either way is the line.
+  matchup                    fights    first wins       margins
+  pyre v thornweald              40     37.5% ± 7.7%    26.3% /  40.0%   <- outside 40/60
+  ironvow v pyre                 40     42.5% ± 7.8%    24.1% /  39.5%
+  ironvow v thornweald           40     52.5% ± 7.9%    35.8% /  30.5%
+  ironvow v gloomtide            40     47.5% ± 7.9%    37.0% /  41.2%
+  pyre v gloomtide               40     50.0% ± 7.9%    31.4% /  32.8%
+  thornweald v gloomtide         40     50.0% ± 7.9%    32.8% /  40.1%
+
+==============================================================================
+FOUR-WAYS - a check on what only shows up with four
+==============================================================================
+
+By builder.
+                 fights   win rate        margin   mean place
+  ironvow            40    37.5% ± 7.7%   21.2%        2.15
+  gloomtide          40    27.5% ± 7.1%   16.1%        2.30
+  pyre               40    22.5% ± 6.6%   12.2%        2.70
+  thornweald         40    12.5% ± 5.2%    7.1%        2.85   <- -12.5% off 25.0%
+
+==============================================================================
+BUILDS - is one shape of army simply correct?
+==============================================================================
+                 fights   win rate        margin   mean place
+  bottomheavy        35    82.9% ± 6.4%   46.6%        1.34
+  design             29    69.0% ± 8.6%   38.3%        1.34
+  pure6              22    68.2% ± 9.9%   59.8%        1.41
+  even               31    67.7% ± 8.4%   38.1%        1.32
+  nolow              31    64.5% ± 8.6%   48.4%        1.45
+  anchor             19    63.2% ±11.1%   48.8%        1.58
+  mid2               33    60.6% ± 8.5%   50.7%        1.61
+  wall               23    56.5% ±10.3%   45.5%        1.52
+  middle             28    53.6% ± 9.4%   34.6%        1.64
+  pure5              43    48.8% ± 7.6%   38.9%        1.70
+  designMk2          33    45.5% ± 8.7%   32.1%        1.70
+  barbell            21    42.9% ±10.8%   18.0%        1.57
+  topheavy           41    41.5% ± 7.7%   21.0%        1.63
+  nohigh             29    41.4% ± 9.1%   19.7%        1.79
+  skip               21    38.1% ±10.6%   13.9%        1.81
+  pure2              27    37.0% ± 9.3%   24.8%        2.00
+  pure3              17    35.3% ±11.6%   23.3%        1.94
+  high2              34    29.4% ± 7.8%   27.4%        1.85
+  pure4              37    13.5% ± 5.6%   10.9%        2.03
+  low2               17    11.8% ± 7.8%    7.7%        2.53
+  pure1              31     0.0% ± 0.0%    0.0%        2.55
+  designMk1          15     0.0% ± 0.0%    0.0%        2.20
+  high2Mk1           23     0.0% ± 0.0%    0.0%        2.35
+
+BUILDS THAT COULD NOT SPEND THEIR BUDGET
+  these lose partly on arithmetic, not on merit
+
+  build          builder      bodies     gold    supply   short
+  pure1          ironvow          48      58%      100%         
+  pure2          ironvow          48      73%      100%         
+  pure4          ironvow          21      99%       86%         
+  pure5          ironvow          12     100%       69%         
+  pure6          ironvow          10      99%       57%         
+  design         ironvow          22     100%       82%         
+  topheavy       ironvow          13     100%       65%         
+  bottomheavy    ironvow          36      87%      100%         
+  barbell        ironvow          23     100%       78%         
+  low2           ironvow          48      66%      100%         
+  high2          ironvow          10      98%       63%         
+  anchor         ironvow          12     100%       59%         
+  wall           ironvow          12     100%       60%         
+  nolow          ironvow          17     100%       79%         
+  nohigh         ironvow          36      85%      100%         
+  designMk1      ironvow          49      45%      100%         
+  designMk2      ironvow          43     100%       89%         
+  high2Mk1       ironvow          31      57%       98%         
+  pure1          pyre             48      58%      100%         
+  pure2          pyre             48      73%      100%         
+  pure4          pyre             21      99%       86%         
+  pure5          pyre             12     100%       69%         
+  pure6          pyre             10      99%       57%         
+  design         pyre             22     100%       82%         
+  topheavy       pyre             13     100%       65%         
+  bottomheavy    pyre             36      87%      100%         
+  barbell        pyre             23     100%       78%         
+  low2           pyre             48      66%      100%         
+  high2          pyre             10      98%       63%         
+  anchor         pyre             12     100%       59%         
+  wall           pyre             12     100%       60%         
+  nolow          pyre             17     100%       79%         
+  nohigh         pyre             36      85%      100%         
+  designMk1      pyre             49      45%      100%         
+  designMk2      pyre             43     100%       89%         
+  high2Mk1       pyre             31      57%       98%         
+  pure1          thornweald       48      58%      100%         
+  pure2          thornweald       48      73%      100%         
+  pure4          thornweald       21      99%       86%         
+  pure5          thornweald       12     100%       69%         
+  pure6          thornweald       10      99%       57%         
+  design         thornweald       22     100%       82%         
+  topheavy       thornweald       13     100%       65%         
+  bottomheavy    thornweald       36      87%      100%         
+  barbell        thornweald       23     100%       78%         
+  low2           thornweald       48      66%      100%         
+  high2          thornweald       10      98%       63%         
+  anchor         thornweald       12     100%       59%         
+  wall           thornweald       12     100%       60%         
+  nolow          thornweald       17     100%       79%         
+  nohigh         thornweald       36      85%      100%         
+  designMk1      thornweald       49      45%      100%         
+  designMk2      thornweald       43     100%       89%         
+  high2Mk1       thornweald       31      57%       98%         
+  pure1          gloomtide        48      58%      100%         
+  pure2          gloomtide        48      73%      100%         
+  pure4          gloomtide        21      99%       86%         
+  pure5          gloomtide        12     100%       69%         
+  pure6          gloomtide        10      99%       57%         
+  design         gloomtide        22     100%       82%         
+  topheavy       gloomtide        13     100%       65%         
+  bottomheavy    gloomtide        36      87%      100%         
+  barbell        gloomtide        23     100%       78%         
+  low2           gloomtide        48      66%      100%         
+  high2          gloomtide        10      98%       63%         
+  anchor         gloomtide        12     100%       59%         
+  wall           gloomtide        12     100%       60%         
+  nolow          gloomtide        17     100%       79%         
+  nohigh         gloomtide        36      85%      100%         
+  designMk1      gloomtide        49      45%      100%         
+  designMk2      gloomtide        43     100%       89%         
+  high2Mk1       gloomtide        31      57%       98%         
+
