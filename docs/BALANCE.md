@@ -898,6 +898,21 @@ Blast and Impact, Slagmaw is Plate, and any reflection tips a close fight. The
 same six die at the first boss. A matchup, then, and Pyre is already the
 weakest builder late, so it stays.
 
+**The table that sends back** is the setting the harness had been hiding: its
+rival never sent, and a real table of economy players sends as much as it
+receives. Played that way — at the wall, sends at the auto-send button's rate,
+every send also landing in your own next wave — with sends at a flat price,
+seven of eight runs died between waves 6 and 11. Priced for the wave they land
+in, six of eight reach the council and three beat it
+(`reports/runs-25-table.txt`):
+
+| builder    | steady, flat price  | steady, priced by wave | strong, flat price | strong, priced by wave |
+| ---------- | ------------------- | ---------------------- | ------------------ | ---------------------- |
+| Ironvow    | dies 11             | dies at the council    | dies 8             | **beats it**           |
+| Pyre       | dies 9              | dies at the council    | dies 8             | dies 13                |
+| Thornweald | dies at the council | dies at the council    | dies 6             | dies 6                 |
+| Gloomtide  | dies 11             | **beats it**           | dies 6             | **beats it**           |
+
 **The fortress aura** maxed — +50% and 8.5 tiles, 1,868 gems — at 60% of a
 wave's gold, standing at the wall, held wave 20 58% of the time where the same
 army forward held none. That looked like the broken thing until it was played:
