@@ -20,6 +20,7 @@ import { inBounds, tileOccupiedByUnit } from './grid.ts';
 import { createUnit } from './spawn.ts';
 import { recomputeUnitBuffs } from './buffs.ts';
 import { gemPayoutTicks } from './state.ts';
+import { sendPrice } from './waves.ts';
 import type { UpgradeLevel } from '../data/schema.ts';
 import type { GameData } from '../data/schema.ts';
 import type { Lane, MatchState, UnitSpend } from './types.ts';
@@ -343,11 +344,12 @@ function send(
   const targetLane = state.lanes[targetTeamId];
   if (!targetLane) return fail('invalid-target');
 
-  const gemCost = stat(def.gemCost);
-  if (lane.economy.gems < gemCost) return fail('insufficient-gems');
+  // Priced for the wave it lands in, which is always the next one (waves.ts).
+  const price = sendPrice(ctx.data, sendId, state.wave + 1);
+  if (lane.economy.gems < price.gems) return fail('insufficient-gems');
 
-  lane.economy.gems -= gemCost;
-  lane.economy.passiveIncome += stat(def.incomeGranted);
+  lane.economy.gems -= price.gems;
+  lane.economy.passiveIncome += price.income;
 
   for (const monsterId of def.monsters) {
     targetLane.incomingSends.push({ defId: monsterId, fromTeamId: lane.teamId, sendId: def.id });

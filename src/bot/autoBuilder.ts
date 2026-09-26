@@ -28,7 +28,7 @@
 
 import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
 import { buildableUnits } from '../data/roster.ts';
-import { damageMultiplier, previewWave } from '../sim/index.ts';
+import { damageMultiplier, previewWave, sendPrice } from '../sim/index.ts';
 import type { Command, MatchState, TeamId } from '../sim/index.ts';
 
 /**
@@ -325,15 +325,16 @@ export class AutoBuilder {
     }
     if (!leader) return null;
 
+    const price = (id: string) => sendPrice(this.data, id, state.wave + 1).gems;
     const affordable = this.data.sends.sends
-      .filter((send) => (send.gemCost ?? Infinity) <= gems)
-      .sort((a, b) => (b.gemCost ?? 0) - (a.gemCost ?? 0));
+      .filter((send) => price(send.id) <= gems)
+      .sort((a, b) => price(b.id) - price(a.id));
 
     const choice = affordable[0];
     if (!choice) return null;
 
     return {
-      cost: choice.gemCost ?? 0,
+      cost: price(choice.id),
       command: {
         kind: 'send',
         teamId: this.teamId,

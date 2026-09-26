@@ -27,6 +27,8 @@ export {
   summariseWave,
   isBossWave,
   resolveMonsterStats,
+  sendPrice,
+  monsterGrowth,
 } from './waves.ts';
 export type { SpawnSpec, WavePreviewEntry, WaveSummary, UnitRating } from './waves.ts';
 export { inBounds, tileOccupiedByUnit } from './grid.ts';

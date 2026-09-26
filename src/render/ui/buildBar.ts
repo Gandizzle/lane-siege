@@ -48,7 +48,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { AuraType, DamageType, GameData, MonsterDef, UnitDef } from '../../data/schema.ts';
 import { buildableUnits } from '../../data/roster.ts';
-import { resolveMonsterStats, sellValue, ticksToSeconds } from '../../sim/index.ts';
+import { resolveMonsterStats, sellValue, sendPrice, ticksToSeconds } from '../../sim/index.ts';
 import type {
   EconomyView,
   EntityView,
@@ -564,7 +564,8 @@ export class BuildBar extends Container {
       this.armed.set(sendId, next);
       if (next > 0) continue;
 
-      const cost = this.data.sends.sends.find((s) => s.id === sendId)?.gemCost ?? 0;
+      // Priced for the wave it lands in (waves.ts `sendPrice`).
+      const cost = sendPrice(this.data, sendId, view.wave + 1).gems;
       if (purse < cost) continue;
       const target = this.resolveTarget();
       if (!target) continue;
@@ -885,8 +886,13 @@ export class BuildBar extends Container {
       const def = this.data.sends.sends.find((s) => s.id === sendId);
       if (!def) continue;
 
-      const cost = def.gemCost ?? 0;
-      const income = def.incomeGranted ?? 0;
+      // What it costs now: a send is priced for the wave it lands in, so it
+      // climbs with the waves and so does what it grants (waves.ts).
+      const price = sendPrice(this.data, sendId, view.wave + 1);
+      const cost = price.gems;
+      const income = Number.isInteger(price.income)
+        ? price.income
+        : Number(price.income.toFixed(1));
       const icon = sendIcon(this.data, sendId);
       const armed = this.armed.has(sendId);
 

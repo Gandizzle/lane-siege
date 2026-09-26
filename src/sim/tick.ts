@@ -618,7 +618,7 @@ function spawnWave(ctx: SimContext, state: MatchState): void {
       defId: s.defId,
       waveNumber: state.wave,
       sendId: s.sendId,
-      bounty: sendBounty(ctx.data, s.sendId),
+      bounty: sendBounty(ctx.data, s.sendId, state.wave),
     }));
     lane.incomingSends.length = 0;
     // The "you are being attacked by X" notice belongs to the wave that is

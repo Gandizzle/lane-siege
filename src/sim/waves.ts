@@ -298,10 +298,50 @@ export function shareOutTheWavePool(data: GameData, specs: SpawnSpec[]): void {
  * with gems and the bounty is paid in gold, which is the one place in the game
  * the two currencies touch; `sendBountyPerTenGems` is that exchange rate.
  */
-export function sendBounty(data: GameData, sendId: string): number {
+export function sendBounty(data: GameData, sendId: string, wave: number): number {
+  const price = sendPrice(data, sendId, wave);
+  return (price.gems * num(data.economy.sendBountyPerTenGems)) / 10;
+}
+
+/**
+ * How many times its written health a monster has at this wave: the whole of
+ * the per-wave curve (`scaling`), which every monster that is not a boss shares.
+ */
+export function monsterGrowth(data: GameData, wave: number): number {
+  const { scaling } = data.waves;
+  const after = scaling.after;
+  const steps = statSteps(wave);
+  const earlySteps = after ? statSteps(after.wave - 1) : steps;
+  return growth(num(scaling.hp, 1), after?.hp, earlySteps, steps);
+}
+
+/**
+ * What a send costs, and the income it grants, bought for the wave it lands in.
+ *
+ * PRICED AT THE STRENGTH OF THE BODY. A send used to cost the same 10 gems at
+ * wave 20 as at wave 1, while the body it delivers grows with the wave like any
+ * other: a 12-health Swarmling at wave 1 and a 223-health one at wave 20. Every
+ * player auto-sends, so a lane receives about what it sends, and a table of
+ * medium economies was flooding itself with a hundred-odd wave-scaled bodies
+ * a wave by the late game - more than the wave. Played whole with the sends
+ * coming back, every economy plan died around wave 10.
+ *
+ * Price and income grow together, so income per gem - the economy - is exactly
+ * what it was; what shrinks is how many BODIES a gem buys as they get stronger.
+ * The flood now grows with the gem income and not with the gem income times
+ * the monster curve. The bounty the defender takes is a share of the price, so
+ * it grows with it.
+ */
+export function sendPrice(
+  data: GameData,
+  sendId: string,
+  wave: number,
+): { gems: number; income: number } {
   const send = data.sends.sends.find((s) => s.id === sendId);
-  if (!send) return 0;
-  return (num(send.gemCost) * num(data.economy.sendBountyPerTenGems)) / 10;
+  if (!send) return { gems: 0, income: 0 };
+  const base = num(send.gemCost);
+  const gems = Math.max(1, Math.round(base * monsterGrowth(data, Math.max(1, wave))));
+  return { gems, income: base > 0 ? (num(send.incomeGranted) * gems) / base : 0 };
 }
 
 /**

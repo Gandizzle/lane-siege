@@ -47,6 +47,7 @@ import {
   createMatch,
   generateWave,
   resolveMonsterStats,
+  sendPrice,
   step,
   TICKS_PER_SECOND,
   type Command,
@@ -354,9 +355,8 @@ class Player {
       this.autoSendLikeTheButton();
       return;
     }
-    const send = this.data.sends.sends.find((s) => s.id === this.sendId)!;
-    while (this.lane.economy.gems >= num(send.gemCost)) {
-      if (!this.sendOne(send.id)) break;
+    while (this.lane.economy.gems >= this.price(this.sendId)) {
+      if (!this.sendOne(this.sendId)) break;
     }
   }
 
@@ -379,9 +379,14 @@ class Player {
     for (const send of byIncome) {
       const left = (this.armed.get(send.id) ?? 0) - 1;
       this.armed.set(send.id, left);
-      if (left > 0 || this.lane.economy.gems < num(send.gemCost)) continue;
+      if (left > 0 || this.lane.economy.gems < this.price(send.id)) continue;
       if (this.sendOne(send.id)) this.armed.set(send.id, cooldown);
     }
+  }
+
+  /** Gems a send costs now: priced for the wave it lands in. */
+  private price(sendId: string): number {
+    return sendPrice(this.data, sendId, this.state.wave + 1).gems;
   }
 
   private sendOne(sendId: string): boolean {

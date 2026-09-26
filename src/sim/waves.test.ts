@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { generateWave, isBossWave, previewWave, resolveMonsterStats, sendBounty } from './waves.ts';
+import {
+  generateWave,
+  isBossWave,
+  previewWave,
+  resolveMonsterStats,
+  sendBounty,
+  sendPrice,
+} from './waves.ts';
 import { createContext, createMatch, step } from './index.ts';
 
 const { data } = loadDataFromDisk();
@@ -253,8 +260,11 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
 
   it('prices a sent monster against the gems its sender spent, not the pool', () => {
     const per10 = data.economy.sendBountyPerTenGems ?? 0;
-    for (const send of data.sends.sends) {
-      expect(sendBounty(data, send.id), send.id).toBeCloseTo(((send.gemCost ?? 0) * per10) / 10, 6);
+    for (const wave of [1, 12]) {
+      for (const send of data.sends.sends) {
+        const paid = sendPrice(data, send.id, wave).gems;
+        expect(sendBounty(data, send.id, wave), send.id).toBeCloseTo((paid * per10) / 10, 6);
+      }
     }
     // A dearer send hands its target more gold: that is the trade.
     const cheapest = data.sends.sends.reduce((a, b) =>
@@ -263,8 +273,26 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
     const dearest = data.sends.sends.reduce((a, b) =>
       (a.gemCost ?? 0) >= (b.gemCost ?? 0) ? a : b,
     );
-    expect(sendBounty(data, dearest.id)).toBeGreaterThan(sendBounty(data, cheapest.id));
-    expect(sendBounty(data, 'no-such-send')).toBe(0);
+    expect(sendBounty(data, dearest.id, 1)).toBeGreaterThan(sendBounty(data, cheapest.id, 1));
+    expect(sendBounty(data, 'no-such-send', 1)).toBe(0);
+  });
+
+  it('prices a send for the wave it lands in, and leaves income per gem alone', () => {
+    const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
+    for (const send of data.sends.sends) {
+      // Wave 1 is the price as written.
+      expect(sendPrice(data, send.id, 1).gems, send.id).toBe(send.gemCost);
+      expect(sendPrice(data, send.id, 1).income, send.id).toBe(send.incomeGranted);
+      const perGem = (send.incomeGranted ?? 0) / (send.gemCost ?? 1);
+      for (const wave of [5, 12, 20]) {
+        const price = sendPrice(data, send.id, wave);
+        // It grows with the bodies it delivers...
+        const growth = resolveMonsterStats(data, grub, wave).hp / grub.hp!;
+        expect(price.gems, `${send.id} at ${wave}`).toBe(Math.round((send.gemCost ?? 0) * growth));
+        // ...and the economy does not notice.
+        expect(price.income / price.gems).toBeCloseTo(perGem, 9);
+      }
+    }
   });
 });
 
