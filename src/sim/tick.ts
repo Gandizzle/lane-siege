@@ -527,7 +527,12 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): voi
 
     // §10.1 regeneration aura, as a fraction of the unit's own maximum per
     // second. Nothing is dampened in a lane: dampening's clock is the arena's.
-    const regen = auraFor(lane, unit, ctx.fortressPosition).regenPerSecond;
+    const regen = auraFor(
+      lane,
+      unit,
+      ctx.fortressPosition,
+      ctx.data.fortress.auras.regenerationPerStrength ?? 1,
+    ).regenPerSecond;
     unit.hp = applyHealing(unit.hp, unit.maxHp, unit.maxHp * regen);
 
     if (unit.hp <= 0) {

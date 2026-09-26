@@ -92,7 +92,12 @@ const NO_AURA: AuraEffect = { damage: 1, attackSpeed: 1, damageTaken: 1, regenPe
  * the choice between a tight buffed core near the fortress and a spread-out line
  * that intercepts sooner but fights unbuffed.
  */
-export function auraFor(lane: Lane, unit: DefensiveUnit, fortressPos: Vec2): AuraEffect {
+export function auraFor(
+  lane: Lane,
+  unit: DefensiveUnit,
+  fortressPos: Vec2,
+  regenerationPerStrength = 1,
+): AuraEffect {
   const aura = lane.fortress.activeAura;
   if (!aura) return NO_AURA;
 
@@ -114,8 +119,9 @@ export function auraFor(lane: Lane, unit: DefensiveUnit, fortressPos: Vec2): Aur
         damage: 1,
         attackSpeed: 1,
         damageTaken: 1,
-        // Strength reads as a fraction of the unit's maximum per second.
-        regenPerSecond: strength,
+        // Strength, scaled by `auras.regenerationPerStrength`, as a fraction
+        // of the unit's maximum per second.
+        regenPerSecond: strength * regenerationPerStrength,
       };
     default:
       return NO_AURA;

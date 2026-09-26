@@ -143,6 +143,8 @@
   "auras": {
     "_comment": "§10.1: one aura active at a time, chosen by the player. Strength and radius upgrade SEPARATELY - early on the radius cannot cover the whole build zone, forcing a real choice between a tight buffed core near the fortress and a spread-out line that intercepts sooner but fights unbuffed.",
     "types": ["damage", "attackSpeed", "armour", "regeneration"],
+    "regenerationPerStrength": 0.05,
+    "_regenerationNote": "The regeneration aura heals strength x this of a unit's maximum health per second: 0.75% at the base strength, 2.5% fully upgraded. It read strength as a straight share, like the other three auras read it as a percentage - which made it 15% of every unit's health a second, for nothing, the moment a player chose it. Standing at the wall with it, an army at three quarters of a wave's nominal held a third more often than one without. A fight lasts twenty to thirty seconds, so this is about the +15% the other auras give.",
     "strength": {
       "base": 0.15,
       "upgrades": [

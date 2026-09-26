@@ -107,6 +107,33 @@ describe('unit respawn (§5.4)', () => {
   });
 });
 
+describe('the regeneration aura (§10.1)', () => {
+  it('heals its strength times `regenerationPerStrength` of a unit a second', () => {
+    const { state, ctx } = freshMatch();
+    const lane = state.lanes.lane1!;
+    // A body standing right at the wall, inside the base radius.
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'lane1',
+      unitDefId: data.units.units.find(
+        (u) => u.builderId === 'ironvow' && u.rung === 4 && u.mark === 1,
+      )!.id,
+      tileX: 4,
+      tileY: data.lane.buildZone.depth - 1,
+    });
+    applyCommand(ctx, state, { kind: 'setAura', teamId: 'lane1', aura: 'regeneration' });
+    const unit = lane.units[0]!;
+    unit.hp = unit.maxHp * 0.5;
+    const before = unit.hp;
+
+    for (let t = 0; t < TICKS_PER_SECOND; t++) step(ctx, state);
+    const perStrength = data.fortress.auras.regenerationPerStrength ?? 1;
+    expect(unit.hp - before).toBeCloseTo(unit.maxHp * lane.fortress.auraStrength * perStrength, 6);
+    // Read as a straight share of the unit this was 15% a second, for free.
+    expect(unit.hp - before).toBeLessThan(unit.maxHp * 0.02);
+  });
+});
+
 describe('fortress regeneration (§5.5, amended)', () => {
   it('heals on a clock rather than on a lane clear', () => {
     const { state, ctx } = freshMatch();

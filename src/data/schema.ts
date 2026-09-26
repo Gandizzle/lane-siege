@@ -515,6 +515,13 @@ export interface FortressFile {
     types: AuraType[];
     strength: UpgradableStat;
     radius: UpgradableStat;
+    /**
+     * What the regeneration aura heals per second, as a share of a unit's
+     * maximum, per point of strength. The other three auras read strength as
+     * a straight percentage; read that way, regeneration was 15% of a unit's
+     * health a second for free.
+     */
+    regenerationPerStrength?: number;
   };
   /**
    * §10.2, amended: the resource building pays out on its own repeating clock

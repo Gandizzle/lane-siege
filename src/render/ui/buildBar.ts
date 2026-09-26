@@ -1055,10 +1055,14 @@ export class BuildBar extends Container {
       // §10.1 sells strength and radius separately, so the chip says both:
       // otherwise Aura Power is a purchase with no visible consequence here.
       const strength = Math.round(lane.fortress.auraStrength * 100);
+      // Regeneration is a rate, and a much smaller number than the strength
+      // it is bought with (fortress.json `regenerationPerStrength`).
+      const regen =
+        lane.fortress.auraStrength * (this.data.fortress.auras.regenerationPerStrength ?? 1) * 100;
       button.update({
         title: meta?.name ?? id,
         detail: lane.fortress.auraRadius > 0 ? `r ${lane.fortress.auraRadius.toFixed(1)}` : 'aura',
-        note: `+${strength}%`,
+        note: id === 'regeneration' ? `+${Number(regen.toFixed(2))}%/s` : `+${strength}%`,
         noteColour: auraColour(id),
         enabled: canAct,
         selected: lane.fortress.activeAura === id,

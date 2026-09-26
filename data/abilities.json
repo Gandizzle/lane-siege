@@ -2073,7 +2073,7 @@
       "numbers": {
         "radius": 2.0,
         "targets": 8,
-        "damage": 110
+        "share": 2.9
       },
       "trigger": {
         "when": "onDeath"
@@ -2086,10 +2086,11 @@
       "effects": [
         {
           "kind": "damage",
-          "flat": "@damage",
+          "ofAttack": "@share",
           "damageType": "blast"
         }
-      ]
+      ],
+      "_note": "A share of the Bloater's own hit rather than a flat 110, like Rupture: a flat number stops mattering as the waves grow, and a Bloater sent at wave 20 burst for a thirtieth of what one hits for. 2.9 is the old burst at the Bloater's wave-1 hit."
     }
   ],
   "planned": [
