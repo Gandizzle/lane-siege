@@ -861,6 +861,77 @@ because they are design calls, not tuning:
   the last step's price comes back down or Mark III gets something Mark II
   does not have.
 
+## 4b. Playing it to break it
+
+Everything above measures a sensible player. Real players are not sensible:
+they find one thing that works and lean on it until it stops working. So each
+builder was played that way on purpose, looking for the strategy that is
+simply correct, with the harness switches that make each one playable:
+
+```
+npm run runs -- --spam          every line on its own, nothing else bought
+npm run runs -- --wall          stand at the fortress instead of forward
+npm run runs -- --aura <type>   and run that aura there
+npm run runs -- --max-aura      every gem into the aura before any send
+npm run runs -- --mirror        the table sends at you what you send at it
+npm run runs -- --ui-sends      sends at the auto-send button's rate
+npm run showdown -- --walk <n> --centre <x>    the arena's rules, overridden
+```
+
+What was found, and what was done about it, smallest change that worked:
+
+| what a player tries                | what happened                                                                                                                             | change                                                            |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| the regeneration aura              | healed 15% of every unit's health a second, free, from the moment it was picked; at the wall a three-quarter army held a third more often | 0.75% a second, 2.5% fully upgraded                               |
+| sending at a table that sends back | sends cost the same at wave 20 as at wave 1 while the bodies grew with the wave; mirrored, every economy plan died by wave 11 bar one     | sends priced for the wave they land in, income and bounty with it |
+| a Bloater send late                | its cargo burst for a flat 110 whatever the wave                                                                                          | cargo is 2.9× its attack, so it grows with the wave               |
+| one unit and nothing else          | no line carries a game; the best is six Slagmaws, which hold to wave 14                                                                   | none — see below                                                  |
+| standing at the wall               | per wave, far stronger than forward; over a run, the fortress takes chip damage every wave and it adds up                                 | none — a real trade                                               |
+| maxing the fortress aura           | worth about a fifth more army at the wall, for the gems of one or two waves                                                               | none — bought first it is a trap, bought late it is a gem sink    |
+| nothing but rung 6 in the showdown | won 176 of 176 fights against every other shape its own builder could field                                                               | the arena is walked at 2.5× lane speed                            |
+
+**Slagmaw** is the closest to a one-unit strategy. Six of them at Mark II hold
+wave 14 on 69% of its gold, where six of any other builder's rung-4 tanks lose.
+It is not the reflection being too high: with none at all they lose like
+everyone else, and cut from 25% to 10% they still win. Waves 13 and 14 hit with
+Blast and Impact, Slagmaw is Plate, and any reflection tips a close fight. The
+same six die at the first boss. A matchup, then, and Pyre is already the
+weakest builder late, so it stays.
+
+**The fortress aura** maxed — +50% and 8.5 tiles, 1,868 gems — at 60% of a
+wave's gold, standing at the wall, held wave 20 58% of the time where the same
+army forward held none. That looked like the broken thing until it was played:
+every run that put its gems into the aura before any send died between waves 13
+and 16 with next to no income, because the gems it spent were the gems that
+would have compounded. Bought late, out of a strong economy, it is exactly the
+late-game reward a strong economy is meant to buy.
+
+### The showdown was a range contest, and walking fixed it
+
+Pure rung 6 won **every one** of 176 fights against the other shapes its own
+builder could field — the designed spread, the Mark II core, a wall of tanks,
+rungs 5 and 6 — nearly always with nine bodies of ten still standing. Traced
+fight by fight, the reason was not the price ladder. Units walk the arena at
+their lane speed, 0.2 to 0.65 tiles a second, so a tile of reach is three to
+five seconds of shooting at something that cannot shoot back, and rung 6 has a
+tile on everything. Its opponents took the centre, and died holding it.
+
+`waves.showdown.walkSpeed` multiplies every body's speed in the arena, and only
+there. A round robin of six shapes, each builder against itself, both seatings:
+
+| walk speed | pure 6 | pure 5 | swarm (bottom heavy) | Mark II core | rungs 3 and 4 | even sixths |
+| ---------- | -----: | -----: | -------------------: | -----------: | ------------: | ----------: |
+| 1× (was)   |   100% |    62% |                  15% |          52% |           52% |         18% |
+| 2×         |    70% |    35% |                  52% |          55% |           68% |         20% |
+| **2.5×**   |    45% |    32% |                  65% |          62% |           65% |         30% |
+| 3×         |    18% |    35% |                  75% |          60% |           78% |         35% |
+
+At 2.5 the best three shapes are three different armies within three points of
+each other, and none of them is the top rung. Faster than that, the side that
+walks the most bodies into the centre wins before anything can shoot it. The
+king-of-the-hill prize is what answers reach, and it stays at 50%: at half the
+prize and 2× walking, pure rung 6 was back to 88%.
+
 ## 5. The phases
 
 **Phase 0 — instrumentation.** _Done._ Vocabulary settled, the budget computed

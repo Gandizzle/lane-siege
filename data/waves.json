@@ -19,6 +19,8 @@
       "margin": 2,
       "minimum": 3
     },
+    "_walkNote": "Every body walks walkSpeed times its lane speed in the arena. Lane speeds are set for holding a line, and at 0.2 to 0.65 tiles a second a tile of reach was three to five seconds of shooting at something that could not answer: an army of nothing but rung 6 won 176 of 176 fights against every other shape its own builder could field, most of them with nine bodies of ten still standing. At 2.5 the best shapes are a swarm, a rung 3 and 4 core and the designed spread, all within five points of each other, and rung 6 on its own wins 45%. Faster than that and the swarm takes the centre before anything can shoot it.",
+    "walkSpeed": 2.5,
     "dampening": {
       "graceSeconds": 30,
       "perSecond": 0.01

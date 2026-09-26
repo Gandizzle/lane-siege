@@ -437,6 +437,26 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
     }
   });
 
+  it('walks the arena at `walkSpeed` times lane speed', () => {
+    // One pledge alone, walking at the centre for one second, at two paces.
+    const walked = (pace: number): number => {
+      const paced = structuredClone(data);
+      paced.waves.showdown.walkSpeed = pace;
+      const teams = ['a', 'b', 'c', 'd'].map((id) => ({ id, playerIds: [id] }));
+      const state = createMatch(paced, { seed: 7, teams });
+      const ctx = createContext(paced);
+      arm(ctx, state, 'a', 'pledge', 1);
+      reachShowdown(ctx, state);
+      startFighting(ctx, state);
+      const unit = state.showdown!.armies[0]!.units[0]!;
+      const from = toCentre(unit.pos);
+      for (let i = 0; i < TICKS_PER_SECOND; i++) step(ctx, state);
+      return from - toCentre(unit.pos);
+    };
+    expect(data.waves.showdown.walkSpeed).toBeGreaterThan(1);
+    expect(walked(2)).toBeCloseTo(2 * walked(1), 1);
+  });
+
   it('still finishes: converging is what makes the armies meet', () => {
     const { state, ctx } = fourPlayers();
     arm(ctx, state, 'a', 'pledge', 6);
