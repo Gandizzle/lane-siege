@@ -1,7 +1,7 @@
 {
   "_comment": "DESIGN.md §11.5. Sends cost gems, add a monster to a target opponent's next wave, and grant the sender permanent passive income in gold. The defender always gets the kill bounty. ONE MONSTER PER SEND, and the send is NAMED AFTER IT: a send id matches the monster id it delivers, which is the same word in two separate namespaces (defs.sends and defs.monsters) and reads correctly in both. Placeholders, like every number in data/.",
   "_ladder": "FIFTEEN SENDS, 10 TO 500 GEMS, EVERY PRICE A MULTIPLE OF TEN (validate.ts). The price is the price: it does not climb with the waves. What a player can throw grows with their gem income instead - the cheap end is the early game, the 300-to-500 end is the late one - and the two grow at about the same rate, so a player who puts every gem into sends adds roughly a fifth of a wave to the lane they aim at whatever wave it is (docs/BALANCE.md §4c).",
-  "_bodies": "A SENT BODY IS THE SAME SIZE AT EVERY WAVE. `hp` and `damage` here replace the monster's own and are NOT scaled by the monster curve: a Behemoth is five thousand health at wave 6 and at wave 22. Scaling them with the wave at a fixed price made a gem worth twenty-four times more pressure at wave 20 than at wave 1, and a table that sends at itself drowned. Everything else - shape, armour, speed, reach, the monster's own abilities - is the monster's. The dearer the send, the more body a gem buys: three health a gem at the bottom, ten at the top.",
+  "_bodies": "A SENT BODY IS THE SAME SIZE AT EVERY WAVE. `hp` and `damage` here replace the monster's own and are NOT scaled by the monster curve: a Behemoth is five thousand health at wave 6 and at wave 22. Scaling them with the wave at a fixed price made a gem worth twenty-four times more pressure at wave 20 than at wave 1, and a table that sends at itself drowned. Everything else - shape, armour, speed, reach, the monster's own abilities - is the monster's. The dearer the send, the more body a gem buys: two health a gem for the economy sends, five to ten for the rest.",
   "_economy": "THREE SENDS ARE ECONOMY (`economic`): Swarmling, Grub and Husk pay the best rate in the game, one gold a wave for every ten gems. Every other send pays less - down to one for every twenty-three at the top - because it is paying for a body or an ability instead. docs/BALANCE.md computes the whole run against the 10-gems-for-+1 floor.",
   "_cooldown": "EVERY SEND HAS A COOLDOWN, one to ten seconds, per player and per send, and the simulation enforces it (apply.ts) - so a tap, a held auto-send and a bot are all held to the same clock. The three economy sends together can take about thirty-two gems a second; past that a strong economy spills into the attack sends and their worse rate, which is what keeps a maxed economy from compounding for free.",
   "_auras": "FOUR SENDS CARRY AURAS - Warden (Bulwark), Mender (Rejuvenation), Herald (War Cry) and Bastion (Iron Will) - and each is its own stat, so no two auras ever add to the same number. A body inside two Bulwarks has one Bulwark: every aura holds a single stack whoever it comes from (abilities.ts NO_STACK). An aura buffs the WAVE around it too, which is what keeps a fixed-size body worth its gems at wave 20.",
@@ -15,8 +15,8 @@
       "incomeGranted": 1,
       "economic": true,
       "monsters": ["swarmling"],
-      "hp": 30,
-      "damage": 6,
+      "hp": 20,
+      "damage": 4,
       "grantsVision": false,
       "visionDurationSeconds": 0
     },
@@ -28,8 +28,8 @@
       "incomeGranted": 2,
       "economic": true,
       "monsters": ["grub"],
-      "hp": 70,
-      "damage": 10,
+      "hp": 45,
+      "damage": 7,
       "grantsVision": false,
       "visionDurationSeconds": 0
     },
@@ -80,8 +80,8 @@
       "incomeGranted": 6,
       "economic": true,
       "monsters": ["husk"],
-      "hp": 240,
-      "damage": 20,
+      "hp": 150,
+      "damage": 14,
       "grantsVision": false,
       "visionDurationSeconds": 0
     },
