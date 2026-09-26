@@ -4,9 +4,11 @@
 the round robin runs, and every builder wins between 47% and 53% of its duels.
 All twenty-five waves are tuned against an army-gold ladder and against whole
 runs on five economy plans, and gem output costs 3 more gold a level. The game
-has since been played to break it (§4b): sends are priced by wave, the
+has since been played to break it (§4b): the
 regeneration aura no longer heals for free, and the arena is walked at 2.5×
-so that no single shape of army wins it. The open question is still the
+so that no single shape of army wins it. The send tab is now a fifteen-send
+ladder from 10 to 500 gems, fixed prices, each send on a cooldown and the dear
+ones opening as the game reaches them (§4c). The open question is still the
 late-game builder gap: Thornweald and Gloomtide win the late game more often
 than Pyre and Ironvow.**
 
@@ -883,15 +885,15 @@ npm run showdown -- --walk <n> --centre <x>    the arena's rules, overridden
 
 What was found, and what was done about it, smallest change that worked:
 
-| what a player tries                | what happened                                                                                                                             | change                                                            |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| the regeneration aura              | healed 15% of every unit's health a second, free, from the moment it was picked; at the wall a three-quarter army held a third more often | 0.75% a second, 2.5% fully upgraded                               |
-| sending at a table that sends back | sends cost the same at wave 20 as at wave 1 while the bodies grew with the wave; mirrored, every economy plan died by wave 11 bar one     | sends priced for the wave they land in, income and bounty with it |
-| a Bloater send late                | its cargo burst for a flat 110 whatever the wave                                                                                          | cargo is 2.9× its attack, so it grows with the wave               |
-| one unit and nothing else          | no line carries a game; the best is six Slagmaws, which hold to wave 14                                                                   | none — see below                                                  |
-| standing at the wall               | per wave, far stronger than forward; over a run, the fortress takes chip damage every wave and it adds up                                 | none — a real trade                                               |
-| maxing the fortress aura           | worth about a fifth more army at the wall, for the gems of one or two waves                                                               | none — bought first it is a trap, bought late it is a gem sink    |
-| nothing but rung 6 in the showdown | won 176 of 176 fights against every other shape its own builder could field                                                               | the arena is walked at 2.5× lane speed                            |
+| what a player tries                | what happened                                                                                                                             | change                                                          |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| the regeneration aura              | healed 15% of every unit's health a second, free, from the moment it was picked; at the wall a three-quarter army held a third more often | 0.75% a second, 2.5% fully upgraded                             |
+| sending at a table that sends back | sends cost the same at wave 20 as at wave 1 while the bodies grew with the wave; mirrored, every economy plan died by wave 11 bar one     | sends priced by wave; since replaced by fixed-size bodies (§4c) |
+| a Bloater send late                | its cargo burst for a flat 110 whatever the wave                                                                                          | cargo is 2.9× its attack, so it grows with the wave             |
+| one unit and nothing else          | no line carries a game; the best is six Slagmaws, which hold to wave 14                                                                   | none — see below                                                |
+| standing at the wall               | per wave, far stronger than forward; over a run, the fortress takes chip damage every wave and it adds up                                 | none — a real trade                                             |
+| maxing the fortress aura           | worth about a fifth more army at the wall, for the gems of one or two waves                                                               | none — bought first it is a trap, bought late it is a gem sink  |
+| nothing but rung 6 in the showdown | won 176 of 176 fights against every other shape its own builder could field                                                               | the arena is walked at 2.5× lane speed                          |
 
 **Slagmaw** is the closest to a one-unit strategy. Six of them at Mark II hold
 wave 14 on 69% of its gold, where six of any other builder's rung-4 tanks lose.
@@ -965,6 +967,105 @@ untouched; the early waves were already even.
 | after  |         47.5% | 47.5% – 53%       | 32, 29, 35, 32, 29, 20 of 40           |
 
 (`reports/showdown-08.txt`; the sweep at waves 16, 18, 20, 22, 24 and 25.)
+
+## 4c. The send ladder
+
+Fifteen sends, 10 to 500 gems, five to a page (`data/sends.json`). Three pay the
+economy's best rate; the rest pay less and bring a body or an ability instead.
+Every send has a cooldown the simulation enforces, and the dear ones open as
+the game reaches them.
+
+| send      | gems | cooldown | income | gold a wave per 10 gems | body (health) | what it brings                             | opens |
+| --------- | ---: | -------: | -----: | ----------------------: | ------------: | ------------------------------------------ | ----: |
+| Swarmling |   10 |       1s |     +1 |                **1.00** |            20 | economy                                    |     1 |
+| Grub      |   20 |       2s |     +2 |                **1.00** |            45 | economy                                    |     1 |
+| Mite      |   30 |       2s |     +2 |                    0.67 |           150 | Ambush: arrives sprinting                  |     1 |
+| Mote      |   40 |       3s |     +3 |                    0.75 |           220 | Flicker: 30% of blows miss                 |     2 |
+| Stalker   |   50 |       3s |     +3 |                    0.60 |           330 | Hamstring: slows what it bites             |     2 |
+| Husk      |   60 |       5s |     +6 |                **1.00** |           150 | economy                                    |     1 |
+| Spitter   |   70 |       4s |     +4 |                    0.57 |           420 | Corrode: its target takes more             |     3 |
+| Warden    |   80 |       4s |     +5 |                    0.63 |           560 | Bulwark aura: pack takes 20% less          |     3 |
+| Mender    |  100 |       5s |     +6 |                    0.60 |           600 | Rejuvenation aura: pack heals 1%/s         |     4 |
+| Carapace  |  120 |       5s |     +7 |                    0.58 |          1000 | Siegework, on top of its shell             |     4 |
+| Revenant  |  150 |       6s |     +8 |                    0.53 |          1200 | haste, sight, immune to abilities          |     5 |
+| Bloater   |  200 |       7s |    +10 |                    0.50 |          1700 | Volatile Cargo: bursts on death            |     6 |
+| Herald    |  300 |       8s |    +14 |                    0.47 |          2400 | War Cry aura: pack moves and swings faster |     8 |
+| Bastion   |  400 |       9s |    +18 |                    0.45 |          3600 | Iron Will aura: pack cannot be held        |     9 |
+| Behemoth  |  500 |      10s |    +22 |                    0.44 |          5000 | Trample                                    |    10 |
+
+### The price is the price, so the body is fixed
+
+Send prices had been climbing with the monster curve (§4b), because the body a
+send delivered did. A fifteen-send ladder from 10 to 500 cannot work that way:
+at wave 20 the 500-gem send would cost twelve thousand. So the price is the
+number on the button, and what stops a gem buying twenty-four times the
+pressure at wave 20 that it bought at wave 1 moved into the body instead: **a
+sent body is the same size at every wave.** A Behemoth is five thousand health
+at wave 10 and at wave 22.
+
+That holds the pressure a player can apply roughly level through the game,
+because a steady player's gems a wave grow about as fast as the waves do —
+160 gems at wave 6 against 4,700 health of wave, 900 against 24,000 at wave 12,
+2,400 against 170,000 at wave 23. What keeps a dear send worth its gems late is
+its aura: an aura is a percentage, and it buffs the wave-23 pack around it.
+
+**Auras never stack.** Each of the four is its own stat — damage taken,
+regeneration, speed, control immunity — so no two ever add to the same number,
+and each holds a single stack on a body whoever it comes from. A monster
+standing inside two Bulwarks has one Bulwark (`src/sim/abilities.test.ts`).
+
+### The cooldowns cap the economy, gently
+
+The three economy sends together take at most about thirty-two gems a second.
+Past that, a strong economy's gems go on the attack sends and their worse rate.
+Whole runs with the new ladder (the rival never sends back) land within about
+ten percent of the incomes they had before — strong players on 2,900 to 3,500
+gold a wave at wave 25 rather than 3,050 to 3,650 — and the same builders reach
+and beat the council. The cap only bites at the very top, which is where a
+maxed economy was meant to stop compounding for free.
+
+### Playing it to break it, again
+
+**Every send, one player's full wave of gems into one kind**, against armies
+that held the wave on 110% of its gold, measured before the two changes
+below. Share of those armies still holding:
+
+| wave | gems | economy sends | attack sends | strongest            |
+| ---: | ---: | ------------: | -----------: | -------------------- |
+|    6 |  160 |       80–100% |       60–95% | Warden (60%)         |
+|   12 |  900 |        40–60% |       25–45% | Warden, Herald (25%) |
+|   18 | 1800 |        50–80% |       40–70% | Bloater (40%)        |
+|   23 | 2400 |        85–95% |       50–95% | Mender (50%)         |
+
+The economy sends are among the weakest attacks at every wave, which is the
+point of them; the attack sends sit in one band with the auras at the top of it. Two
+things did not, and were changed:
+
+1. **The economy bodies were bigger than the early waves' own** — a sent Husk
+   was 240 health when wave 3's were 164 — and at a table that sends back
+   (every send you make also lands in your own next wave) three of four strong
+   economies drowned on the wave-5 boss. They are two health a gem now:
+   Swarmling 20, Grub 45, Husk 150.
+2. **The Behemoth rush.** Save the gems, drop the biggest thing early: one
+   Behemoth beat 85 of the 96 armies that held waves 6 to 9 comfortably
+   without it, and 23 of 24 at wave 10. A fixed-size body is enormous early,
+   so every attack send now **opens** at about the wave where one wave's gems
+   buy it (`fromWave`; the button says "opens wave N"), and the Behemoth hits
+   for 110 rather than 200 and lost its Thick Hide. At wave 12 one Behemoth
+   now leaves 58% of those armies standing, level with the rest of the
+   ladder.
+
+Left alone: the Warden is the best attack early and the Mender the best late —
+both auras, both inside the band, and both answerable by killing the one body
+carrying it.
+
+**At a table that sends back**, played whole (`--mirror`: every send also lands
+in your own next wave), across three seeds to wave 12: eleven of twelve steady
+economies and eight of twelve strong ones were still standing. Gloomtide's
+strong economy dies on the wave-5 boss every time, because the scripted player
+buys a gem upgrade before the boss that its own returning sends then make it
+pay for — the harness playing the plan too literally rather than a send out of
+line.
 
 ## 5. The phases
 
