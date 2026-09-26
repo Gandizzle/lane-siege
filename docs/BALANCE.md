@@ -40,12 +40,12 @@ top while Ironvow and Pyre could take neither. In an endgame fought with
 expensive units that is a large free advantage, and it is probably a good part
 of why the second run had Gloomtide at 73% and Pyre at 41%.
 
-| builder    | 1         | 2        | 3          | 4          | 5          | 6           |
-| ---------- | --------- | -------- | ---------- | ---------- | ---------- | ----------- |
-| Ironvow    | Pledge    | Sentinel | Vigil      | Oathwall   | Sanction   | Judgement   |
-| Pyre       | Ember     | Wickling | Slagmaw    | Foxfire    | Firebrand  | Scoria      |
-| Thornweald | Thornling | Mycelia  | Rotgourd   | Hollowbark | Sporecrown | Nettlespire |
-| Gloomtide  | Kelpsnare | Murmur   | Fathomhold | Sleet      | Maelstrom  | Torrent     |
+| builder    | 1         | 2        | 3        | 4          | 5          | 6           |
+| ---------- | --------- | -------- | -------- | ---------- | ---------- | ----------- |
+| Ironvow    | Pledge    | Sentinel | Vigil    | Oathwall   | Sanction   | Judgement   |
+| Pyre       | Ember     | Wickling | Foxfire  | Slagmaw    | Firebrand  | Scoria      |
+| Thornweald | Thornling | Mycelia  | Rotgourd | Hollowbark | Sporecrown | Nettlespire |
+| Gloomtide  | Kelpsnare | Murmur   | Sleet    | Fathomhold | Maelstrom  | Torrent     |
 
 ---
 

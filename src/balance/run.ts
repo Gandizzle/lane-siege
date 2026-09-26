@@ -197,6 +197,11 @@ export interface RunOptions {
   /** The aura to run at the wall. */
   aura?: AuraType;
   /**
+   * Put every gem into the aura's strength and reach before any send, until
+   * both are maxed: the player who found the fortress upgrades.
+   */
+  maxAura?: boolean;
+  /**
    * Send like the game's auto-send does: each send type at most once every
    * half second (`BuildBar.ARMED_COOLDOWN_MS`), income sends only, cheapest
    * per income first. Unlimited otherwise - which is not what a player's
@@ -351,6 +356,16 @@ class Player {
 
   /** Spend every gem on income, the moment there is enough for a send. */
   autoSend(): void {
+    if (this.options.maxAura) {
+      let bought = true;
+      while (bought) {
+        bought = false;
+        for (const upgradeId of ['auraStrength', 'auraRadius']) {
+          if (this.apply({ kind: 'buyFortressUpgrade', teamId: YOU, upgradeId })) bought = true;
+        }
+      }
+      if (!this.auraMaxed()) return;
+    }
     if (this.options.uiSendRate) {
       this.autoSendLikeTheButton();
       return;
@@ -358,6 +373,15 @@ class Player {
     while (this.lane.economy.gems >= this.price(this.sendId)) {
       if (!this.sendOne(this.sendId)) break;
     }
+  }
+
+  private auraMaxed(): boolean {
+    const f = this.data.fortress.auras;
+    const levels = this.lane.fortress.upgrades;
+    return (
+      (levels.auraStrength ?? 0) >= f.strength.upgrades.length &&
+      (levels.auraRadius ?? 0) >= f.radius.upgrades.length
+    );
   }
 
   /** Cooldown ticks left per send type, for `uiSendRate`. */

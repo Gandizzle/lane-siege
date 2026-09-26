@@ -11,6 +11,8 @@
  *   npm run showdown -- --jobs 1         one process, for profiling
  *   npm run showdown -- --duels 100 --ffa 200 --mirrors 40
  *   npm run showdown -- --seed 7
+ *   npm run showdown -- --walk 2         arena walking at twice lane speed
+ *   npm run showdown -- --centre 0.25    the centre worth +25% dealt, -25% taken
  *   npm run showdown -- --out report.json --records records.json
  *
  * A fight between diverse armies costs about fifteen seconds of CPU, so a full
@@ -59,6 +61,15 @@ const quick = has('quick');
 // between them stays inside one bar of the cross.
 const sight = flag('sight');
 if (sight === 'on' || sight === 'off') data.waves.showdown.lineOfSight = sight === 'on';
+// `--walk <n>` overrides waves.showdown.walkSpeed the same way.
+const walk = Number(flag('walk'));
+if (Number.isFinite(walk) && walk > 0) data.waves.showdown.walkSpeed = walk;
+// `--centre <x>`: holding the centre deals +x and takes -x.
+const centre = Number(flag('centre'));
+if (Number.isFinite(centre) && centre >= 0) {
+  data.waves.showdown.centre.damageDealt = centre;
+  data.waves.showdown.centre.damageTaken = -centre;
+}
 const options: TournamentOptions = {
   duelsPerPair: numberFlag('duels', quick ? 4 : DEFAULTS.duelsPerPair),
   freeForAlls: numberFlag('ffa', quick ? 8 : DEFAULTS.freeForAlls),
@@ -249,7 +260,9 @@ function report(r: TournamentReport, raw: readonly FightRecord[]): void {
     `Every seat got ${Math.round(r.budget.gold).toLocaleString('en-GB')} gold and ${r.budget.supply} supply.`,
   );
   console.log(
-    `Line of sight across the arena's corners: ${data.waves.showdown.lineOfSight === true ? 'BLOCKED' : 'open'}.`,
+    `Line of sight across the arena's corners: ${data.waves.showdown.lineOfSight === true ? 'BLOCKED' : 'open'}. ` +
+      `Walking at ${data.waves.showdown.walkSpeed ?? 1}x lane speed. ` +
+      `The centre deals +${data.waves.showdown.centre.damageDealt ?? 0}, takes ${data.waves.showdown.centre.damageTaken ?? 0}.`,
   );
 
   console.log('\n' + '='.repeat(78));

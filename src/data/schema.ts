@@ -444,6 +444,12 @@ export interface ShowdownFile {
    * a unit with nothing inside this walks at the centre of the map instead.
    */
   acquire: { margin: number; minimum: number };
+  /**
+   * Every body walks this many times its lane speed in the arena. Lane speeds
+   * are set for holding a line against a wave, and at those speeds a tile of
+   * reach is seconds of shooting at something that cannot answer.
+   */
+  walkSpeed?: number;
   dampening: DampeningConfig;
 }
 

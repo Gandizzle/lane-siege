@@ -41,10 +41,13 @@ const mirrorSends = process.argv.includes('--mirror');
 const stance: 'forward' | 'wall' = process.argv.includes('--wall') ? 'wall' : 'forward';
 const aura = flag('aura') as AuraType | undefined;
 const uiSendRate = process.argv.includes('--ui-sends');
+// `--max-aura`: gems go into the aura's strength and reach before any send.
+const maxAura = process.argv.includes('--max-aura');
 const setting = [
   mirrorSends ? 'sends mirrored' : '',
   stance === 'wall' ? `at the wall${aura ? ` (${aura})` : ''}` : '',
   uiSendRate ? 'button-rate sends' : '',
+  maxAura ? 'aura maxed first' : '',
 ]
   .filter(Boolean)
   .map((s) => `, ${s}`)
@@ -81,6 +84,7 @@ if (shard) {
         mirrorSends,
         stance,
         uiSendRate,
+        maxAura,
         ...(aura ? { aura } : {}),
         ...(job.rung > 0 ? { lines: [job.rung] } : {}),
       },
@@ -174,7 +178,7 @@ function summary(results: RunResult[]): void {
         `${(r.survived ? `${r.reached}` : `died ${last?.wave ?? '?'}`).padStart(8)}` +
         `${`${Math.round(lowest * 100)}%`.padStart(8)}` +
         `${String(last?.output ?? 0).padStart(8)}${String(last?.rate ?? 0).padStart(6)}` +
-        `${(last?.gemsPerSecond ?? 0).toFixed(1).padStart(7)}${String(last?.income ?? 0).padStart(8)}` +
+        `${(last?.gemsPerSecond ?? 0).toFixed(1).padStart(7)}${String(Math.round(last?.income ?? 0)).padStart(8)}` +
         `${String(Math.round(last?.armyGold ?? 0)).padStart(8)}${String(Math.round(last?.economyGold ?? 0)).padStart(7)}` +
         `${String(Math.round(last?.techGold ?? 0)).padStart(7)}` +
         `${String(Math.round(last?.gold ?? 0)).padStart(8)}${over ? '   <- past the line' : ''}`,
@@ -192,7 +196,7 @@ function detail(r: RunResult): void {
     console.log(
       `  ${String(w.wave).padStart(4)}${`${Math.round((100 * w.fortressHp) / w.fortressMaxHp)}%`.padStart(6)}` +
         `${`${Math.round(100 * w.lowest)}%`.padStart(8)}${String(Math.round(w.gold)).padStart(7)}` +
-        `${String(w.income).padStart(8)}${String(w.output).padStart(5)}${String(w.rate).padStart(5)}` +
+        `${String(Math.round(w.income)).padStart(8)}${String(w.output).padStart(5)}${String(w.rate).padStart(5)}` +
         `${w.gemsPerSecond.toFixed(1).padStart(7)}${String(Math.round(w.armyGold)).padStart(8)}` +
         `${String(Math.round(w.economyGold)).padStart(7)}${String(Math.round(w.techGold)).padStart(7)}` +
         `${String(w.bodies).padStart(8)}` +

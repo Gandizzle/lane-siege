@@ -191,7 +191,8 @@ export function showdownTick(ctx: SimContext, state: MatchState, rng: Rng): void
   for (const army of showdown.armies) {
     for (const unit of army.units) everyone.push(unit);
   }
-  moveSeekers(ctx.arena, everyone, (unit) => walkSpeed(unit as DefensiveUnit), [everyone]);
+  const pace = ctx.data.waves.showdown.walkSpeed ?? 1;
+  moveSeekers(ctx.arena, everyone, (unit) => walkSpeed(unit as DefensiveUnit) * pace, [everyone]);
 
   // 4. Everyone in range lands a hit if their cooldown allows.
   for (const army of showdown.armies) {
@@ -392,7 +393,10 @@ function attack(
   }
 }
 
-/** A unit's speed in the arena this tick, after its statuses (status.ts). */
+/**
+ * A unit's speed in the arena this tick, after its statuses (status.ts), before
+ * the arena's own `showdown.walkSpeed` multiplier.
+ */
 function walkSpeed(unit: DefensiveUnit): number {
   if (!canMove(unit)) return 0;
   const m = modifiersOf(unit);
