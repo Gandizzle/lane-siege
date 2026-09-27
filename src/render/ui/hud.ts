@@ -25,6 +25,7 @@ import type { LaneLayout } from '../layout.ts';
 import { fortressShape } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { centreOn, label, overlaid } from './text.ts';
+import { speedLabel, type GameSpeed } from '../preferences.ts';
 
 export class Hud extends Container {
   private readonly background = new Graphics();
@@ -43,7 +44,8 @@ export class Hud extends Container {
     this.layout = layout;
   }
 
-  render(view: MatchView, summary: WaveSummary | null): void {
+  /** `speed` is the game speed, when a practice match is running at one (preferences.ts). */
+  render(view: MatchView, summary: WaveSummary | null, speed: GameSpeed = 1): void {
     const lane = view.lane;
     if (!lane) return;
 
@@ -72,9 +74,12 @@ export class Hud extends Container {
     // §3.1, amended: the build phase is the only phase with a clock. Combat now
     // runs until the lane is empty (§3.2, amended), so it counts monsters left
     // rather than seconds - a countdown stuck at 0s would say nothing.
+    // A match not at real time says so, where the clock it changes is: a
+    // build timer counting down three times as fast needs its reason beside it.
+    const pace = speed === 1 ? '' : ` · ${speedLabel(speed)}`;
     const phase = () =>
       label(
-        view.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${remaining} left`,
+        (view.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${remaining} left`) + pace,
         12,
         view.phase === 'build' ? UI.accent : UI.textMuted,
         '600',

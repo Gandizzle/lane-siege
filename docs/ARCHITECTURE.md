@@ -953,8 +953,8 @@ area reaches six pixels past the drawing to make up the rest of a thumb.
 What is in it is what exists to be set. Sound: three levels, mute, which music
 plays (one piece or shuffle), skip to the next piece, and which effects pack is
 in use, shown even while there is only one so the option is visible. Then the
-game: your name, whether status markers are drawn (below), leaving the match,
-and closing the menu. Upright it is one
+game: your name, the game speed, whether status markers are drawn (below),
+leaving the match, and closing the menu. Upright it is one
 column; on a short screen the two sections sit side by side, since one column
 of every row would run off the bottom.
 
@@ -965,6 +965,18 @@ practice match applies a send the moment it is submitted, so an armed send would
 still go out with time stopped. A room keeps running, because three other
 people are playing it, and the panel says so rather than letting a player think
 they have stopped time.
+
+**Game speed: ½×, 1×, 2× or 3×, for a match in this tab.** Practice and the
+hand-built Final Showdown feed the simulation's fixed-step clock that multiple
+of each frame's time, so the rules are untouched: the same ticks run, sooner or
+later. Everything that animates on the match's behalf runs at the same multiple
+(effects, status markers, auto-send's own timers), so a 2× match looks like
+one. At 3× a 60fps frame is exactly one tick; a slow phone that falls behind
+drops ticks to the clock's catch-up ceiling and runs a little under 3× rather
+than freezing. An online match always runs at 1×, so the picker is shown there
+but cannot move. The HUD writes the speed beside the phase clock whenever it is
+not 1×, because a build timer counting down three times as fast needs its reason
+beside it. The choice is saved with the other preferences (`preferences.ts`).
 
 **Leaving takes two taps.** The first arms the button ("Tap again to leave")
 for three seconds; the second throws the match away. It is the one thing in the
@@ -1019,7 +1031,7 @@ Markers are anchored to the body's edge and sized from its radius with a floor
 and a ceiling, so a Mite's are legible and a boss's do not swamp it. They
 animate on the match's clock, so they hold still with everything else while the
 menu pauses a practice match. The menu's "Show status effects" turns them off;
-the choice is saved (`displaySettings.ts`).
+the choice is saved (`preferences.ts`).
 
 ### The fortress aura, drawn
 

@@ -57,7 +57,7 @@ import type { Transport } from '../net/transport.ts';
 import { MatchCues, combatCues } from '../audio/cues.ts';
 import type { SoundSystem } from '../audio/engine.ts';
 import type { DeathRule } from './deaths.ts';
-import type { DisplayOptions } from './displaySettings.ts';
+import type { PreferenceStore } from './preferences.ts';
 import { ArenaStage, arenaAsLane } from './arena.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
@@ -97,8 +97,8 @@ export interface GameServices {
   online: boolean;
   /** Where sound goes, and its settings, which the menu edits (src/audio). */
   sound: SoundSystem;
-  /** What is drawn, which the menu edits too (displaySettings.ts). */
-  display: DisplayOptions;
+  /** Status markers and game speed, which the menu edits too (preferences.ts). */
+  preferences: PreferenceStore;
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
@@ -254,7 +254,7 @@ export class Game extends Container {
     this.arena.visible = false;
     this.countdown = new ShowdownCountdown(this.layout);
     this.menuButton = new MenuButton(this.layout, () => this.setMenu(true));
-    this.menu = new Menu(this.layout, services.sound, services.display, {
+    this.menu = new Menu(this.layout, services.sound, services.preferences, {
       onClose: () => this.setMenu(false),
       onLeaveMatch: () => {
         this.setMenu(false);
@@ -469,15 +469,20 @@ export class Game extends Container {
 
     // A match in this tab stops while the menu is open: nobody else is waiting
     // on it. A room does not, because three other people are.
-    const paused = this.menu.isOpen && transport?.kind === 'local';
+    const local = transport?.kind === 'local';
+    const paused = this.menu.isOpen && local;
     if (this.menu.isOpen) {
       this.menu.render(
         { inMatch: transport !== null, paused, name: this.services.name() },
         deltaMs,
       );
     }
-    // Everything that animates on the match's behalf holds still with it.
-    const matchDelta = paused ? 0 : deltaMs;
+    // The same match, run faster or slower. Only in this tab: a room runs at
+    // the one speed everybody in it shares.
+    const speed = local ? this.services.preferences.settings.practiceSpeed : 1;
+    // Everything that animates on the match's behalf holds still with it, and
+    // runs at its speed: a 2x match should look like one.
+    const matchDelta = paused ? 0 : deltaMs * speed;
     this.statusClock += matchDelta / 1000;
 
     if (!transport) {
@@ -487,7 +492,7 @@ export class Game extends Container {
       return;
     }
 
-    if (!paused) transport.update(deltaMs);
+    if (!paused) transport.update(matchDelta);
 
     // A room exists before the match in it does, so kickoff is a transition
     // the renderer watches for rather than a message it has to handle. It is
@@ -580,7 +585,7 @@ export class Game extends Container {
     // it and let the rest of the frame see the wallet the sends left behind.
     // Not at all while paused: a practice match applies a send the moment it
     // is submitted, so an armed send would still go out with time stopped.
-    if (!paused) this.buildBar.tickSends(view, deltaMs);
+    if (!paused) this.buildBar.tickSends(view, matchDelta);
     view = transport.view() ?? view;
 
     this.refreshSummary(view);
@@ -608,7 +613,7 @@ export class Game extends Container {
       });
       this.effectsLayer.render();
     }
-    this.hud.render(view, this.summary);
+    this.hud.render(view, this.summary, speed);
     this.tabs.render(view, this.watchingTeamId);
     if (connected) this.banner.render(view, this.watchingTeamId);
     else this.banner.renderStatus(transport.status, transport.detail);
@@ -681,7 +686,7 @@ export class Game extends Container {
 
   /** The status markers' clock, or null when the player has turned them off. */
   private statusTime(): number | null {
-    return this.services.display.settings.statusEffects ? this.statusClock : null;
+    return this.services.preferences.settings.statusEffects ? this.statusClock : null;
   }
 
   private arenaLane(): LaneView | null {

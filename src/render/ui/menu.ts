@@ -5,9 +5,9 @@
  *
  * Sound, which is what exists to be set: three levels, mute, which music plays
  * (one piece, or shuffle the list), skip to the next piece, and which sound
- * pack plays the effects (src/audio). Then the game: your name, whether the
- * status markers are drawn (statusMarks.ts), leaving the match you are in,
- * and closing the menu. A practice match is paused behind
+ * pack plays the effects (src/audio). Then the game: your name, how fast a
+ * practice match runs, whether the status markers are drawn (statusMarks.ts),
+ * leaving the match you are in, and closing the menu. A practice match is paused behind
  * the menu, because nobody else is waiting on it; an online match is not, and
  * the panel says so rather than letting a player think they have stopped time.
  *
@@ -31,7 +31,7 @@ import type { FederatedPointerEvent, Text } from 'pixi.js';
 import { MUSIC_TRACKS, SOUND_PACKS } from '../../audio/catalog.ts';
 import type { SoundSystem } from '../../audio/engine.ts';
 import type { AudioSettings, MusicChoice } from '../../audio/settings.ts';
-import type { DisplayOptions } from '../displaySettings.ts';
+import { GAME_SPEEDS, speedLabel, type PreferenceStore } from '../preferences.ts';
 import type { LaneLayout, Rect } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { fit, label, wrapped } from './text.ts';
@@ -273,7 +273,8 @@ class Picker extends Container {
   place(x: number, y: number, width: number, height: number): void {
     this.position.set(x, y);
     this.h = height;
-    const labelW = Math.min(90, width * 0.3);
+    // Past the caption however long it runs, not at a fixed column.
+    const labelW = Math.max(Math.min(90, width * 0.3), this.caption.width + 10);
     const arrow = Math.min(34, height - 4);
     const arrowY = (height - arrow) / 2;
     this.caption.position.set(0, (height - this.caption.height) / 2);
@@ -399,6 +400,7 @@ export class Menu extends Container {
 
   private readonly nameRow: LineWithButton;
   private readonly statusEffects: Toggle;
+  private readonly speed: Picker;
   private readonly note: Text;
   private readonly leave: PanelButton;
   private readonly resume: PanelButton;
@@ -411,7 +413,7 @@ export class Menu extends Container {
   constructor(
     layout: LaneLayout,
     private readonly sound: SoundSystem,
-    private readonly display: DisplayOptions,
+    private readonly preferences: PreferenceStore,
     private readonly handlers: MenuHandlers,
   ) {
     super();
@@ -437,7 +439,12 @@ export class Menu extends Container {
 
     this.nameRow = new LineWithButton('Name', 'Change', () => this.handlers.onEditName());
     this.statusEffects = new Toggle('Show status effects', () =>
-      this.display.configure({ statusEffects: !this.display.settings.statusEffects }),
+      this.preferences.configure({ statusEffects: !this.preferences.settings.statusEffects }),
+    );
+    this.speed = new Picker('Game speed', (by) =>
+      this.preferences.configure({
+        practiceSpeed: cycle(GAME_SPEEDS, this.preferences.settings.practiceSpeed, by),
+      }),
     );
     this.note = wrapped('', 11);
     this.leave = new PanelButton('Leave match', () => this.tapLeave());
@@ -465,6 +472,7 @@ export class Menu extends Container {
       this.soundPack,
       this.gameHeading,
       this.nameRow,
+      this.speed,
       this.statusEffects,
       this.note,
       this.leave,
@@ -509,7 +517,14 @@ export class Menu extends Container {
       SOUND_PACKS.length,
     );
     this.nameRow.show(state.name);
-    this.statusEffects.show(this.display.settings.statusEffects);
+    this.statusEffects.show(this.preferences.settings.statusEffects);
+    // A room runs at the speed everybody in it shares, so the picker is shown
+    // but cannot move while in one; at home it sets the next practice match.
+    const speedApplies = !state.inMatch || state.paused;
+    this.speed.show(
+      speedApplies ? speedLabel(this.preferences.settings.practiceSpeed) : '1× (online)',
+      speedApplies ? GAME_SPEEDS.length : 1,
+    );
 
     this.leaveArmedMs = Math.max(0, this.leaveArmedMs - deltaMs);
     this.leave.set(this.leaveArmedMs > 0 ? 'Tap again to leave' : 'Leave match', 'danger');
@@ -577,7 +592,7 @@ export class Menu extends Container {
 
     const heading = 22;
     const soundH = heading + soundRows * rowH;
-    const gameH = heading + rowH * 2 + noteH + (inMatch ? 42 : 0) + 42 + 22;
+    const gameH = heading + rowH * 3 + noteH + (inMatch ? 42 : 0) + 42 + 22;
     const top = 50;
     const bodyH = twoColumns ? Math.max(soundH, gameH) : soundH + 12 + gameH;
     const panelH = top + bodyH + pad;
@@ -625,6 +640,8 @@ export class Menu extends Container {
     this.gameHeading.position.set(gx, y);
     y += heading;
     place(this.nameRow, { x: gx, y, width: colW, height: rowH });
+    y += rowH;
+    place(this.speed, { x: gx, y, width: colW, height: rowH });
     y += rowH;
     place(this.statusEffects, { x: gx, y, width: colW, height: rowH });
     y += rowH;
