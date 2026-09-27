@@ -953,7 +953,8 @@ area reaches six pixels past the drawing to make up the rest of a thumb.
 What is in it is what exists to be set. Sound: three levels, mute, which music
 plays (one piece or shuffle), skip to the next piece, and which effects pack is
 in use, shown even while there is only one so the option is visible. Then the
-game: your name, leaving the match, and closing the menu. Upright it is one
+game: your name, whether status markers are drawn (below), leaving the match,
+and closing the menu. Upright it is one
 column; on a short screen the two sections sit side by side, since one column
 of every row would run off the bottom.
 
@@ -974,6 +975,51 @@ rather than keeping a copy, so M pressed with the menu open moves the mute
 switch too. Each row is one of four shapes (slider, toggle, picker, button), so
 a new option is a row in the constructor and `arrange` and a line in `render`,
 not new layout. Esc opens and closes it.
+
+### Status markers: what is happening to a body
+
+A burn, a slow, a ward: every ability that lasts leaves a status on a body, and
+until now a player could only find one by selecting the body and reading its
+numbers. Now each body wears a small animated marker for each KIND of thing
+happening to it, eleven kinds in all (`src/sim/statusMarks.ts` sorts them,
+`src/render/statusMarks.ts` draws them):
+
+| kind         | from                                             | marker                    |
+| ------------ | ------------------------------------------------ | ------------------------- |
+| burning      | a blast damage-over-time (Pyre)                  | flames off the top        |
+| blighted     | any other damage-over-time (spores)              | bubbles rising            |
+| slowed       | move or attack speed down                        | ice crystals circling     |
+| rooted       | root                                             | spikes, under the body    |
+| stunned      | stun, or any other control that stops it         | stars circling overhead   |
+| taunted      | taunt                                            | a red chevron pointing in |
+| shielded     | a ward with blows left                           | a bubble                  |
+| regenerating | healing over time                                | pluses rising             |
+| empowered    | damage, attack or move speed, crit, lifesteal up | chevrons rising, right    |
+| weakened     | damage dealt down, damage taken or anti-heal up  | chevrons sinking, left    |
+| fortified    | damage taken down, evasion, reflect, immunity    | four corner brackets      |
+
+**A body's own passives are left out.** A Carapace's plated shell is what a
+Carapace is, not something happening to it, and marking it would badge every
+one on the board forever and bury the marks that mean something changed. The
+same passive reaching a DIFFERENT body is kept, because that is the news: an
+enemy's dampening field slowing your line, or a Pledge standing close enough to
+its neighbour to share its aura, which is how a player finds out spacing
+matters. A body's own triggered effects (a Stoke, a Brood Surge) are events,
+and are kept too.
+
+The view sends KINDS, not statuses: one bitmask per affected body
+(`EntityView.statusMarks`), and on the wire a sparse list of id and bits for the
+few bodies that have any, lanes and arena alike. Whose burn it is and how long
+it has left are the panel's business.
+
+Every kind has its own shape as well as its colour, which is the rule the bodies
+follow (§14.2), so the greens can be told apart without the colour: rising
+pluses are healing, rising bubbles are blight, spikes in the ground are roots.
+Markers are anchored to the body's edge and sized from its radius with a floor
+and a ceiling, so a Mite's are legible and a boss's do not swamp it. They
+animate on the match's clock, so they hold still with everything else while the
+menu pauses a practice match. The menu's "Show status effects" turns them off;
+the choice is saved (`displaySettings.ts`).
 
 ### The fortress aura, drawn
 

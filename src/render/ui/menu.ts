@@ -5,8 +5,9 @@
  *
  * Sound, which is what exists to be set: three levels, mute, which music plays
  * (one piece, or shuffle the list), skip to the next piece, and which sound
- * pack plays the effects (src/audio). Then the game: your name, leaving the
- * match you are in, and closing the menu. A practice match is paused behind
+ * pack plays the effects (src/audio). Then the game: your name, whether the
+ * status markers are drawn (statusMarks.ts), leaving the match you are in,
+ * and closing the menu. A practice match is paused behind
  * the menu, because nobody else is waiting on it; an online match is not, and
  * the panel says so rather than letting a player think they have stopped time.
  *
@@ -30,6 +31,7 @@ import type { FederatedPointerEvent, Text } from 'pixi.js';
 import { MUSIC_TRACKS, SOUND_PACKS } from '../../audio/catalog.ts';
 import type { SoundSystem } from '../../audio/engine.ts';
 import type { AudioSettings, MusicChoice } from '../../audio/settings.ts';
+import type { DisplayOptions } from '../displaySettings.ts';
 import type { LaneLayout, Rect } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { fit, label, wrapped } from './text.ts';
@@ -396,6 +398,7 @@ export class Menu extends Container {
   private readonly soundPack: Picker;
 
   private readonly nameRow: LineWithButton;
+  private readonly statusEffects: Toggle;
   private readonly note: Text;
   private readonly leave: PanelButton;
   private readonly resume: PanelButton;
@@ -408,6 +411,7 @@ export class Menu extends Container {
   constructor(
     layout: LaneLayout,
     private readonly sound: SoundSystem,
+    private readonly display: DisplayOptions,
     private readonly handlers: MenuHandlers,
   ) {
     super();
@@ -432,6 +436,9 @@ export class Menu extends Container {
     this.soundPack = new Picker('Effects set', (by) => set({ soundPack: this.stepPack(by) }));
 
     this.nameRow = new LineWithButton('Name', 'Change', () => this.handlers.onEditName());
+    this.statusEffects = new Toggle('Show status effects', () =>
+      this.display.configure({ statusEffects: !this.display.settings.statusEffects }),
+    );
     this.note = wrapped('', 11);
     this.leave = new PanelButton('Leave match', () => this.tapLeave());
     this.resume = new PanelButton('Close', () => this.handlers.onClose());
@@ -458,6 +465,7 @@ export class Menu extends Container {
       this.soundPack,
       this.gameHeading,
       this.nameRow,
+      this.statusEffects,
       this.note,
       this.leave,
       this.resume,
@@ -501,6 +509,7 @@ export class Menu extends Container {
       SOUND_PACKS.length,
     );
     this.nameRow.show(state.name);
+    this.statusEffects.show(this.display.settings.statusEffects);
 
     this.leaveArmedMs = Math.max(0, this.leaveArmedMs - deltaMs);
     this.leave.set(this.leaveArmedMs > 0 ? 'Tap again to leave' : 'Leave match', 'danger');
@@ -568,7 +577,7 @@ export class Menu extends Container {
 
     const heading = 22;
     const soundH = heading + soundRows * rowH;
-    const gameH = heading + rowH + noteH + (inMatch ? 42 : 0) + 42 + 22;
+    const gameH = heading + rowH * 2 + noteH + (inMatch ? 42 : 0) + 42 + 22;
     const top = 50;
     const bodyH = twoColumns ? Math.max(soundH, gameH) : soundH + 12 + gameH;
     const panelH = top + bodyH + pad;
@@ -616,6 +625,8 @@ export class Menu extends Container {
     this.gameHeading.position.set(gx, y);
     y += heading;
     place(this.nameRow, { x: gx, y, width: colW, height: rowH });
+    y += rowH;
+    place(this.statusEffects, { x: gx, y, width: colW, height: rowH });
     y += rowH;
     this.note.visible = noteText !== '';
     this.note.position.set(gx, y + 2);

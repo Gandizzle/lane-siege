@@ -17,6 +17,7 @@ import type { DefIndex, EntityView, LaneView } from '../sim/index.ts';
 import type { Camera } from './layout.ts';
 import { UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
+import { drawMarksOver, drawMarksUnder } from './statusMarks.ts';
 
 interface PreviousPosition {
   x: number;
@@ -49,6 +50,11 @@ export interface EntityMarks {
    * and what a shot reaches, so all three agree.
    */
   selectedId?: number | null;
+  /**
+   * Seconds of wall time for the status markers' animation (statusMarks.ts),
+   * or absent to draw no markers - which is what the menu's toggle turns off.
+   */
+  statusTime?: number | null;
 }
 
 /** How much wider than the body the selection ring sits. */
@@ -56,8 +62,12 @@ const SELECTION_RING = 1.25;
 
 export class EntityLayer extends Container {
   private readonly ringGraphics = new Graphics();
+  /** Status markers that come up out of the ground, under the bodies. */
+  private readonly statusUnder = new Graphics();
   private readonly monsterGraphics = new Graphics();
   private readonly unitGraphics = new Graphics();
+  /** Every other status marker: over the bodies, under the health bars. */
+  private readonly statusOver = new Graphics();
   private readonly healthGraphics = new Graphics();
 
   /**
@@ -78,8 +88,10 @@ export class EntityLayer extends Container {
       // Under the bodies: a ring is a badge, not a highlight, and it must
       // never eat into the silhouette it belongs to.
       this.ringGraphics,
+      this.statusUnder,
       this.unitGraphics,
       this.monsterGraphics,
+      this.statusOver,
       this.healthGraphics,
     );
   }
@@ -119,6 +131,8 @@ export class EntityLayer extends Container {
     this.ringGraphics.clear();
     this.unitGraphics.clear();
     this.monsterGraphics.clear();
+    this.statusUnder.clear();
+    this.statusOver.clear();
     this.healthGraphics.clear();
 
     this.drawUnits(lane, alpha, marks);
@@ -184,6 +198,7 @@ export class EntityLayer extends Container {
         radius,
       );
 
+      this.drawStatus(unit, centre, radius, marks);
       if (unit.hpFraction < 1) {
         this.drawHealthBar(centre.x, centre.y - radius * 1.5, radius * 2, unit.hpFraction);
       }
@@ -218,10 +233,31 @@ export class EntityLayer extends Container {
         radius,
       );
 
+      this.drawStatus(monster, centre, radius, marks);
       if (monster.hpFraction < 1) {
         this.drawHealthBar(centre.x, centre.y - radius * 1.5, radius * 2, monster.hpFraction);
       }
     }
+  }
+
+  /** Whatever is happening to this body, if the markers are on and anything is. */
+  private drawStatus(
+    body: EntityView,
+    centre: { x: number; y: number },
+    radius: number,
+    marks: EntityMarks,
+  ): void {
+    const time = marks.statusTime;
+    if (time === null || time === undefined || !body.statusMarks) return;
+    const marked = {
+      cx: centre.x,
+      cy: centre.y,
+      radius,
+      marks: body.statusMarks,
+      seed: body.id,
+    };
+    drawMarksUnder(this.statusUnder, marked, time);
+    drawMarksOver(this.statusOver, marked, time);
   }
 
   private drawHealthBar(cx: number, cy: number, width: number, fraction: number): void {

@@ -56,6 +56,7 @@ import { energyCostOf, type AbilityIndex } from './abilityRuntime.ts';
 import { auraFor } from './buffs.ts';
 import type { SimContext } from './context.ts';
 import { modifiersOf } from './status.ts';
+import { statusMarks } from './statusMarks.ts';
 import type {
   Attack,
   DefensiveUnit,
@@ -118,6 +119,15 @@ export interface EntityView {
    * where this is a number (§14.1).
    */
   energy?: number | null;
+  /**
+   * Which kinds of status are visibly on this body, as `STATUS_MARKS` bits
+   * (statusMarks.ts): burning, slowed, shielded and the rest. 0 for none.
+   *
+   * Kinds rather than statuses: the screen draws "this one is burning", and
+   * whose burn it is and how long it has left are the panel's business.
+   * Optional for the same reason `mods` is.
+   */
+  statusMarks?: number;
 }
 
 /** How far a body's four changeable numbers are from its definition's. */
@@ -333,6 +343,11 @@ export interface MatchView {
   showdown: ShowdownView | null;
 }
 
+/** Whether an ability fires on its own every tick (statusMarks.ts). */
+function passiveIn(abilities: AbilityIndex): (abilityId: string) => boolean {
+  return (abilityId) => abilities.byId.get(abilityId)?.trigger.when === 'passive';
+}
+
 /** The living units, in one pass, so the views and the spend stay in step. */
 function livingUnits(lane: Lane) {
   return lane.units.filter((unit) => unit.alive);
@@ -358,6 +373,7 @@ function unitViews(
       hpFraction: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
       mods: def ? unitMods(lane, unit, def, fortressPos) : null,
       energy: energyCostOf(abilities, unit.defId) > 0 ? unit.energy : null,
+      statusMarks: statusMarks(unit, passiveIn(abilities)),
     });
   }
   return out;
@@ -420,6 +436,7 @@ function monsterViews(abilities: AbilityIndex, lane: Lane): EntityView[] {
       hpFraction: monster.maxHp > 0 ? monster.hp / monster.maxHp : 0,
       mods: isUnmodified(mods) ? null : mods,
       energy: energyCostOf(abilities, monster.defId) > 0 ? monster.energy : null,
+      statusMarks: statusMarks(monster, passiveIn(abilities)),
     });
   }
   return out;
@@ -471,7 +488,11 @@ function laneView(ctx: SimContext, lane: Lane, own: boolean): LaneView {
   };
 }
 
-function showdownView(showdown: Showdown, countdown: number): ShowdownView {
+function showdownView(
+  showdown: Showdown,
+  countdown: number,
+  abilities: AbilityIndex,
+): ShowdownView {
   return {
     countdown,
     centreHolders: [...showdown.centreHolders],
@@ -489,6 +510,7 @@ function showdownView(showdown: Showdown, countdown: number): ShowdownView {
           armour: unit.armour,
           damageType: unit.damageType,
           hpFraction: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
+          statusMarks: statusMarks(unit, passiveIn(abilities)),
         })),
     })),
     attacks: showdown.attacks.map((a: Attack) => ({
@@ -564,6 +586,8 @@ export function viewFor(
     lane: ownLane ? laneView(ctx, ownLane, true) : null,
     opponents,
     watching,
-    showdown: state.showdown ? showdownView(state.showdown, state.phaseTicksLeft) : null,
+    showdown: state.showdown
+      ? showdownView(state.showdown, state.phaseTicksLeft, ctx.abilities)
+      : null,
   };
 }

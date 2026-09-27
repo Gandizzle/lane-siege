@@ -97,6 +97,12 @@ export interface WireLane {
    */
   en: number[];
   /**
+   * Visible status kinds, SPARSE and flat: id, bits, next id, ... Only for the
+   * bodies that have any (`EntityView.statusMarks`). Optional so a frame from
+   * before markers existed still decodes.
+   */
+  sm?: number[];
+  /**
    * `[hp, maxHp, destroyed, weaponTypeIndex, auraIndex, auraRadius,
    * auraStrength]`. The last two are hundredths, like every other fraction
    * here.
@@ -165,13 +171,14 @@ export interface WireLane {
 export type WireArmy = [number, number, WireEntity[]];
 
 /**
- * `[countdownTicks, armies, flat attacks, centre holders]`.
+ * `[countdownTicks, armies, flat attacks, centre holders, status marks]`.
  *
  * The holders are team INDICES into the same table the armies use, and there
  * are at most four of them, so who owns the hill costs a handful of bytes a
- * frame. See `WireLane.a` on the flattening of the attacks.
+ * frame. See `WireLane.a` on the flattening of the attacks, and `WireLane.sm`
+ * on the marks, which are optional for the same reason.
  */
-export type WireShowdown = [number, WireArmy[], number[], number[]];
+export type WireShowdown = [number, WireArmy[], number[], number[], number[]?];
 
 export interface WireFrame {
   tk: number;
@@ -336,6 +343,26 @@ function encodeEnergy(entities: readonly EntityView[]): number[] {
   return out;
 }
 
+/** The sparse status-mark rows for one list of bodies. See `WireLane.sm`. */
+function encodeMarks(entities: readonly EntityView[]): number[] {
+  const out: number[] = [];
+  for (const entity of entities) {
+    if (entity.statusMarks) out.push(entity.id, entity.statusMarks);
+  }
+  return out;
+}
+
+/** Put the sparse status-mark rows back on the bodies they belong to. */
+function applyMarks(entities: EntityView[], rows: readonly number[]): void {
+  if (rows.length === 0) return;
+  const byId = new Map<number, EntityView>();
+  for (const entity of entities) byId.set(entity.id, entity);
+  for (let i = 0; i + 1 < rows.length; i += 2) {
+    const entity = byId.get(rows[i]!);
+    if (entity) entity.statusMarks = rows[i + 1]!;
+  }
+}
+
 /** Put the sparse energy rows back on the bodies they belong to. */
 function applyEnergy(entities: EntityView[], rows: readonly number[]): void {
   if (rows.length === 0) return;
@@ -397,10 +424,11 @@ function decodeEntity(
     armour: trait ? trait.armour : ('flesh' as ArmourType),
     damageType: trait ? trait.damageType : ('impact' as DamageType),
     hpFraction: hp / HEALTH_SCALE,
-    // Both filled in from the lane's sparse rows, for the few bodies that have
-    // any (`applyMods`, `applyEnergy`).
+    // All three filled in from the lane's sparse rows, for the few bodies
+    // that have any (`applyMods`, `applyEnergy`, `applyMarks`).
     mods: null,
     energy: null,
+    statusMarks: 0,
   };
 }
 
@@ -459,6 +487,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
     m: lane.monsters.map((m) => encodeEntity(m, tables.monsterIndex)),
     md: [...encodeMods(lane.units), ...encodeMods(lane.monsters)],
     en: [...encodeEnergy(lane.units), ...encodeEnergy(lane.monsters)],
+    sm: [...encodeMarks(lane.units), ...encodeMarks(lane.monsters)],
     f: [
       Math.round(lane.fortress.hp),
       Math.round(lane.fortress.maxHp),
@@ -540,6 +569,8 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
   applyMods(monsters, wire.md ?? []);
   applyEnergy(units, wire.en ?? []);
   applyEnergy(monsters, wire.en ?? []);
+  applyMarks(units, wire.sm ?? []);
+  applyMarks(monsters, wire.sm ?? []);
 
   return {
     teamId: tables.teamIds[wire.t] ?? '',
@@ -584,12 +615,13 @@ function encodeShowdown(showdown: ShowdownView, tables: WireTables): WireShowdow
     ),
     flattenAttacks(showdown.attacks),
     showdown.centreHolders.map((id) => tables.teamIds.indexOf(id)).filter((i) => i >= 0),
+    showdown.armies.flatMap((army) => encodeMarks(army.units)),
   ];
 }
 
 function decodeShowdown(wire: WireShowdown, tables: WireTables): ShowdownView {
-  const [countdown, armies, attacks, holders] = wire;
-  return {
+  const [countdown, armies, attacks, holders, marks] = wire;
+  const decoded: ShowdownView = {
     countdown,
     // Absent on a frame from before the hill existed, which is what the `?? []`
     // is for - a replay recorded then should decode rather than throw.
@@ -601,6 +633,11 @@ function decodeShowdown(wire: WireShowdown, tables: WireTables): ShowdownView {
     })),
     attacks: unflattenAttacks(attacks),
   };
+  applyMarks(
+    decoded.armies.flatMap((army) => army.units),
+    marks ?? [],
+  );
+  return decoded;
 }
 
 export function encodeFrame(view: MatchView, tables: WireTables): WireFrame {

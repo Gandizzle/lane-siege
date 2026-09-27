@@ -165,7 +165,8 @@ export class ArenaStage extends Container {
     this.effectsLayer.update(deltaMs);
   }
 
-  render(view: MatchView, lane: LaneView, alpha: number): void {
+  /** `statusTime` is the status markers' clock, or null with them turned off. */
+  render(view: MatchView, lane: LaneView, alpha: number, statusTime: number | null = null): void {
     if (!this.framed) {
       // Open on the middle. Everything converges there, and a player who wants
       // to watch their own spoke instead is one drag away.
@@ -184,6 +185,7 @@ export class ArenaStage extends Container {
         const seat = this.seats.get(unit.id);
         return seat === undefined ? null : seatColour(seat);
       },
+      statusTime,
     });
     this.effectsLayer.render();
   }

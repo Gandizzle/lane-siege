@@ -166,6 +166,31 @@ describe('a frame survives the round trip', () => {
     }
   });
 
+  it('carries status marks, and only for the bodies that have any', () => {
+    const { state, ctx } = match();
+    // The same row of Pledges: each one is empowered by its neighbours' aura.
+    for (let x = 0; x < 4; x++) {
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'a',
+        unitDefId: 'pledge',
+        tileX: x,
+        tileY: 0,
+      });
+    }
+    for (let i = 0; i < 60; i++) step(ctx, state);
+
+    const { original, decoded } = roundTrip(state, ctx, 'a');
+    const marked = original.lane!.units.filter((u) => u.statusMarks);
+    expect(marked.length, 'the aura shows').toBeGreaterThan(0);
+    for (const body of [...original.lane!.units, ...original.lane!.monsters]) {
+      const after = [...decoded.lane!.units, ...decoded.lane!.monsters].find(
+        (u) => u.id === body.id,
+      )!;
+      expect(after.statusMarks ?? 0, `body ${body.id}`).toBe(body.statusMarks ?? 0);
+    }
+  });
+
   it('carries energy, and only for the bodies that can spend it', () => {
     const { state, ctx } = match();
     // Sanction III is one of the ten whose top mark unlocks an energy ability;
@@ -462,6 +487,22 @@ describe('the Final Showdown on the wire (§3.3, replaced)', () => {
         expect(row.y).toBeCloseTo(unit.y, 2);
       });
     });
+  });
+
+  it('carries the status marks on the armies', () => {
+    const { state, ctx } = showdownMatch();
+    // Past the countdown, which holds everything still, abilities included.
+    for (let i = 0; i < 100; i++) step(ctx, state);
+    const { original, decoded } = roundTrip(state, ctx, 'a');
+    const before = original.showdown!.armies.flatMap((a) => a.units);
+    const after = decoded.showdown!.armies.flatMap((a) => a.units);
+    expect(
+      before.some((u) => u.statusMarks),
+      'a Pledge row shows its aura',
+    ).toBe(true);
+    for (const body of before) {
+      expect(after.find((u) => u.id === body.id)!.statusMarks ?? 0).toBe(body.statusMarks ?? 0);
+    }
   });
 
   it('carries the blows, so the arena animates like a lane', () => {

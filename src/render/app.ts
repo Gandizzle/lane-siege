@@ -45,6 +45,7 @@ import { seatsForArmies } from '../balance/arena.ts';
 import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
 import { AudioEngine } from '../audio/engine.ts';
+import { DisplayOptions } from './displaySettings.ts';
 
 /** §2: four lanes. Fixed ids so a lane's name is stable across matches. */
 const LANE_IDS = ['lane1', 'lane2', 'lane3', 'lane4'];
@@ -246,6 +247,7 @@ export async function startApp(
       name: () => identity.name,
       online: Boolean(options.server),
       sound,
+      display: new DisplayOptions(storage),
       async editName() {
         const typed = await textPrompt(mount, {
           title: 'Your name',

@@ -57,6 +57,7 @@ import type { Transport } from '../net/transport.ts';
 import { MatchCues, combatCues } from '../audio/cues.ts';
 import type { SoundSystem } from '../audio/engine.ts';
 import type { DeathRule } from './deaths.ts';
+import type { DisplayOptions } from './displaySettings.ts';
 import { ArenaStage, arenaAsLane } from './arena.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
@@ -96,6 +97,8 @@ export interface GameServices {
   online: boolean;
   /** Where sound goes, and its settings, which the menu edits (src/audio). */
   sound: SoundSystem;
+  /** What is drawn, which the menu edits too (displaySettings.ts). */
+  display: DisplayOptions;
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
@@ -147,6 +150,12 @@ export class Game extends Container {
   /** Over everything, on every screen: settings, and the way out of a match. */
   private readonly menu: Menu;
   private readonly menuButton: MenuButton;
+  /**
+   * Seconds of match time, for the status markers' animation. Stops with the
+   * match when the menu pauses it, so a flame does not flicker on while
+   * everything else holds still.
+   */
+  private statusClock = 0;
   /** True once the arena has taken the screen, so the swap happens once. */
   private inShowdown = false;
   private readonly defs: DefIndex;
@@ -245,7 +254,7 @@ export class Game extends Container {
     this.arena.visible = false;
     this.countdown = new ShowdownCountdown(this.layout);
     this.menuButton = new MenuButton(this.layout, () => this.setMenu(true));
-    this.menu = new Menu(this.layout, services.sound, {
+    this.menu = new Menu(this.layout, services.sound, services.display, {
       onClose: () => this.setMenu(false),
       onLeaveMatch: () => {
         this.setMenu(false);
@@ -469,6 +478,7 @@ export class Game extends Container {
     }
     // Everything that animates on the match's behalf holds still with it.
     const matchDelta = paused ? 0 : deltaMs;
+    this.statusClock += matchDelta / 1000;
 
     if (!transport) {
       // On the home screen or the picker, with no match yet. Nothing to
@@ -592,7 +602,10 @@ export class Game extends Container {
     if (lane) {
       this.laneLayer.render(view, this.summary);
       this.auraLayer.render();
-      this.entities.render(lane, transport.alpha, { selectedId: selectedUnitId });
+      this.entities.render(lane, transport.alpha, {
+        selectedId: selectedUnitId,
+        statusTime: this.statusTime(),
+      });
       this.effectsLayer.render();
     }
     this.hud.render(view, this.summary);
@@ -666,13 +679,18 @@ export class Game extends Container {
       this.services.sound.play(cue, pan === undefined ? {} : { pan });
   }
 
+  /** The status markers' clock, or null when the player has turned them off. */
+  private statusTime(): number | null {
+    return this.services.display.settings.statusEffects ? this.statusClock : null;
+  }
+
   private arenaLane(): LaneView | null {
     return this.view ? arenaAsLane(this.view) : null;
   }
 
   private renderShowdown(view: MatchView, alpha: number, deltaMs: number): void {
     const lane = this.arenaLane();
-    if (lane) this.arena.render(view, lane, alpha);
+    if (lane) this.arena.render(view, lane, alpha, this.statusTime());
     // The card is a cut, so it goes over the arena rather than beside it, and
     // the arena is already standing behind it when it lifts (showdown.ts).
     this.countdown.render(view.showdown?.countdown ?? 0);

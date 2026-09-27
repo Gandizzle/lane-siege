@@ -75,3 +75,4 @@ export type {
   ShowdownView,
   UnitDamageView,
 } from './view.ts';
+export { STATUS_MARKS, hasMark, markBit, type StatusMark } from './statusMarks.ts';
