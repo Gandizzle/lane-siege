@@ -54,6 +54,7 @@ import type { GameData } from '../data/schema.ts';
 import { stat } from '../sim/defs.ts';
 import type { Camera } from './layout.ts';
 import { attackStyle, type AttackStyle } from './attackStyle.ts';
+import { findDeaths, type DeathRule } from './deaths.ts';
 import { DAMAGE_COLOURS } from './palette.ts';
 import { drawEntity, type EntityStyle } from './shapes.ts';
 
@@ -157,18 +158,6 @@ interface Death extends BaseEffect {
 }
 
 type Effect = Swing | Spark | Projectile | Impact | Death;
-
-/**
- * Which disappearances are deaths, since the view only says what is there.
- *
- *   `all`      - anything that leaves the board died (a lane in combat, the
- *                Final Showdown).
- *   `monsters` - a unit leaving in the build phase was SOLD, and a sale is not
- *                a death; a monster only ever leaves by dying.
- *   `none`     - nothing leaving means anything: the armies walking out of
- *                their lanes into the showdown, say.
- */
-export type DeathRule = 'all' | 'monsters' | 'none';
 
 export class EffectsLayer extends Container {
   private readonly graphics = new Graphics();
@@ -281,26 +270,14 @@ export class EffectsLayer extends Container {
     }
   }
 
-  /**
-   * A pop for every body that was on the board last tick and is not now.
-   *
-   * Only when both views are of the SAME board: switching which lane is on
-   * screen swaps every body at once, and none of them died.
-   */
+  /** A pop for every body that was on the board last tick and is not now. */
   private spawnDeaths(incoming: LaneView, outgoing: LaneView | null, rule: DeathRule): void {
-    if (!outgoing || rule === 'none' || outgoing.teamId !== incoming.teamId) return;
-    const present = new Set<number>();
-    for (const body of incoming.units) present.add(body.id);
-    for (const body of incoming.monsters) present.add(body.id);
-
-    for (const monster of outgoing.monsters) {
-      if (present.has(monster.id)) continue;
+    const deaths = findDeaths(incoming, outgoing, rule);
+    for (const monster of deaths.monsters) {
       const shape = this.defs.monsters.get(monster.defId)?.shape ?? 'orb';
       this.spawnDeath(monster, { shape, damageType: monster.damageType, mark: 1, outlined: true });
     }
-    if (rule !== 'all') return;
-    for (const unit of outgoing.units) {
-      if (present.has(unit.id)) continue;
+    for (const unit of deaths.units) {
       const def = this.defs.units.get(unit.defId);
       this.spawnDeath(unit, {
         shape: def?.shape ?? 'orb',

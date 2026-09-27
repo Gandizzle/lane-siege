@@ -879,6 +879,68 @@ of the showdown none, because the armies have walked out to the arena. Switching
 which lane is on screen swaps every body at once, so nothing pops unless both
 views are of the same team's board.
 
+### Sound: cues, packs and a playlist
+
+Sound follows the same rule the effects do: the simulation does not know it
+exists. Every sound is a difference between two views the renderer already has
+(`src/audio/cues.ts`), so a remote match, a practice match, auto-send and a tap
+all sound alike, and a client with the audio deleted plays the identical game.
+Two sources, because they change at different rates. The fight on screen, every
+blow and every death, is heard on the tick, from the same pair of views and the
+same `DeathRule` as the death pop, so a pop and its sound are one event. The
+match and your own lane (phases, the fortress, builds, sales, purchases, sends
+out and in, the ending) are diffed once a frame against a small snapshot,
+because a practice match applies a purchase between ticks and a snapshot
+compared twice finds nothing new the second time. Button taps are heard in
+`app.ts` by running Pixi's own hit test on each press and release: anything
+drawn with a pointer cursor, pressed and released on the same one, ticks, so a
+button added later joins in with nothing to do. It is not a listener on the
+stage, because Pixi delivers events only to containers that are interactive
+themselves, and making the root interactive would change what every tap under
+it hits. The listeners are added before Pixi's own so the release is tested
+against the screen that was tapped, not the one its button opened.
+
+**The game plays cues, never files.** `CUES` in `catalog.ts` is the vocabulary:
+`death.boss`, `send.incoming`, `ui.denied`. A sound pack maps every cue to one
+or more files, a volume, a voice limit, a minimum gap and a pitch spread.
+Replacing the sound is a new pack, not a hunt through the renderer, and a
+damage type added to the data without an attack cue fails the type check. The
+music is a list of tracks; the setting names one to repeat, or `shuffle`, which
+picks at random each time a piece ends and never picks the one that just
+finished. The pieces have endings rather than seamless loops, so nothing
+depends on an MP3 looping without a gap, which browsers do not do reliably.
+
+**Settings are what a menu will edit.** Levels (master, music, effects), mute,
+the music choice and the pack live in `settings.ts`, saved to `localStorage`
+and read back field by field, so a bad save or a removed track falls back
+rather than going silent. `AudioEngine.configure` applies a change mid-sound and
+saves it. There is no menu yet: M mutes, and `?sounds=1` opens a sound board
+that auditions every cue and track through the same calls a menu will make.
+
+**A busy fight is thinned, not piled up.** A late wave lands dozens of blows a
+second. Each cue has its own voice cap and minimum gap and there is a ceiling of
+24 voices overall (`limiter.ts`). A sound refused is dropped, never queued,
+because a queued sound arrives after the thing it was about. Blows are quiet and
+pitch-jittered; anything about the player is louder and rarer.
+
+**Browsers start silent.** Nothing is fetched and no context runs until the
+first tap or key press, which then decodes the pack's effects into memory and
+starts the music. Effects are decoded because they must start on the frame
+asked for; music streams through an `<audio>` element routed into the same
+Web Audio graph, so one gain per level covers both. A hidden tab or a
+backgrounded app suspends the lot.
+
+**The sounds are our own.** Every file under `public/audio/` is rendered from a
+recipe in `src/audio/synth/` by `npm run audio`: a small offline synthesizer
+(oscillators, filters, envelopes, a Freeverb) and a two-song score. Effects
+ship as 22.05kHz mono WAV, levelled by the loudness of their loudest 50ms rather
+than by peak, since a square-wave alarm and a click with the same peak are
+twenty decibels apart to listen to. Music ships as 96kbps MP3, levelled to one
+average loudness so the playlist does not jump. Noise is seeded, so
+regenerating an unchanged recipe writes identical bytes. Downloaded sounds go
+in as a new pack; `public/audio/CREDITS.md` says what a file from elsewhere has
+to record.
+
 ### The fortress aura, drawn
 
 §10.1 sells two upgrades and offers one choice — Aura Power, Aura Radius, and

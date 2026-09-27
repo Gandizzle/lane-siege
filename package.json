@@ -27,7 +27,8 @@
     "reprice": "tsx src/headless/reprice.ts",
     "showdown": "tsx src/headless/showdown.ts",
     "waves": "tsx src/headless/waves.ts",
-    "runs": "tsx src/headless/runs.ts"
+    "runs": "tsx src/headless/runs.ts",
+    "audio": "tsx src/headless/makeAudio.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
@@ -36,6 +37,7 @@
     "pixi.js": "^8.20.1"
   },
   "devDependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "@capacitor/cli": "^8.5.2",
     "@colyseus/ws-transport": "^0.16.5",
     "@eslint/js": "^10.0.1",

@@ -48,11 +48,15 @@ import {
   inBounds,
   summariseWave,
   type Command,
+  type DefIndex,
   type LaneView,
   type MatchView,
   type WaveSummary,
 } from '../sim/index.ts';
 import type { Transport } from '../net/transport.ts';
+import { MatchCues, combatCues } from '../audio/cues.ts';
+import type { Sound } from '../audio/engine.ts';
+import type { DeathRule } from './deaths.ts';
 import { ArenaStage, arenaAsLane } from './arena.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
@@ -89,6 +93,8 @@ export interface GameServices {
   askRoomCode(): Promise<string | null>;
   /** Whether a server is configured at all. Practice needs none. */
   online: boolean;
+  /** Where sound goes (src/audio). `SILENT` where there is nothing to hear. */
+  sound: Sound;
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
@@ -139,6 +145,12 @@ export class Game extends Container {
   private readonly countdown: ShowdownCountdown;
   /** True once the arena has taken the screen, so the swap happens once. */
   private inShowdown = false;
+  private readonly defs: DefIndex;
+  /** The match's own sounds: phases, your lane, the ending (src/audio/cues.ts). */
+  private readonly matchCues = new MatchCues();
+  /** Board widths in tiles, for panning a sound to where it happened. */
+  private readonly laneWidth: number;
+  private readonly arenaWidth: number;
 
   constructor(
     private readonly data: GameData,
@@ -157,6 +169,9 @@ export class Game extends Container {
     // everywhere (§9.2) - so the renderer indexes them itself rather than being
     // sent them with every frame.
     const defs = buildDefIndex(data);
+    this.defs = defs;
+    this.laneWidth = data.lane.buildZone.width;
+    this.arenaWidth = arenaShape(data).size;
     this.auraLayer = new AuraLayer(this.layout, data.lane);
     this.entities = new EntityLayer(this.layout, defs);
     // Above the bodies, so a swing reads as landing ON what it hits (§14.2).
@@ -257,6 +272,11 @@ export class Game extends Container {
     this.showScreen('home');
   }
 
+  /** A short line of text over the board: what app.ts says when M mutes. */
+  notify(text: string): void {
+    this.toast.showText(text);
+  }
+
   // ------------------------------------------------------- getting to a match
 
   /** Exactly one of the front screens is up at a time; the match is behind. */
@@ -314,6 +334,7 @@ export class Game extends Container {
     this.summarisedBuilder = '';
     this.entities.reset();
     this.effectsLayer.reset();
+    this.matchCues.reset();
     this.gameOver.reset();
     this.buildBar.reset();
     this.leaveShowdown();
@@ -347,6 +368,7 @@ export class Game extends Container {
     this.gameOver.reset();
     this.entities.reset();
     this.effectsLayer.reset();
+    this.matchCues.reset();
     this.buildBar.reset();
     this.leaveShowdown();
     this.showScreen('home');
@@ -364,6 +386,7 @@ export class Game extends Container {
     this.summarisedBuilder = '';
     this.entities.reset();
     this.effectsLayer.reset();
+    this.matchCues.reset();
     this.gameOver.reset();
     this.buildBar.reset();
     this.leaveShowdown();
@@ -445,12 +468,18 @@ export class Game extends Container {
       const incoming = this.shownLane();
       // A body leaving the board is a death in combat; in the build phase a
       // unit leaving was sold, and in the showdown the armies have walked
-      // out to the arena, which draws its own (effects.ts `DeathRule`).
+      // out to the arena, which draws its own (deaths.ts `DeathRule`).
       const phase = this.view?.phase;
-      const deaths = phase === 'combat' ? 'all' : phase === 'build' ? 'monsters' : 'none';
+      const deaths: DeathRule =
+        phase === 'combat' ? 'all' : phase === 'build' ? 'monsters' : 'none';
       if (incoming) this.effectsLayer.spawn(incoming, outgoing, deaths);
       const incomingArena = this.arenaLane();
       if (incomingArena) this.arena.spawnEffects(incomingArena, outgoingArena);
+      // The same fight, heard: whichever board is on screen, and only that one.
+      if (incomingArena)
+        this.hear(combatCues(incomingArena, outgoingArena, 'all', this.defs, this.arenaWidth));
+      else if (incoming)
+        this.hear(combatCues(incoming, outgoing, deaths, this.defs, this.laneWidth));
     }
 
     // Effects run on wall time, not on ticks: a 170ms swing at 60fps is ten
@@ -459,7 +488,9 @@ export class Game extends Container {
     this.arena.update(deltaMs);
     this.auraLayer.update(deltaMs);
 
-    for (const rejection of transport.takeRejections()) this.toast.show(rejection);
+    const rejections = transport.takeRejections();
+    for (const rejection of rejections) this.toast.show(rejection);
+    if (rejections.length > 0) this.services.sound.play('ui.denied');
 
     let view = this.view;
     if (!view) {
@@ -468,6 +499,11 @@ export class Game extends Container {
       this.toast.update(deltaMs, this.layout);
       return;
     }
+
+    // Once a frame, whatever changed it: a tick, a tap, or auto-send. A send
+    // armed on this frame is heard on the next, which is a frame nobody can
+    // tell apart.
+    for (const cue of this.matchCues.observe(view)) this.services.sound.play(cue);
 
     // A connection that drops mid-match leaves a lane on screen that has
     // stopped moving, which looks exactly like the game having crashed. The
@@ -578,6 +614,11 @@ export class Game extends Container {
   private leaveShowdown(): void {
     this.setShowdown(false);
     this.arena.reset();
+  }
+
+  private hear(cues: ReturnType<typeof combatCues>): void {
+    for (const { cue, pan } of cues)
+      this.services.sound.play(cue, pan === undefined ? {} : { pan });
   }
 
   private arenaLane(): LaneView | null {

@@ -17,12 +17,13 @@
  * prints. The renderer cannot tell which of the three it has, and neither can
  * the fog-of-war filter (§12) - it is the same function either way.
  *
- * This file also owns the two things the renderer deliberately does not: the
- * player's identity, which is storage, and text entry, which is DOM. Both are
- * passed into the game as functions.
+ * This file also owns the things the renderer deliberately does not: the
+ * player's identity, which is storage; text entry, which is DOM; and sound,
+ * which is the Web Audio device (src/audio/engine.ts). All of them are passed
+ * into the game as services.
  */
 
-import { Application } from 'pixi.js';
+import { Application, Point, type Container } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
 import { LocalTransport } from '../net/localTransport.ts';
 import { RemoteTransport } from '../net/remoteTransport.ts';
@@ -43,6 +44,7 @@ import { realise } from '../balance/builds.ts';
 import { seatsForArmies } from '../balance/arena.ts';
 import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
+import { AudioEngine } from '../audio/engine.ts';
 
 /** §2: four lanes. Fixed ids so a lane's name is stable across matches. */
 const LANE_IDS = ['lane1', 'lane2', 'lane3', 'lane4'];
@@ -51,6 +53,7 @@ const OWN_LANE = LANE_IDS[0]!;
 export interface GameApp {
   app: Application;
   game: Game;
+  sound: AudioEngine;
   destroy(): void;
 }
 
@@ -162,12 +165,63 @@ function newShowdown(
   );
 }
 
+/**
+ * Calls `onTap` whenever a button is tapped - anything drawn with a pointer
+ * cursor, pressed and released on the same one - so every button ticks,
+ * including ones added later, without any of them knowing about sound.
+ *
+ * Found the way Pixi finds a tap's target, with its own hit test, rather than
+ * by a listener on the stage: Pixi only delivers an event to containers that
+ * are themselves interactive, and making the game's root interactive would
+ * change what every tap under it hits.
+ *
+ * Must be called BEFORE `app.init`. Pixi handles a release on the window's
+ * capture phase, and a button's handler may close the very screen it is on, so
+ * these listeners sit in the same phase and are added first, which makes them
+ * run first: the release is tested against the screen that was tapped.
+ */
+function listenForButtonTaps(app: Application, onTap: () => void): void {
+  const buttonAt = (event: PointerEvent): Container | null => {
+    // Not until the renderer exists, and not for DOM laid over the canvas.
+    const events = (app.renderer as Application['renderer'] | undefined)?.events;
+    if (!events || event.target !== app.canvas) return null;
+    const point = new Point();
+    events.mapPositionToPoint(point, event.clientX, event.clientY);
+    let node: Container | null = events.rootBoundary.hitTest(point.x, point.y);
+    for (; node; node = node.parent) if (node.cursor === 'pointer') return node;
+    return null;
+  };
+  let pressed: Container | null = null;
+  globalThis.addEventListener('pointerdown', (event) => (pressed = buttonAt(event)), {
+    capture: true,
+  });
+  globalThis.addEventListener(
+    'pointerup',
+    (event) => {
+      const button = buttonAt(event);
+      if (button && button === pressed) onTap();
+      pressed = null;
+    },
+    { capture: true },
+  );
+}
+
 export async function startApp(
   mount: HTMLElement,
   data: GameData,
   options: AppOptions = {},
 ): Promise<GameApp> {
+  // Who this player is, across matches (§17's "accounts", as far as a game with
+  // nowhere to host an account server can take it - see net/identity.ts).
+  const storage = browserStorage();
+  const identity = loadIdentity(storage, Math.random);
+
+  // Silent until the first tap anywhere: browsers insist (engine.ts).
+  const sound = new AudioEngine(import.meta.env.BASE_URL, storage);
+  sound.attach(globalThis.window);
+
   const app = new Application();
+  listenForButtonTaps(app, () => sound.play('ui.tap'));
 
   await app.init({
     background: UI.background,
@@ -181,11 +235,6 @@ export async function startApp(
 
   mount.appendChild(app.canvas);
 
-  // Who this player is, across matches (§17's "accounts", as far as a game with
-  // nowhere to host an account server can take it - see net/identity.ts).
-  const storage = browserStorage();
-  const identity = loadIdentity(storage, Math.random);
-
   // The game starts on the home screen and asks for a transport once the player
   // has chosen a mode and a roster. A local one starts a fresh simulation; a
   // remote one joins a room, which opens as a lobby.
@@ -196,6 +245,7 @@ export async function startApp(
       createShowdown: (seats) => newShowdown(data, options, seats, identity),
       name: () => identity.name,
       online: Boolean(options.server),
+      sound,
       async editName() {
         const typed = await textPrompt(mount, {
           title: 'Your name',
@@ -227,6 +277,18 @@ export async function startApp(
     app.screen.height,
   );
   app.stage.addChild(game);
+
+  // M mutes and unmutes, until there is a settings menu to do it from. Not
+  // while typing a name or a room code, where an M is a letter.
+  globalThis.window.addEventListener('keydown', (event) => {
+    if (event.key !== 'm' && event.key !== 'M') return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('input, textarea, [contenteditable="true"]')) return;
+    const muted = !sound.settings.muted;
+    sound.configure({ muted });
+    game.notify(muted ? 'Sound off (M to turn it back on)' : 'Sound on');
+  });
 
   // Drive the simulation from real elapsed time, NOT from `ticker.deltaMS`.
   //
@@ -276,6 +338,7 @@ export async function startApp(
   return {
     app,
     game,
+    sound,
     destroy() {
       app.destroy(true, { children: true });
     },

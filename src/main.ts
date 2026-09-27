@@ -16,11 +16,14 @@
  *                             arena, with four scripted armies already in it
  *                             (§3.3, replaced). `?wave=25` is the honest route
  *                             to the ending; this one is for looking at it.
+ *   `?sounds=1`               opens a panel over the game for playing every
+ *                             sound and piece of music (src/audio/soundBoard.ts).
  */
 
 import { loadBundledData } from './data/bundle.ts';
 import { formatReport } from './data/validate.ts';
 import { startApp } from './render/app.ts';
+import { mountSoundBoard } from './audio/soundBoard.ts';
 
 const mount = document.getElementById('game');
 if (!mount) throw new Error('#game mount point is missing from index.html');
@@ -46,9 +49,11 @@ const startWave = Number.isFinite(waveParam) && waveParam > 1 ? Math.floor(waveP
 
 const startInShowdown = params.get('showdown') === '1';
 
-await startApp(mount, data, {
+const running = await startApp(mount, data, {
   ...(seed !== undefined && { seed }),
   ...(server && { server }),
   ...(startWave !== undefined && { startWave }),
   ...(startInShowdown && { startInShowdown }),
 });
+
+if (params.get('sounds') === '1') mountSoundBoard(running.sound);
