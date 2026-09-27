@@ -155,3 +155,28 @@ describe('landscape layout: the same three areas, in columns', () => {
     expect(computeLayout(1400, 800, lane).compact).toBe(false);
   });
 });
+
+describe('the menu button: the same corner on every screen', () => {
+  const sizes: [number, number][] = [
+    [320, 568],
+    [390, 844],
+    [412, 915],
+    [640, 360],
+    [844, 390],
+    [915, 412],
+  ];
+
+  it('sits in the top-left corner of the HUD, clear of the tabs and the board', () => {
+    for (const [width, height] of sizes) {
+      const l = computeLayout(width, height, lane);
+      const b = l.menuButton;
+      expect(b.x, `${width}x${height}`).toBeLessThan(12);
+      expect(b.y, `${width}x${height}`).toBeLessThan(12);
+      expect(b.x + b.width).toBeLessThanOrEqual(l.tabs.x + l.tabs.width);
+      expect(b.y + b.height).toBeLessThanOrEqual(l.tabs.y + l.tabs.height);
+      expect(overlaps(b, l.tabStrip), `${width}x${height} tabs`).toBe(false);
+      expect(overlaps(b, l.lane), `${width}x${height} lane`).toBe(false);
+      expect(overlaps(b, l.buildBar), `${width}x${height} bar`).toBe(false);
+    }
+  });
+});

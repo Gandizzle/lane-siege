@@ -48,6 +48,17 @@ export interface Sound {
 /** For tests, the headless runs and anywhere else with nothing to hear. */
 export const SILENT: Sound = { play() {} };
 
+/** What a settings menu needs: the choices in force, and a way to change them. */
+export interface SoundSystem extends Sound {
+  readonly settings: Readonly<AudioSettings>;
+  /** The piece playing now, or null between pieces. */
+  readonly nowPlaying: MusicTrack | null;
+  /** Apply and save a change to any settings. */
+  configure(change: Partial<AudioSettings>): void;
+  /** Fade out the current piece and move to the next. */
+  skipTrack(): void;
+}
+
 /** Seconds of silence between one piece of music ending and the next beginning. */
 const TRACK_GAP_S = 4;
 /** After a track fails to load, how long before trying another. */
@@ -70,7 +81,7 @@ interface Playing {
   gain: GainNode;
 }
 
-export class AudioEngine implements Sound {
+export class AudioEngine implements SoundSystem {
   private readonly context: AudioContext | null;
   private readonly master: GainNode | null = null;
   private readonly musicBus: GainNode | null = null;

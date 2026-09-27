@@ -278,13 +278,18 @@ export async function startApp(
   );
   app.stage.addChild(game);
 
-  // M mutes and unmutes, until there is a settings menu to do it from. Not
-  // while typing a name or a room code, where an M is a letter.
+  // Esc opens and closes the menu, and M mutes and unmutes from anywhere. Not
+  // while typing a name or a room code, where an M is a letter and Esc is the
+  // prompt's own way out.
   globalThis.window.addEventListener('keydown', (event) => {
-    if (event.key !== 'm' && event.key !== 'M') return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     const target = event.target as HTMLElement | null;
     if (target?.closest('input, textarea, [contenteditable="true"]')) return;
+    if (event.key === 'Escape') {
+      game.toggleMenu();
+      return;
+    }
+    if (event.key !== 'm' && event.key !== 'M') return;
     const muted = !sound.settings.muted;
     sound.configure({ muted });
     game.notify(muted ? 'Sound off (M to turn it back on)' : 'Sound on');

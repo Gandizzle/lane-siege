@@ -914,8 +914,8 @@ depends on an MP3 looping without a gap, which browsers do not do reliably.
 the music choice and the pack live in `settings.ts`, saved to `localStorage`
 and read back field by field, so a bad save or a removed track falls back
 rather than going silent. `AudioEngine.configure` applies a change mid-sound and
-saves it. There is no menu yet: M mutes, and `?sounds=1` opens a sound board
-that auditions every cue and track through the same calls a menu will make.
+saves it, and the menu (below) is what calls it. M mutes from anywhere, and
+`?sounds=1` opens a sound board that auditions every cue and track.
 
 **A busy fight is thinned, not piled up.** A late wave lands dozens of blows a
 second. Each cue has its own voice cap and minimum gap and there is a ceiling of
@@ -940,6 +940,40 @@ average loudness so the playlist does not jump. Noise is seeded, so
 regenerating an unchanged recipe writes identical bytes. Downloaded sounds go
 in as a new pack; `public/audio/CREDITS.md` says what a file from elsewhere has
 to record.
+
+### The menu
+
+A button in the top-left corner of every screen, both ways up, opens one panel
+(`src/render/ui/menu.ts`). The corner is reserved in the layout
+(`LaneLayout.menuButton`) rather than found by each screen, and the HUD moves
+its first lines over to clear it. The button is drawn at 36 pixels, because the
+top band's floor is 102 and it holds three rows of text and the tabs; its hit
+area reaches six pixels past the drawing to make up the rest of a thumb.
+
+What is in it is what exists to be set. Sound: three levels, mute, which music
+plays (one piece or shuffle), skip to the next piece, and which effects pack is
+in use, shown even while there is only one so the option is visible. Then the
+game: your name, leaving the match, and closing the menu. Upright it is one
+column; on a short screen the two sections sit side by side, since one column
+of every row would run off the bottom.
+
+**A practice match pauses behind it; an online one does not.** A match in this
+tab stops advancing while the menu is open, along with everything that animates
+on its behalf and auto-send, which has to be skipped rather than slowed: a
+practice match applies a send the moment it is submitted, so an armed send would
+still go out with time stopped. A room keeps running, because three other
+people are playing it, and the panel says so rather than letting a player think
+they have stopped time.
+
+**Leaving takes two taps.** The first arms the button ("Tap again to leave")
+for three seconds; the second throws the match away. It is the one thing in the
+menu that cannot be undone.
+
+The panel reads the settings back from the sound system every frame it is open
+rather than keeping a copy, so M pressed with the menu open moves the mute
+switch too. Each row is one of four shapes (slider, toggle, picker, button), so
+a new option is a row in the constructor and `arrange` and a line in `render`,
+not new layout. Esc opens and closes it.
 
 ### The fortress aura, drawn
 

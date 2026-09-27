@@ -61,6 +61,14 @@ const COLUMN_MINIMUM = {
   buildBar: 240,
 } as const;
 
+/**
+ * The menu button's side. Smaller than the 44 a thumb would like, because the
+ * top band's floor is 102 pixels and three rows of text and the tabs live in
+ * it; the button's hit area reaches past its edges to make up the difference
+ * (menu.ts).
+ */
+export const MENU_BUTTON_SIZE = 36;
+
 /** Height of one opponent tab. They sit in a row in portrait, a column in landscape. */
 const TAB_ROW_HEIGHT = 30;
 
@@ -138,6 +146,12 @@ export interface LaneLayout extends Camera {
    * the last row of text went behind the first row of tabs.
    */
   tabStrip: Rect;
+  /**
+   * The menu button (menu.ts): the top-left corner, on every screen and both
+   * ways up, so it is always where the player last saw it. The HUD moves its
+   * text over to make room (hud.ts).
+   */
+  menuButton: Rect;
   /** The whole board area - spawn zone, build grid and fortress zone together. */
   lane: Rect;
   spawn: Rect;
@@ -166,6 +180,7 @@ interface Bands {
   orientation: Orientation;
   tabs: Rect;
   tabStrip: Rect;
+  menuButton: Rect;
   laneBand: Rect;
   buildBar: Rect;
 }
@@ -193,6 +208,7 @@ function portraitBands(width: number, height: number): Bands {
       width: width - 12,
       height: TAB_ROW_HEIGHT,
     },
+    menuButton: { x: 6, y: 6, width: MENU_BUTTON_SIZE, height: MENU_BUTTON_SIZE },
     laneBand: {
       x: 0,
       y: tabsHeight,
@@ -235,6 +251,7 @@ function landscapeBands(width: number, height: number): Bands {
       width: hudWidth - 12,
       height: Math.min(LANDSCAPE_TAB_BLOCK, height - 12),
     },
+    menuButton: { x: 6, y: 6, width: MENU_BUTTON_SIZE, height: MENU_BUTTON_SIZE },
     laneBand: { x: hudWidth, y: 0, width: laneWidth, height },
     buildBar: { x: width - barWidth, y: 0, width: barWidth, height },
   };
@@ -278,6 +295,7 @@ function fitLane(width: number, height: number, lane: LaneFile, bands: Bands): L
     screen: { x: 0, y: 0, width, height },
     tabs: bands.tabs,
     tabStrip: bands.tabStrip,
+    menuButton: bands.menuButton,
     lane: laneBand,
     spawn: band(laneTop, lane.spawnZoneDepth),
     build: band(gridOrigin.y, grid.depth),

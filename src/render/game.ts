@@ -55,7 +55,7 @@ import {
 } from '../sim/index.ts';
 import type { Transport } from '../net/transport.ts';
 import { MatchCues, combatCues } from '../audio/cues.ts';
-import type { Sound } from '../audio/engine.ts';
+import type { SoundSystem } from '../audio/engine.ts';
 import type { DeathRule } from './deaths.ts';
 import { ArenaStage, arenaAsLane } from './arena.ts';
 import { AuraLayer } from './aura.ts';
@@ -71,6 +71,7 @@ import { GameOver } from './ui/gameOver.ts';
 import { HomeScreen, type MatchMode } from './ui/homeScreen.ts';
 import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
+import { Menu, MenuButton } from './ui/menu.ts';
 import { Hud } from './ui/hud.ts';
 import { OpponentTabs } from './ui/opponentTabs.ts';
 import { Toast } from './ui/toast.ts';
@@ -93,8 +94,8 @@ export interface GameServices {
   askRoomCode(): Promise<string | null>;
   /** Whether a server is configured at all. Practice needs none. */
   online: boolean;
-  /** Where sound goes (src/audio). `SILENT` where there is nothing to hear. */
-  sound: Sound;
+  /** Where sound goes, and its settings, which the menu edits (src/audio). */
+  sound: SoundSystem;
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
@@ -143,6 +144,9 @@ export class Game extends Container {
   /** §3.3, replaced: the cross the last fight happens on, and the card that opens it. */
   private readonly arena: ArenaStage;
   private readonly countdown: ShowdownCountdown;
+  /** Over everything, on every screen: settings, and the way out of a match. */
+  private readonly menu: Menu;
+  private readonly menuButton: MenuButton;
   /** True once the arena has taken the screen, so the swap happens once. */
   private inShowdown = false;
   private readonly defs: DefIndex;
@@ -240,6 +244,15 @@ export class Game extends Container {
     );
     this.arena.visible = false;
     this.countdown = new ShowdownCountdown(this.layout);
+    this.menuButton = new MenuButton(this.layout, () => this.setMenu(true));
+    this.menu = new Menu(this.layout, services.sound, {
+      onClose: () => this.setMenu(false),
+      onLeaveMatch: () => {
+        this.setMenu(false);
+        this.goHome();
+      },
+      onEditName: () => void this.editName(),
+    });
 
     this.addChild(
       // The arena replaces the lane stack rather than sitting over it: in the
@@ -267,9 +280,24 @@ export class Game extends Container {
       this.lobbyScreen,
       this.showdownSetup,
       this.home,
+      // Last, so they are over the front screens as well as the board.
+      this.menuButton,
+      this.menu,
     );
 
     this.showScreen('home');
+  }
+
+  /** Open the menu if it is closed and close it if it is open: the Esc key. */
+  toggleMenu(): void {
+    this.setMenu(!this.menu.isOpen);
+  }
+
+  private setMenu(open: boolean): void {
+    this.menu.setOpen(open);
+    // The button is behind the scrim anyway; hiding it says the menu is the
+    // thing that is open.
+    this.menuButton.visible = !open;
   }
 
   /** A short line of text over the board: what app.ts says when M mutes. */
@@ -422,11 +450,26 @@ export class Game extends Container {
     this.home.setLayout(this.layout);
     this.lobbyScreen.setLayout(this.layout);
     this.showdownSetup.setLayout(this.layout);
+    this.menuButton.setLayout(this.layout);
+    this.menu.setLayout(this.layout);
   }
 
   /** One animation frame. `deltaMs` is wall time; the simulation never sees it. */
   frame(deltaMs: number): void {
     const transport = this.transport;
+
+    // A match in this tab stops while the menu is open: nobody else is waiting
+    // on it. A room does not, because three other people are.
+    const paused = this.menu.isOpen && transport?.kind === 'local';
+    if (this.menu.isOpen) {
+      this.menu.render(
+        { inMatch: transport !== null, paused, name: this.services.name() },
+        deltaMs,
+      );
+    }
+    // Everything that animates on the match's behalf holds still with it.
+    const matchDelta = paused ? 0 : deltaMs;
+
     if (!transport) {
       // On the home screen or the picker, with no match yet. Nothing to
       // simulate and nothing to draw behind them.
@@ -434,7 +477,7 @@ export class Game extends Container {
       return;
     }
 
-    transport.update(deltaMs);
+    if (!paused) transport.update(deltaMs);
 
     // A room exists before the match in it does, so kickoff is a transition
     // the renderer watches for rather than a message it has to handle. It is
@@ -484,9 +527,9 @@ export class Game extends Container {
 
     // Effects run on wall time, not on ticks: a 170ms swing at 60fps is ten
     // frames, and at 20Hz it would be three.
-    this.effectsLayer.update(deltaMs);
-    this.arena.update(deltaMs);
-    this.auraLayer.update(deltaMs);
+    this.effectsLayer.update(matchDelta);
+    this.arena.update(matchDelta);
+    this.auraLayer.update(matchDelta);
 
     const rejections = transport.takeRejections();
     for (const rejection of rejections) this.toast.show(rejection);
@@ -525,7 +568,9 @@ export class Game extends Container {
     // frame and its post-send value on the next, and the counter flickered.
     // `submit` refreshes the view on the spot in a practice match, so re-read
     // it and let the rest of the frame see the wallet the sends left behind.
-    this.buildBar.tickSends(view, deltaMs);
+    // Not at all while paused: a practice match applies a send the moment it
+    // is submitted, so an armed send would still go out with time stopped.
+    if (!paused) this.buildBar.tickSends(view, deltaMs);
     view = transport.view() ?? view;
 
     this.refreshSummary(view);
@@ -561,7 +606,7 @@ export class Game extends Container {
         lane ?? view.lane,
         this.selection,
         this.summary,
-        deltaMs,
+        matchDelta,
       );
     }
     this.abilityCard.render(this.resolveOpenAbility());

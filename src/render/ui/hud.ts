@@ -121,9 +121,12 @@ export class Hud extends Container {
       // you have, what is coming.
       const left = l.tabs.x + 12;
       let y = l.tabs.y + 6;
+      // The lines beside the menu button start past it; the rest use the
+      // column's full width.
+      const button = l.menuButton;
       const place = (text: Text | null, gap: number) => {
         if (!text) return;
-        text.x = left;
+        text.x = y < button.y + button.height ? button.x + button.width + 8 : left;
         text.y = y;
         this.content.addChild(text);
         y += gap;
@@ -159,9 +162,11 @@ export class Hud extends Container {
       const rowThree = Math.max(rowTwo + 18, l.tabStrip.y - 18);
       const rightEdge = l.tabs.x + l.tabs.width - pad;
 
+      // The left column starts past the menu button, which has the corner.
+      const leftEdge = l.menuButton.x + l.menuButton.width + 8;
       const left = (text: Text | null, y: number) => {
         if (!text) return;
-        text.x = l.tabs.x + pad;
+        text.x = leftEdge;
         text.y = y;
         this.content.addChild(text);
       };
