@@ -21,16 +21,22 @@ import type { Text } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
 import type { MatchView, WaveSummary } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
-import type { LaneLayout } from '../layout.ts';
+import type { LaneLayout, Rect } from '../layout.ts';
 import { fortressShape } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
+import { screenRect, unionOf } from './locate.ts';
 import { centreOn, label, overlaid } from './text.ts';
 import { speedLabel, type GameSpeed } from '../preferences.ts';
+
+/** A reading on the HUD that the tutorial can point at (`locate`). */
+export type HudPart = 'phase' | 'wallet' | 'income' | 'incoming' | 'notice';
 
 export class Hud extends Container {
   private readonly background = new Graphics();
   private readonly bars = new Graphics();
   private readonly content = new Container();
+  /** What each reading was drawn as last frame, for `locate`. */
+  private readonly parts = new Map<HudPart, Text[]>();
 
   constructor(
     private layout: LaneLayout,
@@ -44,12 +50,24 @@ export class Hud extends Container {
     this.layout = layout;
   }
 
+  /** Where a reading is on screen, or null if it was not drawn last frame. */
+  locate(part: HudPart): Rect | null {
+    return unionOf((this.parts.get(part) ?? []).map((text) => screenRect(text)));
+  }
+
+  /** Note that `text` is (part of) `part`, and pass it on. */
+  private tag<T extends Text | null>(part: HudPart, text: T): T {
+    if (text) this.parts.set(part, [...(this.parts.get(part) ?? []), text]);
+    return text;
+  }
+
   /** `speed` is the game speed, when a practice match is running at one (preferences.ts). */
   render(view: MatchView, summary: WaveSummary | null, speed: GameSpeed = 1): void {
     const lane = view.lane;
     if (!lane) return;
 
     this.content.removeChildren();
+    this.parts.clear();
     this.background.clear();
     this.bars.clear();
 
@@ -137,25 +155,34 @@ export class Hud extends Container {
         y += gap;
       };
 
-      place(wave(), 21);
-      place(phase(), 18);
+      place(this.tag('phase', wave()), 21);
+      place(this.tag('phase', phase()), 18);
       if (economy) {
         // Two lines, because the column is too narrow for three numbers and
         // their units side by side.
         place(
-          label(
-            `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem`,
-            12,
-            UI.text,
-            '600',
+          this.tag(
+            'wallet',
+            label(
+              `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem`,
+              12,
+              UI.text,
+              '600',
+            ),
           ),
           17,
         );
-        place(label(`${economy.supplyUsed}/${economy.supplyCap} supply`, 12, UI.text, '600'), 17);
-        place(income(), 17);
+        place(
+          this.tag(
+            'wallet',
+            label(`${economy.supplyUsed}/${economy.supplyCap} supply`, 12, UI.text, '600'),
+          ),
+          17,
+        );
+        place(this.tag('income', income()), 17);
       }
-      place(offence(), 16);
-      place(notice(), 16);
+      place(this.tag('incoming', offence()), 16);
+      place(this.tag('notice', notice()), 16);
     } else {
       // Two columns: what is happening on the left, what you have on the right.
       // The last row is pinned just above the tab strip rather than at a fixed
@@ -182,25 +209,28 @@ export class Hud extends Container {
         this.content.addChild(text);
       };
 
-      left(wave(), rowOne);
-      left(phase(), rowTwo);
-      left(notice(), rowThree);
+      left(this.tag('phase', wave()), rowOne);
+      left(this.tag('phase', phase()), rowTwo);
+      left(this.tag('notice', notice()), rowThree);
       // Gold and gems are deliberately separate currencies with separate sinks
       // (§11.3).
       if (economy) {
         right(
-          label(
-            `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem   ` +
-              `${economy.supplyUsed}/${economy.supplyCap} supply`,
-            12,
-            UI.text,
-            '600',
+          this.tag(
+            'wallet',
+            label(
+              `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem   ` +
+                `${economy.supplyUsed}/${economy.supplyCap} supply`,
+              12,
+              UI.text,
+              '600',
+            ),
           ),
           rowOne + 4,
         );
-        right(income(), rowThree);
+        right(this.tag('income', income()), rowThree);
       }
-      right(offence(), rowTwo + 2);
+      right(this.tag('incoming', offence()), rowTwo + 2);
     }
 
     this.drawFortress(lane.fortress.hp, lane.fortress.maxHp);

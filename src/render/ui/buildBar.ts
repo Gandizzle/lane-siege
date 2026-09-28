@@ -64,7 +64,8 @@ import type {
   StatMods,
   WaveSummary,
 } from '../../sim/index.ts';
-import type { LaneLayout } from '../layout.ts';
+import type { LaneLayout, Rect } from '../layout.ts';
+import type { Target } from '../../tutorial/types.ts';
 import { auraColour } from '../aura.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { DamagePanel } from './damagePanel.ts';
@@ -73,6 +74,7 @@ import { SENDS_PER_PAGE, pickSendTarget, sendIcon } from './sends.ts';
 import type { EntityStyle } from '../shapes.ts';
 import { centreOn, label, wrapped } from './text.ts';
 import { AbilityChips, type Chip } from './abilityChips.ts';
+import { screenRect, unionOf } from './locate.ts';
 import type { StatDirection } from './unitStats.ts';
 import {
   NOTHING_SPECIAL,
@@ -259,6 +261,11 @@ export class BuildBar extends Container {
   private readonly tabStrip = new Container();
   private readonly tabButtons: TabButton[] = [];
   private active: Tab = 'build';
+  /** The view drawn last frame: a tab's panel, or a selected body's. */
+  private shown: View = 'build';
+  /** The bar, and where its panels go under the tab strip, from the last layout. */
+  private layoutRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  private panelArea: Rect = { x: 0, y: 0, width: 0, height: 0 };
 
   private readonly damagePanel: DamagePanel;
   private readonly panels: Record<Tab, Container>;
@@ -507,8 +514,9 @@ export class BuildBar extends Container {
     this.setLayout(layout);
   }
 
-  /** New match: nothing is armed, nobody is targeted, and the first page shows. */
+  /** New match: the Build tab, nothing armed, nobody targeted, the first page of sends. */
   reset(): void {
+    this.active = 'build';
     this.armed.clear();
     this.sendAtRandom = false;
     this.sendTarget = null;
@@ -639,9 +647,60 @@ export class BuildBar extends Container {
     this.handlers.onClearSelection();
   }
 
+  /** Which view is up: a tab's panel, or 'unit' while a body is selected. */
+  get showing(): View {
+    return this.shown;
+  }
+
+  /**
+   * Where a part of the bar is on screen, or null when it is not showing - a
+   * tab whose panel is closed, a send on another page (the tutorial's pointer,
+   * ui/locate.ts).
+   */
+  locate(target: Target): Rect | null {
+    switch (target.kind) {
+      case 'buildBar':
+        return this.visible ? this.layoutRect : null;
+      case 'barPanel':
+        return this.visible ? this.panelArea : null;
+      case 'tab': {
+        const button = this.tabButtons.find((b) => b.id === target.tab);
+        return button ? screenRect(button) : null;
+      }
+      case 'unitCard': {
+        const slot = this.unitSlots.findIndex((def) => def?.id === target.defId);
+        const button = this.unitButtons[slot];
+        return button ? screenRect(button) : null;
+      }
+      case 'abilityChips':
+        return screenRect(this.abilityChips);
+      case 'upgrade':
+        return screenRect(this.upgradeButton);
+      case 'sell':
+        return screenRect(this.sellButton);
+      case 'weapon': {
+        const entry = this.weaponButtons.find((w) => w.type === target.damageType);
+        return entry ? screenRect(entry.button) : null;
+      }
+      case 'tech': {
+        const entry = this.techButtons.find((t) => t.trackId === target.trackId);
+        return entry ? screenRect(entry.button) : null;
+      }
+      case 'send': {
+        const entry = this.sendButtons.find((b) => b.sendId === target.sendId);
+        return entry ? screenRect(entry.button) : null;
+      }
+      case 'sendTargets':
+        return unionOf(this.targetButtons.map((b) => screenRect(b)));
+      default:
+        return null;
+    }
+  }
+
   setLayout(layout: LaneLayout): void {
     const l = layout;
     const bar = l.buildBar;
+    this.layoutRect = bar;
 
     this.background.clear();
     this.background.rect(bar.x, bar.y, bar.width, bar.height).fill({ color: UI.buildBar });
@@ -673,6 +732,7 @@ export class BuildBar extends Container {
     const stripH = tabRows * tabH + (tabRows - 1) * tabGap;
     const top = bar.y + stripH + 7;
     const height = bar.height - stripH - 12;
+    this.panelArea = { x: left, y: top, width: inner, height };
 
     // Panel grids. Upright the bar is wide and short, so the buttons go across
     // it; sideways it is narrow and tall, so they go down it. Same buttons,
@@ -835,6 +895,7 @@ export class BuildBar extends Container {
     // tab opened nothing and the tap that went looking for it threw the
     // selection away.
     const showing = activeView(this.active, selectsBody(selection));
+    this.shown = showing;
     for (const button of this.tabButtons) {
       button.redraw(showing === button.id, button.id !== 'build' || (canBuild && alive));
     }

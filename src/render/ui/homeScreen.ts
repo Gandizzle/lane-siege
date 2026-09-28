@@ -17,6 +17,10 @@
  * code covers all three for a game of four people and none of the machinery
  * needs a server-side account (identity.ts) that this version does not have.
  *
+ * And a **Tutorial**, first in the list and lit for anybody who has not
+ * finished a chapter of it yet, since a new player's first question is how to
+ * play at all (ui/tutorialScreen.ts, src/tutorial).
+ *
  * The two multiplayer buttons are drawn disabled rather than hidden when no
  * server is configured. Hiding them would leave a single-button menu that says
  * nothing about why; disabled with a reason underneath says what the game can
@@ -27,7 +31,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
-import { centreOn, label } from './text.ts';
+import { centreOn, fit, label } from './text.ts';
 
 /** How a match is found. Chosen here, carried through the builder picker. */
 export type MatchMode =
@@ -41,7 +45,9 @@ export type MatchMode =
    * only way to WATCH the fight the balance report is made of. It needs no
    * server for the same reason Practice does not.
    */
-  | { kind: 'showdown' };
+  | { kind: 'showdown' }
+  /** The chapter list (ui/tutorialScreen.ts), which starts matches of its own. */
+  | { kind: 'tutorial' };
 
 export interface HomeHandlers {
   onChoose(mode: MatchMode): void;
@@ -57,6 +63,16 @@ interface Button {
   title: Text;
   note: Text;
   enabled: boolean;
+  /** Quick match and Private room: nothing to do without a server. */
+  needsServer: boolean;
+  /** The note in full, before it is cut to the button's width. */
+  noteText: string;
+}
+
+/** How far through the tutorial the player is, for its button's note. */
+export interface TutorialProgress {
+  done: number;
+  total: number;
 }
 
 export class HomeScreen extends Container {
@@ -72,6 +88,7 @@ export class HomeScreen extends Container {
 
   private playerName = '';
   private online = false;
+  private tutorial: TutorialProgress = { done: 0, total: 0 };
 
   constructor(
     private layout: LaneLayout,
@@ -94,16 +111,17 @@ export class HomeScreen extends Container {
     this.nameRow.addChild(this.nameBackground, this.nameLabel, this.nameValue, this.nameHint);
 
     this.buttons.push(
-      this.makeButton('Practice', 'One lane of yours, three played by the game', () =>
+      this.makeButton('Tutorial', '', false, () => this.handlers.onChoose({ kind: 'tutorial' })),
+      this.makeButton('Practice', 'One lane of yours, three played by the game', false, () =>
         this.handlers.onChoose({ kind: 'practice' }),
       ),
-      this.makeButton('Quick match', 'The next open room, up to four players', () =>
+      this.makeButton('Quick match', 'The next open room, up to four players', true, () =>
         this.handlers.onChoose({ kind: 'quick' }),
       ),
-      this.makeButton('Private room', 'Share a four-letter code with friends', () =>
+      this.makeButton('Private room', 'Share a four-letter code with friends', true, () =>
         this.handlers.onPrivateRoom(),
       ),
-      this.makeButton('Final Showdown', 'Set up armies and watch them fight', () =>
+      this.makeButton('Final Showdown', 'Set up armies and watch them fight', false, () =>
         this.handlers.onChoose({ kind: 'showdown' }),
       ),
     );
@@ -118,7 +136,7 @@ export class HomeScreen extends Container {
     this.setLayout(layout);
   }
 
-  private makeButton(title: string, note: string, onTap: () => void): Button {
+  private makeButton(title: string, note: string, needsServer: boolean, onTap: () => void): Button {
     const root = new Container();
     const background = new Graphics();
     const titleText = label(title, 15, UI.text, '700');
@@ -135,13 +153,22 @@ export class HomeScreen extends Container {
     });
     root.addChild(background, titleText, noteText);
 
-    return { root, background, title: titleText, note: noteText, enabled: true };
+    return {
+      root,
+      background,
+      title: titleText,
+      note: noteText,
+      enabled: true,
+      needsServer,
+      noteText: note,
+    };
   }
 
   /** `online` is whether a server is configured at all (`?server=`). */
-  setState(playerName: string, online: boolean): void {
+  setState(playerName: string, online: boolean, tutorial: TutorialProgress): void {
     this.playerName = playerName;
     this.online = online;
+    this.tutorial = tutorial;
     this.redraw();
   }
 
@@ -184,35 +211,61 @@ export class HomeScreen extends Container {
 
     const buttonHeight = compact ? 52 : 62;
     const gap = compact ? 8 : 12;
-    let y = rowY + 48 + (compact ? 14 : 26);
+    const firstY = rowY + 48 + (compact ? 14 : 26);
 
+    // One column while it fits above the footnote; otherwise two, the things
+    // this tab can do on the left and the things that need a server on the
+    // right - five buttons will not go down a sideways phone.
+    const count = this.buttons.length;
+    const oneColumn = firstY + count * (buttonHeight + gap) + 30 <= l.height;
+    const columnWidth = oneColumn ? rowWidth : Math.min((l.width - 32 - gap) / 2, 320);
+    const blockX = oneColumn ? rowX : (l.width - (columnWidth * 2 + gap)) / 2;
+
+    // The one lit button: the tutorial for somebody who has never finished a
+    // chapter of it, and Practice after that. Lit only offline, where there is
+    // no match to find, as before.
+    const lit = this.online ? -1 : this.tutorial.done === 0 ? 0 : 1;
+    const { done, total } = this.tutorial;
+    this.buttons[0]!.noteText =
+      done === 0
+        ? `New here? Learn to play in ${total} short chapters`
+        : done >= total
+          ? 'All done. Replay any chapter for a refresher'
+          : `${done} of ${total} chapters done. Carry on, or replay one`;
+
+    let bottom = firstY;
     for (const [index, button] of this.buttons.entries()) {
-      // Practice and the Final Showdown run in this tab; the two in between
-      // need a server.
-      button.enabled = index === 0 || index === this.buttons.length - 1 || this.online;
+      button.enabled = !button.needsServer || this.online;
+      const column = !oneColumn && button.needsServer ? 1 : 0;
+      const slot = oneColumn
+        ? index
+        : this.buttons.slice(0, index).filter((b) => b.needsServer === button.needsServer).length;
+      const x = blockX + column * (columnWidth + gap);
+      const y = firstY + slot * (buttonHeight + gap);
+      bottom = Math.max(bottom, y + buttonHeight + gap);
 
+      const onAccent = index === lit;
       button.background.clear();
       button.background
-        .roundRect(rowX, y, rowWidth, buttonHeight, 10)
-        .fill({ color: index === 0 && !this.online ? UI.accent : UI.panel })
-        .stroke({ width: 1, color: button.enabled ? UI.panelEdge : UI.panelEdge });
-      button.root.hitArea = new Rectangle(rowX, y, rowWidth, buttonHeight);
+        .roundRect(x, y, columnWidth, buttonHeight, 10)
+        .fill({ color: onAccent ? UI.accent : UI.panel })
+        .stroke({ width: 1, color: UI.panelEdge });
+      button.root.hitArea = new Rectangle(x, y, columnWidth, buttonHeight);
       button.root.alpha = button.enabled ? 1 : 0.45;
 
-      const onAccent = index === 0 && !this.online;
       button.title.style.fill = onAccent ? UI.background : UI.text;
       button.note.style.fill = onAccent ? UI.background : UI.textMuted;
-      button.title.position.set(rowX + 16, y + 14);
-      button.note.position.set(rowX + 16, y + 36);
-
-      y += buttonHeight + gap;
+      button.title.position.set(x + 16, y + (compact ? 10 : 14));
+      button.note.text = fit(button.noteText, columnWidth - 28, 10);
+      button.note.position.set(x + 16, y + (compact ? 31 : 36));
     }
+    const y = bottom;
 
     this.footnote.text = this.online
       ? 'Playing on a server. A dropped connection keeps your lane for 90 seconds.'
       : 'Multiplayer needs a server: run npm run server and open with ?server=ws://host:2567';
     this.footnote.style.wordWrap = true;
-    this.footnote.style.wordWrapWidth = rowWidth;
+    this.footnote.style.wordWrapWidth = oneColumn ? rowWidth : columnWidth * 2 + gap;
     this.footnote.style.align = 'center';
     centreOn(this.footnote, l.width / 2, y + 8);
   }

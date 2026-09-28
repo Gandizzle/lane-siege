@@ -34,11 +34,18 @@ export interface Preferences {
    * other people are playing it at 1.
    */
   practiceSpeed: GameSpeed;
+  /**
+   * The tutorial chapters finished, by id (src/tutorial). The chapter list
+   * ticks them, and the home screen stops pointing a new player at the
+   * tutorial once there is one.
+   */
+  tutorialDone: string[];
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
   statusEffects: true,
   practiceSpeed: 1,
+  tutorialDone: [],
 };
 
 const STORAGE_KEY = 'lane-siege.preferences';
@@ -54,6 +61,9 @@ export function parsePreferences(raw: unknown): Preferences {
     practiceSpeed: GAME_SPEEDS.includes(r.practiceSpeed as GameSpeed)
       ? (r.practiceSpeed as GameSpeed)
       : d.practiceSpeed,
+    tutorialDone: Array.isArray(r.tutorialDone)
+      ? [...new Set(r.tutorialDone.filter((id): id is string => typeof id === 'string'))]
+      : [...d.tutorialDone],
   };
 }
 

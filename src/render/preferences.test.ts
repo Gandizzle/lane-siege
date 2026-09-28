@@ -23,7 +23,11 @@ function memory() {
 
 describe('preferences', () => {
   it('starts at real time with the markers on', () => {
-    expect(new PreferenceStore(null).settings).toEqual({ statusEffects: true, practiceSpeed: 1 });
+    expect(new PreferenceStore(null).settings).toEqual({
+      statusEffects: true,
+      practiceSpeed: 1,
+      tutorialDone: [],
+    });
   });
 
   it('keeps a speed only if it is one the menu offers', () => {
@@ -41,7 +45,16 @@ describe('preferences', () => {
     expect(new PreferenceStore(storage).settings).toEqual({
       statusEffects: false,
       practiceSpeed: 3,
+      tutorialDone: [],
     });
+  });
+
+  it('remembers finished tutorial chapters, once each, and nothing that is not a name', () => {
+    const storage = memory();
+    new PreferenceStore(storage).configure({ tutorialDone: ['lane', 'build', 'lane'] });
+    expect(new PreferenceStore(storage).settings.tutorialDone).toEqual(['lane', 'build']);
+    expect(parsePreferences({ tutorialDone: ['lane', 4, null] }).tutorialDone).toEqual(['lane']);
+    expect(parsePreferences({ tutorialDone: 'lane' }).tutorialDone).toEqual([]);
   });
 
   it('carries the marker switch over from where it was saved before', () => {

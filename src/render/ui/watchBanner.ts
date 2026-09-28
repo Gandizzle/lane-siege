@@ -17,8 +17,9 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import { ticksToSeconds, type MatchView } from '../../sim/index.ts';
 import type { TransportStatus } from '../../net/transport.ts';
-import type { LaneLayout } from '../layout.ts';
+import type { LaneLayout, Rect } from '../layout.ts';
 import { UI } from '../palette.ts';
+import { screenRect } from './locate.ts';
 import { centreOn, label } from './text.ts';
 
 export class WatchBanner extends Container {
@@ -43,6 +44,11 @@ export class WatchBanner extends Container {
     this.addChild(this.background, this.caption, this.backButton);
     this.setLayout(layout);
     this.visible = false;
+  }
+
+  /** The "Back to my lane" chip on screen, or null when it is not up. */
+  backRect(): Rect | null {
+    return screenRect(this.backButton);
   }
 
   setLayout(layout: LaneLayout): void {

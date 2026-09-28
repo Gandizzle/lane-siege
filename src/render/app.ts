@@ -46,6 +46,7 @@ import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
 import { AudioEngine } from '../audio/engine.ts';
 import { PreferenceStore } from './preferences.ts';
+import { sceneOf, tutorialMatch } from '../tutorial/match.ts';
 
 /** §2: four lanes. Fixed ids so a lane's name is stable across matches. */
 const LANE_IDS = ['lane1', 'lane2', 'lane3', 'lane4'];
@@ -244,6 +245,10 @@ export async function startApp(
     {
       createTransport: (mode, builderId) => newTransport(data, options, mode, builderId, identity),
       createShowdown: (seats) => newShowdown(data, options, seats, identity),
+      createTutorial: (chapter) => {
+        const transport = tutorialMatch(data, chapter, identity.name);
+        return { transport, scene: sceneOf(data, transport) };
+      },
       name: () => identity.name,
       online: Boolean(options.server),
       sound,

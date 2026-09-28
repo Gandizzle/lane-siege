@@ -1060,6 +1060,72 @@ entry. It then appears on the board, in the legend and in the guide at once. A
 new ability needs nothing at all: it is listed under its marker the moment
 something carries it.
 
+### The tutorial: chapters, a coach, and a match that waits
+
+Home has a **Tutorial** button, lit for anybody who has not finished a chapter
+yet. It opens a list of six chapters (`ui/tutorialScreen.ts`): the lane, a
+first line and a first wave, upgrading and selling, counters, gems and sends,
+and reading a battle. A new player takes the big button, which plays them in
+order: each chapter ends on a card whose main button starts the next one, and
+the last offers a practice match. A returning player taps any one chapter for
+a refresher. Finished chapters get a tick and are saved (`tutorialDone` in
+`preferences.ts`), and the big button offers to carry on from the first chapter
+without one.
+
+**Every chapter is its own match.** `src/tutorial/match.ts` makes an ordinary
+practice match on a fixed seed with the chapter's builder, and the chapter's
+`setup` stages it through `LocalTransport.stage`, which hands a function the
+state between ticks. "Gems and sends" opens with a line built and gems saved, so
+it does not depend on having played "Build your first line" first. The bots in
+the other lanes build but never send (`quietBots`), because a monster nobody
+sent on purpose is one the coach would have to explain.
+
+**A chapter is data** (`src/tutorial/chapters.ts`, shapes in `types.ts`): a list
+of steps, each a line of text, a thing to point at, and what ends it.
+
+- `next` steps are read, then Next is tapped.
+- `tap` steps want the player to do something, and `done` checks the match or
+  the interface for it: the Sentinel card selected, four units on the board,
+  the weapon switched. A step is over the moment the thing is done.
+- `free` steps are for watching a wave or closing a card.
+
+Any number the coach says (a price, a bounty, the build timer, the best damage
+type against the next wave) is read from the data when it is said, so a
+balance change cannot make the tutorial wrong. What the coach points at is a
+**named** target, not a position: "the Send tab", "row six", "the first burning
+monster". `Game.locate` finds each one on screen as it is drawn this frame
+(`ui/locate.ts`, and a `locate` on the HUD, the build bar, the opponent tabs and
+the watch banner), so the same chapter works upright and sideways and survives
+a layout change.
+
+**The coach holds the screen** (`ui/tutorialCoach.ts`).
+
+- On a `next` step the board dims and only the card takes a tap.
+- On a `tap` step the board dims round a hole over the target. Only the hole
+  takes a tap, which falls through to the real button or the real lane, so the
+  player learns the real gesture. A ring pulses round the hole and an arrow
+  points at it. A tap anywhere else is swallowed and flashes the ring.
+- On a `free` step nothing is blocked.
+
+The blockers are four rectangles round the hole, because Pixi hit-tests a
+shape's area, not its paint, so a sheet with a hole cut in it would swallow the
+hole's taps too. The card goes wherever it covers least of the target, and never
+under the menu or legend buttons, which are drawn over the coach and stay in
+reach throughout. While the menu or the effects panel is open, the coach stands
+aside.
+
+**The match waits while the coach talks.** Every step holds the match unless it
+says `run`, and the chapter-complete card holds it too, so a wave never walks
+in while the player is reading about the build grid. It is the same pause the
+menu uses. The status markers keep animating through it, because a flame is
+easier to point out lit.
+
+`src/tutorial/runner.ts` steps through a chapter with no Pixi in it, and
+`tutorial.test.ts` plays every chapter to the end against a real match, doing
+what a tap on each target would do. A chapter that asks for something the match
+will not allow (a unit it cannot afford, a button that is not there, a wave
+that never ends) fails there, not on a new player's phone.
+
 ### The fortress aura, drawn
 
 §10.1 sells two upgrades and offers one choice — Aura Power, Aura Radius, and

@@ -25,6 +25,12 @@
  *      the transport exists from here on and the lobby is a phase of it rather
  *      than a separate connection.
  *
+ * The tutorial is a fourth way in from Home: its own chapter list
+ * (ui/tutorialScreen.ts), then a practice match per chapter with the coach over
+ * it (ui/tutorialCoach.ts, src/tutorial). The match is an ordinary local one;
+ * what makes it a lesson is that it holds still while the coach is talking,
+ * and that the coach decides what can be tapped.
+ *
  * "Play again" comes back to the first of them rather than replaying the last
  * choice, since trying a different roster - or a different opponent - is the
  * main reason to play again.
@@ -45,6 +51,7 @@ import { resolveAbility } from '../data/schema.ts';
 import {
   arenaShape,
   buildDefIndex,
+  hasMark,
   inBounds,
   summariseWave,
   type Command,
@@ -62,7 +69,13 @@ import { ArenaStage, arenaAsLane } from './arena.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
-import { TOUCH_SLACK_PX, bodyNear, computeLayout, type LaneLayout } from './layout.ts';
+import {
+  TOUCH_SLACK_PX,
+  bodyNear,
+  computeLayout,
+  tileToScreen,
+  type LaneLayout,
+} from './layout.ts';
 import { LaneView as LaneViewLayer } from './laneView.ts';
 import { AbilityCard } from './ui/abilityCard.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
@@ -77,6 +90,11 @@ import { EffectsButton, EffectsPanel } from './ui/effectsPanel.ts';
 import { StatusLog } from './statusLog.ts';
 import { LEGEND_BUTTON_SIZE, type Rect } from './layout.ts';
 import { Hud } from './ui/hud.ts';
+import { TutorialCoach, type CoachCard } from './ui/tutorialCoach.ts';
+import { TutorialScreen } from './ui/tutorialScreen.ts';
+import { CHAPTERS } from '../tutorial/chapters.ts';
+import { TutorialRunner } from '../tutorial/runner.ts';
+import type { Chapter, Scene, Target, UiProbe } from '../tutorial/types.ts';
 import { OpponentTabs } from './ui/opponentTabs.ts';
 import { Toast } from './ui/toast.ts';
 import { WatchBanner } from './ui/watchBanner.ts';
@@ -90,6 +108,8 @@ export interface GameServices {
   createTransport(mode: MatchMode, builderId: string): Transport;
   /** §3.3, replaced: a local match that opens in the arena (showdownSetup.ts). */
   createShowdown(seats: SeatSetup[]): Transport;
+  /** A tutorial chapter's match, and the way the chapter sets its scene (src/tutorial). */
+  createTutorial(chapter: Chapter): { transport: Transport; scene: Scene };
   /** The player's display name right now (identity.ts). */
   name(): string;
   /** Ask for a new name and persist it. Null if the player backed out. */
@@ -105,7 +125,7 @@ export interface GameServices {
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
-type Screen = 'home' | 'builder' | 'lobby' | 'showdownSetup' | 'match';
+type Screen = 'home' | 'builder' | 'lobby' | 'showdownSetup' | 'tutorial' | 'match';
 
 export class Game extends Container {
   private layout: LaneLayout;
@@ -158,6 +178,11 @@ export class Game extends Container {
   private readonly effectsPanel: EffectsPanel;
   /** Which kinds of marker have been on screen, for the legend. */
   private readonly statusLog = new StatusLog();
+  /** The chapter list, and the coach over a chapter's match. */
+  private readonly tutorialScreen: TutorialScreen;
+  private readonly coach: TutorialCoach;
+  /** The chapter being played, while one is (src/tutorial). */
+  private lesson: { index: number; runner: TutorialRunner; recorded: boolean } | null = null;
   /** Where the legend button was last put, so it is only moved when that changes. */
   private effectsButtonAt = '';
   /**
@@ -276,6 +301,16 @@ export class Game extends Container {
         this.openEffects('catalogue');
       },
     });
+    this.tutorialScreen = new TutorialScreen(this.layout, CHAPTERS, {
+      onStart: (index) => this.startLesson(index),
+      onBack: () => this.showScreen('home'),
+    });
+    this.coach = new TutorialCoach(this.layout, {
+      onNext: () => this.lesson?.runner.next(),
+      onExit: () => this.leaveLesson(),
+      onContinue: () => this.continueLesson(),
+      onChapters: () => this.leaveLesson(),
+    });
     this.effectsButton = new EffectsButton(() => this.openEffects('recent'));
     this.effectsButton.visible = false;
     this.effectsPanel = new EffectsPanel(this.layout, data, () => this.effectsPanel.close());
@@ -305,7 +340,11 @@ export class Game extends Container {
       this.builderSelect,
       this.lobbyScreen,
       this.showdownSetup,
+      this.tutorialScreen,
       this.home,
+      // Over the board and under the menu and the legend, so neither is ever
+      // out of reach while the coach is holding the rest of the screen.
+      this.coach,
       // Last, so they are over the front screens as well as the board.
       this.menuButton,
       this.effectsButton,
@@ -384,13 +423,25 @@ export class Game extends Container {
     this.home.visible = screen === 'home';
     this.builderSelect.visible = screen === 'builder';
     this.showdownSetup.visible = screen === 'showdownSetup';
-    if (screen === 'home') this.home.setState(this.services.name(), this.services.online);
+    this.tutorialScreen.visible = screen === 'tutorial';
+    if (screen === 'home') this.refreshHome();
+    if (screen === 'tutorial') {
+      this.tutorialScreen.setDone(this.services.preferences.settings.tutorialDone);
+    }
     if (screen !== 'lobby') this.lobbyScreen.reset();
+  }
+
+  private refreshHome(): void {
+    const done = this.services.preferences.settings.tutorialDone;
+    this.home.setState(this.services.name(), this.services.online, {
+      done: CHAPTERS.filter((c) => done.includes(c.id)).length,
+      total: CHAPTERS.length,
+    });
   }
 
   private async editName(): Promise<void> {
     await this.services.editName();
-    if (this.screen === 'home') this.home.setState(this.services.name(), this.services.online);
+    if (this.screen === 'home') this.refreshHome();
     // A name changed while sitting in a lobby should reach the other three
     // people looking at it.
     this.transport?.setName(this.services.name());
@@ -411,6 +462,11 @@ export class Game extends Container {
       this.showScreen('showdownSetup');
       return;
     }
+    // Each chapter plays a roster of its own choosing, so there is no picker.
+    if (mode.kind === 'tutorial') {
+      this.showScreen('tutorial');
+      return;
+    }
     this.showScreen('builder');
   }
 
@@ -422,13 +478,20 @@ export class Game extends Container {
    * that means anything here - there is nothing to build and nothing to spend.
    */
   private startShowdown(seats: SeatSetup[]): void {
-    this.transport?.dispose();
     this.mode = { kind: 'showdown' };
-    this.transport = this.services.createShowdown(seats);
-    this.view = this.transport.view();
+    this.beginMatch(this.services.createShowdown(seats));
+    this.showScreen('match');
+  }
+
+  /** Take `transport` as the match, with nothing left over from the last one. */
+  private beginMatch(transport: Transport): void {
+    this.transport?.dispose();
+    this.transport = transport;
+    this.view = transport.view();
     this.watchingTeamId = null;
     this.selection = null;
     this.pendingUnitDefId = null;
+    this.closeAbility();
     this.summarisedWave = -1;
     this.summarisedBuilder = '';
     this.entities.reset();
@@ -438,7 +501,178 @@ export class Game extends Container {
     this.gameOver.reset();
     this.buildBar.reset();
     this.leaveShowdown();
+    this.lesson = null;
+    this.coach.hide();
+  }
+
+  // ------------------------------------------------------------ the tutorial
+
+  /**
+   * Play chapter `index` in a match of its own. Every chapter starts fresh -
+   * its own roster, its own board - which is what lets any one of them be
+   * played on its own as a refresher.
+   */
+  private startLesson(index: number): void {
+    const chapter = CHAPTERS[index];
+    if (!chapter) return;
+    this.mode = { kind: 'tutorial' };
+    const { transport, scene } = this.services.createTutorial(chapter);
+    this.beginMatch(transport);
+    const runner = new TutorialRunner(chapter, scene);
+    this.lesson = { index, runner, recorded: false };
+    runner.begin();
+    // The setup has built a line and filled the wallet; show that, not the
+    // empty board the match was made with.
+    this.view = transport.view() ?? this.view;
     this.showScreen('match');
+  }
+
+  /** The chapter-complete card's main button: the next chapter, or a real match. */
+  private continueLesson(): void {
+    const next = this.lesson ? this.lesson.index + 1 : 0;
+    if (next < CHAPTERS.length) {
+      this.startLesson(next);
+      return;
+    }
+    this.goHome();
+    this.chooseMode({ kind: 'practice' });
+  }
+
+  /** Out of the chapter, back to the list. */
+  private leaveLesson(): void {
+    this.goHome();
+    this.showScreen('tutorial');
+  }
+
+  /** What a step can see of the interface (tutorial/types.ts). */
+  private probe(): UiProbe {
+    return {
+      view: this.buildBar.showing,
+      selection: this.selection,
+      abilityOpen: this.openAbility !== null,
+      effectsOpen: this.effectsPanel.isOpen,
+      watching: this.watchingTeamId,
+    };
+  }
+
+  /** Where a tutorial target is on screen now, or null if it is not showing. */
+  private locate(target: Target): Rect | null {
+    const l = this.layout;
+    switch (target.kind) {
+      case 'spawnZone':
+        return l.spawn;
+      case 'wavePreview':
+        return {
+          x: l.lane.x,
+          y: l.spawn.y,
+          width: l.lane.width,
+          height: Math.min(l.spawn.height, 58),
+        };
+      case 'buildGrid':
+        return l.build;
+      case 'gridRow': {
+        const at = tileToScreen(l, 0, target.row);
+        return { x: at.x, y: at.y, width: l.grid.width * l.tileSize, height: l.tileSize };
+      }
+      case 'fortress':
+        return l.fortress;
+      case 'lane':
+        return l.lane;
+      case 'unit': {
+        const unit = this.watchingTeamId === null ? this.view?.lane?.units[target.index] : null;
+        if (!unit) return null;
+        const at = tileToScreen(l, unit.x, unit.y);
+        const r = Math.max(14, unit.radius * l.tileSize + 4);
+        return { x: at.x - r, y: at.y - r, width: r * 2, height: r * 2 };
+      }
+      case 'monsterWith': {
+        const monster = this.shownLane()?.monsters.find((m) =>
+          hasMark(m.statusMarks ?? 0, target.mark),
+        );
+        if (!monster) return null;
+        const at = tileToScreen(l, monster.x, monster.y);
+        const r = Math.max(16, monster.radius * l.tileSize + 8);
+        return { x: at.x - r, y: at.y - r, width: r * 2, height: r * 2 };
+      }
+      case 'hudPhase':
+        return this.hud.locate('phase');
+      case 'hudWallet':
+        return this.hud.locate('wallet');
+      case 'hudIncome':
+        return this.hud.locate('income');
+      case 'hudIncoming':
+        return this.hud.locate('incoming');
+      case 'hudNotice':
+        return this.hud.locate('notice');
+      case 'opponentTabs':
+        return this.tabs.locate();
+      case 'opponentTab':
+        return this.tabs.locate(target.index);
+      case 'watchBack':
+        return this.banner.backRect();
+      case 'menuButton':
+        return l.menuButton;
+      case 'legendButton':
+        return l.legendButton;
+      default:
+        return this.buildBar.locate(target);
+    }
+  }
+
+  /**
+   * Once a frame while a chapter is running: move the lesson on, then draw
+   * the coach over whatever the frame drew. `matchDelta` is the match time
+   * that passed, which is none while the coach holds it.
+   */
+  private runLesson(view: MatchView, matchDelta: number): MatchView {
+    const lesson = this.lesson;
+    if (!lesson) return view;
+    lesson.runner.update(view, this.probe(), matchDelta / 1000);
+    // A step that has just begun may have set the scene - started the wave,
+    // sent something at you - and the frame should draw what it set.
+    this.view = this.transport?.view() ?? this.view;
+    if (lesson.runner.complete && !lesson.recorded) {
+      lesson.recorded = true;
+      const done = this.services.preferences.settings.tutorialDone;
+      const id = lesson.runner.chapter.id;
+      if (!done.includes(id)) this.services.preferences.configure({ tutorialDone: [...done, id] });
+    }
+    return this.view ?? view;
+  }
+
+  private drawCoach(view: MatchView, deltaMs: number): void {
+    const lesson = this.lesson;
+    if (!lesson) return;
+    const runner = lesson.runner;
+    const heading = `Chapter ${lesson.index + 1} · ${runner.chapter.title}`;
+    const next = CHAPTERS[lesson.index + 1];
+    const card: CoachCard = runner.complete
+      ? {
+          kind: 'complete',
+          heading,
+          text: next
+            ? `Chapter done! Next up: ${next.title} - ${next.summary.toLowerCase()}.`
+            : "That's the whole tutorial. You are ready for a real match.",
+          continueLabel: next ? 'Next chapter' : 'Play practice',
+        }
+      : {
+          kind: 'step',
+          heading,
+          step: runner.stepIndex + 1,
+          steps: runner.stepCount,
+          text: runner.text(),
+          mode: runner.step?.mode ?? 'next',
+          nextLabel: runner.step?.nextLabel ?? 'Next',
+        };
+    const target = runner.complete ? null : runner.target(view, this.probe());
+    this.coach.render(
+      {
+        card,
+        target: target ? this.locate(target) : null,
+        hidden: this.menu.isOpen || this.effectsPanel.isOpen || runner.step?.silent === true,
+      },
+      deltaMs,
+    );
   }
 
   /**
@@ -465,6 +699,9 @@ export class Game extends Container {
     this.transport?.dispose();
     this.transport = null;
     this.view = null;
+    this.lesson = null;
+    this.coach.hide();
+    this.closeAbility();
     this.gameOver.reset();
     this.entities.reset();
     this.effectsLayer.reset();
@@ -477,24 +714,11 @@ export class Game extends Container {
 
   /** Pick a roster, then play it (§7.1). */
   private start(builderId: string): void {
-    this.transport?.dispose();
-    this.transport = this.services.createTransport(this.mode, builderId);
-    this.view = this.transport.view();
-    this.watchingTeamId = null;
-    this.selection = null;
-    this.pendingUnitDefId = null;
-    this.summarisedWave = -1;
-    this.summarisedBuilder = '';
-    this.entities.reset();
-    this.effectsLayer.reset();
-    this.matchCues.reset();
-    this.statusLog.reset();
-    this.gameOver.reset();
-    this.buildBar.reset();
-    this.leaveShowdown();
+    const transport = this.services.createTransport(this.mode, builderId);
+    this.beginMatch(transport);
     // A remote match opens in its lobby, even before the room has answered; a
     // practice match has no lobby and is already running.
-    this.showScreen(this.transport.hasLobby && !this.transport.matchStarted ? 'lobby' : 'match');
+    this.showScreen(transport.hasLobby && !transport.matchStarted ? 'lobby' : 'match');
   }
 
   /** Back to the front: a different roster, or a different room. */
@@ -524,6 +748,8 @@ export class Game extends Container {
     this.home.setLayout(this.layout);
     this.lobbyScreen.setLayout(this.layout);
     this.showdownSetup.setLayout(this.layout);
+    this.tutorialScreen.setLayout(this.layout);
+    this.coach.setLayout(this.layout);
     this.menuButton.setLayout(this.layout);
     this.menu.setLayout(this.layout);
     this.effectsPanel.setLayout(this.layout);
@@ -539,7 +765,12 @@ export class Game extends Container {
     const local = transport?.kind === 'local';
     // The effects panel pauses it too: it is for reading, and a marker that
     // wears off while the player is reading about it is no help.
-    const paused = (this.menu.isOpen || this.effectsPanel.isOpen) && local;
+    const reading = this.menu.isOpen || this.effectsPanel.isOpen;
+    // And so does the tutorial's coach, whenever it is talking rather than
+    // showing a fight: a wave that walks in while the player reads about the
+    // build grid is a wave they did not see coming.
+    const coached = this.lesson?.runner.holds === true;
+    const paused = (reading || coached) && local;
     // Shown again below, by whichever board is drawn this frame.
     this.effectsButton.visible = false;
     if (this.menu.isOpen) {
@@ -554,7 +785,9 @@ export class Game extends Container {
     // Everything that animates on the match's behalf holds still with it, and
     // runs at its speed: a 2x match should look like one.
     const matchDelta = paused ? 0 : deltaMs * speed;
-    this.statusClock += matchDelta / 1000;
+    // The markers keep flickering while only the coach holds the match: it is
+    // stopped so the player can look, and a flame is easier to point out lit.
+    this.statusClock += (paused && !reading ? deltaMs : matchDelta) / 1000;
     this.effectsPanel.render(this.statusLog, this.statusClock, deltaMs);
 
     if (!transport) {
@@ -665,6 +898,7 @@ export class Game extends Container {
     this.refreshSummary(view);
     this.dropStaleWatch(view);
     this.dropStaleSelection(view);
+    view = this.runLesson(view, matchDelta);
 
     const lane = this.shownLane();
     const watching = this.watchingTeamId !== null;
@@ -705,6 +939,8 @@ export class Game extends Container {
     this.toast.update(deltaMs, this.layout);
     this.showEffectsButton();
     this.gameOver.render(view);
+    // Last, so it points at where everything was drawn this frame.
+    this.drawCoach(view, deltaMs);
   }
 
   // ---------------------------------------------------- the Final Showdown

@@ -75,6 +75,12 @@ export interface LocalStart {
    * experiment the report ran.
    */
   armies?: readonly Army[];
+  /**
+   * The scripted lanes build but never send. For the tutorial, where a
+   * monster nobody sent on purpose arriving mid-lesson is a monster that needs
+   * explaining (src/tutorial).
+   */
+  quietBots?: boolean;
 }
 
 export class LocalTransport implements Transport {
@@ -93,6 +99,7 @@ export class LocalTransport implements Transport {
   private readonly bots: AutoBuilder[];
   /** §12: how much of an opponent's lane this match shows. Data, not code. */
   private readonly visibility: GameData['lane']['opponentLanes'];
+  private readonly quietBots: boolean;
 
   constructor(
     data: GameData,
@@ -111,6 +118,7 @@ export class LocalTransport implements Transport {
     this.ctx = createContext(data);
     this.teamId = teamId;
     this.visibility = data.lane.opponentLanes;
+    this.quietBots = start.quietBots === true;
     this.bots = botTeamIds
       .filter((id) => id !== teamId)
       .map((id) => new AutoBuilder(data, id, this.state.lanes[id]?.builderId ?? ''));
@@ -299,7 +307,19 @@ export class LocalTransport implements Transport {
 
     const commands: Command[] = [];
     for (const bot of this.bots) commands.push(...bot.plan(this.state));
-    return commands;
+    return this.quietBots ? commands.filter((c) => c.kind !== 'send') : commands;
+  }
+
+  /**
+   * Arrange the match between ticks: the tutorial's way of setting a scene -
+   * a line already built, gold to spend, the build clock run out. `arrange`
+   * gets the state and the context the simulation runs against, the view is
+   * refreshed afterwards, and nothing about it is special to the simulation:
+   * it is what a command does, without the command.
+   */
+  stage(arrange: (state: MatchState, ctx: SimContext) => void): void {
+    arrange(this.state, this.ctx);
+    this.refresh();
   }
 
   private refresh(): void {

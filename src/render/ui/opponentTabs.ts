@@ -20,8 +20,9 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { MatchView, OpponentView } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
-import type { LaneLayout } from '../layout.ts';
+import type { LaneLayout, Rect } from '../layout.ts';
 import { UI } from '../palette.ts';
+import { screenRect, unionOf } from './locate.ts';
 import { centreOn, fit, label } from './text.ts';
 
 /** §2: four lanes. */
@@ -219,6 +220,17 @@ export class OpponentTabs extends Container {
     this.tabs.forEach((tab, i) => {
       tab.layout(strip.x + i * (width + gap), strip.y, width, strip.height);
     });
+  }
+
+  /**
+   * An opponent's tab on screen - `index` counts opponents in the order the
+   * tabs show them, after your own - or all of theirs together when omitted.
+   */
+  locate(index?: number): Rect | null {
+    const theirs = this.tabs.slice(1);
+    if (index === undefined) return unionOf(theirs.map((tab) => screenRect(tab)));
+    const tab = theirs[index];
+    return tab ? screenRect(tab) : null;
   }
 
   /** `watchingTeamId` is the lane currently on screen, or null for your own. */
