@@ -73,6 +73,9 @@ import { HomeScreen, type MatchMode } from './ui/homeScreen.ts';
 import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Menu, MenuButton } from './ui/menu.ts';
+import { EffectsButton, EffectsPanel } from './ui/effectsPanel.ts';
+import { StatusLog } from './statusLog.ts';
+import { LEGEND_BUTTON_SIZE, type Rect } from './layout.ts';
 import { Hud } from './ui/hud.ts';
 import { OpponentTabs } from './ui/opponentTabs.ts';
 import { Toast } from './ui/toast.ts';
@@ -150,6 +153,13 @@ export class Game extends Container {
   /** Over everything, on every screen: settings, and the way out of a match. */
   private readonly menu: Menu;
   private readonly menuButton: MenuButton;
+  /** What the status markers mean: the legend button, and the panel it opens. */
+  private readonly effectsButton: EffectsButton;
+  private readonly effectsPanel: EffectsPanel;
+  /** Which kinds of marker have been on screen, for the legend. */
+  private readonly statusLog = new StatusLog();
+  /** Where the legend button was last put, so it is only moved when that changes. */
+  private effectsButtonAt = '';
   /**
    * Seconds of match time, for the status markers' animation. Stops with the
    * match when the menu pauses it, so a flame does not flicker on while
@@ -261,7 +271,14 @@ export class Game extends Container {
         this.goHome();
       },
       onEditName: () => void this.editName(),
+      onEffectsGuide: () => {
+        this.setMenu(false);
+        this.openEffects('catalogue');
+      },
     });
+    this.effectsButton = new EffectsButton(() => this.openEffects('recent'));
+    this.effectsButton.visible = false;
+    this.effectsPanel = new EffectsPanel(this.layout, data, () => this.effectsPanel.close());
 
     this.addChild(
       // The arena replaces the lane stack rather than sitting over it: in the
@@ -291,15 +308,60 @@ export class Game extends Container {
       this.home,
       // Last, so they are over the front screens as well as the board.
       this.menuButton,
+      this.effectsButton,
       this.menu,
+      // Over the menu, which is one of the two ways into it.
+      this.effectsPanel,
     );
 
     this.showScreen('home');
   }
 
-  /** Open the menu if it is closed and close it if it is open: the Esc key. */
+  /**
+   * The Esc key: close the effects panel if it is open, and otherwise open or
+   * close the menu.
+   */
   toggleMenu(): void {
+    if (this.effectsPanel.isOpen) {
+      this.effectsPanel.close();
+      return;
+    }
     this.setMenu(!this.menu.isOpen);
+  }
+
+  /** The legend (what has been on the board) or the guide (everything). */
+  private openEffects(view: 'recent' | 'catalogue'): void {
+    // Opening the legend is reading it: the button's new-marker dot goes.
+    if (view === 'recent') this.statusLog.markRead();
+    this.effectsPanel.open(view);
+  }
+
+  /** Where the legend button goes: beside the tabs, or the arena's top corner. */
+  private placeEffectsButton(): void {
+    const rect: Rect = this.inShowdown
+      ? {
+          x: this.layout.screen.width - 6 - LEGEND_BUTTON_SIZE,
+          y: 6,
+          width: LEGEND_BUTTON_SIZE,
+          height: LEGEND_BUTTON_SIZE,
+        }
+      : this.layout.legendButton;
+    const key = `${rect.x},${rect.y},${rect.width}`;
+    if (key === this.effectsButtonAt) return;
+    this.effectsButtonAt = key;
+    this.effectsButton.place(rect);
+  }
+
+  /** The legend button, over whatever board is on screen, unless something is over it. */
+  private showEffectsButton(): void {
+    this.effectsButton.visible = !this.menu.isOpen && !this.effectsPanel.isOpen;
+    if (!this.effectsButton.visible) return;
+    this.placeEffectsButton();
+    this.effectsButton.render(
+      this.statusLog.latest(this.statusClock),
+      this.statusLog.hasUnread,
+      this.statusClock,
+    );
   }
 
   private setMenu(open: boolean): void {
@@ -372,6 +434,7 @@ export class Game extends Container {
     this.entities.reset();
     this.effectsLayer.reset();
     this.matchCues.reset();
+    this.statusLog.reset();
     this.gameOver.reset();
     this.buildBar.reset();
     this.leaveShowdown();
@@ -406,6 +469,7 @@ export class Game extends Container {
     this.entities.reset();
     this.effectsLayer.reset();
     this.matchCues.reset();
+    this.statusLog.reset();
     this.buildBar.reset();
     this.leaveShowdown();
     this.showScreen('home');
@@ -424,6 +488,7 @@ export class Game extends Container {
     this.entities.reset();
     this.effectsLayer.reset();
     this.matchCues.reset();
+    this.statusLog.reset();
     this.gameOver.reset();
     this.buildBar.reset();
     this.leaveShowdown();
@@ -461,6 +526,8 @@ export class Game extends Container {
     this.showdownSetup.setLayout(this.layout);
     this.menuButton.setLayout(this.layout);
     this.menu.setLayout(this.layout);
+    this.effectsPanel.setLayout(this.layout);
+    this.effectsButtonAt = '';
   }
 
   /** One animation frame. `deltaMs` is wall time; the simulation never sees it. */
@@ -470,7 +537,11 @@ export class Game extends Container {
     // A match in this tab stops while the menu is open: nobody else is waiting
     // on it. A room does not, because three other people are.
     const local = transport?.kind === 'local';
-    const paused = this.menu.isOpen && local;
+    // The effects panel pauses it too: it is for reading, and a marker that
+    // wears off while the player is reading about it is no help.
+    const paused = (this.menu.isOpen || this.effectsPanel.isOpen) && local;
+    // Shown again below, by whichever board is drawn this frame.
+    this.effectsButton.visible = false;
     if (this.menu.isOpen) {
       this.menu.render(
         { inMatch: transport !== null, paused, name: this.services.name() },
@@ -484,6 +555,7 @@ export class Game extends Container {
     // runs at its speed: a 2x match should look like one.
     const matchDelta = paused ? 0 : deltaMs * speed;
     this.statusClock += matchDelta / 1000;
+    this.effectsPanel.render(this.statusLog, this.statusClock, deltaMs);
 
     if (!transport) {
       // On the home screen or the picker, with no match yet. Nothing to
@@ -533,6 +605,8 @@ export class Game extends Container {
       if (incoming) this.effectsLayer.spawn(incoming, outgoing, deaths);
       const incomingArena = this.arenaLane();
       if (incomingArena) this.arena.spawnEffects(incomingArena, outgoingArena);
+      // What the markers on that board are, for the legend.
+      this.statusLog.observe(incomingArena ?? incoming, this.statusClock);
       // The same fight, heard: whichever board is on screen, and only that one.
       if (incomingArena)
         this.hear(combatCues(incomingArena, outgoingArena, 'all', this.defs, this.arenaWidth));
@@ -629,6 +703,7 @@ export class Game extends Container {
     }
     this.abilityCard.render(this.resolveOpenAbility());
     this.toast.update(deltaMs, this.layout);
+    this.showEffectsButton();
     this.gameOver.render(view);
   }
 
@@ -701,6 +776,7 @@ export class Game extends Container {
     this.countdown.render(view.showdown?.countdown ?? 0);
     this.abilityCard.render(this.resolveOpenAbility());
     this.toast.update(deltaMs, this.layout);
+    this.showEffectsButton();
     this.gameOver.render(view);
   }
 

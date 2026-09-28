@@ -6,8 +6,9 @@
  * Sound, which is what exists to be set: three levels, mute, which music plays
  * (one piece, or shuffle the list), skip to the next piece, and which sound
  * pack plays the effects (src/audio). Then the game: your name, how fast a
- * practice match runs, whether the status markers are drawn (statusMarks.ts),
- * leaving the match you are in, and closing the menu. A practice match is paused behind
+ * practice match runs, whether the status markers are drawn (statusMarks.ts)
+ * and a guide to what they mean (effectsPanel.ts), leaving the match you are
+ * in, and closing the menu. A practice match is paused behind
  * the menu, because nobody else is waiting on it; an online match is not, and
  * the panel says so rather than letting a player think they have stopped time.
  *
@@ -40,6 +41,8 @@ export interface MenuHandlers {
   onClose(): void;
   onLeaveMatch(): void;
   onEditName(): void;
+  /** Open the guide to every status marker (effectsPanel.ts). */
+  onEffectsGuide(): void;
 }
 
 /** What the menu needs to know about the game behind it, each frame it is open. */
@@ -70,7 +73,7 @@ export function cycle<T>(options: readonly T[], current: T, by: -1 | 1): T {
 // ------------------------------------------------------------------ pieces
 
 /** A rounded button with a centred label. */
-class PanelButton extends Container {
+export class PanelButton extends Container {
   private readonly bg = new Graphics();
   readonly text: Text;
   private w = 0;
@@ -401,6 +404,7 @@ export class Menu extends Container {
   private readonly nameRow: LineWithButton;
   private readonly statusEffects: Toggle;
   private readonly speed: Picker;
+  private readonly guide: PanelButton;
   private readonly note: Text;
   private readonly leave: PanelButton;
   private readonly resume: PanelButton;
@@ -441,6 +445,7 @@ export class Menu extends Container {
     this.statusEffects = new Toggle('Show status effects', () =>
       this.preferences.configure({ statusEffects: !this.preferences.settings.statusEffects }),
     );
+    this.guide = new PanelButton('Effects guide', () => this.handlers.onEffectsGuide());
     this.speed = new Picker('Game speed', (by) =>
       this.preferences.configure({
         practiceSpeed: cycle(GAME_SPEEDS, this.preferences.settings.practiceSpeed, by),
@@ -474,6 +479,7 @@ export class Menu extends Container {
       this.nameRow,
       this.speed,
       this.statusEffects,
+      this.guide,
       this.note,
       this.leave,
       this.resume,
@@ -592,7 +598,7 @@ export class Menu extends Container {
 
     const heading = 22;
     const soundH = heading + soundRows * rowH;
-    const gameH = heading + rowH * 3 + noteH + (inMatch ? 42 : 0) + 42 + 22;
+    const gameH = heading + rowH * 3 + 40 + noteH + (inMatch ? 42 : 0) + 42 + 22;
     const top = 50;
     const bodyH = twoColumns ? Math.max(soundH, gameH) : soundH + 12 + gameH;
     const panelH = top + bodyH + pad;
@@ -645,6 +651,8 @@ export class Menu extends Container {
     y += rowH;
     place(this.statusEffects, { x: gx, y, width: colW, height: rowH });
     y += rowH;
+    this.guide.place(gx, y + 2, colW, 32);
+    y += 40;
     this.note.visible = noteText !== '';
     this.note.position.set(gx, y + 2);
     y += noteH;

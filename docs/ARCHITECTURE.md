@@ -953,8 +953,8 @@ area reaches six pixels past the drawing to make up the rest of a thumb.
 What is in it is what exists to be set. Sound: three levels, mute, which music
 plays (one piece or shuffle), skip to the next piece, and which effects pack is
 in use, shown even while there is only one so the option is visible. Then the
-game: your name, the game speed, whether status markers are drawn (below),
-leaving the match, and closing the menu. Upright it is one
+game: your name, the game speed, whether status markers are drawn (below), the
+effects guide, leaving the match, and closing the menu. Upright it is one
 column; on a short screen the two sections sit side by side, since one column
 of every row would run off the bottom.
 
@@ -1032,6 +1032,33 @@ and a ceiling, so a Mite's are legible and a boss's do not swamp it. They
 animate on the match's clock, so they hold still with everything else while the
 menu pauses a practice match. The menu's "Show status effects" turns them off;
 the choice is saved (`preferences.ts`).
+
+**The legend and the guide say what the markers mean** (`ui/effectsPanel.ts`).
+A button beside the board (at the end of the opponent tabs upright, above them
+sideways, in the top corner of the arena) opens a list of every kind of marker
+on screen now or in the last minute of play, newest first, each drawn live as it
+looks on the board, with whether it was on units or monsters. The button shows
+the latest kind itself, animated, and a dot while there is one the player has
+not opened the legend since. `statusLog.ts` keeps that record, fed the board on
+screen once a tick, so it lists what the player could actually have seen. The
+menu's "Effects guide" opens every kind the game has. Tapping any row, in
+either list, opens its page: the marker on a unit and on a monster, what it
+does, and every ability that causes it with who carries it. Like the menu, the
+panel pauses a practice match while it is open.
+
+**Nothing in the legend or the guide is written by hand, so neither can fall
+behind the game.** The rows are `STATUS_MARKS`. Each kind's name, one-line
+summary, description and drawing are one entry in `MARK_INFO`
+(`render/statusMarks.ts`), a record keyed by the kinds, so a kind added without
+all four is a compile error, and the board draws from the same record. What
+causes each kind is worked out from `abilities.json` by the rule the board uses
+(`markOfEffect`), with the unit, monster, boss or send that carries each
+ability (`statusGuide.ts`); a unit line is named at the lowest mark that has
+the ability. Adding a kind of marker is therefore three edits: append it to
+`STATUS_MARKS`, teach `markOf` what produces it, and give it a `MARK_INFO`
+entry. It then appears on the board, in the legend and in the guide at once. A
+new ability needs nothing at all: it is listed under its marker the moment
+something carries it.
 
 ### The fortress aura, drawn
 

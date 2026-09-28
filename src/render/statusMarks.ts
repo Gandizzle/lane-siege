@@ -31,7 +31,7 @@
  */
 
 import type { Graphics } from 'pixi.js';
-import { hasMark } from '../sim/index.ts';
+import { STATUS_MARKS, hasMark, type StatusMark } from '../sim/index.ts';
 import { DAMAGE_COLOURS } from './palette.ts';
 
 export interface MarkedBody {
@@ -63,24 +63,175 @@ const COLOURS = {
 
 const TAU = Math.PI * 2;
 
+/**
+ * Everything about one kind of marker: what to call it, what it means, and how
+ * to draw it. The legend, the effects guide and the board all read this, so a
+ * kind added to `STATUS_MARKS` is a compile error here until it has all three,
+ * and then shows up everywhere at once (ui/effectsPanel.ts).
+ */
+export interface MarkInfo {
+  name: string;
+  /** One line, for a list. */
+  summary: string;
+  /** What it does, for the guide's detail page. */
+  description: string;
+  /** Under the body (it comes up out of the ground) or over it. */
+  layer: 'under' | 'over';
+  /** Drawing order within its layer; lower first, so a bubble sits behind a flame. */
+  order: number;
+  /** The text colour the guide uses for its name. */
+  colour: number;
+  draw(g: Graphics, body: MarkedBody, time: number): void;
+}
+
+export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
+  burning: {
+    name: 'Burning',
+    summary: 'Taking fire damage every second',
+    description:
+      'Set alight - mostly by Pyre. Takes blast damage every second until the fire burns out, and a ' +
+      'few burns can stack on one body. Some Pyre units hit harder against anything already burning.',
+    layer: 'over',
+    order: 3,
+    colour: COLOURS.flame,
+    draw: drawFlames,
+  },
+  blighted: {
+    name: 'Blighted',
+    summary: 'Taking spore or blight damage every second',
+    description:
+      'Poisoned by spores or blight. Takes damage every second for a few seconds. Blight often ' +
+      'arrives with other debuffs, such as taking extra damage or being healed less.',
+    layer: 'over',
+    order: 4,
+    colour: COLOURS.blight,
+    draw: drawBubbles,
+  },
+  slowed: {
+    name: 'Slowed',
+    summary: 'Moving or attacking more slowly',
+    description:
+      'Its movement or attack speed has been cut. Slows from different sources multiply together, ' +
+      'so several add up, but no number of them stops a body completely - that takes a root or a stun.',
+    layer: 'over',
+    order: 2,
+    colour: COLOURS.ice,
+    draw: drawIce,
+  },
+  rooted: {
+    name: 'Rooted',
+    summary: 'Held in place',
+    description:
+      'Pinned to the ground: it cannot move, but it can still attack anything in reach. Crowd ' +
+      'control has diminishing returns, so the same body cannot be held down forever.',
+    layer: 'under',
+    order: 0,
+    colour: COLOURS.root,
+    draw: drawRoots,
+  },
+  stunned: {
+    name: 'Stunned',
+    summary: 'Cannot move or act',
+    description:
+      'Cannot move, attack or use abilities until it wears off. Also shown for anything else that ' +
+      'stops a body acting, such as being disarmed or silenced. Crowd control has diminishing ' +
+      'returns, so nothing stays stunned for long.',
+    layer: 'over',
+    order: 8,
+    colour: COLOURS.stun,
+    draw: drawStars,
+  },
+  taunted: {
+    name: 'Taunted',
+    summary: 'Forced to fight whoever taunted it',
+    description:
+      'Made to attack the one that taunted it, and unable to walk away from it. Tanks use it to ' +
+      'pull enemies onto themselves and off the softer units behind them.',
+    layer: 'over',
+    order: 9,
+    colour: COLOURS.taunt,
+    draw: drawTaunt,
+  },
+  shielded: {
+    name: 'Shielded',
+    summary: 'A ward that blocks hits',
+    description:
+      'Wrapped in a ward that blocks a number of incoming attacks outright. The bubble goes when ' +
+      'the last blocked hit is spent or the ward runs out.',
+    layer: 'over',
+    order: 0,
+    colour: COLOURS.shield,
+    draw: drawShield,
+  },
+  regenerating: {
+    name: 'Regenerating',
+    summary: 'Healing every second',
+    description:
+      "Recovering health every second, from its own ability or an ally's - or being healed more than " +
+      'usual. Anything that cuts healing received (see Weakened) cuts this too.',
+    layer: 'over',
+    order: 5,
+    colour: COLOURS.regen,
+    draw: drawPluses,
+  },
+  empowered: {
+    name: 'Empowered',
+    summary: 'Hitting harder or faster',
+    description:
+      'Dealing more damage, attacking or moving faster, or landing more critical hits. Often from an ' +
+      "ally's aura, so it also shows which bodies are standing close enough to share one.",
+    layer: 'over',
+    order: 6,
+    colour: COLOURS.empowered,
+    draw: (g, body, time) => drawChevrons(g, body, time, 1),
+  },
+  weakened: {
+    name: 'Weakened',
+    summary: 'Hitting softer, or taking more damage',
+    description:
+      'Dealing less damage, taking extra damage, or receiving less healing. A weakened enemy is a ' +
+      'good one to focus: many of these make every hit on it count for more.',
+    layer: 'over',
+    order: 7,
+    colour: COLOURS.weakened,
+    draw: (g, body, time) => drawChevrons(g, body, time, -1),
+  },
+  fortified: {
+    name: 'Fortified',
+    summary: 'Harder to hurt',
+    description:
+      'Taking less damage, dodging some attacks, reflecting damage back, or immune to crowd ' +
+      "control. A body's own permanent traits are not marked: this is protection it has been " +
+      'given, or has just triggered.',
+    layer: 'over',
+    order: 1,
+    colour: COLOURS.fortified,
+    draw: drawBrackets,
+  },
+};
+
+/** Each layer's kinds, in the order they are drawn. */
+const LAYERS = {
+  under: STATUS_MARKS.filter((m) => MARK_INFO[m].layer === 'under').sort(
+    (a, b) => MARK_INFO[a].order - MARK_INFO[b].order,
+  ),
+  over: STATUS_MARKS.filter((m) => MARK_INFO[m].layer === 'over').sort(
+    (a, b) => MARK_INFO[a].order - MARK_INFO[b].order,
+  ),
+};
+
 /** The markers that sit UNDER the body: roots come up out of the ground. */
 export function drawMarksUnder(g: Graphics, body: MarkedBody, time: number): void {
-  if (hasMark(body.marks, 'rooted')) drawRoots(g, body, time);
+  for (const mark of LAYERS.under) {
+    if (hasMark(body.marks, mark)) MARK_INFO[mark].draw(g, body, time);
+  }
 }
 
 /** Every other marker, over the body. */
 export function drawMarksOver(g: Graphics, body: MarkedBody, time: number): void {
-  const m = body.marks;
-  if (hasMark(m, 'shielded')) drawShield(g, body, time);
-  if (hasMark(m, 'fortified')) drawBrackets(g, body, time);
-  if (hasMark(m, 'slowed')) drawIce(g, body, time);
-  if (hasMark(m, 'burning')) drawFlames(g, body, time);
-  if (hasMark(m, 'blighted')) drawBubbles(g, body, time);
-  if (hasMark(m, 'regenerating')) drawPluses(g, body, time);
-  if (hasMark(m, 'empowered')) drawChevrons(g, body, time, 1);
-  if (hasMark(m, 'weakened')) drawChevrons(g, body, time, -1);
-  if (hasMark(m, 'stunned')) drawStars(g, body, time);
-  if (hasMark(m, 'taunted')) drawTaunt(g, body, time);
+  for (const mark of LAYERS.over) {
+    if (hasMark(body.marks, mark)) MARK_INFO[mark].draw(g, body, time);
+  }
 }
 
 /**

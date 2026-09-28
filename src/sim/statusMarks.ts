@@ -20,11 +20,16 @@
  * body's own triggered ones (a Stoke, a Brood Surge), which are events.
  */
 
-import type { Afflicted, Status } from './status.ts';
+import type { ControlKind, DamageType, ResolvedEffect, StatKey } from '../data/schema.ts';
+import type { Afflicted } from './status.ts';
 
 /**
  * The kinds, in bit order. Append only: the order is the wire format, so a
  * reorder would make an old replay draw the wrong markers.
+ *
+ * A kind added here also needs `markOf` below to produce it, and an entry in
+ * `MARK_INFO` (render/statusMarks.ts) - the compiler insists on that one -
+ * which is what draws it and explains it in the effects guide.
  */
 export const STATUS_MARKS = [
   /** A blast damage-over-time: Pyre's embers and fires. */
@@ -61,8 +66,23 @@ export function hasMark(marks: number, mark: StatusMark): boolean {
   return (marks & markBit(mark)) !== 0;
 }
 
+/**
+ * What deciding a marker needs of an effect: a status on a body and an effect
+ * in `abilities.json` both have it, so the board and the catalogue of what
+ * causes each marker (render/statusGuide.ts) sort with the same rule.
+ */
+export interface MarkSource {
+  kind: string;
+  stat: StatKey | null;
+  amount: number;
+  damageType: DamageType | null;
+  tag: string | null;
+  blocks: number;
+  control: ControlKind | null;
+}
+
 /** The kind of marker one status shows, or null for one that shows nothing. */
-export function markOf(status: Status): StatusMark | null {
+export function markOf(status: MarkSource): StatusMark | null {
   switch (status.kind) {
     case 'damageOverTime':
       return status.damageType === 'blast' || status.tag === 'burning' ? 'burning' : 'blighted';
@@ -103,6 +123,14 @@ export function markOf(status: Status): StatusMark | null {
     }
   }
   return null;
+}
+
+/**
+ * The marker an ability's effect will leave, as written in the data, or null
+ * for one that leaves none (instant damage, a heal, energy).
+ */
+export function markOfEffect(effect: ResolvedEffect): StatusMark | null {
+  return markOf({ ...effect, tag: effect.appliesTag });
 }
 
 /**

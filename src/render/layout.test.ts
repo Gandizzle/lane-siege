@@ -180,3 +180,28 @@ describe('the menu button: the same corner on every screen', () => {
     }
   });
 });
+
+describe('the effects legend button', () => {
+  it('sits in the HUD, clear of the tabs, the menu button and the board', () => {
+    for (const [width, height] of [
+      [320, 568],
+      [390, 844],
+      [412, 915],
+      [640, 360],
+      [844, 390],
+      [915, 412],
+    ] as const) {
+      const l = computeLayout(width, height, lane);
+      const b = l.legendButton;
+      const at = `${width}x${height}`;
+      expect(b.x, at).toBeGreaterThanOrEqual(l.tabs.x);
+      expect(b.x + b.width, at).toBeLessThanOrEqual(l.tabs.x + l.tabs.width);
+      expect(b.y, at).toBeGreaterThanOrEqual(0);
+      expect(b.y + b.height, at).toBeLessThanOrEqual(l.tabs.y + l.tabs.height);
+      expect(overlaps(b, l.tabStrip), `${at} tabs`).toBe(false);
+      expect(overlaps(b, l.menuButton), `${at} menu`).toBe(false);
+      expect(overlaps(b, l.lane), `${at} lane`).toBe(false);
+      expect(overlaps(b, l.buildBar), `${at} bar`).toBe(false);
+    }
+  });
+});

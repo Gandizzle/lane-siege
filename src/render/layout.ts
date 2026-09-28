@@ -72,6 +72,12 @@ export const MENU_BUTTON_SIZE = 36;
 /** Height of one opponent tab. They sit in a row in portrait, a column in landscape. */
 const TAB_ROW_HEIGHT = 30;
 
+/**
+ * The effects legend button's side (ui/effectsPanel.ts): a tab's height, since
+ * upright it sits at the end of the tab row.
+ */
+export const LEGEND_BUTTON_SIZE = TAB_ROW_HEIGHT;
+
 /** Landscape: the block the four stacked opponent tabs are given, with gaps. */
 const LANDSCAPE_TAB_BLOCK = 4 * (TAB_ROW_HEIGHT + 8) + 3 * 4;
 
@@ -152,6 +158,12 @@ export interface LaneLayout extends Camera {
    * text over to make room (hud.ts).
    */
   menuButton: Rect;
+  /**
+   * The effects legend button (ui/effectsPanel.ts): what the markers on the
+   * board mean. At the end of the opponent tabs upright, which give up its
+   * width; above them sideways, where the HUD column has room to spare.
+   */
+  legendButton: Rect;
   /** The whole board area - spawn zone, build grid and fortress zone together. */
   lane: Rect;
   spawn: Rect;
@@ -181,6 +193,7 @@ interface Bands {
   tabs: Rect;
   tabStrip: Rect;
   menuButton: Rect;
+  legendButton: Rect;
   laneBand: Rect;
   buildBar: Rect;
 }
@@ -205,10 +218,16 @@ function portraitBands(width: number, height: number): Bands {
     tabStrip: {
       x: 6,
       y: tabs.y + tabs.height - TAB_ROW_HEIGHT - 4,
-      width: width - 12,
+      width: width - 12 - LEGEND_BUTTON_SIZE - 6,
       height: TAB_ROW_HEIGHT,
     },
     menuButton: { x: 6, y: 6, width: MENU_BUTTON_SIZE, height: MENU_BUTTON_SIZE },
+    legendButton: {
+      x: width - 6 - LEGEND_BUTTON_SIZE,
+      y: tabs.y + tabs.height - TAB_ROW_HEIGHT - 4,
+      width: LEGEND_BUTTON_SIZE,
+      height: LEGEND_BUTTON_SIZE,
+    },
     laneBand: {
       x: 0,
       y: tabsHeight,
@@ -252,6 +271,12 @@ function landscapeBands(width: number, height: number): Bands {
       height: Math.min(LANDSCAPE_TAB_BLOCK, height - 12),
     },
     menuButton: { x: 6, y: 6, width: MENU_BUTTON_SIZE, height: MENU_BUTTON_SIZE },
+    legendButton: {
+      x: hudWidth - 6 - LEGEND_BUTTON_SIZE,
+      y: Math.max(0, height - LANDSCAPE_TAB_BLOCK - 6) - LEGEND_BUTTON_SIZE - 8,
+      width: LEGEND_BUTTON_SIZE,
+      height: LEGEND_BUTTON_SIZE,
+    },
     laneBand: { x: hudWidth, y: 0, width: laneWidth, height },
     buildBar: { x: width - barWidth, y: 0, width: barWidth, height },
   };
@@ -296,6 +321,7 @@ function fitLane(width: number, height: number, lane: LaneFile, bands: Bands): L
     tabs: bands.tabs,
     tabStrip: bands.tabStrip,
     menuButton: bands.menuButton,
+    legendButton: bands.legendButton,
     lane: laneBand,
     spawn: band(laneTop, lane.spawnZoneDepth),
     build: band(gridOrigin.y, grid.depth),
