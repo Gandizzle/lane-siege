@@ -67,6 +67,7 @@ import {
   type LobbyTiming,
 } from '../src/net/lobby.ts';
 import { AutoBuilder } from '../src/bot/autoBuilder.ts';
+import { rollSeats } from '../src/bot/style.ts';
 import { FixedTimestep, MS_PER_TICK } from '../src/util/loop.ts';
 
 export { MAX_PLAYERS };
@@ -409,14 +410,22 @@ export class LaneSiegeRoom extends Room {
     // two empty lanes whose fortresses fall unopposed in wave one. A seat whose
     // player merely dropped is NOT one of these: it is still theirs, and a bot
     // playing it would be playing somebody's half-built lane for them.
-    for (const seat of this.seats) {
-      if (seat.lobby.playerId) continue;
+    //
+    // Each plays a personality rolled from the match seed, as a practice
+    // match's bots do (src/bot/style.ts).
+    const empty = this.seats.filter((seat) => !seat.lobby.playerId);
+    const styles = rollSeats(
+      this.match.seed,
+      empty.map((seat) => seat.lobby.teamId),
+    );
+    empty.forEach((seat, i) => {
       seat.bot = new AutoBuilder(
         this.data,
         seat.lobby.teamId,
         this.match.lanes[seat.lobby.teamId]?.builderId ?? '',
+        { style: styles[i]!.style, seed: this.match.seed },
       );
-    }
+    });
 
     this.broadcastLobby();
   }
@@ -431,9 +440,8 @@ export class LaneSiegeRoom extends Room {
     seat.client.send('frame', encodeFrame(view, this.tables));
   }
 
+  /** The scripted seats: they plan each build phase once and spend gems whenever the shop is open. */
   private botCommands(): Command[] {
-    if (this.match.phase !== 'build') return [];
-
     const commands: Command[] = [];
     for (const seat of this.seats) {
       if (seat.bot) commands.push(...seat.bot.plan(this.match));

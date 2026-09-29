@@ -1073,6 +1073,65 @@ on both plans; Ironvow's strong economy and Gloomtide's steady one reach it.
 That is the best a table that sends back has managed: three of eight beat the
 council with sends priced by wave, none with the old flat prices.
 
+## 4d. The practice bots
+
+The three opponents in a practice match are scripted players, each rolled from
+one of seven archetypes (ARCHITECTURE.md, "The practice bots"). They are meant
+to be a spread: some fall early, some go the distance, and the difference comes
+from how they play rather than from a difficulty setting. `npm run bots` plays
+practice tables headless and says whether they still are. Each table is three
+bots rolled exactly as a practice match rolls them, plus a stand-in for the
+human that cannot fall, never sends, and wears down like a middling player so
+that it is not everybody's leader all game.
+
+36 tables, seeds 1–36, the last wave each bot was standing at the end of:
+
+| archetype  | bots | mean | 10+ | 15+ | 20+ | 25 (beat the council) |
+| ---------- | ---: | ---: | --: | --: | --: | --------------------: |
+| Banker     |   20 | 16.7 | 65% | 50% | 50% |                   45% |
+| Tactician  |   19 | 19.4 | 84% | 68% | 68% |                   32% |
+| Warden     |   19 | 16.4 | 95% | 53% | 32% |                    0% |
+| Raider     |   15 | 15.0 | 87% | 67% |  0% |                    0% |
+| Horde      |   16 | 12.8 | 56% | 31% | 19% |                    0% |
+| Specialist |   14 |  9.6 | 36% |  7% |  7% |                    0% |
+| Rookie     |    5 | 10.8 | 60% | 40% |  0% |                    0% |
+
+A bot reached wave 20 at 21 tables of 36, and beat all twenty-five waves at
+13\. Bankers are boom or bust by design: a third die by wave 8 of their own
+greed, and nearly all the rest beat the council. The builders land within a few
+waves of each other (Pyre 17.1, Gloomtide 15.9, Ironvow 15.2, Thornweald 12.2).
+
+What it took to get the bot there, since the old one died between waves 2 and
+14 in a table and between 7 and 15 alone:
+
+- **The army is measured against the wave's nominal** (`waves.json`
+  `armyGold`), not built to a fixed shape. The nominal is what a medium player
+  has left after paying for the economy (`budget.ts`). So a bot that holds the
+  full nominal before buying any economy starves its economy for good: every
+  run with that floor died by wave 19. The floors are 50–85% of it, depending
+  on the style, with the full nominal only in waves 1 to 4.
+- **Gold is scaled by fit.** An army's worth against a wave is each body's
+  chain gold times how well its damage and armour suit that wave. Counted in
+  plain gold, an Ironvow army of impact bodies "had enough" for forty Mites and
+  lost at wave 7.
+- **A body count that grows with the wave.** Strength per gold favours Mark III
+  bodies. Four of them let a wave walk round them (Thornweald, wave 9).
+- **Formation matters more than expected.** For the Tactician, with everything
+  else rolled the same, the mean wave reached was 18.9 deep, 14.8 forward and
+  14.1 at the wall. The wall pays in fortress health every wave.
+- **Tried and dropped**, each measured worse on the same tables:
+  - weighting ranged monsters up in the counter-picking, and preferring long
+    guns against them (wave 13's Spitters: mean 14.2 against 18.9);
+  - a wider line (0.7 bodies a wave is best: 1.0 and 1.3 fell to 13.2 and
+    11.2);
+  - a front-line preference in place of the quota (armies came out without a
+    front).
+
+Waves 7 (forty Mites), 12 and 13 (Spitters behind plate) are where most of the
+middle of the table falls. They are checks a player is meant to answer, and a
+bot that reads the preview through the damage matrix answers them about half
+the time.
+
 ## 5. The phases
 
 **Phase 0 — instrumentation.** _Done._ Vocabulary settled, the budget computed

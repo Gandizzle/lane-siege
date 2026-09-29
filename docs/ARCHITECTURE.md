@@ -388,7 +388,8 @@ Three ways in, and the front screen offers all three because the answer to "can
 I play right now" should never be a menu waiting for a server:
 
 - **Practice** is simulated in this tab with scripted builders in the other
-  three lanes. It needs nothing, and it is what the GitHub Pages build serves.
+  three lanes, each playing a personality rolled for the match (below). It
+  needs nothing, and it is what the GitHub Pages build serves.
 - **Quick match** joins the next open room.
 - **Private room** is four characters you say out loud.
 
@@ -1060,6 +1061,77 @@ the ability. Adding a kind of marker is therefore three edits: append it to
 entry. It then appears on the board, in the legend and in the guide at once. A
 new ability needs nothing at all: it is listed under its marker the moment
 something carries it.
+
+### The practice bots: seven ways to play
+
+The three opponents in a practice match, and the empty seats of an online room,
+are `src/bot/autoBuilder.ts`. Each one plays a **style** (`src/bot/style.ts`):
+one of seven archetypes, rolled from the match seed without repeats, with every
+number jittered inside that archetype's ranges. So two Raiders are not the same
+Raider, and the same `?seed=` always seats the same bots. The opponent tabs are
+labelled with the archetype's name, which is a fair hint of what is coming.
+
+| archetype  | plays                                                                               |
+| ---------- | ----------------------------------------------------------------------------------- |
+| Banker     | invests hard and early, sends only for income, lean army; poor early, rich late     |
+| Tactician  | counters every wave, aims everything, steady economy, the odd send at the leader    |
+| Warden     | stands at the wall and grows the fortress: its aura, then its walls                 |
+| Raider     | banks its gems and throws them at one lane as a volley of sends                     |
+| Horde      | goes wide on cheap bodies, upgrades late, sends at whoever it likes                 |
+| Specialist | loyal to two cheap lines and a signature one, whatever the wave says                |
+| Rookie     | under-builds, forgets to aim, buys what catches its eye, keeps gold it should spend |
+
+The knobs are the decisions the game asks for:
+
+- how much gold goes into the gem building, and how soon;
+- how big an army to hold;
+- where the gems go (income sends, attack sends one at a time or in volleys,
+  the fortress's walls, its aura);
+- who a send is aimed at (the leader, the weakest, at random, or whoever sent
+  the most at it);
+- where the line stands (forward, deep, or at the wall inside the aura);
+- whether the army counters each wave or stays loyal;
+- tall or wide, tech or none;
+- how often it fumbles.
+
+Difficulty is not a setting. It falls out of those choices (BALANCE.md §4d):
+Bankers and Tacticians often beat all twenty-five waves, Raiders, Wardens and
+Hordes usually fall in the teens, and Rookies and Specialists are the ones to
+beat early.
+
+**Every style plays the same game underneath**, the one BALANCE.md found
+reaches the late waves. At the start of each build phase the bot:
+
+1. Reads the coming wave from the preview, plus whatever has been sent at it.
+2. Buys the army up to a **floor**: a share of the wave's nominal army gold
+   (`waves.json` `armyGold`).
+3. Buys the gem building up to the style's pace.
+4. Tops the army up to the nominal plus the style's margin.
+5. Puts some of what is left into more army and banks the rest.
+
+The army is measured in **effective gold**: each body's whole chain, scaled by
+how well it suits this wave through the damage matrix in both directions. So an
+army of impact bodies facing a swarm reads as short, and gets bought counters.
+Each purchase (a body, an upgrade in place, a level of tech) is whatever adds
+the most strength per gold, where strength is the price ladder's own
+`sqrt(offence x defence)` with the matrix applied. Below a body-count target
+that grows with the wave, new bodies are preferred to upgrades. A few Mark III
+units are strong per gold and still let forty monsters walk round them.
+
+Gems are split as they arrive: the style's share into income sends (best rate
+first, the same as the auto-send button), the rest to its other use. Sends are
+bought whenever the shop is open, combat included. When several lanes are tied
+for "leader" (every fortress is whole for the first few waves), the target is
+chosen among them at random. Taking the first would aim every bot at the first
+lane, which in a practice match is always yours.
+
+The build phase is planned once, on its first tick, and every other tick only
+spends gems. That is about 0.05 ms a tick for four bots, against about 1 ms
+for the simulation step. What the last plan decided is on `bot.report`.
+
+The tutorial's bots are the plain Tactician with sends switched off
+(`quietBots`), because a monster nobody sent on purpose is one the coach would
+have to explain.
 
 ### The tutorial: chapters, a coach, and a match that waits
 

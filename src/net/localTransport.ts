@@ -27,6 +27,7 @@
 
 import type { GameData } from '../data/schema.ts';
 import { AutoBuilder } from '../bot/autoBuilder.ts';
+import { rollSeats } from '../bot/style.ts';
 import {
   applyCommand,
   buildDefIndex,
@@ -76,9 +77,10 @@ export interface LocalStart {
    */
   armies?: readonly Army[];
   /**
-   * The scripted lanes build but never send. For the tutorial, where a
-   * monster nobody sent on purpose arriving mid-lesson is a monster that needs
-   * explaining (src/tutorial).
+   * The scripted lanes build but never send, and all play the same middle-of-
+   * the-road style rather than a rolled one. For the tutorial, where a monster
+   * nobody sent on purpose arriving mid-lesson is a monster that needs
+   * explaining, and a Raider's volley is a lesson for later (src/tutorial).
    */
   quietBots?: boolean;
 }
@@ -99,7 +101,6 @@ export class LocalTransport implements Transport {
   private readonly bots: AutoBuilder[];
   /** §12: how much of an opponent's lane this match shows. Data, not code. */
   private readonly visibility: GameData['lane']['opponentLanes'];
-  private readonly quietBots: boolean;
 
   constructor(
     data: GameData,
@@ -118,10 +119,24 @@ export class LocalTransport implements Transport {
     this.ctx = createContext(data);
     this.teamId = teamId;
     this.visibility = data.lane.opponentLanes;
-    this.quietBots = start.quietBots === true;
-    this.bots = botTeamIds
-      .filter((id) => id !== teamId)
-      .map((id) => new AutoBuilder(data, id, this.state.lanes[id]?.builderId ?? ''));
+    // Each scripted lane plays a personality rolled from the match seed
+    // (src/bot/style.ts), and a lane nobody named is called by it - so the
+    // tabs say "Banker" and "Raider", which is a fair hint of what is coming.
+    const botIds = botTeamIds.filter((id) => id !== teamId);
+    const quiet = start.quietBots === true;
+    const seats = rollSeats(seed, botIds);
+    this.bots = seats.map(({ teamId: id, style }) => {
+      const builderId = this.state.lanes[id]?.builderId ?? '';
+      return quiet
+        ? new AutoBuilder(data, id, builderId, { seed, sends: false })
+        : new AutoBuilder(data, id, builderId, { seed, style });
+    });
+    if (!quiet) {
+      for (const seat of seats) {
+        const team = this.state.teams.find((t) => t.id === seat.teamId);
+        if (team && !team.name) team.name = seat.name;
+      }
+    }
 
     if (start.armies) this.standArmies(data, start.armies);
     else if (start.showdown) this.jumpToShowdown(data);
@@ -297,17 +312,15 @@ export class LocalTransport implements Transport {
   }
 
   /**
-   * What the scripted lanes want to do this tick.
-   *
-   * Returns the shared empty array outside the build phase, which is almost
-   * every tick, so the common case allocates nothing (§15.3).
+   * What the scripted lanes want to do this tick: the build phase is planned
+   * once, on its first tick, and gems are spent whenever the shop is open,
+   * because they arrive all match (src/bot/autoBuilder.ts).
    */
   private botCommands(): readonly Command[] {
-    if (this.bots.length === 0 || this.state.phase !== 'build') return NO_COMMANDS;
-
+    if (this.bots.length === 0) return NO_COMMANDS;
     const commands: Command[] = [];
     for (const bot of this.bots) commands.push(...bot.plan(this.state));
-    return this.quietBots ? commands.filter((c) => c.kind !== 'send') : commands;
+    return commands.length === 0 ? NO_COMMANDS : commands;
   }
 
   /**
