@@ -75,6 +75,7 @@ import type { EntityStyle } from '../shapes.ts';
 import { centreOn, label, wrapped } from './text.ts';
 import { AbilityChips, type Chip } from './abilityChips.ts';
 import { screenRect, unionOf } from './locate.ts';
+import { GEM, GOLD, SUPPLY } from './currency.ts';
 import type { StatDirection } from './unitStats.ts';
 import {
   NOTHING_SPECIAL,
@@ -168,7 +169,8 @@ const FORT_UPGRADES: { id: string; name: string; unit: string }[] = [
   { id: 'weapon', name: 'Weapon', unit: ' dmg' },
   { id: 'hp', name: 'Fortress HP', unit: ' hp' },
   { id: 'regen', name: 'Regeneration', unit: ' hp/s' },
-  { id: 'gemOutput', name: 'Gem Output', unit: ' gems' },
+  // A unit that is itself a currency goes in front, as the price does.
+  { id: 'gemOutput', name: 'Gem Output', unit: GEM },
   { id: 'gemRate', name: 'Gem Rate', unit: '× rate' },
   { id: 'auraStrength', name: 'Aura Power', unit: '' },
   { id: 'auraRadius', name: 'Aura Radius', unit: ' tiles' },
@@ -1059,7 +1061,7 @@ export class BuildBar extends Container {
         // by (§11.5).
         // Written tight - no space before "gem" - so a 500-gem send's line
         // still fits a phone-width button whole.
-        detail: `${cost}gem → +${income}g/wave`,
+        detail: `${GEM}${cost} → +${GOLD}${income}/wave`,
         // ONE NAME PER BUTTON. What is worth the line is what the send is FOR:
         // the economy for the three that pay the best rate, and otherwise what
         // the monster DOES and whether the gems also buy a look at the lane
@@ -1130,7 +1132,7 @@ export class BuildBar extends Container {
       button.setSwatch(glyphOf(def));
       button.update({
         title: def.name,
-        detail: `${gold}g · ${supply} supply`,
+        detail: `${GOLD}${gold} · ${SUPPLY}${supply}`,
         // §9.3: say which units counter this wave, or the matrix stays invisible.
         note: verdict === 'strong' ? '▲ strong' : verdict === 'weak' ? '▼ weak' : '',
         noteColour: verdict === 'strong' ? UI.healthGood : UI.danger,
@@ -1153,7 +1155,7 @@ export class BuildBar extends Container {
       button.setSwatch(track.damageType ? DAMAGE_COLOURS[track.damageType] : null);
       button.update({
         title: name,
-        detail: next ? `${cost}g` : 'maxed',
+        detail: next ? `${GOLD}${cost}` : 'maxed',
         note: `level ${level}/${track.levels.length}`,
         enabled: canAct && next !== undefined && economy.gold >= cost,
       });
@@ -1174,13 +1176,16 @@ export class BuildBar extends Container {
       const gems = next?.gemCost ?? 0;
       const gold = next?.goldCost ?? 0;
       const supply = next?.supplyCost ?? 0;
-      const price = gems > 0 ? `${gems} gem` : `${gold}g`;
+      const price = gems > 0 ? `${GEM}${gems}` : `${GOLD}${gold}`;
 
       const gain = next?.value ?? null;
       button.setSwatch(null);
       button.update({
         title: name,
-        detail: next ? `${price} → ${trim(gain)}${unit}${supply ? ` · ${supply}s` : ''}` : 'maxed',
+        detail: next
+          ? `${price} → ${unit === GEM ? `${GEM}${trim(gain)}` : `${trim(gain)}${unit}`}` +
+            (supply ? ` · ${SUPPLY}${supply}` : '')
+          : 'maxed',
         note: `level ${level}/${ladder.length}`,
         enabled:
           canAct &&
@@ -1198,8 +1203,8 @@ export class BuildBar extends Container {
     this.supplyButton.setSwatch(null);
     this.supplyButton.update({
       title: 'Supply Cap',
-      detail: next ? `${next.goldCost ?? 0}g → ${next.value ?? 0}` : 'maxed',
-      note: `cap ${economy.supplyCap}`,
+      detail: next ? `${GOLD}${next.goldCost ?? 0} → ${SUPPLY}${next.value ?? 0}` : 'maxed',
+      note: `cap ${SUPPLY}${economy.supplyCap}`,
       enabled: canAct && next !== undefined && economy.gold >= (next.goldCost ?? 0),
     });
   }
@@ -1491,7 +1496,7 @@ export class BuildBar extends Container {
     this.upgradeButton.setSwatch(glyphOf(next));
     this.upgradeButton.update({
       title: 'Upgrade',
-      detail: `${gold}g${supply ? ` · +${supply} supply` : ''}`,
+      detail: `${GOLD}${gold}${supply ? ` · ${SUPPLY}+${supply}` : ''}`,
       enabled: canAct && economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap,
     });
   }
@@ -1513,10 +1518,10 @@ export class BuildBar extends Container {
     this.sellButton.setSwatch(null);
     this.sellButton.update({
       title: 'Sell',
-      detail: `+${refund}g`,
+      detail: `+${GOLD}${refund}`,
       // Which rate applied, so a half refund never looks like a bug. "undo"
       // rather than "100%" because that is what the full rate is FOR.
-      note: paid === 0 ? '' : spend.earlier === 0 ? 'undo · full' : `of ${paid}g`,
+      note: paid === 0 ? '' : spend.earlier === 0 ? 'undo · full' : `of ${GOLD}${paid}`,
       noteColour: spend.earlier === 0 ? UI.healthGood : UI.textMuted,
       enabled: canAct,
     });

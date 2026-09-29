@@ -231,8 +231,9 @@ const THE_LANE: Chapter = {
       mode: 'next',
       target: { kind: 'hudWallet' },
       text:
-        'Your resources. Gold (g) buys units and upgrades. Gems come slowly from your fortress ' +
-        'and pay for sends and fortress upgrades. Supply is how big your army can be.',
+        'Your resources. Gold, the coin, buys units and upgrades. Gems, the jewel, come slowly ' +
+        'from your fortress and pay for sends and fortress upgrades. Supply, the figure, is how ' +
+        'big your army can be. Prices use the same three pictures.',
     },
     {
       mode: 'next',

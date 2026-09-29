@@ -1368,12 +1368,25 @@ The Final Showdown needed nothing. Its camera already fits the arena's side to
 the screen's LONGER edge and scrolls the other (`arenaCamera`), which is a rule
 about the arena and the viewport rather than about orientation.
 
+### Gold, gems and supply are pictures
+
+Wherever a number is a price or a wallet (the top band, every build-bar
+button, the builder picker), gold is a coin, gems are a cut jewel and supply is
+a figure, drawn by `ui/currency.ts` in place of "g", "gem" and "supply". A
+string marks where one goes with a token (`{gold}45 · {supply}1`), and a
+`RichLabel` lays the words and icons out on one line, shrinking a line that
+would run past its button rather than cutting a price short. They are drawn
+rather than emoji because an emoji coin is recent enough that older phones show
+an empty box, it looks different on every system, and it cannot be coloured to
+the palette. Sentences keep their words ("not enough gems"); the tutorial names
+the three pictures when it tours the wallet.
+
 ### The top band: what it says, and why it has a floor
 
 Three rows of text above a row of four tabs. Left: the wave and whether it is a
 boss, then the phase — seconds while building, monsters left while fighting.
 Right: gold, gems, supply, then what the wave DEALS (§9.3), then **passive
-income as a rate** (§11.6) — `+12g / wave`, which is not a number you spend but
+income as a rate** (§11.6) — `+12 / wave` beside a coin, which is not a number you spend but
 the one that decides how fast the other three move, and the whole reason an
 early send is an investment rather than an attack. It shows at zero too,
 dimmed, because zero is where everyone starts and seeing it is how the lever
@@ -1420,7 +1433,7 @@ three-by-two portrait grid and the two-by-three landscape one, so paging costs
 no height on a short phone. Every page stands in the same five places.
 
 So a button is a name, a price, and **what the send is for** — "Carapace /
-120gem → +7g/wave / Siegework" over a slab, or "economy" for the three that pay
+(gem)120 → +(coin)7/wave / Siegework" over a slab, or "economy" for the three that pay
 the best rate. The icon is the monster because a send _is_ that monster: the
 same shape, armour family and damage-type fill that §14.2 draws in the lane, in
 the wave preview and on a unit button. All fifteen draw a different picture,

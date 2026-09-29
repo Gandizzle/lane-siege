@@ -10,6 +10,7 @@ import type { Text } from 'pixi.js';
 import { UI } from '../palette.ts';
 import { drawEntity } from '../shapes.ts';
 import type { EntityStyle } from '../shapes.ts';
+import { RichLabel } from './currency.ts';
 import { fit, label } from './text.ts';
 
 /**
@@ -41,8 +42,8 @@ export class GridButton extends Container {
   private shadeDrawn = 0;
   private readonly pulse = new Graphics();
   private readonly title: Text;
-  private readonly detail: Text;
-  private readonly note: Text;
+  private readonly detail: RichLabel;
+  private readonly note: RichLabel;
   private w = 0;
   private h = 0;
 
@@ -62,8 +63,9 @@ export class GridButton extends Container {
   ) {
     super();
     this.title = label('', 11, UI.text, '700');
-    this.detail = label('', 9, UI.textMuted);
-    this.note = label('', 9, UI.textMuted, '700');
+    // Prices: they may carry coin, gem and supply icons (currency.ts).
+    this.detail = new RichLabel(9, UI.textMuted);
+    this.note = new RichLabel(9, UI.textMuted, '700');
     this.shade.mask = this.shadeMask;
     this.addChild(
       this.bg,
@@ -248,9 +250,8 @@ export class GridButton extends Container {
     // rather than at each of the dozen call sites that build a label.
     const room = this.w - 16;
     const title = fit(opts.title, room, this.title.style.fontSize as number);
-    const detail = fit(opts.detail, room, this.detail.style.fontSize as number);
     if (this.title.text !== title) this.title.text = title;
-    if (this.detail.text !== detail) this.detail.text = detail;
+    this.detail.set(opts.detail, room);
     if (opts.centred === true) {
       this.title.x = (this.w - this.title.width) / 2;
       this.title.y = (this.h - this.title.height) / 2;
@@ -259,12 +260,12 @@ export class GridButton extends Container {
       this.title.y = 6;
     }
 
-    const note = fit(opts.note ?? '', room, this.note.style.fontSize as number);
-    if (this.note.text !== note) this.note.text = note;
+    const note = opts.note ?? '';
+    this.note.set(note, room);
     // Only where it fits: on a short button the third line would be drawn
     // across the bottom edge and into the row below it.
     this.note.visible = note.length > 0 && this.note.y + 11 <= this.h;
-    if (note.length > 0) this.note.style.fill = opts.noteColour ?? UI.textMuted;
+    if (note.length > 0) this.note.setColour(opts.noteColour ?? UI.textMuted);
 
     this.ring.visible = opts.selected === true;
     if (opts.selected === true) {

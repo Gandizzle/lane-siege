@@ -25,6 +25,7 @@ import { buildableUnits } from '../../data/roster.ts';
 import type { LaneLayout } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { centreOn, label } from './text.ts';
+import { GOLD, RichLabel, SUPPLY } from './currency.ts';
 
 /** How much better than the roster's own average counts as a strength. */
 const STRONG_MARGIN = 1.15;
@@ -90,7 +91,7 @@ class BuilderCard extends Container {
   private readonly swatches = new Graphics();
   private readonly title: Text;
   private readonly note: Text;
-  private readonly stats: Text;
+  private readonly stats: RichLabel;
   private w = 0;
   private h = 0;
 
@@ -102,7 +103,7 @@ class BuilderCard extends Container {
     super();
     this.title = label(builder.name, 15, UI.text, '700');
     this.note = label('', 10, UI.textMuted, '600');
-    this.stats = label('', 10, UI.textMuted);
+    this.stats = new RichLabel(10, UI.textMuted);
     this.addChild(this.bg, this.swatches, this.title, this.note, this.stats);
 
     this.eventMode = 'static';
@@ -148,9 +149,11 @@ class BuilderCard extends Container {
 
     const [minGold, maxGold] = this.summary.goldRange;
     const [minSupply, maxSupply] = this.summary.supplyRange;
-    this.stats.text =
-      `${minGold}–${maxGold}g · ${minSupply}–${maxSupply} supply · ` +
-      `reach ${this.summary.rangeMax.toFixed(1)}`;
+    this.stats.set(
+      `${GOLD}${minGold}–${maxGold} · ${SUPPLY}${minSupply}–${maxSupply} · ` +
+        `reach ${this.summary.rangeMax.toFixed(1)}`,
+      width - 28,
+    );
     this.stats.x = 14;
     this.stats.y = 50;
   }

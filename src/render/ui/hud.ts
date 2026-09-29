@@ -17,7 +17,6 @@
  */
 
 import { Container, Graphics } from 'pixi.js';
-import type { Text } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
 import type { MatchView, WaveSummary } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
@@ -25,6 +24,7 @@ import type { LaneLayout, Rect } from '../layout.ts';
 import { fortressShape } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { screenRect, unionOf } from './locate.ts';
+import { GEM, GOLD, RichLabel, SUPPLY } from './currency.ts';
 import { centreOn, label, overlaid } from './text.ts';
 import { speedLabel, type GameSpeed } from '../preferences.ts';
 
@@ -36,7 +36,15 @@ export class Hud extends Container {
   private readonly bars = new Graphics();
   private readonly content = new Container();
   /** What each reading was drawn as last frame, for `locate`. */
-  private readonly parts = new Map<HudPart, Text[]>();
+  private readonly parts = new Map<HudPart, Container[]>();
+  /**
+   * The wallet and the income, with coin, gem and supply icons (currency.ts).
+   * Kept rather than made each frame like the other lines: they are the ones
+   * that carry icons, and relaying an icon row that has not changed is waste.
+   */
+  private readonly purse = new RichLabel(12, UI.text, '600');
+  private readonly army = new RichLabel(12, UI.text, '600');
+  private readonly income = new RichLabel(11, UI.textMuted, '600');
 
   constructor(
     private layout: LaneLayout,
@@ -56,7 +64,7 @@ export class Hud extends Container {
   }
 
   /** Note that `text` is (part of) `part`, and pass it on. */
-  private tag<T extends Text | null>(part: HudPart, text: T): T {
+  private tag<T extends Container | null>(part: HudPart, text: T): T {
     if (text) this.parts.set(part, [...(this.parts.get(part) ?? []), text]);
     return text;
   }
@@ -112,13 +120,22 @@ export class Hud extends Container {
     // how fast the other three move. Dimmed at zero, because zero is the honest
     // starting value and seeing it there is how a player learns the lever
     // exists.
-    const income = () =>
-      label(
-        `+${Math.floor(economy?.passiveIncome ?? 0)}g / wave`,
-        11,
-        (economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted,
-        '600',
+    const income = () => {
+      this.income.set(`+${GOLD}${Math.floor(economy?.passiveIncome ?? 0)} / wave`);
+      this.income.setColour((economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted);
+      return this.income;
+    };
+    // What you have: gold and gems together, supply as used out of the cap.
+    const purse = () => {
+      this.purse.set(
+        `${GOLD}${Math.floor(economy?.gold ?? 0)}   ${GEM}${Math.floor(economy?.gems ?? 0)}`,
       );
+      return this.purse;
+    };
+    const army = () => {
+      this.army.set(`${SUPPLY}${economy?.supplyUsed ?? 0}/${economy?.supplyCap ?? 0}`);
+      return this.army;
+    };
     // §9.3: say what the wave DEALS, or the matrix stays invisible.
     const offence = () =>
       summary?.dominantDamageType
@@ -151,7 +168,7 @@ export class Hud extends Container {
       // The lines beside the menu button start past it; the rest use the
       // column's full width.
       const button = l.menuButton;
-      const place = (text: Text | null, gap: number) => {
+      const place = (text: Container | null, gap: number) => {
         if (!text) return;
         text.x = y < button.y + button.height ? button.x + button.width + 8 : left;
         text.y = y;
@@ -164,25 +181,8 @@ export class Hud extends Container {
       if (economy) {
         // Two lines, because the column is too narrow for three numbers and
         // their units side by side.
-        place(
-          this.tag(
-            'wallet',
-            label(
-              `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem`,
-              12,
-              UI.text,
-              '600',
-            ),
-          ),
-          17,
-        );
-        place(
-          this.tag(
-            'wallet',
-            label(`${economy.supplyUsed}/${economy.supplyCap} supply`, 12, UI.text, '600'),
-          ),
-          17,
-        );
+        place(this.tag('wallet', purse()), 17);
+        place(this.tag('wallet', army()), 17);
         place(this.tag('income', income()), 17);
       }
       place(this.tag('incoming', offence()), 16);
@@ -200,13 +200,13 @@ export class Hud extends Container {
 
       // The left column starts past the menu button, which has the corner.
       const leftEdge = l.menuButton.x + l.menuButton.width + 8;
-      const left = (text: Text | null, y: number) => {
+      const left = (text: Container | null, y: number) => {
         if (!text) return;
         text.x = leftEdge;
         text.y = y;
         this.content.addChild(text);
       };
-      const right = (text: Text | null, y: number) => {
+      const right = (text: Container | null, y: number) => {
         if (!text) return;
         text.x = rightEdge - text.width;
         text.y = y;
@@ -219,19 +219,13 @@ export class Hud extends Container {
       // Gold and gems are deliberately separate currencies with separate sinks
       // (§11.3).
       if (economy) {
-        right(
-          this.tag(
-            'wallet',
-            label(
-              `${Math.floor(economy.gold)}g   ${Math.floor(economy.gems)}gem   ` +
-                `${economy.supplyUsed}/${economy.supplyCap} supply`,
-              12,
-              UI.text,
-              '600',
-            ),
-          ),
-          rowOne + 4,
-        );
+        // Supply first from the right, then the purse left of it: one row,
+        // two labels, so each keeps its own icons.
+        const armyLabel = this.tag('wallet', army());
+        right(armyLabel, rowOne + 4);
+        const purseLabel = this.tag('wallet', purse());
+        right(purseLabel, rowOne + 4);
+        purseLabel.x = armyLabel.x - 16 - purseLabel.width;
         right(this.tag('income', income()), rowThree);
       }
       right(this.tag('incoming', offence()), rowTwo + 2);
