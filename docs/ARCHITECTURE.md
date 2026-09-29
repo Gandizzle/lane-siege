@@ -954,7 +954,8 @@ What is in it is what exists to be set. Sound: three levels, mute, which music
 plays (one piece or shuffle), skip to the next piece, and which effects pack is
 in use, shown even while there is only one so the option is visible. Then the
 game: your name, the game speed, whether status markers are drawn (below), the
-effects guide, leaving the match, and closing the menu. Upright it is one
+effects guide and the damage chart side by side, leaving the match, and closing
+the menu. Upright it is one
 column; on a short screen the two sections sit side by side, since one column
 of every row would run off the bottom.
 
@@ -1078,7 +1079,13 @@ practice match on a fixed seed with the chapter's builder, and the chapter's
 state between ticks. "Gems and sends" opens with a line built and gems saved, so
 it does not depend on having played "Build your first line" first. The bots in
 the other lanes build but never send (`quietBots`), because a monster nobody
-sent on purpose is one the coach would have to explain.
+sent on purpose is one the coach would have to explain. They also get a
+150-gold head start (`BOT_HEAD_START`). A wave ends only when every lane has
+beaten it, and on a wave-one purse the thinnest bot buys a single tank that
+takes most of a minute to clear it. With the head start, wave 1 is over about
+eight seconds after your own lane clears. The coach fills that gap: once your
+lane is empty it says why the wave is not over yet and points at a lane still
+fighting.
 
 **A chapter is data** (`src/tutorial/chapters.ts`, shapes in `types.ts`): a list
 of steps, each a line of text, a thing to point at, and what ends it.
@@ -1089,9 +1096,15 @@ of steps, each a line of text, a thing to point at, and what ends it.
   the weapon switched. A step is over the moment the thing is done.
 - `free` steps are for watching a wave or closing a card.
 
-Any number the coach says (a price, a bounty, the build timer, the best damage
-type against the next wave) is read from the data when it is said, so a
-balance change cannot make the tutorial wrong. What the coach points at is a
+A step can also open a reference card as it begins (`opens`, so far only the
+damage chart). The runner reports each step as it starts (`onEnter`) before
+anything can end it, so the game opens the card in time for the step's `done`
+to see it open. Closing it is the player's, and is what moves the step on.
+
+Any number the coach says (a price, a bounty, the build timer, which Fort
+upgrades cost gems and which cost gold, the best damage type against the next
+wave and its multiplier) is read from the data, or from the match on screen,
+when it is said. A balance change cannot make the tutorial wrong. What the coach points at is a
 **named** target, not a position: "the Send tab", "row six", "the first burning
 monster". `Game.locate` finds each one on screen as it is drawn this frame
 (`ui/locate.ts`, and a `locate` on the HUD, the build bar, the opponent tabs and
@@ -1125,6 +1138,24 @@ easier to point out lit.
 what a tap on each target would do. A chapter that asks for something the match
 will not allow (a unit it cannot afford, a button that is not there, a wave
 that never ends) fails there, not on a new player's phone.
+
+### The damage chart
+
+The damage matrix (DESIGN.md §6) is the rule the whole game turns on, and the
+board never shows it. `ui/damageChart.ts` puts it on one card: damage types down
+the side in their colours, armour across the top with a real monster's
+silhouette and the word for its family of shapes (round, angular, clusters,
+pointed), and the multiplier in each cell, green and "strong" above 1, orange
+and "weak" below. A line under the grid says that the chart works both ways,
+because the simulation applies the same matrix to a monster hitting a unit
+(`sim/damage.ts`).
+
+It is opened from the menu ("Damage vs armour"), and the tutorial's Counters
+chapter opens it too. Like the effects panel it pauses a practice match, and
+Esc closes it. Everything on it comes from `data.matrix`. The one sentence
+that generalises ("every damage type is strong against one armour and weak
+against another") is only shown while the matrix makes it true. A new armour
+type would not compile until it had a word for its shapes.
 
 ### The fortress aura, drawn
 

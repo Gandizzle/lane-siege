@@ -14,7 +14,7 @@ import { loadDataFromDisk } from '../data/loadNode.ts';
 import type { LocalTransport } from '../net/localTransport.ts';
 import { hasMark, type MatchView } from '../sim/index.ts';
 import { MS_PER_TICK } from '../util/loop.ts';
-import { CHAPTERS, bestAgainstWave } from './chapters.ts';
+import { CHAPTERS, bestAgainstWave, stillFighting } from './chapters.ts';
 import { sceneOf, tutorialMatch } from './match.ts';
 import { TutorialRunner } from './runner.ts';
 import type { Target, UiProbe } from './types.ts';
@@ -30,6 +30,7 @@ class Player {
     selection: null,
     abilityOpen: false,
     effectsOpen: false,
+    chartOpen: false,
     watching: null,
   };
 
@@ -107,8 +108,10 @@ class Player {
         this.ui.effectsOpen = true;
         return;
       case 'opponentTab': {
-        // Only a lane you have sight of opens (§12): the tab is a refusal otherwise.
-        const opponent = this.view.opponents[target.index]!;
+        // Counted the way the tabs show them (opponentTabs.ts). Only a lane you
+        // have sight of opens (§12): the tab is a refusal otherwise.
+        const ordered = [...this.view.opponents].sort((a, b) => a.teamId.localeCompare(b.teamId));
+        const opponent = ordered[target.index]!;
         expect(opponent.watching).toBe(true);
         this.ui.watching = opponent.teamId;
         return;
@@ -125,16 +128,28 @@ class Player {
   dismiss(): void {
     this.ui.abilityOpen = false;
     this.ui.effectsOpen = false;
+    this.ui.chartOpen = false;
   }
 }
 
-/** Play `chapter` to the end; returns the match as it finished. */
-function play(chapterIndex: number): { runner: TutorialRunner; view: MatchView } {
+/**
+ * Play `chapter` to the end. Returns the match as it finished, and what the
+ * coach said at each step it showed.
+ */
+function play(chapterIndex: number): {
+  runner: TutorialRunner;
+  view: MatchView;
+  said: Map<number, string>;
+} {
   const chapter = CHAPTERS[chapterIndex]!;
   const transport = tutorialMatch(data, chapter, 'Tester');
-  const runner = new TutorialRunner(chapter, sceneOf(data, transport));
   const player = new Player(transport);
+  // What the game does as a step begins (game.ts, `startLesson`).
+  const runner = new TutorialRunner(chapter, sceneOf(data, transport), (step) => {
+    if (step.opens === 'damageChart') player.ui.chartOpen = true;
+  });
   runner.begin();
+  const said = new Map<number, string>();
 
   let guard = 0;
   while (!runner.complete) {
@@ -144,7 +159,9 @@ function play(chapterIndex: number): { runner: TutorialRunner; view: MatchView }
     const target = runner.target(player.view, player.ui);
     // Every step says something, and a pointed-at target is one the player
     // can see on this board.
-    expect(runner.text().length).toBeGreaterThan(10);
+    const text = runner.text(player.view);
+    expect(text.length).toBeGreaterThan(10);
+    said.set(at, text);
     if (target?.kind === 'unit') expect(player.view.lane!.units[target.index]).toBeDefined();
     if (target?.kind === 'monsterWith') {
       const marked = player.view.lane!.monsters.filter((m) =>
@@ -176,7 +193,7 @@ function play(chapterIndex: number): { runner: TutorialRunner; view: MatchView }
     }
     runner.update(player.view, player.ui, 0);
   }
-  return { runner, view: player.view };
+  return { runner, view: player.view, said };
 }
 
 describe('the tutorial', () => {
@@ -204,10 +221,76 @@ describe('the tutorial', () => {
   }
 
   it('fights its first wave and gets paid for it', () => {
-    const { view } = play(CHAPTERS.findIndex((c) => c.id === 'build'));
+    const { view, said } = play(CHAPTERS.findIndex((c) => c.id === 'build'));
     expect(view.wave).toBe(1);
     expect(view.phase).toBe('build');
     expect(view.lane!.units.length).toBe(4);
+    // Your lane clears before the wave is over, and the coach says why the
+    // tutorial is waiting rather than looking stuck.
+    expect([...said.values()].some((text) => text.includes('EVERY lane'))).toBe(true);
+  });
+
+  it('does not keep a new player waiting long on the other lanes', () => {
+    const chapter = CHAPTERS.find((c) => c.id === 'build')!;
+    const transport = tutorialMatch(data, chapter, 'Tester');
+    for (const x of [2, 3, 4, 5]) {
+      transport.submit({
+        kind: 'placeUnit',
+        teamId: transport.teamId,
+        unitDefId: 'sentinel',
+        tileX: x,
+        tileY: 6,
+      });
+    }
+    transport.stage((state) => {
+      state.phaseTicksLeft = 1;
+    });
+    let ownClear = -1;
+    let ticks = 0;
+    for (; ticks < MAX_RUN_TICKS; ticks++) {
+      transport.update(MS_PER_TICK);
+      const view = transport.view()!;
+      const lane = view.lane!;
+      if (ownClear < 0 && view.phase === 'combat' && lane.monsters.length + lane.reserveCount === 0)
+        ownClear = ticks;
+      if (view.phase === 'build' && view.wave >= 1) break;
+    }
+    // The bots' head start (match.ts) is what keeps this short.
+    expect(ticks * MS_PER_TICK).toBeLessThan(30_000);
+    expect(ownClear).toBeGreaterThan(0);
+  });
+
+  it('points at a lane that is still fighting, counted as the tabs are', () => {
+    const chapter = CHAPTERS.find((c) => c.id === 'build')!;
+    const transport = tutorialMatch(data, chapter, 'Tester');
+    transport.stage((state) => {
+      state.phaseTicksLeft = 1;
+    });
+    for (let i = 0; i < 40; i++) transport.update(MS_PER_TICK);
+    const view = transport.view()!;
+    const index = stillFighting(view);
+    expect(index).toBeGreaterThanOrEqual(0);
+    const ordered = [...view.opponents].sort((a, b) => a.teamId.localeCompare(b.teamId));
+    const lane = view.watching[ordered[index]!.teamId]!;
+    expect(lane.monsters.length + lane.reserveCount).toBeGreaterThan(0);
+  });
+
+  it('shows the damage chart, and names the best weapon with its multiplier', () => {
+    const { said } = play(CHAPTERS.findIndex((c) => c.id === 'counters'));
+    const chapter = CHAPTERS.find((c) => c.id === 'counters')!;
+    const chart = chapter.steps.findIndex((step) => step.opens === 'damageChart');
+    expect(chart).toBeGreaterThan(0);
+    // Shown, not skipped: the step waits for the chart to be closed.
+    expect(said.has(chart)).toBe(true);
+    const weapon = [...said.values()].find((text) => text.includes('switch the fortress weapon'));
+    expect(weapon).toMatch(/hits \w+ for ×\d/);
+  });
+
+  it('says which Fort upgrades cost gems and which cost gold', () => {
+    const { said } = play(CHAPTERS.findIndex((c) => c.id === 'sends'));
+    const fort = [...said.values()].find((text) => text.startsWith('The Fort tab'))!;
+    expect(fort).toContain('cost gems');
+    expect(fort).toContain('cost gold');
   });
 
   it('points the weapon at something that is not already the best choice', () => {

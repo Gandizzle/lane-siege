@@ -16,9 +16,15 @@ export class TutorialRunner {
   /** Match seconds since the step began. */
   private seconds = 0;
 
+  /**
+   * `onEnter` hears each step as it begins, before anything can end it: how
+   * the interface opens what a step `opens` (game.ts), in time for the step's
+   * `done` to see it open.
+   */
   constructor(
     readonly chapter: Chapter,
     private readonly scene: Scene,
+    private readonly onEnter: (step: Step) => void = () => {},
   ) {}
 
   /** Set the scene and open the first step. */
@@ -58,9 +64,10 @@ export class TutorialRunner {
     return this.scene.data;
   }
 
-  text(): string {
+  /** What the coach says now, about the match as `view` shows it. */
+  text(view: MatchView): string {
     const text = this.step?.text ?? '';
-    return typeof text === 'function' ? text(this.scene.data) : text;
+    return typeof text === 'function' ? text(this.scene.data, view) : text;
   }
 
   /** What to point at, if anything, given the match as it is now. */
@@ -94,6 +101,9 @@ export class TutorialRunner {
   private enter(index: number): void {
     this.index = Math.min(index, this.chapter.steps.length);
     this.seconds = 0;
-    this.step?.enter?.(this.scene);
+    const step = this.step;
+    if (!step) return;
+    step.enter?.(this.scene);
+    this.onEnter(step);
   }
 }

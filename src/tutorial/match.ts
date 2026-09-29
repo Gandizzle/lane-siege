@@ -15,6 +15,18 @@ import type { Chapter, Scene } from './types.ts';
 /** Every tutorial match is this seed. */
 export const TUTORIAL_SEED = 1107;
 
+/**
+ * Gold each scripted lane gets on top of the usual starting purse.
+ *
+ * A wave is over only when every lane has beaten it, and the bots spend their
+ * whole purse in the one planning pass the tutorial gives them before the
+ * first wave. On a wave-one purse the thinnest of them buys a single tank and
+ * takes most of a minute to clear it - a minute a new player spends waiting on
+ * a lane they have never looked at. With this every bot builds a line, and
+ * wave 1 is over about twenty seconds after it starts. Tutorial matches only.
+ */
+export const BOT_HEAD_START = 150;
+
 const LANE_IDS = ['lane1', 'lane2', 'lane3', 'lane4'] as const;
 const OWN_LANE = LANE_IDS[0];
 
@@ -29,7 +41,7 @@ export function tutorialMatch(data: GameData, chapter: Chapter, name: string): L
         ? chapter.builderId
         : (others[(index - 1) % Math.max(1, others.length)] ?? chapter.builderId),
   }));
-  return new LocalTransport(
+  const transport = new LocalTransport(
     data,
     TUTORIAL_SEED,
     teams,
@@ -37,6 +49,12 @@ export function tutorialMatch(data: GameData, chapter: Chapter, name: string): L
     LANE_IDS.filter((id) => id !== OWN_LANE),
     { quietBots: true },
   );
+  transport.stage((state) => {
+    for (const lane of Object.values(state.lanes)) {
+      if (lane.teamId !== OWN_LANE) lane.economy.gold += BOT_HEAD_START;
+    }
+  });
+  return transport;
 }
 
 /** What a chapter can do to its match. */

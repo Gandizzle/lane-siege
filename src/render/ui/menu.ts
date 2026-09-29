@@ -43,6 +43,8 @@ export interface MenuHandlers {
   onEditName(): void;
   /** Open the guide to every status marker (effectsPanel.ts). */
   onEffectsGuide(): void;
+  /** Open the damage chart (damageChart.ts). */
+  onDamageChart(): void;
 }
 
 /** What the menu needs to know about the game behind it, each frame it is open. */
@@ -405,6 +407,7 @@ export class Menu extends Container {
   private readonly statusEffects: Toggle;
   private readonly speed: Picker;
   private readonly guide: PanelButton;
+  private readonly chart: PanelButton;
   private readonly note: Text;
   private readonly leave: PanelButton;
   private readonly resume: PanelButton;
@@ -446,6 +449,7 @@ export class Menu extends Container {
       this.preferences.configure({ statusEffects: !this.preferences.settings.statusEffects }),
     );
     this.guide = new PanelButton('Effects guide', () => this.handlers.onEffectsGuide());
+    this.chart = new PanelButton('Damage vs armour', () => this.handlers.onDamageChart());
     this.speed = new Picker('Game speed', (by) =>
       this.preferences.configure({
         practiceSpeed: cycle(GAME_SPEEDS, this.preferences.settings.practiceSpeed, by),
@@ -480,6 +484,7 @@ export class Menu extends Container {
       this.speed,
       this.statusEffects,
       this.guide,
+      this.chart,
       this.note,
       this.leave,
       this.resume,
@@ -651,7 +656,11 @@ export class Menu extends Container {
     y += rowH;
     place(this.statusEffects, { x: gx, y, width: colW, height: rowH });
     y += rowH;
-    this.guide.place(gx, y + 2, colW, 32);
+    // The two reference cards side by side: what the markers mean, and what
+    // beats what.
+    const half = (colW - 8) / 2;
+    this.guide.place(gx, y + 2, half, 32);
+    this.chart.place(gx + half + 8, y + 2, half, 32);
     y += 40;
     this.note.visible = noteText !== '';
     this.note.position.set(gx, y + 2);

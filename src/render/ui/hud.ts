@@ -95,9 +95,13 @@ export class Hud extends Container {
     // A match not at real time says so, where the clock it changes is: a
     // build timer counting down three times as fast needs its reason beside it.
     const pace = speed === 1 ? '' : ` · ${speedLabel(speed)}`;
+    // Your lane can be empty while the wave is not over: it ends only when
+    // every lane has beaten it, and "0 left" would look like the game had
+    // stalled.
+    const fighting = remaining > 0 ? `Combat · ${remaining} left` : 'Waiting on other lanes';
     const phase = () =>
       label(
-        (view.phase === 'build' ? `Build · ${seconds}s` : `Combat · ${remaining} left`) + pace,
+        (view.phase === 'build' ? `Build · ${seconds}s` : fighting) + pace,
         12,
         view.phase === 'build' ? UI.accent : UI.textMuted,
         '600',

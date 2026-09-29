@@ -14,7 +14,7 @@
  * after it.
  */
 
-import type { DamageType, GameData } from '../data/schema.ts';
+import type { ArmourType, DamageType, GameData } from '../data/schema.ts';
 import { buildableUnits } from '../data/roster.ts';
 import {
   applyCommand,
@@ -116,6 +116,60 @@ export function bestAgainstWave(data: GameData, view: MatchView): DamageType {
   return rankAgainstWave(data, view, view.lane?.builderId ?? '')[0]!;
 }
 
+/** Your own lane has nothing left in it: no monster standing, none still to come. */
+function laneClear(view: MatchView): boolean {
+  const lane = view.lane;
+  return view.phase === 'combat' && !!lane && lane.monsters.length + lane.reserveCount === 0;
+}
+
+/** The first wave is over: every lane has beaten it, and the next build phase is on. */
+function waveOver(view: MatchView): boolean {
+  return view.phase === 'build' && view.wave >= 1;
+}
+
+/**
+ * The first opponent still fighting, counted the way the tabs show them (by
+ * team id, opponentTabs.ts); -1 if none is, or none can be seen.
+ */
+export function stillFighting(view: MatchView): number {
+  const ordered = [...view.opponents].sort((a, b) => a.teamId.localeCompare(b.teamId));
+  return ordered.findIndex((o) => {
+    const lane = view.watching[o.teamId];
+    return !o.eliminated && !!lane && lane.monsters.length + lane.reserveCount > 0;
+  });
+}
+
+/** The armour most of the wave on the preview wears. */
+function mainArmour(data: GameData, view: MatchView): ArmourType | null {
+  const wave = view.phase === 'build' ? view.wave + 1 : view.wave;
+  const { armourMix } = summariseWave(data, view.seed, wave, view.lane?.builderId ?? '');
+  return [...armourMix].sort((a, b) => b.count - a.count)[0]?.armour ?? null;
+}
+
+/** Which Fort tab ladders cost gems and which cost gold, by what their first level asks. */
+function fortPrices(data: GameData): { gems: string[]; gold: string[] } {
+  const f = data.fortress;
+  const ladders: [string, { gemCost?: number | null } | undefined][] = [
+    ['its weapon', f.weapon.upgrades[0]],
+    ['its health', f.hp.upgrades[0]],
+    ['regeneration', f.regen.upgrades[0]],
+    ['aura power', f.auras.strength.upgrades[0]],
+    ['aura radius', f.auras.radius.upgrades[0]],
+    ['gem output', f.resourceBuilding.output.upgrades[0]],
+    ['gem rate', f.resourceBuilding.rate.upgrades[0]],
+    ['supply', data.economy.supply.capUpgrades[0]],
+  ];
+  const costsGems = (level: { gemCost?: number | null } | undefined) => (level?.gemCost ?? 0) > 0;
+  return {
+    gems: ladders.filter(([, level]) => costsGems(level)).map(([name]) => name),
+    gold: ladders.filter(([, level]) => !costsGems(level)).map(([name]) => name),
+  };
+}
+
+function capitalised(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** "A, B and C". */
 function listed(names: readonly string[]): string {
   if (names.length <= 1) return names[0] ?? '';
@@ -170,15 +224,15 @@ const THE_LANE: Chapter = {
       target: { kind: 'hudPhase' },
       text: (data) =>
         `Each round has two parts. First the build phase: ${data.waves.buildPhaseSeconds} seconds ` +
-        'to place and upgrade units. Then combat: the wave walks in, and the round is over when ' +
-        'every monster in your lane is dead.',
+        'to place and upgrade units. Then combat: the wave walks in, and the round is over once ' +
+        'every lane has beaten it.',
     },
     {
       mode: 'next',
       target: { kind: 'hudWallet' },
       text:
         'Your resources. Gold (g) buys units and upgrades. Gems come slowly from your fortress ' +
-        'and pay for sends. Supply is how big your army can be.',
+        'and pay for sends and fortress upgrades. Supply is how big your army can be.',
     },
     {
       mode: 'next',
@@ -207,7 +261,7 @@ const FIRST_LINE: Chapter = {
       mode: 'next',
       text: (data) =>
         `Time to build. You start with ${data.economy.startingGold} gold, and the first wave is ` +
-        'coming. Let us spend it.',
+        "coming. Let's spend it.",
     },
     {
       mode: 'tap',
@@ -258,7 +312,21 @@ const FIRST_LINE: Chapter = {
       text:
         'Here they come. Monsters are drawn as outlines, your units are solid. The bar over each ' +
         'body is its health. (Too slow? The menu, top left, can speed the game up.)',
-      done: (c) => c.view.phase === 'build' && c.view.wave >= 1,
+      done: (c) => laneClear(c.view) || waveOver(c.view),
+    },
+    {
+      // Your lane can be empty long before the wave is over, and without a
+      // word here the tutorial just looks stuck.
+      mode: 'free',
+      run: true,
+      target: (c) => {
+        const index = stillFighting(c.view);
+        return index >= 0 ? { kind: 'opponentTab', index } : { kind: 'opponentTabs' };
+      },
+      text:
+        'Your lane is clear! A wave only ends once EVERY lane has beaten it, so now you wait for ' +
+        "the others. Tap a player's tab to watch how their fight is going.",
+      done: (c) => waveOver(c.view),
     },
     {
       mode: 'next',
@@ -388,15 +456,37 @@ const COUNTERS: Chapter = {
       mode: 'next',
       target: { kind: 'buildBar' },
       text:
-        'COLOUR is damage type, on units and monsters alike: amber impact, blue pierce, orange ' +
-        'blast, pink arcane. Each card says if its damage is strong ▲ or weak ▼ against the wave.',
+        'COLOUR is damage type, on units and monsters alike: amber is impact, blue is pierce, ' +
+        'orange is blast, and pink is arcane. Each card says if its damage is strong ▲ or weak ▼ ' +
+        'against the wave.',
+    },
+    {
+      mode: 'next',
+      nextLabel: 'Show the chart',
+      text:
+        'So which damage beats which armour? Each type lands harder on some armour and softer on ' +
+        'others, and one chart has all of it.',
+    },
+    {
+      mode: 'free',
+      silent: true,
+      opens: 'damageChart',
+      text: 'Close the chart when you are done.',
+      done: (c) => !c.ui.chartOpen,
+    },
+    {
+      mode: 'next',
+      target: { kind: 'menuButton' },
+      text:
+        'That chart is always in the menu, under "Damage vs armour", whenever you need a ' +
+        'reminder mid-match.',
     },
     {
       mode: 'next',
       target: { kind: 'hudIncoming' },
       text:
-        'Monsters hit back with a damage type of their own, shown here. Your units have armour ' +
-        'too, and some armour holds up better against it than others.',
+        'Monsters hit back with a damage type of their own, shown here, and the chart works both ' +
+        'ways: your units have armour too, and it decides how hard those hits land.',
     },
     {
       mode: 'tap',
@@ -409,9 +499,18 @@ const COUNTERS: Chapter = {
     {
       mode: 'tap',
       target: (c) => ({ kind: 'weapon', damageType: bestAgainstWave(c.data, c.view) }),
-      text:
-        'The highlighted type does the most against this wave. Tap it to switch the weapon over. ' +
-        "(The row under it holds the fortress's auras, a boost for units standing near it.)",
+      text: (data, view) => {
+        const best = bestAgainstWave(data, view);
+        const main = mainArmour(data, view);
+        const hits = main
+          ? `This wave is mostly ${main}, and ${best} hits ${main} for ` +
+            `×${Number(damageMultiplier(data.matrix.multipliers, best, main).toFixed(2))}. `
+          : '';
+        return (
+          `${hits}Tap ${best} to switch the fortress weapon over. (The row under it holds the ` +
+          "fortress's auras, a boost for units standing near it.)"
+        );
+      },
       done: (c) => c.view.lane?.fortress.weaponDamageType === bestAgainstWave(c.data, c.view),
     },
     {
@@ -476,14 +575,18 @@ const SENDS: Chapter = {
     {
       mode: 'next',
       target: { kind: 'barPanel' },
-      text:
-        'The Fort tab improves the fortress: its weapon, its health, the aura, how fast it makes ' +
-        'gems, and your supply. All of it is bought with gold.',
+      text: (data) => {
+        const { gems, gold } = fortPrices(data);
+        return (
+          `The Fort tab improves the fortress itself. ${capitalised(listed(gems))} cost gems; ` +
+          `${listed(gold)} cost gold.`
+        );
+      },
     },
     {
       mode: 'tap',
       target: { kind: 'tab', tab: 'send' },
-      text: "Gems buy SENDS: monsters you add to an opponent's next wave. Open the Send tab.",
+      text: "Gems also buy SENDS: monsters you add to an opponent's next wave. Open the Send tab.",
       done: (c) => c.ui.view === 'send',
     },
     {

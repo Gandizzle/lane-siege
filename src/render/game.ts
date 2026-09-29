@@ -87,6 +87,7 @@ import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Menu, MenuButton } from './ui/menu.ts';
 import { EffectsButton, EffectsPanel } from './ui/effectsPanel.ts';
+import { DamageChart } from './ui/damageChart.ts';
 import { StatusLog } from './statusLog.ts';
 import { LEGEND_BUTTON_SIZE, type Rect } from './layout.ts';
 import { Hud } from './ui/hud.ts';
@@ -176,6 +177,8 @@ export class Game extends Container {
   /** What the status markers mean: the legend button, and the panel it opens. */
   private readonly effectsButton: EffectsButton;
   private readonly effectsPanel: EffectsPanel;
+  /** Every damage type against every armour: from the menu, and the tutorial. */
+  private readonly damageChart: DamageChart;
   /** Which kinds of marker have been on screen, for the legend. */
   private readonly statusLog = new StatusLog();
   /** The chapter list, and the coach over a chapter's match. */
@@ -300,6 +303,10 @@ export class Game extends Container {
         this.setMenu(false);
         this.openEffects('catalogue');
       },
+      onDamageChart: () => {
+        this.setMenu(false);
+        this.damageChart.open();
+      },
     });
     this.tutorialScreen = new TutorialScreen(this.layout, CHAPTERS, {
       onStart: (index) => this.startLesson(index),
@@ -314,6 +321,7 @@ export class Game extends Container {
     this.effectsButton = new EffectsButton(() => this.openEffects('recent'));
     this.effectsButton.visible = false;
     this.effectsPanel = new EffectsPanel(this.layout, data, () => this.effectsPanel.close());
+    this.damageChart = new DamageChart(this.layout, data, () => this.damageChart.close());
 
     this.addChild(
       // The arena replaces the lane stack rather than sitting over it: in the
@@ -351,6 +359,7 @@ export class Game extends Container {
       this.menu,
       // Over the menu, which is one of the two ways into it.
       this.effectsPanel,
+      this.damageChart,
     );
 
     this.showScreen('home');
@@ -363,6 +372,10 @@ export class Game extends Container {
   toggleMenu(): void {
     if (this.effectsPanel.isOpen) {
       this.effectsPanel.close();
+      return;
+    }
+    if (this.damageChart.isOpen) {
+      this.damageChart.close();
       return;
     }
     this.setMenu(!this.menu.isOpen);
@@ -393,7 +406,8 @@ export class Game extends Container {
 
   /** The legend button, over whatever board is on screen, unless something is over it. */
   private showEffectsButton(): void {
-    this.effectsButton.visible = !this.menu.isOpen && !this.effectsPanel.isOpen;
+    this.effectsButton.visible =
+      !this.menu.isOpen && !this.effectsPanel.isOpen && !this.damageChart.isOpen;
     if (!this.effectsButton.visible) return;
     this.placeEffectsButton();
     this.effectsButton.render(
@@ -518,7 +532,11 @@ export class Game extends Container {
     this.mode = { kind: 'tutorial' };
     const { transport, scene } = this.services.createTutorial(chapter);
     this.beginMatch(transport);
-    const runner = new TutorialRunner(chapter, scene);
+    // A step that shows a reference card opens it as it begins; closing it is
+    // the player's, and is what moves the step on.
+    const runner = new TutorialRunner(chapter, scene, (step) => {
+      if (step.opens === 'damageChart') this.damageChart.open();
+    });
     this.lesson = { index, runner, recorded: false };
     runner.begin();
     // The setup has built a line and filled the wallet; show that, not the
@@ -551,6 +569,7 @@ export class Game extends Container {
       selection: this.selection,
       abilityOpen: this.openAbility !== null,
       effectsOpen: this.effectsPanel.isOpen,
+      chartOpen: this.damageChart.isOpen,
       watching: this.watchingTeamId,
     };
   }
@@ -660,7 +679,7 @@ export class Game extends Container {
           heading,
           step: runner.stepIndex + 1,
           steps: runner.stepCount,
-          text: runner.text(),
+          text: runner.text(view),
           mode: runner.step?.mode ?? 'next',
           nextLabel: runner.step?.nextLabel ?? 'Next',
         };
@@ -669,7 +688,11 @@ export class Game extends Container {
       {
         card,
         target: target ? this.locate(target) : null,
-        hidden: this.menu.isOpen || this.effectsPanel.isOpen || runner.step?.silent === true,
+        hidden:
+          this.menu.isOpen ||
+          this.effectsPanel.isOpen ||
+          this.damageChart.isOpen ||
+          runner.step?.silent === true,
       },
       deltaMs,
     );
@@ -702,6 +725,7 @@ export class Game extends Container {
     this.lesson = null;
     this.coach.hide();
     this.closeAbility();
+    this.damageChart.close();
     this.gameOver.reset();
     this.entities.reset();
     this.effectsLayer.reset();
@@ -753,6 +777,7 @@ export class Game extends Container {
     this.menuButton.setLayout(this.layout);
     this.menu.setLayout(this.layout);
     this.effectsPanel.setLayout(this.layout);
+    this.damageChart.setLayout(this.layout);
     this.effectsButtonAt = '';
   }
 
@@ -765,7 +790,7 @@ export class Game extends Container {
     const local = transport?.kind === 'local';
     // The effects panel pauses it too: it is for reading, and a marker that
     // wears off while the player is reading about it is no help.
-    const reading = this.menu.isOpen || this.effectsPanel.isOpen;
+    const reading = this.menu.isOpen || this.effectsPanel.isOpen || this.damageChart.isOpen;
     // And so does the tutorial's coach, whenever it is talking rather than
     // showing a fight: a wave that walks in while the player reads about the
     // build grid is a wave they did not see coming.

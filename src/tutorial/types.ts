@@ -59,6 +59,8 @@ export interface UiProbe {
   abilityOpen: boolean;
   /** The effects legend or guide is open (effectsPanel.ts). */
   effectsOpen: boolean;
+  /** The damage chart is open (damageChart.ts). */
+  chartOpen: boolean;
   /** Whose lane is on screen, or null for your own. */
   watching: string | null;
 }
@@ -92,8 +94,11 @@ export interface Scene {
 export type StepMode = 'next' | 'tap' | 'free';
 
 export interface Step {
-  /** What the coach says. A function when it quotes a number from the data. */
-  text: string | ((data: GameData) => string);
+  /**
+   * What the coach says. A function when it quotes a number from the data, or
+   * something about the match in front of the player (the wave coming next).
+   */
+  text: string | ((data: GameData, view: MatchView) => string);
   mode: StepMode;
   /** What to point at. A function when it depends on the match. */
   target?: Target | ((ctx: StepContext) => Target | null);
@@ -110,6 +115,8 @@ export interface Step {
    * anywhere to close").
    */
   silent?: boolean;
+  /** A reference card the step opens as it begins, for the player to read and close. */
+  opens?: 'damageChart';
 }
 
 export interface Chapter {
