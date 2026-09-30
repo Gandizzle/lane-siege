@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { computeBudget } from './budget.ts';
-import { totalCost } from './pricing.ts';
-import { BUILD_SPECS, lineNames, lines, placementOrder, realise, sharesLabel } from './builds.ts';
+import {
+  BUILD_SPECS,
+  chainPrice,
+  lineNames,
+  lines,
+  placementOrder,
+  realise,
+  sharesLabel,
+} from './builds.ts';
 import { runArena, seatsForArmies } from './arena.ts';
 import { planFights, runFights, standardError, summarise, type FightRecord } from './tournament.ts';
 
@@ -117,10 +124,11 @@ describe('realising a build', () => {
         const rungs = spec.shares
           .map((share, i) => ({ share, rung: i + 1 }))
           .filter((r) => r.share > 0);
-        const cheapestSupply = Math.min(
-          ...rungs.map((r) => totalCost(r.rung, spec.mark ?? 3).supply),
-        );
-        const cheapestGold = Math.min(...rungs.map((r) => totalCost(r.rung, 1).gold));
+        // At this builder's own prices, which are not the ladder's (§4e).
+        const chains = lines(data, builder.id);
+        const price = (rung: number, mark: number) => chainPrice(chains.get(rung) ?? [], mark);
+        const cheapestSupply = Math.min(...rungs.map((r) => price(r.rung, spec.mark ?? 3).supply));
+        const cheapestGold = Math.min(...rungs.map((r) => price(r.rung, 1).gold));
 
         const supplyLeft = army.supplyBudget - army.supplyUsed;
         const goldLeft = army.goldBudget - army.goldSpent;

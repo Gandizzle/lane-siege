@@ -52,7 +52,7 @@ import {
   TICKS_PER_SECOND,
   type MatchState,
 } from '../sim/index.ts';
-import { lines } from './builds.ts';
+import { chainPrice, lines } from './builds.ts';
 
 /** One body on the shopping list: which of the builder's six lines, how tall. */
 export interface Buy {
@@ -219,14 +219,7 @@ export function chainCost(
   rung: number,
   mark: number,
 ): { gold: number; supply: number } {
-  const chain = lines(data, builderId).get(rung) ?? [];
-  let gold = 0;
-  let supply = 0;
-  for (const def of chain.slice(0, mark)) {
-    gold += num(def.goldCost);
-    supply += num(def.supplyCost);
-  }
-  return { gold, supply };
+  return chainPrice(lines(data, builderId).get(rung) ?? [], mark);
 }
 
 /**

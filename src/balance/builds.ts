@@ -24,7 +24,6 @@
 
 import type { GameData, UnitDef } from '../data/schema.ts';
 import { buildableUnits } from '../data/roster.ts';
-import { totalCost } from './pricing.ts';
 
 /** A share of the supply budget per rung, rung 1 first. Need not sum to 1. */
 export type RungShares = readonly [number, number, number, number, number, number];
@@ -150,6 +149,28 @@ export function lines(data: GameData, builderId: string): Map<number, UnitDef[]>
 }
 
 /**
+ * What a body of this line costs outright at this mark: its whole chain, at the
+ * prices in `data/`.
+ *
+ * Not the ladder's `totalCost`. Each line's price is tuned on its own around
+ * the ladder (pricing.ts `priceOffset`), and an arena that charged the ladder
+ * would be fighting a roster nobody can buy - it did, and a price pass moved
+ * nothing in it.
+ */
+export function chainPrice(
+  chain: readonly UnitDef[],
+  mark: number,
+): { gold: number; supply: number } {
+  let gold = 0;
+  let supply = 0;
+  for (const def of chain.slice(0, mark)) {
+    gold += num(def.goldCost);
+    supply += num(def.supplyCost);
+  }
+  return { gold, supply };
+}
+
+/**
  * The order tiles are filled: front row first, and outward from the middle of
  * each row so a line grows around the centre rather than from one edge.
  *
@@ -218,15 +239,16 @@ export function realise(
    *
    * Outright rather than built and then upgraded, because what a player brings
    * to the arena is a finished unit: nobody arrives at wave 25 with a Mark I
-   * they never got round to. The cost is the whole chain - `totalCost` - so a
+   * they never got round to. The cost is the whole chain - `chainPrice` - so a
    * Mark III body costs what its Mark I, its Mark II and its Mark III cost
    * together, and the supply likewise.
    */
+  const priceOf = (rung: number, mark: number) => chainPrice(chains.get(rung) ?? [], mark);
   const buy = (rung: number, mark: number): boolean => {
     const chain = chains.get(rung);
     const def = chain?.[Math.min(mark, chain.length) - 1];
     if (!def) return false;
-    const cost = totalCost(rung, mark);
+    const cost = priceOf(rung, mark);
     if (cost.gold > gold || cost.supply > supply || cost.supply <= 0) return false;
     gold -= cost.gold;
     supply -= cost.supply;
@@ -244,7 +266,7 @@ export function realise(
    */
   const affordable = (rung: number): number => {
     for (let mark = wanted; mark >= 1; mark--) {
-      const cost = totalCost(rung, mark);
+      const cost = priceOf(rung, mark);
       if (cost.gold <= gold && cost.supply <= supply && cost.supply > 0) return mark;
     }
     return 0;
@@ -255,7 +277,7 @@ export function realise(
     for (;;) {
       const mark = affordable(rung);
       if (mark === 0) break;
-      if ((spent.get(rung) ?? 0) + totalCost(rung, mark).supply > want) break;
+      if ((spent.get(rung) ?? 0) + priceOf(rung, mark).supply > want) break;
       if (!buy(rung, mark)) break;
     }
   }

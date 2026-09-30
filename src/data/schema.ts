@@ -243,6 +243,11 @@ export interface UnitDef {
   mark: number;
   /** A mark is bought in place: same tile, same identity (§7.3). */
   upgradesTo?: string;
+  /**
+   * What this mark costs, bought on its own. It starts at the ladder's price
+   * for its rung and mark (pricing.ts) and is then tuned unit by unit, within
+   * a quarter either way (`priceOffset`), to what the unit is worth in play.
+   */
   goldCost: Unfilled<number>;
   supplyCost: Unfilled<number>;
   /**

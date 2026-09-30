@@ -8,9 +8,11 @@ has since been played to break it (§4b): the
 regeneration aura no longer heals for free, and the arena is walked at 2.5×
 so that no single shape of army wins it. The send tab is now a fifteen-send
 ladder from 10 to 500 gems, fixed prices, each send on a cooldown and the dear
-ones opening as the game reaches them (§4c). The open question is still the
-late-game builder gap: Thornweald and Gloomtide win the late game more often
-than Pyre and Ironvow.**
+ones opening as the game reaches them (§4c). Every unit and upgrade now has
+its own price, tuned by measurement around the ladder (§4e), which put every
+builder within a point of 50% of its duels and closed most of the opening gap.
+The open question is still the late-game builder gap, smaller than it was:
+Thornweald and Gloomtide win the late game more often than Pyre and Ironvow.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
@@ -19,7 +21,7 @@ reproduce everything quoted here:
 
 ```
 npm run budget     what a medium player can afford by the Final Showdown
-npm run reprice    the price ladder, and whether the roster is on it
+npm run reprice    the price ladder, and each unit's price against it
 npm run showdown   the round robin, across every core
 npm run waves      every army a builder could buy, against every wave
 npm run runs       whole runs, played, on four economy plans
@@ -152,27 +154,37 @@ value per GOLD    x1.10 per rung    (x1.61 across the six)
 value per SUPPLY  x1.38 per rung    (x5.00 across the six)
 ```
 
-Gold cost is **not chosen**. If value per supply climbs faster than value per
-gold, price has to climb by the ratio between them:
+The ladder price is **not chosen**. If value per supply climbs faster than
+value per gold, price has to climb by the ratio between them:
 
 | rung | supply | Mk I | Mk II | Mk III | full line | supply | gold/supply |
 | ---- | ------ | ---- | ----- | ------ | --------- | ------ | ----------- |
-| 1    | 1      | 45   | 68    | 101    | 214       | 2      | 107         |
-| 2    | 1      | 56   | 85    | 127    | 268       | 2      | 134         |
-| 3    | 2      | 142  | 212   | 319    | 673       | 4      | 168         |
-| 4    | 2      | 178  | 267   | 400    | 844       | 4      | 211         |
-| 5    | 3      | 334  | 502   | 752    | 1,588     | 6      | 265         |
-| 6    | 3      | 420  | 629   | 944    | 1,993     | 6      | 332         |
+| 1    | 1      | 45   | 68    | 139    | 252       | 2      | 126         |
+| 2    | 1      | 56   | 85    | 175    | 316       | 2      | 158         |
+| 3    | 2      | 142  | 212   | 439    | 793       | 4      | 198         |
+| 4    | 2      | 178  | 267   | 551    | 995       | 4      | 249         |
+| 5    | 3      | 334  | 502   | 1,037  | 1,873     | 6      | 312         |
+| 6    | 3      | 420  | 629   | 1,301  | 2,349     | 6      | 392         |
 
 Every Mark I price lands inside the band the design asked for (rung 1: 30–60,
 rung 6: 325–425) without a single number being typed in by hand.
 
-A mark costs 1.5× the step before it, so a Mark II has cost 2.5× the base body
-and a Mark III 4.75×. It is worth **2.85× and 5.9×** — 14% and 24% ahead of the
-cost — so going tall is clearly better gold **and** enormously better supply.
-An upgraded body is what a player brings to the arena; a Mark I is what they
-could afford in wave three. It was 6% and 9.5%, which was not a reason for
-anything.
+**The ladder is where a price starts, not where it stays.** Until the price
+pass (§4e) every unit of a rung and mark cost exactly this, whichever builder
+it belonged to, and a unit that played better or worse than its numbers was
+corrected through its stats (`valueWeight`, below). Each unit and each upgrade
+now carries its own price in `units.json`, tuned from measurement to within a
+quarter of the ladder's either way; supply stays on the ladder.
+`npm run reprice` shows every price against the ladder and leaves them where
+they are.
+
+A Mark II has cost 2.5× the base body and a Mark III 5.6×. They are worth
+**2.85× and 5.9×** — 14% and 5% ahead of the cost — so going tall is better
+gold **and** enormously better supply. An upgraded body is what a player brings
+to the arena; a Mark I is what they could afford in wave three. The Mark III
+was once 4.75×, a 24% discount, and was cut back when the top of a chain —
+where the abilities are — turned out to be the best buy twice over
+(`pricing.ts`, `MARK_COST`).
 
 This only works because every line reaches Mark III. Rewarding marks this
 heavily while ten lines could not have handed two builders the game.
@@ -1132,6 +1144,214 @@ middle of the table falls. They are checks a player is meant to answer, and a
 bot that reads the preview through the damage matrix answers them about half
 the time.
 
+## 4e. A price for every unit
+
+Until this pass every unit of a rung and mark cost the same, whichever builder
+fielded it — Pledge, Ember, Thornling and Kelpsnare all 45, every rung 6 Mark
+III 1,301 — because the price ladder (§3) set prices by position and left each
+unit's worth to its stats. It had not always been so: before the ladder
+(§3) went in, every unit carried a price set by hand. Price is the more direct
+knob and the one a player reads, so this pass balanced by **price alone**: no
+stat, ability, wave, send or economy number moved. Supply stayed on the
+ladder.
+
+`units.json` now carries each unit's and each upgrade's own price. A test holds
+every price within a quarter of the ladder's (`PRICE_BAND` in `pricing.ts`),
+every builder's Mark I bodies in rung order, and every mark dearer than the one
+below it, so the ladder is still a ladder. `npm run reprice` shows each price
+against the ladder and no longer writes over them.
+
+### How it was measured
+
+- **Line against line.** `npm run waves -- --bands 0.75,1,1.25`: every army
+  each builder could buy at three gold bands, against all twenty-five waves.
+  Within each (wave, builder, band) the armies differ only in what the same
+  gold went on, so a regression of margin on each line's share of the gold says
+  what that line's gold bought. Each line is compared with the other builders'
+  lines at its **rung and mark** — the same role at the same ladder price — and
+  turned into gold at the sweep's own rate (about 1.65 of margin per doubling
+  of gold), with a bootstrap error. The report prints it as **WHAT EACH LINE IS
+  WORTH AGAINST ITS RUNG-MATES**: x1.10 is a line whose gold did what 1.10 of
+  theirs did. Only lines more than twice their error and 8% from even were
+  moved (`src/balance/priceCheck.ts`).
+- **Builder against builder, by stretch of the game.** From the same sweep, the
+  gold at which half a builder's armies clear each wave, as a fraction of
+  nominal (**GOLD TO CLEAR HALF**; lower is stronger), averaged over five-wave
+  stretches. A builder's prices as a whole move this.
+- **The arena.** `npm run showdown -- --duels 40 --ffa 80 --mirrors 0`, twice
+  the usual count. At 20 duels a pair the old prices read as even, 47.5% to
+  53%; at 40 they were 44% to 55%.
+- **Whole runs.** `npm run runs -- --waves 25 --plans steady,strong,smart`,
+  seeds 1 and 2.
+
+Each round moved a price about half to two-thirds of the way to where the
+measurement put it and measured again: three rounds, then two small
+corrections for the arena and one for Pyre's practice bots. Moving only what the line comparison flagged was not
+enough by itself — every price also moves its builder — so the later rounds
+moved lines toward even **inside** each builder and set each builder's level
+by stretch of the game against the other three.
+
+### The arena was charging the ladder
+
+The showdown's army builder (`realise`, `builds.ts`) charged every body the
+ladder's price for its rung and mark rather than the unit's own. While the two
+were the same number that was invisible; the first round of prices moved
+nothing in the arena, to the decimal, which is how it was found. It charges
+each line's own chain now (`chainPrice`).
+
+### The prices
+
+Old price was the ladder's: 45 / 68 / 139 at rung 1, then 56 / 85 / 175, 142 /
+212 / 439, 178 / 267 / 551, 334 / 502 / 1,037 and 420 / 629 / 1,301. Mark II
+and III are the price of that upgrade, not the chain.
+
+| builder    | rung | line        |     Mark I |    Mark II |    Mark III |
+| ---------- | ---: | ----------- | ---------: | ---------: | ----------: |
+| Ironvow    |    1 | Pledge      |   44 (−2%) |         68 |   152 (+9%) |
+|            |    2 | Sentinel    |         56 |         85 |   190 (+9%) |
+|            |    3 | Vigil       | 158 (+11%) |  232 (+9%) |   462 (+5%) |
+|            |    4 | Oathwall    |        178 |  260 (−3%) |   515 (−7%) |
+|            |    5 | Sanction    |  315 (−6%) |  465 (−7%) |  910 (−12%) |
+|            |    6 | Judgement   |        420 |  614 (−2%) | 1170 (−10%) |
+| Pyre       |    1 | Ember       |         45 |         68 |   148 (+6%) |
+|            |    2 | Wickling    |   54 (−4%) |         85 |   160 (−9%) |
+|            |    3 | Foxfire     |  131 (−8%) | 190 (−10%) |  345 (−21%) |
+|            |    4 | Slagmaw     |  180 (+1%) |  280 (+5%) |   530 (−4%) |
+|            |    5 | Firebrand   |  350 (+5%) | 585 (+17%) | 1260 (+22%) |
+|            |    6 | Scoria      | 360 (−14%) |  580 (−8%) | 1080 (−17%) |
+| Thornweald |    1 | Thornling   |   42 (−7%) |   65 (−4%) |   132 (−5%) |
+|            |    2 | Mycelia     |   60 (+7%) |   88 (+4%) |   190 (+9%) |
+|            |    3 | Rotgourd    |  134 (−6%) |        212 |  385 (−12%) |
+|            |    4 | Hollowbark  |  175 (−2%) |  262 (−2%) |  640 (+16%) |
+|            |    5 | Sporecrown  |        334 |        502 |  1080 (+4%) |
+|            |    6 | Nettlespire |  410 (−2%) |        629 |  1305 (+0%) |
+| Gloomtide  |    1 | Kelpsnare   |   44 (−2%) |         68 |  118 (−15%) |
+|            |    2 | Murmur      |   52 (−7%) |   81 (−5%) |  156 (−11%) |
+|            |    3 | Sleet       |  145 (+2%) |  216 (+2%) |  540 (+23%) |
+|            |    4 | Fathomhold  |  175 (−2%) | 238 (−11%) |  470 (−15%) |
+|            |    5 | Maelstrom   | 300 (−10%) | 440 (−12%) |  850 (−18%) |
+|            |    6 | Torrent     | 495 (+18%) | 745 (+18%) | 1600 (+23%) |
+
+In words:
+
+- **Gloomtide** was the weakest opening in the game and the strongest late one.
+  Its cheap bodies came down (Murmur, Kelpsnare), and so did Maelstrom and
+  Fathomhold, the lines that were doing least for their gold; Torrent, the line
+  that carries its late game, went up by a fifth at every mark, and Sleet's top
+  mark with it.
+- **Pyre** opened strongest and faded. Foxfire and Scoria, its two worst lines
+  for the gold — Scoria is its only pierce — came down by 8 to 21%, and
+  Firebrand, its best, went up by up to a fifth. Ember and Slagmaw went up
+  too in the first rounds and were pulled back: they are Pyre's impact, its
+  only answer to plate before Scoria, and at +10 to 16% Pyre's practice bots
+  stalled at wave 13 (Carapaces and Husks behind Spitters) eleven times in
+  twenty-seven, from five.
+- **Thornweald**'s Thornling and Rotgourd came down and Mycelia went up. Its
+  Hollowbark Mark III, the best buy for the gold in the late waves, went up
+  16%: it went to 24% and was eased back, because it is also what holds
+  Thornweald's line in a four-way.
+- **Ironvow**'s cheap lines, which were doing more than their rung-mates —
+  Vigil, and the Pledge and Sentinel Mark IIIs — went up by 5 to 11%; its dear
+  ones, Sanction and Judgement's top marks, came down by 10 to 12%.
+
+### What it did
+
+**Line against line.** Lines more than twice their error and 8% from their
+rung-mates: **36 of 72 before, 17 after**, and the typical line's distance
+from even nearly halved, 9.6% to 5.4%. The worst went from 42% ahead
+(Firebrand III) and 20% behind (Foxfire III) to 26% ahead (Torrent III) and
+13% behind (Maelstrom III). `reports/waves-25-prices.txt` has the whole table.
+
+**Builder against builder, in the waves** — gold to clear half the armies, as a
+fraction of nominal:
+
+| builder    | 1–5         | 6–10        | 11–15       | 16–20       | 21–25       |
+| ---------- | ----------- | ----------- | ----------- | ----------- | ----------- |
+| Gloomtide  | 1.05 → 0.99 | 0.98 → 0.94 | 0.96 → 0.94 | 0.88 → 0.85 | 0.89 → 0.88 |
+| Ironvow    | 0.94 → 0.94 | 0.92 → 0.94 | 0.96 → 0.96 | 0.91 → 0.92 | 0.91 → 0.92 |
+| Pyre       | 0.89 → 0.89 | 0.92 → 0.92 | 0.94 → 0.93 | 0.94 → 0.91 | 0.96 → 0.89 |
+| Thornweald | 0.97 → 0.96 | 0.97 → 0.97 | 0.97 → 0.95 | 0.92 → 0.90 | 0.93 → 0.93 |
+| spread     | 0.16 → 0.10 | 0.06 → 0.05 | 0.03 → 0.03 | 0.06 → 0.07 | 0.07 → 0.05 |
+
+The share of every army a builder could buy that clears at nominal went from
+57–66% across the four to 62–69%. The opening, where the gap was widest,
+closed most.
+
+**The arena** (`reports/showdown-09.txt` before, `-10` after):
+
+|                              | before    | after     |
+| ---------------------------- | --------- | --------- |
+| duels, Ironvow               | 43.8%     | 49.6%     |
+| duels, Pyre                  | 49.2%     | 49.6%     |
+| duels, Thornweald            | 52.1%     | 50.0%     |
+| duels, Gloomtide             | 54.9%     | 50.8%     |
+| matchups outside 40/60       | 1 (31%)   | 1 (36%)   |
+| four-ways, lowest to highest | 19% – 33% | 18% – 29% |
+
+Every builder within a point of 50% of its duels, where the bar is three.
+
+**Whole runs** to the council, where each run dies once and one seed is a
+coin with a lot of sides (`reports/runs-25-prices.txt`):
+
+| builder    | before, seed 1 | before, seed 2 | after, seed 1 | after, seed 2 | mean wave   | beat the council |
+| ---------- | -------------- | -------------- | ------------- | ------------- | ----------- | ---------------- |
+| Ironvow    | 15, 25, 25     | 19, 15, 5      | 21, 18, 18    | 18, 25, 25    | 17.3 → 20.8 | 0 → 0 of 6       |
+| Pyre       | 25, 13, 13     | 25, ✓, ✓       | 13, 13, 25    | 18, 19, 25    | 21.3 → 18.8 | 2 → 0            |
+| Thornweald | ✓, ✓, ✓        | 25, ✓, ✓       | 25, ✓, ✓      | 25, ✓, 19     | 25.8 → 24.5 | 5 → 3            |
+| Gloomtide  | ✓, 25, ✓       | 25, ✓, 25      | 25, ✓, 25     | 25, ✓, ✓      | 25.5 → 25.5 | 3 → 3            |
+
+Steady, strong and smart greed in that order; a number is the wave the run
+died at, ✓ a run that beat the council (26 in the mean). The gap between the
+best builder and the worst narrowed from 8.5 waves to 6.7 and the mean over
+all four did not move (22.4). No builder moved by more than one run's worth
+of noise — every builder's worst result is a single lost wave. Ironvow's rise is
+all seed 2, where it died at 19, 15 and 5 and now reaches the council twice;
+seed 1 went the other way, from the council twice to 21, 18 and 18. Pyre's
+seed 1 is the same three results in a different order; seed 2 came out worse,
+and it beat the council in none: its seed-2 runs came into the late waves
+with less economy than before and without the Firebrand Mark II it used to
+carry them with, which is now 17% dearer. Of the four measures this is the
+one where Pyre lost ground; in the sweep it gained the most and in the bots
+it held level. Fewer runs beat the council overall, 10 of 24 to 6, because
+the two builders that beat it most paid for it on Hollowbark and Firebrand's
+top marks.
+
+**Practice bots**, the same 36 tables as §4d (`npm run bots -- --tables 36`,
+`reports/bots-36-prices.txt`), mean last wave standing:
+
+|                                    | before | after |
+| ---------------------------------- | -----: | ----: |
+| Gloomtide                          |   15.9 |  18.4 |
+| Pyre                               |   17.1 |  17.0 |
+| Ironvow                            |   15.2 |  14.6 |
+| Thornweald                         |   12.2 |  13.5 |
+| every bot                          |   15.1 |  15.9 |
+| tables where a bot reached wave 20 |     21 |    27 |
+| tables where a bot beat wave 25    |     13 |    15 |
+
+The spread between the builders' bots is the same 4.9 waves it was; the order
+changed. It is the one measure where Gloomtide came out clearly ahead, and
+where Thornweald is still last — a Thornweald bot dies young to its
+tank-heavy opening (§4d), which a price can soften and not fix.
+
+### What price could not do
+
+- **Torrent III** sits at +23%, against a cap of +25%, and still does 26% more
+  for its gold than the other rung 6 Mark IIIs in the waves. **Firebrand III**
+  at +22% is 16% ahead and **Maelstrom III** at −18% is 13% behind. Past a
+  quarter off the ladder a price starts to say something untrue about the unit;
+  these want their stats or their abilities looked at (`valueWeight`, or the
+  ability itself), not a bigger number.
+- **Gloomtide still has the strongest late waves** (0.85–0.88 of nominal
+  against 0.89–0.93), which is mostly Torrent, and the strongest practice
+  bots.
+- **Thornweald's four-way record** is still the lowest, 18% where 25% is even.
+  It is 50% in duels. A builder that wins one-on-one and loses four-ways is
+  being focused, which is §6's point about four-ways, not a price.
+- **Ironvow against Thornweald** is the one matchup outside 40/60, 36%
+  (from 31%).
+- **Pyre's whole runs**, above: the one measure where it lost ground.
+
 ## 5. The phases
 
 **Phase 0 — instrumentation.** _Done._ Vocabulary settled, the budget computed
@@ -1258,6 +1478,10 @@ to want changing, in the order they would be reached for:
    makes the top of the ladder more attractive per supply and therefore dearer;
    raising the second makes expensive units better value and flattens the
    reason to go wide.
+5. A single unit's `goldCost` in `units.json`, when one line is doing more or
+   less than its rung-mates. `npm run waves -- --bands 0.75,1,1.25` prints which
+   (§4e); the price stays within `PRICE_BAND` of the ladder, and a line that
+   wants more than that wants its stats or its ability looked at instead.
 
 After any of them: `npm run reprice` to see the diff, `-- --write` to apply it,
 then `npm test` and `npm run showdown -- --quick` before trusting anything.

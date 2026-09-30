@@ -8,6 +8,8 @@
  *   npm run waves
  *   npm run waves -- --waves 1,2 --cap 40
  *   npm run waves -- --detail 1          the basket-by-basket table for wave 1
+ *   npm run waves -- --dump out.json     and every outcome, raw, for analysis
+ *   npm run waves -- --from out.json     the report again from a dump, no fights
  */
 
 import fs from 'node:fs';
@@ -17,6 +19,7 @@ import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { computeBudget } from '../balance/budget.ts';
 import { loadDataFromDisk } from '../data/loadNode.ts';
+import { goldToClearHalf, lineWorth, marginPerLogGold } from '../balance/priceCheck.ts';
 import {
   SWEEP_DEFAULTS,
   generateWaveSummary,
@@ -61,9 +64,14 @@ const options: SweepOptions = {
 // three minutes and three and a half gigabytes a process, and five of them at
 // once ran the machine out of memory.
 const probesFile = flag('probes');
-const probes: Probe[] = probesFile
-  ? (JSON.parse(fs.readFileSync(probesFile, 'utf8')) as Probe[])
-  : planProbes(data, options);
+// `--from` reports a saved dump and fights nothing, so it plans nothing either:
+// past wave 10 the planning alone takes minutes.
+const fromFile = flag('from');
+const probes: Probe[] = fromFile
+  ? []
+  : probesFile
+    ? (JSON.parse(fs.readFileSync(probesFile, 'utf8')) as Probe[])
+    : planProbes(data, options);
 const started = Date.now();
 
 // ---------------------------------------------------------- shard, or whole
@@ -84,7 +92,11 @@ const started = Date.now();
 
 const shard = flag('shard');
 
-if (shard) {
+if (fromFile) {
+  const saved = JSON.parse(fs.readFileSync(fromFile, 'utf8')) as WaveOutcome[];
+  console.log(`\n${saved.length} outcomes from ${fromFile}`);
+  report(saved);
+} else if (shard) {
   const [indexRaw, countRaw] = shard.split('/');
   const index = Number(indexRaw);
   const count = Number(countRaw);
@@ -120,6 +132,8 @@ async function wholeRun(): Promise<void> {
       }));
 
   if (outcomes.length > 0) report(outcomes);
+  const dump = flag('dump');
+  if (dump && outcomes.length > 0) fs.writeFileSync(dump, JSON.stringify(outcomes));
 }
 
 function progress(done: number, total: number): void {
@@ -132,7 +146,7 @@ function progress(done: number, total: number): void {
 
 async function runSharded(count: number): Promise<WaveOutcome[]> {
   const self = fileURLToPath(import.meta.url);
-  const PARENT_ONLY = new Set(['--shard', '--jobs', '--probes']);
+  const PARENT_ONLY = new Set(['--shard', '--jobs', '--probes', '--dump', '--from']);
   const planned = path.join(os.tmpdir(), `lane-siege-probes-${process.pid}.json`);
   fs.writeFileSync(planned, JSON.stringify(probes));
   const passthrough: string[] = [];
@@ -207,7 +221,9 @@ function rule(title: string): void {
 }
 
 function report(all: WaveOutcome[]): void {
-  console.log(`\n${all.length} probes in ${Math.round((Date.now() - started) / 1000)}s.\n`);
+  if (!fromFile) {
+    console.log(`\n${all.length} probes in ${Math.round((Date.now() - started) / 1000)}s.\n`);
+  }
 
   // A fight that ran out of clock is not a result. It means two sides that
   // cannot finish each other, which is a bug in the wave or in the sandbox
@@ -300,6 +316,7 @@ function report(all: WaveOutcome[]): void {
   }
 
   valuePerGold(all);
+  priceCheck(all);
 
   const detail = flag('detail');
   if (detail) detailTable(all, Number(detail));
@@ -358,6 +375,67 @@ export { shoppingLabel };
  * own - but a line that is several times its neighbours on BOTH is carrying
  * something its price does not know about.
  */
+/**
+ * Whether the prices are right (src/balance/priceCheck.ts, BALANCE.md §4e):
+ * each line's gold against its rung-mates', and each builder's gold to clear
+ * half its armies by stretch of the game. Both need two bands or more.
+ */
+function priceCheck(all: WaveOutcome[]): void {
+  const bands = new Set(all.map((o) => o.goldBudget / nominalArmyGold(data, o.wave)));
+  if (bands.size < 2) return;
+
+  rule('WHAT EACH LINE IS WORTH AGAINST ITS RUNG-MATES');
+  console.log(
+    `  gold for gold, against the other builders' lines at the same rung and mark.\n` +
+      `  x1.10 is a line whose gold did what 1.10 of theirs did: underpriced. << is\n` +
+      `  clear of the noise (twice its error) and more than 8% off.\n` +
+      `  (${marginPerLogGold(all).toFixed(2)} margin per doubling of gold, as e.)\n`,
+  );
+  let last = '';
+  for (const w of lineWorth(data, all)) {
+    const at = `r${w.rung}m${w.mark}`;
+    if (last && at !== last) console.log('');
+    last = at;
+    console.log(
+      `  ${at}  ${w.defId.padEnd(14)}${String(w.goldCost).padStart(6)}g` +
+        `  ${w.relative >= 0 ? '+' : ''}${w.relative.toFixed(2)} ±${w.error.toFixed(2)}` +
+        `  x${w.worth.toFixed(2)}${w.clear ? '  <<' : ''}`,
+    );
+  }
+
+  rule('GOLD TO CLEAR HALF, BY BUILDER AND STRETCH OF THE GAME');
+  console.log('  as a fraction of nominal: lower is stronger.\n');
+  const half = goldToClearHalf(all);
+  const builders = [...new Set(all.map((o) => o.builderId))];
+  const stretches = [
+    [1, 5],
+    [6, 10],
+    [11, 15],
+    [16, 20],
+    [21, 25],
+  ] as const;
+  console.log(
+    `  ${'builder'.padEnd(12)}${stretches.map(([a, b]) => `${a}-${b}`.padStart(8)).join('')}${'all'.padStart(8)}`,
+  );
+  const geo = (values: number[]): string =>
+    values.length > 0
+      ? Math.exp(values.reduce((s, v) => s + Math.log(v), 0) / values.length).toFixed(2)
+      : '-';
+  for (const builder of builders) {
+    const every: number[] = [];
+    const cells = stretches.map(([a, b]) => {
+      const values: number[] = [];
+      for (let wave = a; wave <= b; wave++) {
+        const v = half.get(`${builder}|${wave}`);
+        if (v !== undefined) values.push(v);
+      }
+      every.push(...values);
+      return geo(values).padStart(8);
+    });
+    console.log(`  ${builder.padEnd(12)}${cells.join('')}${geo(every).padStart(8)}`);
+  }
+}
+
 function valuePerGold(all: WaveOutcome[]): void {
   interface Row {
     defId: string;

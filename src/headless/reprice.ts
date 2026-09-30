@@ -3,12 +3,18 @@
  *
  * Reads `data/units.json`, applies src/balance/pricing.ts, and prints what
  * would change. Nothing is written without `--write`, because this rewrites
- * every gold cost, supply cost, damage and hit point figure in the game and
- * that is not a thing to do by accident.
+ * every supply cost, damage and hit point figure in the game and that is not a
+ * thing to do by accident.
  *
- *   npm run reprice              show the diff
- *   npm run reprice -- --write   apply it
- *   npm run reprice -- --bands   just the ladder, no per-unit rows
+ * Gold prices are LEFT WHERE THEY ARE. Each unit's price is tuned on its own
+ * around the ladder's (`priceOffset`), and the column shows how far; a reprice
+ * that put them all back would undo that pass without saying so.
+ * `--ladder-prices` does it on purpose.
+ *
+ *   npm run reprice                          show the diff
+ *   npm run reprice -- --write               apply it
+ *   npm run reprice -- --write --ladder-prices   and every price back on the ladder
+ *   npm run reprice -- --bands               just the ladder, no per-unit rows
  */
 
 import fs from 'node:fs';
@@ -32,12 +38,19 @@ import {
 const { data } = loadDataFromDisk();
 const write = process.argv.includes('--write');
 const bandsOnly = process.argv.includes('--bands');
+const ladderPrices = process.argv.includes('--ladder-prices');
 const anchor = process.argv.includes('--median') ? 'median' : 'rung1';
 
 const scale = rosterScale(data, anchor);
 const priced = priceRoster(data, { anchor });
 const byId = new Map(priced.map((p) => [p.id, p]));
 const pad = (s: string | number, w: number): string => String(s).padStart(w);
+/** "ladder" when a price is on it, and how far off it is when it is not. */
+const priceShift = (gold: number, ladder: number): string => {
+  if (gold === ladder) return '(ladder)'.padEnd(12);
+  const shift = Math.round((gold / ladder - 1) * 100);
+  return `(${shift > 0 ? '+' : ''}${shift}% of ${ladder})`.padEnd(12);
+};
 
 // ------------------------------------------------------------------ the ladder
 
@@ -102,7 +115,7 @@ for (let rung = 1; rung <= 6; rung++) {
 // ------------------------------------------------------------- the whole diff
 
 if (!bandsOnly) {
-  console.log('\nPER UNIT   (gold, supply, damage, hp; -> is the new value)\n');
+  console.log('\nPER UNIT   (gold against the ladder; supply, damage, hp: > is the new value)\n');
   for (const builder of data.units.builders) {
     console.log(`  ${builder.name}`);
     const mine = data.units.units
@@ -116,7 +129,7 @@ if (!bandsOnly) {
       };
       console.log(
         `    r${unit.rung} Mk${'I'.repeat(unit.mark).padEnd(3)} ${unit.name.padEnd(14)}` +
-          ` gold ${arrow(unit.goldCost ?? 0, p.goldCost)}` +
+          ` gold ${pad(p.goldCost, 5)} ${priceShift(p.goldCost, p.ladderGold)}` +
           `  sup ${arrow(unit.supplyCost ?? 0, p.supplyCost)}` +
           `  dmg ${arrow(unit.damage ?? 0, p.damage)}` +
           `  hp ${arrow(unit.hp ?? 0, p.hp)}` +
@@ -148,7 +161,7 @@ if (!write) {
   for (const unit of raw.units) {
     const p = byId.get(unit.id as string);
     if (!p) continue;
-    unit.goldCost = p.goldCost;
+    if (ladderPrices) unit.goldCost = p.ladderGold;
     unit.supplyCost = p.supplyCost;
     unit.damage = Math.round(p.damage);
     unit.hp = Math.round(p.hp);

@@ -28,7 +28,9 @@
  * Gold cost falls out of those two rather than being chosen: if value per
  * supply climbs faster than value per gold, price has to climb by the ratio.
  * That is `markOneCost` below, and it is why the numbers land inside the bands
- * the design called for without being typed in one at a time.
+ * the design called for without being typed in one at a time. It is where each
+ * price starts; a unit that plays better or worse than its numbers has its own
+ * price moved a little either side of it (`priceOffset`).
  *
  * WHAT `value` MEANS
  *
@@ -157,6 +159,31 @@ export function markStepCost(rung: number, mark: number): number {
   return base * (cumulative - below);
 }
 
+/**
+ * How far a unit's price sits from the ladder's: 0.9 is ten percent cheaper.
+ *
+ * THE LADDER IS WHERE A PRICE STARTS, NOT WHERE IT HAS TO STAY. It sets every
+ * rung and mark in proportion, which is the right place to begin and says
+ * nothing about the one line whose body plays better or worse than its numbers:
+ * a tank on a builder that has no reason to stand still, a gun whose ability
+ * nothing charged for. Those are corrected unit by unit, by moving the price in
+ * `units.json` - each mark on its own, since an upgrade is bought on its own -
+ * and leaving the stats alone. `valueWeight` is the other way to say the same
+ * thing (same price, different body), and was the only way until the price
+ * pass in docs/BALANCE.md §3.
+ *
+ * A test holds every price within `PRICE_BAND` of the ladder, and a builder's
+ * Mark I bodies in rung order, so a price can be tuned without the ladder
+ * stopping being one.
+ */
+export function priceOffset(unit: Pick<UnitDef, 'rung' | 'mark' | 'goldCost'>): number {
+  const ladder = Math.round(markStepCost(unit.rung, unit.mark));
+  return ladder > 0 ? num(unit.goldCost, ladder) / ladder : 1;
+}
+
+/** How far a price may move from the ladder's, either way. */
+export const PRICE_BAND = 0.25;
+
 /** Supply to buy this mark, having already paid for the one below it. */
 export function markStepSupply(rung: number, mark: number): number {
   const body = SUPPLY_BY_RUNG[Math.min(Math.max(rung, 1), SUPPLY_BY_RUNG.length) - 1]!;
@@ -220,6 +247,9 @@ export interface PricedUnit {
   name: string;
   rung: number;
   mark: number;
+  /** What the ladder says this mark should cost. */
+  ladderGold: number;
+  /** What it does cost, in data/: the ladder price moved by `priceOffset`. */
   goldCost: number;
   supplyCost: number;
   /** What the body must be worth, and the factor its stats move by to get there. */
@@ -267,7 +297,8 @@ export function priceRoster(
       name: unit.name,
       rung: unit.rung,
       mark: unit.mark,
-      goldCost: Math.round(markStepCost(unit.rung, unit.mark)),
+      ladderGold: Math.round(markStepCost(unit.rung, unit.mark)),
+      goldCost: num(unit.goldCost, Math.round(markStepCost(unit.rung, unit.mark))),
       supplyCost: markStepSupply(unit.rung, unit.mark),
       targetValue: target,
       currentValue: current,

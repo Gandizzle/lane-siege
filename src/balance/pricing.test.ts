@@ -9,6 +9,8 @@ import {
   markOneCost,
   markStepCost,
   markStepSupply,
+  PRICE_BAND,
+  priceOffset,
   priceRoster,
   targetValue,
   totalCost,
@@ -130,10 +132,31 @@ describe('the roster as priced', () => {
     }
   });
 
-  it('charges the ladder price for every unit', () => {
+  it('charges the ladder supply for every unit, and a gold price near the ladder', () => {
+    // Gold is tuned unit by unit (priceOffset); supply is the ladder's alone.
     for (const unit of data.units.units) {
-      expect(unit.goldCost, `${unit.id} gold`).toBe(Math.round(markStepCost(unit.rung, unit.mark)));
       expect(unit.supplyCost, `${unit.id} supply`).toBe(markStepSupply(unit.rung, unit.mark));
+      expect(priceOffset(unit), `${unit.id} gold`).toBeGreaterThanOrEqual(1 - PRICE_BAND);
+      expect(priceOffset(unit), `${unit.id} gold`).toBeLessThanOrEqual(1 + PRICE_BAND);
+    }
+  });
+
+  it('keeps each builder a ladder: a higher rung never costs less to start', () => {
+    for (const builder of data.units.builders) {
+      const bodies = data.units.units
+        .filter((u) => u.builderId === builder.id && u.mark === 1)
+        .sort((a, b) => a.rung - b.rung);
+      for (let i = 1; i < bodies.length; i++) {
+        expect(bodies[i]!.goldCost, `${bodies[i]!.id}`).toBeGreaterThan(bodies[i - 1]!.goldCost!);
+      }
+    }
+  });
+
+  it('charges more for each mark of a line than the one below it', () => {
+    const byId = new Map(data.units.units.map((u) => [u.id, u]));
+    for (const unit of data.units.units) {
+      const next = unit.upgradesTo ? byId.get(unit.upgradesTo) : undefined;
+      if (next) expect(next.goldCost, `${next.id}`).toBeGreaterThan(unit.goldCost!);
     }
   });
 
