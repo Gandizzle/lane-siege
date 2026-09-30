@@ -49,7 +49,14 @@ function table(seed = 3) {
   return { state, tick };
 }
 
-describe('bot personalities', () => {
+/**
+ * Several of these play real waves of a real match, which takes a couple of
+ * seconds here and more than the default five on a slower CI runner - the
+ * deploy refused two builds for it.
+ */
+const SLOW = { timeout: 60_000 };
+
+describe('bot personalities', SLOW, () => {
   it('rolls the same table from the same seed, and different ways to play at it', () => {
     const one = rollSeats(42, ['lane2', 'lane3', 'lane4']);
     const two = rollSeats(42, ['lane2', 'lane3', 'lane4']);
@@ -89,7 +96,7 @@ describe('bot personalities', () => {
   }
 });
 
-describe('what a bot does with its style', () => {
+describe('what a bot does with its style', SLOW, () => {
   function run(style: Partial<BotStyle>, ticks: number, seed = 3) {
     const { state, tick } = table(seed);
     const base = rollStyle(new Rng(seed), 'tactician');
