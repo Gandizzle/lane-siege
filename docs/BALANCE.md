@@ -10,9 +10,12 @@ so that no single shape of army wins it. The send tab is now a fifteen-send
 ladder from 10 to 500 gems, fixed prices, each send on a cooldown and the dear
 ones opening as the game reaches them (§4c). Every unit and upgrade now has
 its own price, tuned by measurement around the ladder (§4e), which put every
-builder within a point of 50% of its duels and closed most of the opening gap.
-The open question is still the late-game builder gap, smaller than it was:
-Thornweald and Gloomtide win the late game more often than Pyre and Ironvow.**
+builder within a point of 50% of its duels and closed most of the opening gap,
+and a stat pass (§4f) took the lines price could not fix and Pyre's collapse at
+wave 13. Whole runs now end within 3.7 waves of each other across the four
+builders, from 8.5. The open question has moved: Gloomtide is the strongest
+builder in most measures, and the sweep's spread between builders widened in
+the stat pass while the runs and the bots narrowed.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
@@ -216,10 +219,16 @@ confidently wrong. Instead each unit carries a **`valueWeight`** in
 `units.json`: above 1 means it is worth more than it looks, so `npm run reprice`
 gives it fewer raw stats for the same price.
 
-It is the one knob set from **evidence** rather than from a ladder, and every
-value in it should be able to name the run that justified it. Currently one
-entry: Gloomtide's roster at 1.08, after run 02. Closing the rest of this gap —
-a measured weight per ability — is phase 2.
+It is set from **evidence** rather than from a ladder, and every value in it
+should be able to name the run that justified it. It started as one entry,
+Gloomtide's roster at 1.08 after run 02, and is now set line by line: Pyre's
+area lines carry 1.12 (Ember, Wickling I, Foxfire I) to 1.35 (Ember Mark III),
+Firebrand 1.15 and Torrent III 1.25; the Mark IIIs that fight the late waves
+and the arena 0.93 to 0.95; and from the stat pass (§4f) Maelstrom 0.95,
+Scoria 0.92, Foxfire II–III 1 and Wickling II–III 1.05. `npm run reprice -- --write --only <ids>` restats
+just the units whose weight moved. Closing the rest of this gap — a measured
+weight per ability — is phase 2. Price is the other half of the same
+question, and since §4e each unit has its own.
 
 ### Two consequences worth knowing about
 
@@ -1351,6 +1360,176 @@ tank-heavy opening (§4d), which a price can soften and not fix.
 - **Ironvow against Thornweald** is the one matchup outside 40/60, 36%
   (from 31%).
 - **Pyre's whole runs**, above: the one measure where it lost ground.
+
+§4f takes these on with stats rather than price.
+
+## 4f. The stat pass, and Pyre's late game
+
+§4e left three lines that price could not fix without saying something untrue
+about them — more than a quarter off the ladder and still off — and one
+builder, Pyre, that lost ground in whole runs. This pass moved stats and
+ability numbers, and let the three prices come back toward the ladder. The
+measures are §4e's: the line comparison and gold-to-clear-half from
+`npm run waves -- --bands 0.75,1,1.25`, the arena at 40 duels a pair, 36
+practice tables, and whole runs on two seeds.
+
+### Why the three were off
+
+- **Torrent III and Firebrand III are area weapons**, and `unitValue` prices
+  a body by `sqrt(damage × health)` with no idea how many things its shell
+  lands on. Both jumped at Mark III, where they gain a second area attack:
+  Torrent from x1.06 of its rung-mates at Mark II to x1.26, Firebrand from x1.09
+  to x1.16.
+- **Maelstrom's chain only runs between soaked targets**, and only Kelpsnare,
+  Sleet and Torrent III soak. Armies without one did a little worse (0.06 of
+  margin), but that was not most of it: the line had carried 8% less body than
+  the ladder since run 02 and was behind at every mark.
+
+### What moved
+
+| unit            | change                                                                               | price                                 |
+| --------------- | ------------------------------------------------------------------------------------ | ------------------------------------- |
+| Torrent III     | Cloudburst 85% → 55% of the shell; value weight 1.08 → 1.25 (−12% damage and health) | 1,600 → 1,450                         |
+| Firebrand III   | Pyroclasm 140% → 100% of the shell                                                   | 1,260 → 1,150                         |
+| Maelstrom line  | value weight 1.08 → 0.95 (+17%); Drownward 8% → 11% of current health                | 300 / 440 / 850 → 315 / 460 / 900     |
+| Scoria line     | value weight 1 → 0.92 (+9%)                                                          | 360 / 580 / 1,080 → 380 / 600 / 1,130 |
+| Foxfire II–III  | value weight 1.12 → 1 (+12%)                                                         | Mark III 345 → 370                    |
+| Wickling II–III | value weight 1.12 → 1.05 (+7%)                                                       | unchanged                             |
+
+A value weight moves damage and health together, so a unit's shape is kept
+(§3). Maelstrom came out at +17% rather than the +14% the weight alone says,
+because the restat also undid an older hand-trim to its damage. `npm run
+reprice -- --write --only <ids>` does the restat for just the units named.
+
+Three things did not go the way they were expected to, and are worth knowing:
+
+- **Cloudburst was not Torrent III's edge.** A 35% cut to its damage, with
+  the price 9% lower at the same time, left the line comparison exactly where
+  it was (x1.27). What moved it was the body. Torrent's reach (5.5 tiles, the
+  longest in the game), its line splash down a lane full of monsters and
+  Cloudburst's slow are the likelier story than Cloudburst's damage.
+- **Maelstrom and Torrent pull Gloomtide in opposite directions**, and the
+  first round had Maelstrom's +17% outweigh the Cloudburst cut: Gloomtide's
+  late waves got stronger (0.85 → 0.82 of nominal at 16–20).
+- **Buffing Foxfire and Wickling at Mark I strengthened Pyre's opening**,
+  which was already the strongest, for almost nothing in the runs it was for.
+  The Mark I buffs were taken back out; see below.
+
+### Pyre's late game was its mid game
+
+Pyre's runs die at waves 13 and 18–19, before Firebrand III or Scoria III are
+on the board — so the rung 5 and 6 changes above could not reach it, and did
+not: the first round left every Pyre run exactly where it was. What it brings
+to wave 13 (Carapaces and Husks, plate, behind fourteen Spitters) is about two
+thirds Embers. Every other builder opens on pierce — Thornling or Kelpsnare
+at rung 1, 1.5× against plate — or, for Ironvow, on ranged pierce Sentinels.
+Pyre's only pierce is Scoria at rung 6, its Embers are impact (1.0×), and its
+ranged Wicklings reach 2.2 tiles to the Spitters' 2.4. Bought fresh for the
+wave, Pyre clears wave 13 as well as anyone (0.94 of nominal); carried in
+from an Ember opening, it does not.
+
+The fix was measured on the exact armies the runs lost with, in the sandbox,
+before anything was committed to (a few seconds a variant):
+
+| on the losing armies | wave 13 | wave 13 | wave 18 | wave 19 |
+| -------------------- | ------: | ------: | ------: | ------: |
+| as they were         |   −0.14 |   −0.28 |   −0.22 |   −0.28 |
+| Foxfire +15%         |    0.02 |   −0.20 |   −0.05 |   −0.20 |
+| Ember +10%           |    0.06 |   −0.07 |   −0.13 |   −0.25 |
+| Wickling reach 2.6   |   −0.11 |   −0.22 |   −0.06 |   −0.27 |
+| as shipped           |   −0.12 |   −0.17 |   −0.17 |   −0.23 |
+
+(Mean margin over six seeds, on the first round's stats; the armies are the
+ones the runs actually fielded.) No single change wins those four fights, and
+nothing should: they were armies at 85–90% of the wave's nominal, carried in
+from an Ember opening. The point was to make the gap one a run can close. Foxfire was the line to move: it was also the
+one the price pass found furthest behind its rung-mates at every mark, even at
+8 to 21% under the ladder, so its body buff is a correction on both counts.
+Ember's Mark III already does more than its rung-mates, and reach is the stat
+that decided the arena once before (§4), so neither was moved.
+
+Pyre's opening is the strongest in the sweep, and buffing Foxfire and
+Wickling at Mark I took it from 0.89 of nominal at waves 1–5 to 0.85 while
+the losing armies above carried one or two Mark I bodies of either. So those
+two stayed as they were and only Marks II and III moved (0.87 now). What is
+left of Pyre's lead is almost all one wave: at wave 4 —
+ten Wardens (ward, 1.5× to Ember's impact) and swarm (1.5× to Wickling's
+arcane) — Pyre clears with two thirds of the nominal. That is the waves
+asking different builders for different things, as they are meant to, and
+Gloomtide and Thornweald have their own bad early waves (2 and 3).
+
+### What it did
+
+Against where §4e left it (`reports/*-stats.txt`, `reports/showdown-11.txt`):
+
+**Line against line.** Clearly off their rung-mates: **17 of 72 → 10**, the
+typical line's distance from even 5.4% → 4.9%. Maelstrom I and II are even
+(0.99, 0.97), Foxfire and Wickling within 7%, Scoria within 8%. Torrent III
+reads x1.22 (was x1.26) and Firebrand III x1.15 (x1.16), both now about 11%
+over the ladder's price rather than 22–23%; per body Torrent III is about 12%
+weaker than it was. Maelstrom III is still 11% behind, now at 13% under the
+ladder rather than 18%.
+
+**Whole runs**, two seeds, steady / strong / smart greed:
+
+| builder    | after §4e, seed 1 | seed 2     | after this pass, seed 1 | seed 2     | mean wave   | beat the council |
+| ---------- | ----------------- | ---------- | ----------------------- | ---------- | ----------- | ---------------- |
+| Ironvow    | 21, 18, 18        | 18, 25, 25 | unchanged               |            | 20.8        | 0                |
+| Pyre       | 13, 13, 25        | 18, 19, 25 | 18, 18, 25              | 25, 19, 25 | 18.8 → 21.7 | 0 → 0            |
+| Thornweald | 25, ✓, ✓          | 25, ✓, 19  | unchanged               |            | 24.5        | 3                |
+| Gloomtide  | 25, ✓, 25         | 25, ✓, ✓   | 25, 25, ✓               | 24, 19, 25 | 25.5 → 24.0 | 3 → 1            |
+
+Pyre no longer dies at wave 13 on either seed — both the original prices and
+§4e's lost two runs there — and the gap between the best builder and the
+worst is 3.7 waves, from 6.7 after §4e and 8.5 before it. Ironvow's and
+Thornweald's runs play only their own units, none of which moved.
+
+**Practice bots**, 36 tables: Gloomtide 18.4 → 19.7, Pyre 17.0 → 18.0,
+Ironvow 14.6 → 14.6, Thornweald 13.5 → 13.7; every bot 15.9 → 16.5; a bot
+reaches wave 20 at 31 tables of 36 (27) and beats 25 at 16 (15). Read the
+builder numbers to about a wave and a half: bots share a table and send at
+each other, so Ironvow's and Thornweald's moved by that much between two runs
+in which none of their units changed.
+
+**The arena**, 40 duels a pair: Pyre 49.6 → 51.6%, Ironvow 49.6 → 50.0%,
+Thornweald 50.0 → 49.6%, Gloomtide 50.8 → 48.8% — inside ±3, a little wider
+than §4e's 1.2 points. Ironvow against Thornweald is still the one matchup
+outside 40/60 (36%); Ironvow against Gloomtide sits on the line at 60%.
+
+**The waves**, gold to clear half, as a fraction of nominal:
+
+| builder    | 1–5         | 6–10        | 11–15       | 16–20       | 21–25       |
+| ---------- | ----------- | ----------- | ----------- | ----------- | ----------- |
+| Gloomtide  | 0.99 → 1.01 | 0.94 → 0.95 | 0.94 → 0.94 | 0.85 → 0.82 | 0.88 → 0.87 |
+| Ironvow    | 0.94 → 0.94 | 0.94 → 0.94 | 0.96 → 0.96 | 0.92 → 0.92 | 0.92 → 0.92 |
+| Pyre       | 0.89 → 0.87 | 0.92 → 0.88 | 0.93 → 0.92 | 0.91 → 0.85 | 0.89 → 0.92 |
+| Thornweald | 0.96 → 0.96 | 0.97 → 0.97 | 0.95 → 0.95 | 0.90 → 0.90 | 0.93 → 0.93 |
+| spread     | 0.10 → 0.14 | 0.05 → 0.09 | 0.03 → 0.04 | 0.07 → 0.10 | 0.05 → 0.06 |
+
+This is the cost of the pass, and it is not small. Pyre's Foxfire and Wickling
+bodies and Maelstrom's made Pyre and Gloomtide stronger against the waves as a
+whole, not only in the fights they were aimed at, and the sweep's spread
+between builders widened in every stretch. The runs and the bots, which play
+a whole game with an army carried from wave to wave, narrowed; the sweep,
+which buys every army fresh, widened.
+
+### What is left
+
+- **Gloomtide is the strongest builder** in three measures of four: the late
+  sweep (0.82–0.87), the bots (19.7), and second in the runs. Its lines that
+  read furthest ahead are Torrent III (x1.22) and Sleet III (x1.14, at +23%);
+  a body cut to Sleet III at its current price is the next lever, and
+  Maelstrom's +17% could come back part of the way.
+- **Torrent III** has not come back to even and did not respond the way its
+  numbers said it would. Its reach and Cloudburst's slow are the next
+  suspects, not its damage.
+- **Pyre has no answer to plate before rung 6.** Every other builder has
+  pierce by rung 2. The stat pass widened Pyre's margins; giving it an
+  earlier pierce is a roster question (§6.1), not a stat.
+- **Maelstrom III, Fathomhold III and Kelpsnare III** are 11–12% behind their
+  rung-mates, which is also part of why Torrent III reads so far ahead: a line
+  is scored against its own builder's average gold (§4e), and Gloomtide's
+  other top marks pull that average down.
 
 ## 5. The phases
 

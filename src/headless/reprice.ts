@@ -15,6 +15,8 @@
  *   npm run reprice -- --write               apply it
  *   npm run reprice -- --write --ladder-prices   and every price back on the ladder
  *   npm run reprice -- --bands               just the ladder, no per-unit rows
+ *   npm run reprice -- --write --only a,b    restat only these units, after a
+ *                                            change to their valueWeight
  */
 
 import fs from 'node:fs';
@@ -39,6 +41,11 @@ const { data } = loadDataFromDisk();
 const write = process.argv.includes('--write');
 const bandsOnly = process.argv.includes('--bands');
 const ladderPrices = process.argv.includes('--ladder-prices');
+// `--only a,b`: write these units and leave the rest byte for byte. Every unit
+// sits a rounding step off the ladder, so a whole-roster write moves dozens of
+// numbers by one to change the two it was run for.
+const onlyAt = process.argv.indexOf('--only');
+const only = onlyAt >= 0 ? new Set((process.argv[onlyAt + 1] ?? '').split(',')) : null;
 const anchor = process.argv.includes('--median') ? 'median' : 'rung1';
 
 const scale = rosterScale(data, anchor);
@@ -160,7 +167,7 @@ if (!write) {
   };
   for (const unit of raw.units) {
     const p = byId.get(unit.id as string);
-    if (!p) continue;
+    if (!p || (only && !only.has(p.id))) continue;
     if (ladderPrices) unit.goldCost = p.ladderGold;
     unit.supplyCost = p.supplyCost;
     unit.damage = Math.round(p.damage);

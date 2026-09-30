@@ -851,6 +851,7 @@
       "id": "pyroclasm",
       "name": "Pyroclasm",
       "text": "Empties its throat in a cone and leaves the ground alight.",
+      "_note": "Share cut from 1.4 in the stat pass (BALANCE.md §4f): Firebrand III was 16% ahead of the rung 5 Mark IIIs at +22% of its ladder price, and the cone - eight bodies at 140% of the shell - is what Mark III adds.",
       "role": "offence",
       "numbers": {
         "period": 9.0,
@@ -858,7 +859,7 @@
         "degrees": 70,
         "targets": 8,
         "falloff": 0.85,
-        "share": 1.4,
+        "share": 1.0,
         "burn": 10.0
       },
       "trigger": {
@@ -1619,10 +1620,11 @@
       "id": "drownward",
       "name": "Drownward",
       "text": "Pressure, not injury: it takes a share of whatever is left.",
+      "_note": "Raised from 8% in the stat pass (BALANCE.md §4f): Maelstrom III was 13% behind its rung-mates at 18% under its ladder price, and this was the whole of what its Mark III added.",
       "role": "offence",
       "numbers": {
         "period": 6.0,
-        "share": 0.08,
+        "share": 0.11,
         "bonus": 1.25
       },
       "trigger": {
@@ -1649,6 +1651,7 @@
       "id": "cloudburst",
       "name": "Cloudburst",
       "text": "Opens the whole sky along one line and leaves it soaked.",
+      "_note": "Share cut from 0.85 in the stat pass (BALANCE.md §4f): Torrent III did 26% more for its gold than any other rung 6 Mark III with its price at +23%, and the jump came at Mark III, which is where this arrives - six bodies at 85% of a 5,800 shell every eight seconds.",
       "role": "offence",
       "numbers": {
         "period": 8.0,
@@ -1656,7 +1659,7 @@
         "width": 1.6,
         "targets": 6,
         "falloff": 0.9,
-        "share": 0.85,
+        "share": 0.55,
         "slow": -0.2,
         "duration": 3.0
       },
