@@ -13,12 +13,23 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
 import type { MatchView, WaveSummary } from '../sim/index.ts';
-import { previewWave } from '../sim/index.ts';
+import { boardOpenIn, endlessPool, previewWave, ticksToSeconds } from '../sim/index.ts';
 import type { LaneLayout } from './layout.ts';
 import { fortressShape, screenToTilePoint } from './layout.ts';
 import { DAMAGE_COLOURS, UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
-import { label } from './ui/text.ts';
+import { clock, label } from './ui/text.ts';
+
+/**
+ * What the preview should describe: the next wave, or - in solo, from the last
+ * build phase on - the endless wave, which is not a wave a seed can list
+ * (§3.3, solo). The counter hints follow the same rule (game.ts).
+ */
+export function comesNext(data: GameData, view: MatchView): 'wave' | 'endless' {
+  if (!view.solo) return 'wave';
+  if (view.solo.endless) return 'endless';
+  return view.phase === 'build' && view.wave >= data.waves.showdown.afterWave ? 'endless' : 'wave';
+}
 
 /**
  * Radius of a monster's silhouette in the wave preview, in pixels.
@@ -187,8 +198,9 @@ export class LaneView extends Container {
     this.overlay.removeChildren();
 
     // §3.1: the build phase is the only one in which a tile is a thing you can
-    // act on, so it is the only one the lattice is drawn for.
-    this.grid.visible = view.phase === 'build';
+    // act on, so it is the only one the lattice is drawn for - with solo's
+    // endless wave, which keeps the board open throughout (endless.ts).
+    this.grid.visible = boardOpenIn(view);
 
     // The selected unit is ringed by the entity layer rather than boxed here:
     // it is a mark on a body, and the body is somewhere between two ticks
@@ -209,13 +221,20 @@ export class LaneView extends Container {
     // the lane's width to work in and the panels either side are not its room.
     const leftEdge = l.lane.x + pad;
     const rightEdge = l.lane.x + l.lane.width - pad;
-    const nextWave = view.phase === 'build' ? view.wave + 1 : view.wave;
-    const entries = previewWave(this.data, view.seed, nextWave);
-    if (entries.length === 0) return;
-
     const rowOne = l.spawn.y + 5;
     const rowTwo = l.spawn.y + 21;
     const rowThree = l.spawn.y + 21 + PREVIEW_GLYPH_RADIUS + 16;
+
+    // §3.3, solo: after the last wave comes no wave to preview but a stream,
+    // and the honest preview of a stream is what it draws from.
+    if (comesNext(this.data, view) === 'endless') {
+      this.drawEndlessPreview(view, leftEdge, rightEdge, rowOne, rowTwo, rowThree);
+      return;
+    }
+
+    const nextWave = view.phase === 'build' ? view.wave + 1 : view.wave;
+    const entries = previewWave(this.data, view.seed, nextWave);
+    if (entries.length === 0) return;
 
     const heading = label(
       view.phase === 'build' ? `next wave ${nextWave}` : `wave ${nextWave}`,
@@ -292,6 +311,63 @@ export class LaneView extends Container {
       this.overlay.addChild(glyph);
 
       x += width + 12;
+    }
+  }
+
+  /**
+   * §3.3, solo: the endless wave, previewed as what it draws from - one of
+   * every monster the waves used, in its own silhouette and colour - with the
+   * clock on the next boss once it is running.
+   */
+  private drawEndlessPreview(
+    view: MatchView,
+    leftEdge: number,
+    rightEdge: number,
+    rowOne: number,
+    rowTwo: number,
+    rowThree: number,
+  ): void {
+    const endless = view.solo?.endless ?? null;
+    const heading = label(
+      endless
+        ? `endless wave · boss in ${clock(ticksToSeconds(endless.nextBossTicks))}`
+        : 'next: the endless wave',
+      10,
+      endless ? UI.danger : UI.textMuted,
+      '700',
+    );
+    heading.x = leftEdge;
+    heading.y = rowOne;
+    this.overlay.addChild(heading);
+
+    const bossSeconds = this.data.waves.endless.bossEverySeconds;
+    const note = label(
+      `Any of these, one at a time and faster as it goes, and a boss every ${bossSeconds}s`,
+      10,
+      UI.textMuted,
+      '600',
+    );
+    note.x = leftEdge;
+    note.y = rowTwo;
+    if (note.x + note.width <= rightEdge) this.overlay.addChild(note);
+
+    const byId = new Map(this.data.monsters.monsters.map((m) => [m.id, m]));
+    const step = PREVIEW_GLYPH_RADIUS * 2 + 8;
+    let x = leftEdge + PREVIEW_GLYPH_RADIUS;
+    for (const id of endlessPool(this.data).monsters) {
+      const def = byId.get(id);
+      if (!def) continue;
+      if (x + PREVIEW_GLYPH_RADIUS > rightEdge) break;
+      const glyph = new Graphics();
+      drawEntity(
+        glyph,
+        { shape: def.shape, damageType: def.damageType, mark: 1, outlined: true },
+        x,
+        rowThree,
+        PREVIEW_GLYPH_RADIUS,
+      );
+      this.overlay.addChild(glyph);
+      x += step;
     }
   }
 }

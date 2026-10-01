@@ -83,6 +83,11 @@ export interface LocalStart {
    * explaining, and a Raider's volley is a lesson for later (src/tutorial).
    */
   quietBots?: boolean;
+  /**
+   * Solo mode (§3.3, solo): one lane, every send lands on it, and an endless
+   * last wave in place of the Final Showdown. `teams` must then be one team.
+   */
+  solo?: boolean;
 }
 
 export class LocalTransport implements Transport {
@@ -115,7 +120,7 @@ export class LocalTransport implements Transport {
      */
     start: LocalStart = {},
   ) {
-    this.state = createMatch(data, { seed, teams });
+    this.state = createMatch(data, { seed, teams, mode: start.solo ? 'solo' : 'standard' });
     this.ctx = createContext(data);
     this.teamId = teamId;
     this.visibility = data.lane.opponentLanes;
@@ -155,7 +160,10 @@ export class LocalTransport implements Transport {
    * anywhere but wave 1.
    */
   private jumpTo(data: GameData, wave: number): void {
-    this.state.wave = Math.min(wave, data.waves.showdown.afterWave) - 1;
+    const last = data.waves.showdown.afterWave;
+    // Solo has a wave past the last one - the endless one - so `?wave=26`
+    // there means its build phase.
+    this.state.wave = this.state.mode === 'solo' && wave > last ? last : Math.min(wave, last) - 1;
     for (const lane of Object.values(this.state.lanes)) {
       lane.economy.gold += JUMP_GOLD;
       lane.economy.gems += JUMP_GEMS;

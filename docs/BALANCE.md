@@ -1558,6 +1558,18 @@ and the metric that has to exist is **gold of enemy defence forced per gem
 spent**. If that is below 1 for every attack send, sending is never correct and
 three of the five sends are dead content.
 
+**Solo's endless wave** is first-guess numbers, not tuned ones
+(`waves.endless`): a body every 1.2 s quickening by 10% a step to a 0.3 s floor,
+a step every 30 s, a boss a minute, bodies paid at 0.6 gold per bounty weight.
+The one measurement so far is the default bot playing Thornweald with its
+income sends aimed at itself: it reached the stream and held it 3:51, killing
+638 there, while banking 20,000 gold it never spent because the bot only builds
+in build phases. A person who keeps building should last longer; whether
+"longer" is five minutes or twenty is the thing to find out. The knobs, in
+order of bite: `gapPerStep` and `minGapSeconds` (how fast the stream thickens),
+`stepSeconds` (how fast it hardens), and `bountyPerWeight` (how much it pays to
+keep up).
+
 **Phase 5 — humans.** The simulation cannot measure whether 30 seconds is enough
 to make five decisions on a phone, whether the build bar is legible mid-panic,
 or whether losing to three opponents ganging up feels bad.

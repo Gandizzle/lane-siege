@@ -25,11 +25,12 @@ import { fortressShape } from '../layout.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { screenRect, unionOf } from './locate.ts';
 import { GEM, GOLD, RichLabel, SUPPLY } from './currency.ts';
-import { centreOn, label, overlaid } from './text.ts';
+import { centreOn, clock, label, overlaid } from './text.ts';
 import { speedLabel, type GameSpeed } from '../preferences.ts';
+import { comesNext } from '../laneView.ts';
 
 /** A reading on the HUD that the tutorial can point at (`locate`). */
-export type HudPart = 'phase' | 'wallet' | 'income' | 'incoming' | 'notice';
+export type HudPart = 'phase' | 'wallet' | 'income' | 'incoming' | 'notice' | 'kills';
 
 export class Hud extends Container {
   private readonly background = new Graphics();
@@ -82,7 +83,15 @@ export class Hud extends Container {
     const l = this.layout;
     this.background.rect(l.tabs.x, l.tabs.y, l.tabs.width, l.tabs.height).fill({ color: UI.tabs });
 
-    const isBoss = view.wave > 0 && view.wave % this.data.waves.bossEveryNWaves === 0;
+    // §3.3, solo: the endless last wave, once it is running.
+    const endless = view.solo?.endless ?? null;
+    // ...and the build phase before it, which has no next wave to number.
+    const endlessNext = !endless && comesNext(this.data, view) === 'endless';
+    const isBoss =
+      !endless &&
+      !endlessNext &&
+      view.wave > 0 &&
+      view.wave % this.data.waves.bossEveryNWaves === 0;
     const economy = lane.economy;
     const remaining = lane.monsters.length + lane.reserveCount;
     const seconds = Math.ceil(ticksToSeconds(view.phaseTicksLeft));
@@ -92,11 +101,23 @@ export class Hud extends Container {
     // where they put it.
     const wave = () =>
       label(
-        view.wave === 0 ? 'Prepare' : `Wave ${view.wave}${isBoss ? ' · BOSS' : ''}`,
+        endless
+          ? 'Endless wave'
+          : endlessNext
+            ? 'Endless next'
+            : view.wave === 0
+              ? 'Prepare'
+              : `Wave ${view.wave}${isBoss ? ' · BOSS' : ''}`,
         15,
-        isBoss ? UI.danger : UI.text,
+        isBoss || endless || endlessNext ? UI.danger : UI.text,
         '700',
       );
+    // §3.3, solo: the score, all match long - it is the one number a solo
+    // match is played for.
+    const kills = () =>
+      view.solo
+        ? label(`${view.solo.kills.toLocaleString('en-GB')} killed`, 12, UI.accent, '700')
+        : null;
     // §3.1, amended: the build phase is the only phase with a clock. Combat now
     // runs until the lane is empty (§3.2, amended), so it counts monsters left
     // rather than seconds - a countdown stuck at 0s would say nothing.
@@ -106,7 +127,13 @@ export class Hud extends Container {
     // Your lane can be empty while the wave is not over: it ends only when
     // every lane has beaten it, and "0 left" would look like the game had
     // stalled.
-    const fighting = remaining > 0 ? `Combat · ${remaining} left` : 'Waiting on other lanes';
+    // The endless wave has no end to count down to, so it counts up: how long
+    // the wall has held, and how much is on the field against it.
+    const fighting = endless
+      ? `${clock(ticksToSeconds(endless.ageTicks))} · ${remaining} on the field`
+      : remaining > 0
+        ? `Combat · ${remaining} left`
+        : 'Waiting on other lanes';
     const phase = () =>
       label(
         (view.phase === 'build' ? `Build · ${seconds}s` : fighting) + pace,
@@ -120,8 +147,10 @@ export class Hud extends Container {
     // how fast the other three move. Dimmed at zero, because zero is the honest
     // starting value and seeing it there is how a player learns the lever
     // exists.
+    // The endless wave pays it every step rather than every wave (endless.ts).
+    const per = endless ? `${this.data.waves.endless.stepSeconds}s` : 'wave';
     const income = () => {
-      this.income.set(`+${GOLD}${Math.floor(economy?.passiveIncome ?? 0)} / wave`);
+      this.income.set(`+${GOLD}${Math.floor(economy?.passiveIncome ?? 0)} / ${per}`);
       this.income.setColour((economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted);
       return this.income;
     };
@@ -150,15 +179,25 @@ export class Hud extends Container {
     // §11.5: being sent at is the one thing that happens to you because of
     // somebody else, so it needs saying out loud.
     const notice = () =>
-      lane.sendLog.length > 0
+      // Alone, every send is your own (§3.3, solo): not a warning, a receipt.
+      view.solo && lane.sendLog.length > 0
         ? label(
-            `⚠ ${lane.sendLog.length} send${lane.sendLog.length === 1 ? '' : 's'} incoming` +
-              ` from ${attackers.size} lane${attackers.size === 1 ? '' : 's'}`,
+            lane.sendLog.length === 1
+              ? '1 send joins your next wave'
+              : `${lane.sendLog.length} sends join your next wave`,
             11,
-            UI.danger,
+            UI.accent,
             '700',
           )
-        : null;
+        : lane.sendLog.length > 0
+          ? label(
+              `⚠ ${lane.sendLog.length} send${lane.sendLog.length === 1 ? '' : 's'} incoming` +
+                ` from ${attackers.size} lane${attackers.size === 1 ? '' : 's'}`,
+              11,
+              UI.danger,
+              '700',
+            )
+          : null;
 
     if (l.orientation === 'landscape') {
       // One stack, in reading order: what wave it is, what is happening, what
@@ -178,6 +217,7 @@ export class Hud extends Container {
 
       place(this.tag('phase', wave()), 21);
       place(this.tag('phase', phase()), 18);
+      place(this.tag('kills', kills()), 18);
       if (economy) {
         // Two lines, because the column is too narrow for three numbers and
         // their units side by side.
@@ -213,11 +253,14 @@ export class Hud extends Container {
         this.content.addChild(text);
       };
 
-      left(this.tag('phase', wave()), rowOne);
-      left(this.tag('phase', phase()), rowTwo);
+      const waveLabel = this.tag('phase', wave());
+      left(waveLabel, rowOne);
+      const phaseLabel = this.tag('phase', phase());
+      left(phaseLabel, rowTwo);
       left(this.tag('notice', notice()), rowThree);
       // Gold and gems are deliberately separate currencies with separate sinks
       // (§11.3).
+      let walletLeft = rightEdge;
       if (economy) {
         // Supply first from the right, then the purse left of it: one row,
         // two labels, so each keeps its own icons.
@@ -226,9 +269,31 @@ export class Hud extends Container {
         const purseLabel = this.tag('wallet', purse());
         right(purseLabel, rowOne + 4);
         purseLabel.x = armyLabel.x - 16 - purseLabel.width;
+        walletLeft = purseLabel.x;
         right(this.tag('income', income()), rowThree);
       }
-      right(this.tag('incoming', offence()), rowTwo + 2);
+      const offenceLabel = this.tag('incoming', offence());
+      right(offenceLabel, rowTwo + 2);
+
+      // §3.3, solo: the tally rides beside the wave, where the eye already is
+      // - or, when a long wave label leaves it no room before the purse,
+      // beside the phase, where it outranks the counter hint: it is the
+      // number the match is played for.
+      const killsLabel = this.tag('kills', kills());
+      if (killsLabel) {
+        const besideWave = waveLabel.x + waveLabel.width + 10;
+        if (besideWave + killsLabel.width <= walletLeft - 12) {
+          killsLabel.x = besideWave;
+          killsLabel.y = rowOne + 3;
+        } else {
+          killsLabel.x = phaseLabel.x + phaseLabel.width + 10;
+          killsLabel.y = rowTwo;
+          if (offenceLabel && killsLabel.x + killsLabel.width > offenceLabel.x - 8) {
+            offenceLabel.visible = false;
+          }
+        }
+        this.content.addChild(killsLabel);
+      }
     }
 
     this.drawFortress(lane.fortress.hp, lane.fortress.maxHp);

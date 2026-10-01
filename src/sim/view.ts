@@ -54,6 +54,7 @@
 import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
 import { energyCostOf, type AbilityIndex } from './abilityRuntime.ts';
 import { auraFor } from './buffs.ts';
+import { endlessStep } from './endless.ts';
 import type { SimContext } from './context.ts';
 import { modifiersOf } from './status.ts';
 import { statusMarks } from './statusMarks.ts';
@@ -320,6 +321,26 @@ export interface ShowdownView {
   centreHolders: TeamId[];
 }
 
+/**
+ * Solo mode, as its one player sees it (§3.3, solo). Null in a standard match.
+ *
+ * The score and the clock, and nothing hidden: there is nobody to hide them
+ * from.
+ */
+export interface SoloView {
+  /** Monsters killed in your lane, all match. The score. */
+  kills: number;
+  /** The endless last wave, once it has opened. Null before then. */
+  endless: {
+    /** Ticks since it opened. */
+    ageTicks: number;
+    /** Steps up the growth curve it has climbed, from 0 (endless.ts). */
+    step: number;
+    /** Ticks until the next boss. */
+    nextBossTicks: number;
+  } | null;
+}
+
 export interface MatchView {
   /** Whose view this is. */
   teamId: TeamId;
@@ -341,6 +362,8 @@ export interface MatchView {
   watching: Record<TeamId, LaneView>;
   /** The Final Showdown, once it has started (§3.3, replaced). Null before then. */
   showdown: ShowdownView | null;
+  /** Solo mode's score and its endless wave (§3.3, solo). Null in a standard match. */
+  solo: SoloView | null;
 }
 
 /** Whether an ability fires on its own every tick (statusMarks.ts). */
@@ -521,6 +544,16 @@ function showdownView(
 }
 
 /**
+ * Whether the board - placing, upgrading in place, selling back - is open in
+ * this view: the renderer's copy of apply.ts `boardOpen`, which a client
+ * cannot call on a state it does not have. The build phase, and in solo the
+ * endless wave (endless.ts).
+ */
+export function boardOpenIn(view: Pick<MatchView, 'phase' | 'solo'>): boolean {
+  return view.phase === 'build' || (view.solo?.endless ?? null) !== null;
+}
+
+/**
  * Everything `teamId` is allowed to know about the match right now.
  *
  * Callers outside the simulation - the renderer, the server's per-client
@@ -589,5 +622,18 @@ export function viewFor(
     showdown: state.showdown
       ? showdownView(state.showdown, state.phaseTicksLeft, ctx.abilities)
       : null,
+    solo:
+      state.mode === 'solo'
+        ? {
+            kills: ownLane?.kills ?? 0,
+            endless: state.endless
+              ? {
+                  ageTicks: state.endless.age,
+                  step: endlessStep(ctx.data, state.endless.age),
+                  nextBossTicks: state.endless.nextBoss,
+                }
+              : null,
+          }
+        : null,
   };
 }

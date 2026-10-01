@@ -88,3 +88,9 @@ export function fit(text: string, width: number, fontSize: number): string {
   const characters = [...text];
   return characters.length <= room ? text : `${characters.slice(0, room - 1).join('')}…`;
 }
+
+/** Seconds as m:ss, for a clock that counts up (the endless wave's). */
+export function clock(seconds: number): string {
+  const whole = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
+}

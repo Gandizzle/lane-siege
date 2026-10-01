@@ -50,6 +50,7 @@ import type { GameData } from '../data/schema.ts';
 import { resolveAbility } from '../data/schema.ts';
 import {
   arenaShape,
+  boardOpenIn,
   buildDefIndex,
   hasMark,
   inBounds,
@@ -76,7 +77,7 @@ import {
   tileToScreen,
   type LaneLayout,
 } from './layout.ts';
-import { LaneView as LaneViewLayer } from './laneView.ts';
+import { comesNext, LaneView as LaneViewLayer } from './laneView.ts';
 import { AbilityCard } from './ui/abilityCard.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { BuilderSelect } from './ui/builderSelect.ts';
@@ -186,6 +187,12 @@ export class Game extends Container {
   private readonly coach: TutorialCoach;
   /** The chapter being played, while one is (src/tutorial). */
   private lesson: { index: number; runner: TutorialRunner; recorded: boolean } | null = null;
+  /**
+   * How a solo match came out against the best on this device, worked out
+   * once as the fortress falls (§3.3, solo) - null until then, and in every
+   * other kind of match.
+   */
+  private soloResult: { best: number; newBest: boolean } | null = null;
   /** Where the legend button was last put, so it is only moved when that changes. */
   private effectsButtonAt = '';
   /**
@@ -447,10 +454,15 @@ export class Game extends Container {
 
   private refreshHome(): void {
     const done = this.services.preferences.settings.tutorialDone;
-    this.home.setState(this.services.name(), this.services.online, {
-      done: CHAPTERS.filter((c) => done.includes(c.id)).length,
-      total: CHAPTERS.length,
-    });
+    this.home.setState(
+      this.services.name(),
+      this.services.online,
+      {
+        done: CHAPTERS.filter((c) => done.includes(c.id)).length,
+        total: CHAPTERS.length,
+      },
+      this.services.preferences.settings.soloBest,
+    );
   }
 
   private async editName(): Promise<void> {
@@ -516,6 +528,7 @@ export class Game extends Container {
     this.buildBar.reset();
     this.leaveShowdown();
     this.lesson = null;
+    this.soloResult = null;
     this.coach.hide();
   }
 
@@ -745,6 +758,20 @@ export class Game extends Container {
     this.showScreen(transport.hasLobby && !transport.matchStarted ? 'lobby' : 'match');
   }
 
+  /**
+   * Solo's score against the best on this device, once, as the match ends
+   * (§3.3, solo). The tally is the whole of what a solo match leaves behind,
+   * so it is kept even if the player leaves without looking at it.
+   */
+  private recordSolo(view: MatchView): void {
+    if (!view.solo || this.soloResult || !(view.eliminated || view.finished)) return;
+    const kills = view.solo.kills;
+    const best = this.services.preferences.settings.soloBest;
+    const newBest = kills > best;
+    if (newBest) this.services.preferences.configure({ soloBest: kills });
+    this.soloResult = { best: Math.max(best, kills), newBest };
+  }
+
   /** Back to the front: a different roster, or a different room. */
   private chooseAgain(): void {
     this.goHome();
@@ -963,7 +990,8 @@ export class Game extends Container {
     this.abilityCard.render(this.resolveOpenAbility());
     this.toast.update(deltaMs, this.layout);
     this.showEffectsButton();
-    this.gameOver.render(view);
+    this.recordSolo(view);
+    this.gameOver.render(view, this.soloResult);
     // Last, so it points at where everything was drawn this frame.
     this.drawCoach(view, deltaMs);
   }
@@ -1038,7 +1066,8 @@ export class Game extends Container {
     this.abilityCard.render(this.resolveOpenAbility());
     this.toast.update(deltaMs, this.layout);
     this.showEffectsButton();
-    this.gameOver.render(view);
+    this.recordSolo(view);
+    this.gameOver.render(view, this.soloResult);
   }
 
   /** The lane currently on screen: somebody else's if watching, else your own. */
@@ -1080,7 +1109,7 @@ export class Game extends Container {
       const shown = this.shownLane();
       if (!shown?.monsters.some((m) => m.id === id)) this.selection = null;
     }
-    if (view.phase === 'build') return;
+    if (boardOpenIn(view)) return;
     if (this.selection?.kind === 'unitDef') this.selection = null;
     this.pendingUnitDefId = null;
   }
@@ -1111,6 +1140,13 @@ export class Game extends Container {
    * pure waste (§15.3).
    */
   private refreshSummary(view: MatchView): void {
+    // §3.3, solo: the endless wave is drawn from every monster there is, so
+    // there is no counter to hint at (laneView.ts, `comesNext`).
+    if (comesNext(this.data, view) === 'endless') {
+      this.summary = null;
+      this.summarisedWave = -1;
+      return;
+    }
     const wave = view.phase === 'build' ? view.wave + 1 : view.wave;
     const builderId = view.lane?.builderId ?? '';
     if (wave === this.summarisedWave && builderId === this.summarisedBuilder) return;

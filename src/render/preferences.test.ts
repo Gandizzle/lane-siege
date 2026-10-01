@@ -27,6 +27,7 @@ describe('preferences', () => {
       statusEffects: true,
       practiceSpeed: 1,
       tutorialDone: [],
+      soloBest: 0,
     });
   });
 
@@ -46,6 +47,7 @@ describe('preferences', () => {
       statusEffects: false,
       practiceSpeed: 3,
       tutorialDone: [],
+      soloBest: 0,
     });
   });
 
@@ -55,6 +57,15 @@ describe('preferences', () => {
     expect(new PreferenceStore(storage).settings.tutorialDone).toEqual(['lane', 'build']);
     expect(parsePreferences({ tutorialDone: ['lane', 4, null] }).tutorialDone).toEqual(['lane']);
     expect(parsePreferences({ tutorialDone: 'lane' }).tutorialDone).toEqual([]);
+  });
+
+  it('keeps the solo best as a whole number of kills, and nothing else', () => {
+    const storage = memory();
+    new PreferenceStore(storage).configure({ soloBest: 412 });
+    expect(new PreferenceStore(storage).settings.soloBest).toBe(412);
+    expect(parsePreferences({ soloBest: 12.7 }).soloBest).toBe(12);
+    expect(parsePreferences({ soloBest: -3 }).soloBest).toBe(0);
+    expect(parsePreferences({ soloBest: '99' }).soloBest).toBe(0);
   });
 
   it('carries the marker switch over from where it was saved before', () => {

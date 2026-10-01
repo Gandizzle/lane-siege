@@ -66,9 +66,14 @@ function shopOpen(state: MatchState): boolean {
   return state.phase !== 'showdown';
 }
 
-/** §3.1: the line itself is only editable while a wave is not running. */
+/**
+ * §3.1: the line itself is only editable while a wave is not running - and
+ * throughout solo's endless wave, which is never not running. There is no
+ * build phase left after it opens, so a board that stayed shut would leave
+ * the gold the stream pays with nothing to buy (endless.ts).
+ */
 function boardOpen(state: MatchState): boolean {
-  return state.phase === 'build';
+  return state.phase === 'build' || state.endless !== null;
 }
 
 function laneFor(state: MatchState, teamId: string): Lane | null {
@@ -319,9 +324,13 @@ function send(
   ctx: { data: GameData; defs: DefIndex },
   state: MatchState,
   lane: Lane,
-  targetTeamId: string,
+  requestedTarget: string,
   sendId: string,
 ): CommandResult {
+  // §3.3, solo: a send has nowhere to go but home. Whatever the command
+  // named, it lands in your own next wave - the income it grants is bought
+  // with the monsters it brings.
+  const targetTeamId = state.mode === 'solo' ? lane.teamId : requestedTarget;
   // §11.5 does not say when you may send. Any time the shop is open: a send
   // aims at the target's NEXT wave whenever it is bought (`spawnWave` drains
   // `incomingSends` on spawn), so buying one mid-combat changes nothing about
@@ -341,8 +350,10 @@ function send(
   // (sends.json `_unlock`).
   if (!sendOpen(def, state.wave + 1)) return fail('send-locked');
 
-  // Sending at yourself would be a way to farm your own income grant.
-  if (targetTeamId === lane.teamId) return fail('invalid-target');
+  // Sending at yourself would be a way to farm your own income grant - except
+  // alone, where it is the only way to send at all and the monsters are the
+  // price of the income.
+  if (targetTeamId === lane.teamId && state.mode !== 'solo') return fail('invalid-target');
 
   const target = state.teams.find((t) => t.id === targetTeamId);
   if (!target) return fail('invalid-target');
@@ -365,7 +376,8 @@ function send(
 
   // §12: some sends buy a look at the lane you just attacked. Vision is
   // refreshed rather than stacked, so spamming probes does not bank hours of it.
-  if (def.grantsVision) {
+  // Sight of your own lane, in solo, is sight you already have.
+  if (def.grantsVision && targetTeamId !== lane.teamId) {
     const sender = state.teams.find((t) => t.id === lane.teamId);
     if (sender) {
       const ticks = secondsToTicks(stat(def.visionDurationSeconds));

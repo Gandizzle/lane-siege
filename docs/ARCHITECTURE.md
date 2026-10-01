@@ -720,6 +720,68 @@ To look at it without playing twenty-five waves: `?wave=25` starts a practice
 match at the last build phase, and `?showdown=1` starts inside the arena with
 four scripted armies already in it.
 
+### Solo: your own sends, and a wave that never ends
+
+A fifth way to play from the home screen, and the one that needs nobody else.
+`createMatch(data, { mode: 'solo', teams: [one] })` (`src/sim/state.ts`) - a
+solo match with more than one lane is refused, because every rule below assumes
+the only lane is yours.
+
+**Every send comes home.** `send` in `src/sim/apply.ts` replaces whatever target
+the command named with the sender's own lane, and the rule a standard match
+keeps - you may not send at yourself - is waived. Nothing else about a send
+changes: it costs the same, pays the same income, carries the same bounty and
+joins the next wave. So the economy sends are what they always were, an
+investment, and an attack send is a way to buy a harder, richer wave. The send
+tab shows one chip, "Yourself", saying when the send will arrive.
+
+**After the last wave, an endless one** (`src/sim/endless.ts`). The build
+phase after wave 25 runs as any other, and where a standard match would cut to
+the Final Showdown, `beginEndless` opens a stream instead. The phase is
+`combat` from then until the fortress falls; `allLanesClear` is never asked,
+so the stream never ends on its own.
+
+- **What comes.** `endlessPool` collects every non-boss monster the authored
+  waves used (twelve today) and every boss in the bank or the waves. Body `n`
+  is drawn uniformly from the first list by `waveRng(seed, 1_000_000 + n)`,
+  and a boss arrives every `bossEverySeconds` drawn by the minute rather than
+  by the count, so the stream a seed makes is the same whatever the player
+  does to it, and a replay is exact (§9.2).
+- **How hard.** Each `stepSeconds` (30) is a step: bodies of step `k` are grown
+  as wave `26 + k` would be, by the same §9.1 curve the waves use, and the gap
+  between arrivals shrinks by `gapPerStep` from `firstGapSeconds` down to
+  `minGapSeconds`. Each step keeps its own enrage clock (§8), so bodies a
+  minute old enrage together and a fresh step does not inherit an old one's
+  fury.
+- **What it pays.** A body pays its bounty weight at `bountyPerWeight`; a boss
+  adds the §3.4 purse. There is no wave pool to split, so the weight is the
+  price.
+- **Three rules that only existed because waves had gaps** move into the
+  stream: passive income is paid every step rather than every build phase, a
+  fallen unit stands back up on its own tile after `respawnSeconds` (`respawnUnit`
+  is shared with `respawnUnits` in tick.ts), and the board stays open
+  (`boardOpen` in apply.ts; `boardOpenIn` is the renderer's copy, since a client
+  has a view rather than a state). A send made during the stream walks in at
+  once.
+- **A full reserve holds the stream back** (`maxReserve`, 60) rather than
+  queueing without end: a player that far behind is about to lose anyway.
+
+**The tally.** `lane.kills` counts every monster that dies in the lane, in any
+phase, by any hand, and `MatchView.solo` carries it - with the stream's age,
+step and the next boss when it is running - on the wire as one short row
+(`so` in protocol.ts). The HUD shows it all match; the wave label reads
+"Endless next", then "Endless wave" with a clock counting up; the lane's
+preview shows the twelve silhouettes the stream draws from and the time to the
+next boss. When the fortress falls the end card shows how long the wall held,
+the number killed, and whether it is a new best (`soloBest` in preferences,
+also shown on the home button).
+
+To look at it without twenty-five waves: choose Solo with `?wave=26`, which
+starts at the build phase before the stream with the usual late-start purse.
+In a headless run the default bot holds the stream about four minutes with
+Thornweald, never spending the gold it earns there, because it only builds
+in build phases; a player who keeps building does better.
+
 ### Movement: engaged or seeking
 
 Movement is described in full in [PATHING.md](PATHING.md), with every number
@@ -1315,6 +1377,9 @@ watching a screen rather than playing. So the shop stays open through combat
 and closes only when the Final Showdown starts. Two predicates in
 `src/sim/apply.ts`, `shopOpen` and `boardOpen`, and the build bar greys exactly
 the Build tab and the selected unit's Upgrade and Sell buttons.
+
+Solo's endless wave is the one exception: it has no build phase to wait for,
+so the board stays open throughout it (see [Solo](#solo-your-own-sends-and-a-wave-that-never-ends)).
 
 A send bought during combat behaves exactly as one bought during a build phase:
 its monsters join the target's **next** wave, because `incomingSends` is

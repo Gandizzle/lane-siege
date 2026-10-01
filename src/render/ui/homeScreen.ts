@@ -8,6 +8,9 @@
  *     what the shipped build serves (§15.2: static hosting cannot run a room),
  *     so the game is playable the moment it opens rather than being a menu
  *     waiting for a server.
+ *   - **Solo** is one lane and nobody else (§3.3, solo): your sends land on
+ *     you, and after the last wave an endless one, scored by what you kill.
+ *     Also this device only, and its button carries the best score so far.
  *   - **Quick match** puts you in the next open room. Four players, first come
  *     first served.
  *   - **Private room** is a four-character code you say out loud. Whoever
@@ -36,6 +39,11 @@ import { centreOn, fit, label } from './text.ts';
 /** How a match is found. Chosen here, carried through the builder picker. */
 export type MatchMode =
   | { kind: 'practice' }
+  /**
+   * §3.3, solo: one lane and nobody else. Every send comes back at you, and
+   * after the last wave an endless one; the score is what you killed.
+   */
+  | { kind: 'solo' }
   | { kind: 'quick' }
   | { kind: 'private'; code: string }
   /**
@@ -89,6 +97,8 @@ export class HomeScreen extends Container {
   private playerName = '';
   private online = false;
   private tutorial: TutorialProgress = { done: 0, total: 0 };
+  /** Most monsters killed in one solo match on this device, 0 for none yet. */
+  private soloBest = 0;
 
   constructor(
     private layout: LaneLayout,
@@ -115,6 +125,7 @@ export class HomeScreen extends Container {
       this.makeButton('Practice', 'One lane of yours, three played by the game', false, () =>
         this.handlers.onChoose({ kind: 'practice' }),
       ),
+      this.makeButton('Solo', '', false, () => this.handlers.onChoose({ kind: 'solo' })),
       this.makeButton('Quick match', 'The next open room, up to four players', true, () =>
         this.handlers.onChoose({ kind: 'quick' }),
       ),
@@ -165,10 +176,11 @@ export class HomeScreen extends Container {
   }
 
   /** `online` is whether a server is configured at all (`?server=`). */
-  setState(playerName: string, online: boolean, tutorial: TutorialProgress): void {
+  setState(playerName: string, online: boolean, tutorial: TutorialProgress, soloBest = 0): void {
     this.playerName = playerName;
     this.online = online;
     this.tutorial = tutorial;
+    this.soloBest = soloBest;
     this.redraw();
   }
 
@@ -180,7 +192,7 @@ export class HomeScreen extends Container {
   private redraw(): void {
     const l = this.layout.screen;
     // Sideways there is half the height. Everything still stacks - there are
-    // only five things here - but the rhythm tightens so the footnote stays on
+    // only six things here - but the rhythm tightens so the footnote stays on
     // the screen (layout.ts, `isCompact`).
     const compact = this.layout.compact;
     const top = l.height * (compact ? 0.07 : 0.12);
@@ -215,7 +227,7 @@ export class HomeScreen extends Container {
 
     // One column while it fits above the footnote; otherwise two, the things
     // this tab can do on the left and the things that need a server on the
-    // right - five buttons will not go down a sideways phone.
+    // right - six buttons will not go down a sideways phone.
     const count = this.buttons.length;
     const oneColumn = firstY + count * (buttonHeight + gap) + 30 <= l.height;
     const columnWidth = oneColumn ? rowWidth : Math.min((l.width - 32 - gap) / 2, 320);
@@ -232,6 +244,11 @@ export class HomeScreen extends Container {
         : done >= total
           ? 'All done. Replay any chapter for a refresher'
           : `${done} of ${total} chapters done. Carry on, or replay one`;
+    // Solo's score is a tally, so its button carries the number to beat.
+    this.buttons[2]!.noteText =
+      this.soloBest > 0
+        ? `Your best: ${this.soloBest.toLocaleString('en-GB')} monsters killed`
+        : 'Sends come home, then a wave that never ends';
 
     let bottom = firstY;
     for (const [index, button] of this.buttons.entries()) {

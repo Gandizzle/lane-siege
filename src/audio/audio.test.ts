@@ -123,6 +123,7 @@ function match(
     ],
     watching: {},
     showdown: null,
+    solo: null,
     ...overrides,
   };
 }

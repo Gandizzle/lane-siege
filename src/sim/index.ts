@@ -60,7 +60,7 @@ export { countLiving } from './spawn.ts';
 export { recomputeUnitBuffs } from './buffs.ts';
 export { modifiersOf } from './status.ts';
 export { stat } from './defs.ts';
-export { viewFor } from './view.ts';
+export { boardOpenIn, viewFor } from './view.ts';
 export type {
   AttackView,
   EconomyView,
@@ -73,6 +73,9 @@ export type {
   OpponentView,
   ShowdownArmyView,
   ShowdownView,
+  SoloView,
   UnitDamageView,
 } from './view.ts';
+// Solo mode's endless last wave (§3.3, solo).
+export { endlessPool, endlessStep, endlessWaveNumber } from './endless.ts';
 export { STATUS_MARKS, hasMark, markBit, markOfEffect, type StatusMark } from './statusMarks.ts';

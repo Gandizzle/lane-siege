@@ -18,9 +18,10 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { MatchView } from '../../sim/index.ts';
+import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
-import { centreOn, label } from './text.ts';
+import { centreOn, clock, label } from './text.ts';
 
 export interface GameOverHandlers {
   onRestart(): void;
@@ -60,7 +61,12 @@ export class GameOver extends Container {
     this.removeChildren();
   }
 
-  render(view: MatchView): void {
+  /**
+   * `solo` is how a solo match's tally stands against the best on this device
+   * (§3.3, solo), known once the fortress has fallen. Solo has one outcome -
+   * the wall always falls in the end - and the number is the news.
+   */
+  render(view: MatchView, solo: { best: number; newBest: boolean } | null = null): void {
     const outcome = classify(view);
     // §3.3, replaced: the same three outcomes, reached a different way. Nobody loses a
     // fortress in the arena - there are none - so the words have to change.
@@ -88,6 +94,11 @@ export class GameOver extends Container {
     scrim.eventMode = 'static';
     scrim.hitArea = new Rectangle(0, 0, l.screen.width, l.screen.height);
     this.addChild(scrim);
+
+    if (view.solo) {
+      this.drawSolo(view, view.solo, solo, cx);
+      return;
+    }
 
     const heading =
       outcome === 'won'
@@ -136,6 +147,52 @@ export class GameOver extends Container {
 
     this.addChild(
       this.button(cx, y, 'Play again', UI.panel, UI.text, () => {
+        this.reset();
+        this.handlers.onRestart();
+      }),
+    );
+  }
+
+  /**
+   * §3.3, solo: how far the wall held and how many fell before it - the tally
+   * large, because it is the score, and the best beside it, because a score is
+   * only a score with something to beat.
+   */
+  private drawSolo(
+    view: MatchView,
+    tally: NonNullable<MatchView['solo']>,
+    result: { best: number; newBest: boolean } | null,
+    cx: number,
+  ): void {
+    const l = this.layout;
+    const endless = tally.endless;
+    const held = endless
+      ? `Held ${clock(ticksToSeconds(endless.ageTicks))} into the endless wave`
+      : `Held to wave ${view.wave}`;
+
+    this.addChild(
+      centreOn(label('Fortress lost', 24, UI.text, '700'), cx, l.screen.height * 0.28),
+      centreOn(label(held, 13, UI.textMuted), cx, l.screen.height * 0.28 + 34),
+      centreOn(
+        label(tally.kills.toLocaleString('en-GB'), 40, UI.accent, '700'),
+        cx,
+        l.screen.height * 0.41,
+      ),
+      centreOn(label('monsters killed', 13, UI.textMuted, '600'), cx, l.screen.height * 0.41 + 50),
+    );
+    if (result) {
+      const best = result.newBest ? 'A new best' : `Best: ${result.best.toLocaleString('en-GB')}`;
+      this.addChild(
+        centreOn(
+          label(best, 13, result.newBest ? UI.accent : UI.textMuted, '700'),
+          cx,
+          l.screen.height * 0.41 + 72,
+        ),
+      );
+    }
+
+    this.addChild(
+      this.button(cx, l.screen.height * 0.62, 'Play again', UI.panel, UI.text, () => {
         this.reset();
         this.handlers.onRestart();
       }),

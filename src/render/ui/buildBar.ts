@@ -49,6 +49,7 @@ import type { Text } from 'pixi.js';
 import type { AuraType, DamageType, GameData, MonsterDef, UnitDef } from '../../data/schema.ts';
 import { buildableUnits } from '../../data/roster.ts';
 import {
+  boardOpenIn,
   resolveMonsterStats,
   sellValue,
   sendOpen,
@@ -577,6 +578,7 @@ export class BuildBar extends Container {
 
   /** Who the next send is aimed at: the chosen lane, or a living one at random. */
   private resolveTarget(): string | null {
+    if (this.soloTarget) return this.soloTarget;
     return pickSendTarget(
       this.opponents,
       this.sendTarget,
@@ -590,6 +592,12 @@ export class BuildBar extends Container {
 
   /** The opponents from the last frame, for `resolveTarget` between renders. */
   private opponents: readonly OpponentView[] = [];
+
+  /**
+   * Your own lane, in solo, where every send comes home (§3.3, solo): the
+   * only target there is. Null in every other match.
+   */
+  private soloTarget: string | null = null;
 
   /** Every button, so blinks and holds can be ticked without hunting for them. */
   private everyButton: GridButton[] = [];
@@ -879,9 +887,10 @@ export class BuildBar extends Container {
     // supply, the weapon type, the aura, sends - stays open through combat,
     // because none of it touches the line and a player with nothing to do for
     // the length of a fight is watching rather than playing. Both close when
-    // the armies march (§3.3, replaced).
+    // the armies march (§3.3, replaced). Solo's endless wave keeps the board
+    // open too, since it has no build phase to wait for (endless.ts).
     const canShop = view.phase !== 'showdown';
-    const canBuild = canShop && view.phase === 'build';
+    const canBuild = canShop && boardOpenIn(view);
     // §13: out of the match means out of the shop, whatever the phase says.
     const alive = !view.eliminated;
 
@@ -890,6 +899,7 @@ export class BuildBar extends Container {
     // away would be a hold that never completed.
     for (const button of this.everyButton) button.animate(deltaMs);
     this.opponents = view.opponents;
+    this.soloTarget = view.solo ? view.teamId : null;
 
     // A selected unit is a view of its own, belonging to no tab: none of them
     // is lit while it is up, and tapping any of them puts the unit down and
@@ -950,15 +960,44 @@ export class BuildBar extends Container {
     if (this.panels.send.visible) this.renderSend(view, economy, canShop && alive);
   }
 
+  /** §11.5: pick a target, then pick what to throw at it. */
+  private renderSend(view: MatchView, economy: EconomyView, canAct: boolean): void {
+    if (view.solo) this.renderSoloTarget(view, canAct);
+    else this.renderTargets(view, canAct);
+    this.renderSendButtons(view, economy, canAct);
+  }
+
   /**
-   * §11.5: pick a target, then pick what to throw at it.
-   *
+   * §3.3, solo: one chip, your own, and nothing to choose - every send comes
+   * back at the lane that bought it, for the income it pays and the bounty it
+   * carries. It says when the send arrives, because that is the one thing
+   * about it that changes: the next wave, or at once in the endless one.
+   */
+  private renderSoloTarget(view: MatchView, canAct: boolean): void {
+    this.targetIds = [null, null, null];
+    this.targetButtons.forEach((button, slot) => {
+      button.visible = slot === 0;
+    });
+    const chip = this.targetButtons[0];
+    if (!chip) return;
+    chip.setSwatch(null);
+    chip.update({
+      title: 'Yourself',
+      detail: view.solo?.endless ? 'arrives at once' : 'joins your next wave',
+      note: '',
+      noteColour: UI.accent,
+      enabled: canAct,
+      selected: true,
+    });
+  }
+
+  /**
    * The target defaults to whoever has the most fortress HP left, which is the
    * leader as far as §12 lets anyone tell - so the default action is the
    * gang-up-on-the-leader one the section describes, and choosing differently
    * is a deliberate act.
    */
-  private renderSend(view: MatchView, economy: EconomyView, canAct: boolean): void {
+  private renderTargets(view: MatchView, canAct: boolean): void {
     const targets = [...view.opponents]
       .filter((o) => !o.eliminated)
       .sort((a, b) => a.teamId.localeCompare(b.teamId));
@@ -1015,7 +1054,10 @@ export class BuildBar extends Container {
       enabled: canAct && targets.length > 0,
       selected: this.sendAtRandom,
     });
+  }
 
+  /** The sends themselves, a page of them, at whoever the chips say. */
+  private renderSendButtons(view: MatchView, economy: EconomyView, canAct: boolean): void {
     const gems = economy.gems;
     const aimed = this.resolveTarget() !== null;
     this.sendCooldowns = economy.sendCooldowns;

@@ -533,3 +533,57 @@ describe('the Final Showdown on the wire (§3.3, replaced)', () => {
     expect(decoded.showdown).toBeNull();
   });
 });
+
+describe('solo on the wire (§3.3, solo)', () => {
+  const soloTables = buildTables(data, ['me'], SEED);
+
+  function soloMatch() {
+    const state = createMatch(data, {
+      seed: SEED,
+      teams: [{ id: 'me', playerIds: ['me'] }],
+      mode: 'solo',
+    });
+    return { state, ctx: createContext(data) };
+  }
+
+  function soloRoundTrip(state: MatchState, ctx: SimContext) {
+    const original = viewFor(ctx, state, 'me');
+    const decoded = decodeFrame(encodeFrame(original, soloTables), soloTables);
+    return { original, decoded };
+  }
+
+  it('carries the tally before the endless wave, with no stream to describe', () => {
+    const { state, ctx } = soloMatch();
+    state.lanes.me!.kills = 41;
+    const { original, decoded } = soloRoundTrip(state, ctx);
+    expect(original.solo).toEqual({ kills: 41, endless: null });
+    expect(decoded.solo).toEqual(original.solo);
+  });
+
+  it('carries the endless wave: its age, its step and the next boss', () => {
+    const { state, ctx } = soloMatch();
+    state.wave = data.waves.showdown.afterWave;
+    state.phase = 'build';
+    state.phaseTicksLeft = 1;
+    for (let guard = 0; !state.endless && guard < 10_000; guard++) step(ctx, state);
+    expect(state.endless).not.toBeNull();
+    // Past the first step, with the wall kept standing so the match is still on.
+    const lane = state.lanes.me!;
+    for (let i = 0; i < 700; i++) {
+      lane.fortress.hp = lane.fortress.maxHp;
+      step(ctx, state);
+    }
+    lane.kills = 7;
+
+    const { original, decoded } = soloRoundTrip(state, ctx);
+    expect(original.solo!.endless).not.toBeNull();
+    expect(original.solo!.endless!.step).toBeGreaterThan(0);
+    expect(decoded.solo).toEqual(original.solo);
+  });
+
+  it('says nothing about solo in a standard match', () => {
+    const { state, ctx } = match();
+    const { decoded } = roundTrip(state, ctx, 'a');
+    expect(decoded.solo).toBeNull();
+  });
+});

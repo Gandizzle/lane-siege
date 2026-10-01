@@ -34,7 +34,7 @@ import {
 } from './abilityRuntime.ts';
 import { Rng } from './rng.ts';
 import { dealDamage } from './strike.ts';
-import { canAttack, canMove, freshAbilityState, modifiersOf, tauntedBy } from './status.ts';
+import { canAttack, canMove, modifiersOf, tauntedBy } from './status.ts';
 import type { Command } from './commands.ts';
 import { applyCommands } from './apply.ts';
 import { resolveDamage } from './damage.ts';
@@ -45,6 +45,7 @@ import { monsterEnrage } from './enrage.ts';
 import type { Body } from './motion.ts';
 import type { SimContext } from './context.ts';
 import { moveSeekers, planMoves, type Walker } from './steering.ts';
+import { beginEndless, endlessTick, respawnUnit } from './endless.ts';
 import { beginShowdown, showdownEliminations, showdownTick } from './showdown.ts';
 import { admitFromReserve, countLiving, createMonster, placeWave } from './spawn.ts';
 import { holdOrAcquire, nearestInRange, withinRange } from './targeting.ts';
@@ -528,6 +529,7 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): voi
     if (!monster.alive || monster.hp > 0) continue;
     monster.alive = false;
     anyMonsterDied = true;
+    lane.kills += 1;
 
     if (monster.killedByFortress) payTheTable(ctx, state, lane);
     else lane.economy.gold += monster.bounty;
@@ -576,28 +578,7 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): voi
  * replaces that, and it opens with every army whole (showdown.ts).
  */
 function respawnUnits(lane: Lane, energyMax: number): void {
-  for (const unit of lane.units) {
-    unit.alive = true;
-    unit.maxHp = unit.baseMaxHp;
-    unit.hp = unit.maxHp;
-    // A fresh body, which is what §5.4 says respawning is: no burns carried
-    // over from the wave that killed it, no cooldowns part-spent, and a FULL
-    // ENERGY POOL. Every unit that can spend energy meets every wave with all
-    // of it - a pool that carried over would make the first wave after a long
-    // fight quietly weaker than the one after a short one, for a reason no
-    // player could see. Nothing can spend it during the build phase either
-    // (abilityRuntime.ts, `AbilityEnv.fighting`), so full here is full when
-    // the wave lands.
-    Object.assign(unit, freshAbilityState(energyMax));
-    unit.targetId = null;
-    unit.cooldown = 0;
-    // Units advance during combat (§5.2, amended), so put the line back on the
-    // tiles the player chose rather than leaving it wherever it drifted to.
-    unit.pos.x = unit.homeTileX + 0.5;
-    unit.pos.y = unit.homeTileY + 0.5;
-    unit.engaged = false;
-    unit.fieldCell = -1;
-  }
+  for (const unit of lane.units) respawnUnit(unit, energyMax);
 }
 
 /**
@@ -714,6 +695,13 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
       return;
     }
 
+    // §3.3, solo: after the last wave's build phase comes no wave at all, but
+    // a stream that never ends (endless.ts).
+    if (state.mode === 'solo' && state.wave >= ctx.data.waves.showdown.afterWave) {
+      beginEndless(ctx, state);
+      return;
+    }
+
     state.phase = 'combat';
     state.wave += 1;
     // Combat has no clock of its own. It ends when the lanes are empty.
@@ -734,11 +722,16 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
     return;
   }
 
+  // The endless wave is combat that never ends: a lull between two bodies is
+  // not the lane being clear (endless.ts).
+  if (state.endless) return;
+
   if (!allLanesClear(state)) return;
 
   // §3.3, replaced: the last wave was the last wave. What follows is not another build
-  // phase but the Final Showdown.
-  if (state.wave >= ctx.data.waves.showdown.afterWave) {
+  // phase but the Final Showdown - or, alone, one more build phase and then
+  // the endless wave (above).
+  if (state.wave >= ctx.data.waves.showdown.afterWave && state.mode !== 'solo') {
     beginShowdown(ctx, state);
     return;
   }
@@ -850,6 +843,9 @@ export function step(
       const lane = state.lanes[team.id];
       if (!lane) continue;
 
+      // The endless wave's next arrivals, before the lane moves, so a body
+      // that walks in is in place for this tick's fighting as a wave's is.
+      if (state.endless) endlessTick(ctx, state, lane);
       laneTick(ctx, lane, state, rng);
       fortressActs(ctx, lane);
       produceGems(lane);

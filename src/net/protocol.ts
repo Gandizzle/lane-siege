@@ -201,6 +201,14 @@ export interface WireFrame {
   wl: WireLane[];
   /** The Final Showdown, once it has started (§3.3, replaced). Absent before then. */
   sd?: WireShowdown;
+  /**
+   * Solo mode (§3.3, solo): `[kills, endlessAgeTicks, endlessStep,
+   * nextBossTicks]`, with the age -1 before the endless wave opens. Absent in a
+   * standard match. Solo is played locally today, so this only ever crosses a
+   * wire in a test - but a view the protocol cannot carry is a view that will
+   * one day arrive half-empty.
+   */
+  so?: [number, number, number, number];
 }
 
 /**
@@ -665,6 +673,15 @@ export function encodeFrame(view: MatchView, tables: WireTables): WireFrame {
     wl: Object.values(view.watching).map((lane) => encodeLane(lane, tables)),
   };
   if (view.showdown) frame.sd = encodeShowdown(view.showdown, tables);
+  if (view.solo) {
+    const endless = view.solo.endless;
+    frame.so = [
+      view.solo.kills,
+      endless ? endless.ageTicks : -1,
+      endless ? endless.step : 0,
+      endless ? endless.nextBossTicks : 0,
+    ];
+  }
   return frame;
 }
 
@@ -703,5 +720,14 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
     ),
     watching,
     showdown: frame.sd ? decodeShowdown(frame.sd, tables) : null,
+    solo: frame.so
+      ? {
+          kills: frame.so[0],
+          endless:
+            frame.so[1] >= 0
+              ? { ageTicks: frame.so[1], step: frame.so[2], nextBossTicks: frame.so[3] }
+              : null,
+        }
+      : null,
   };
 }

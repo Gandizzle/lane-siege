@@ -464,10 +464,51 @@ export interface ShowdownFile {
   dampening: DampeningConfig;
 }
 
+/**
+ * Solo mode's ending, in place of the Final Showdown (§3.3, solo).
+ *
+ * After the last authored wave and one more build phase, a stream of monsters
+ * that never stops: every body a type drawn at random from the ones the waves
+ * used, a boss on a clock, and the whole thing climbing the same growth curve
+ * the waves climb, one wave's worth every `stepSeconds`. It ends when the
+ * fortress falls, and the score is how many monsters fell first.
+ */
+export interface EndlessFile {
+  /**
+   * Seconds per step. Each step is one more wave up the growth curve (`scaling`)
+   * for the bodies that walk in during it, pays the passive income a wave would,
+   * and shortens the gap between arrivals.
+   */
+  stepSeconds: number;
+  /** Seconds between arrivals when the stream opens. */
+  firstGapSeconds: number;
+  /** Each step multiplies the gap by this. */
+  gapPerStep: number;
+  /** And the gap never falls below this. */
+  minGapSeconds: number;
+  /** A boss walks in this often, drawn from every boss the waves used. */
+  bossEverySeconds: number;
+  /**
+   * A unit that falls stands back up on its own tile after this long. There is
+   * no build phase to respawn it in (§5.4), and a line that only ever shrinks
+   * would make the stream a countdown rather than a fight.
+   */
+  respawnSeconds: number;
+  /**
+   * Gold a body pays, per point of its `bounty` weight. A wave divides a fixed
+   * pool (§11.1); a stream has no end to divide a pool over, so each body is
+   * priced on its own, at about what a late wave pays per weight.
+   */
+  bountyPerWeight: number;
+  /** Bodies queued behind the cap before the stream holds back (§8.1). */
+  maxReserve: number;
+}
+
 export interface WavesFile {
   buildPhaseSeconds: number;
   bossEveryNWaves: number;
   showdown: ShowdownFile;
+  endless: EndlessFile;
   /** Lane cap; the excess waits in the reserve queue (§8.1). */
   maxConcurrentMonsters: number;
   enrage: EnrageConfig;

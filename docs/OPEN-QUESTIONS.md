@@ -381,6 +381,18 @@ Decisions that override the document rather than filling a gap in it:
   vocabulary rather than a rule. `waves.showdown` in `data/waves.json` holds all
   four numbers.
 
+- **§3.3 — solo: one lane, your own sends, and a wave that never ends.** A
+  mode DESIGN.md does not have. One lane; every send lands on the lane that
+  bought it (still paying its income, still carrying its bounty); and in place
+  of the Final Showdown, which needs somebody to meet, the last build phase is
+  followed by an endless wave - monsters drawn at random from every type the
+  twenty-five waves used, a boss on a one-minute clock, and the stream climbing
+  the waves' own growth curve a wave's worth every thirty seconds. Because the
+  stream has no gaps, three between-wave rules move into it: income is paid
+  every step, a fallen unit stands back up after fifteen seconds, and the board
+  stays open. The match ends when the fortress falls, and the score is the
+  number of monsters killed. `waves.endless` in `data/waves.json`;
+  `src/sim/endless.ts`.
 - **§3.1 — the shop stays open during combat; only the board closes.** §3.1
   puts placing, upgrading, tech, fortress upgrades and queued sends all in the
   build phase. Only the first two of those are about the LINE, and only the

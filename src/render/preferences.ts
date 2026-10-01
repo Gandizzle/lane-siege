@@ -40,12 +40,19 @@ export interface Preferences {
    * tutorial once there is one.
    */
   tutorialDone: string[];
+  /**
+   * The most monsters killed in one solo match on this device (§3.3, solo),
+   * 0 before the first. Solo's score is a tally, and a tally is only a score
+   * when there is a number to beat.
+   */
+  soloBest: number;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
   statusEffects: true,
   practiceSpeed: 1,
   tutorialDone: [],
+  soloBest: 0,
 };
 
 const STORAGE_KEY = 'lane-siege.preferences';
@@ -64,6 +71,10 @@ export function parsePreferences(raw: unknown): Preferences {
     tutorialDone: Array.isArray(r.tutorialDone)
       ? [...new Set(r.tutorialDone.filter((id): id is string => typeof id === 'string'))]
       : [...d.tutorialDone],
+    soloBest:
+      typeof r.soloBest === 'number' && Number.isFinite(r.soloBest) && r.soloBest > 0
+        ? Math.floor(r.soloBest)
+        : d.soloBest,
   };
 }
 

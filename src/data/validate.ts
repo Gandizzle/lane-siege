@@ -190,6 +190,33 @@ function checkWaveReferences(data: GameData, errors: string[]): void {
   for (const id of data.waves.bossBank) {
     if (!known.has(id)) errors.push(`bossBank references unknown monster '${id}'`);
   }
+
+  // Solo mode's endless last wave (§3.3, solo). Every number is a rate or a
+  // clock, and a zero in any of them is a stream that never moves or one
+  // that arrives all at once.
+  const endless = data.waves.endless as Partial<GameData['waves']['endless']> | undefined;
+  if (!endless) {
+    errors.push('waves.endless is missing: solo mode has no last wave');
+  } else {
+    for (const key of [
+      'stepSeconds',
+      'firstGapSeconds',
+      'gapPerStep',
+      'minGapSeconds',
+      'bossEverySeconds',
+      'respawnSeconds',
+      'bountyPerWeight',
+      'maxReserve',
+    ] as const) {
+      const value = endless[key];
+      if (typeof value !== 'number' || !(value > 0)) {
+        errors.push(`waves.endless.${key} must be a positive number`);
+      }
+    }
+    if ((endless.gapPerStep ?? 0) > 1) {
+      errors.push('waves.endless.gapPerStep above 1 would slow the stream down as it climbs');
+    }
+  }
 }
 
 /** A mark upgrade must point at a unit that exists (§7.3). */

@@ -84,6 +84,22 @@ function newTransport(
   builderId: string,
   identity: { playerId: string; name: string },
 ): Transport {
+  // §3.3, solo: your lane and nobody else's. No scripted lanes - a send has
+  // nowhere to go but home - and the match is local whatever the server.
+  if (mode.kind === 'solo') {
+    return new LocalTransport(
+      data,
+      options.seed ?? Math.floor(Math.random() * 0x7fffffff),
+      [{ id: OWN_LANE, playerIds: ['you'], name: identity.name, builderId }],
+      OWN_LANE,
+      [],
+      {
+        solo: true,
+        ...(options.startWave !== undefined && { wave: options.startWave }),
+      },
+    );
+  }
+
   if (mode.kind !== 'practice' && options.server) {
     return new RemoteTransport(data, options.server, {
       identity,

@@ -10,7 +10,7 @@
 import type { GameData } from '../data/schema.ts';
 import { secondsToTicks } from './constants.ts';
 import { Rng } from './rng.ts';
-import type { Lane, MatchState, PlayerId, Team, TeamId } from './types.ts';
+import type { Lane, MatchMode, MatchState, PlayerId, Team, TeamId } from './types.ts';
 
 export class MissingDataError extends Error {
   constructor(public readonly paths: string[]) {
@@ -72,6 +72,11 @@ export interface MatchOptions {
   /** One seed per match, shared by every client and the server (§9.2). */
   seed: number;
   teams: TeamSetup[];
+  /**
+   * Standard unless said otherwise. Solo is one lane whose sends come back at
+   * itself and whose last wave never ends (§3.3, solo).
+   */
+  mode?: MatchMode;
 }
 
 function createLane(data: GameData, teamId: TeamId, builderId: string, missing: string[]): Lane {
@@ -89,6 +94,7 @@ function createLane(data: GameData, teamId: TeamId, builderId: string, missing: 
     sendLog: [],
     sendCooldowns: {},
     attacks: [],
+    kills: 0,
     fortress: {
       hp: maxHp,
       maxHp,
@@ -145,6 +151,12 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
   const missing: string[] = [];
 
   const buildTicks = secondsToTicks(data.waves.buildPhaseSeconds);
+  const mode = options.mode ?? 'standard';
+  // Solo is one player by definition: a send with nowhere to go but home
+  // only means something when there is nobody else to aim at.
+  if (mode === 'solo' && options.teams.length !== 1) {
+    throw new Error(`A solo match has one lane, not ${options.teams.length}`);
+  }
 
   const teams: Team[] = options.teams.map((setup) => ({
     id: setup.id,
@@ -174,6 +186,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
 
   return {
     seed: options.seed,
+    mode,
     rngState: new Rng(options.seed).state,
     tick: 0,
     // A match opens on a build phase, before wave 1 (§3.1).
@@ -185,6 +198,8 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     waveClocks: [],
     // §3.3, replaced: born when the last wave is cleared, not before (showdown.ts).
     showdown: null,
+    // Solo's endless last wave opens after the last build phase (endless.ts).
+    endless: null,
     nextEntityId: 1,
     finished: false,
     eliminatedCount: 0,

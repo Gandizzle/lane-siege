@@ -449,6 +449,13 @@ export interface Lane {
   attacks: Attack[];
   fortress: Fortress;
   economy: Economy;
+  /**
+   * Monsters that have died in this lane, by any hand - a unit's, the
+   * fortress weapon's, an ability's. Not the ones wiped when the lane fell:
+   * nobody killed those. Solo mode's score (§3.3, solo); counted in every
+   * match because the count costs nothing and is true everywhere.
+   */
+  kills: number;
 }
 
 /**
@@ -500,9 +507,44 @@ export interface Showdown {
   centreHolders: TeamId[];
 }
 
+/**
+ * What kind of match this is.
+ *
+ *   standard  §3: up to four lanes, sends at each other, the Final Showdown
+ *             after the last wave.
+ *   solo      One lane. Every send lands in your own next wave, and after the
+ *             last wave, in place of the Final Showdown, an endless one
+ *             (`EndlessState`) that runs until the fortress falls.
+ */
+export type MatchMode = 'standard' | 'solo';
+
+/**
+ * Solo mode's last wave (§3.3, solo): a stream of monsters that never stops.
+ *
+ * Every body is drawn from `(seed, spawned)` alone (endless.ts), so the stream
+ * is as reproducible as a wave (§9.2) whatever the player does to it.
+ */
+export interface EndlessState {
+  /** Ticks since the stream opened. Its step, and so its strength, is a function of this. */
+  age: number;
+  /** Bodies the stream has sent: the index the next one is drawn with. */
+  spawned: number;
+  /** Ticks until the next body walks in. */
+  nextBody: number;
+  /** Ticks until the next boss. */
+  nextBoss: number;
+  /**
+   * Units that have fallen, and the ticks until each stands back up on its own
+   * tile. There is no build phase left to respawn them in (§5.4).
+   */
+  fallen: Record<EntityId, number>;
+}
+
 export interface MatchState {
   /** One seed per match, shared by every client and the server (§9.2). */
   seed: number;
+  /** Standard or solo, fixed at creation. */
+  mode: MatchMode;
   rngState: number;
   /** Ticks since match start. The only clock the simulation has. */
   tick: number;
@@ -524,6 +566,12 @@ export interface MatchState {
    * Showdown in 3..." card is counting.
    */
   showdown: Showdown | null;
+  /**
+   * Solo mode's endless last wave, once it has opened (§3.3, solo). Null
+   * before then and in every standard match. While it runs the phase is
+   * `combat` and never changes again.
+   */
+  endless: EndlessState | null;
   nextEntityId: EntityId;
   /** Set when one team (or none) remains (§13). */
   finished: boolean;
