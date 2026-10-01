@@ -424,8 +424,10 @@ export interface Lane {
   units: DefensiveUnit[];
   monsters: Monster[];
   /**
-   * Overflow beyond maxConcurrentMonsters. Spawns one at a time as active
-   * monsters die, into its own wave's current enrage state (§8.1).
+   * Overflow beyond either pool's cap - the wave's (`maxConcurrentMonsters`)
+   * or the sends' (`maxConcurrentSends`). Spawns one at a time as a monster
+   * of the same pool dies, into its own wave's current enrage state (§8.1,
+   * amended; spawn.ts, `admitFromReserve`).
    *
    * Each entry is a whole `SpawnSpec` (waves.ts), and says so: a sent body
    * keeps its `sendId` and its `bounty` while it waits, so what is still

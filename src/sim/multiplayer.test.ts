@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { applyCommand, createContext, createMatch, step, viewFor } from './index.ts';
+import { applyCommand, countLiving, createContext, createMatch, step, viewFor } from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
@@ -238,18 +238,18 @@ describe('sends (§11.5)', () => {
     expect(state.lanes.b!.incomingSends).toHaveLength(0);
   });
 
-  it('keeps counting the sends the cap holds back after their wave has spawned', () => {
-    // §8.1: a wave with more in it than the field holds keeps the rest in
-    // reserve, and sends go last. The send log clears when the wave spawns, so
-    // without this count the sends still waiting are invisible - and in solo,
-    // where they are your own, they look like sends nobody bought.
+  it('keeps counting the sends their cap holds back after their wave has spawned', () => {
+    // §8.1, amended: sends have a pool of their own on the field, and more
+    // sends than it holds wait in reserve. The send log clears when the wave
+    // spawns, so without this count the sends still waiting are invisible -
+    // and in solo, where they are your own, they look like sends nobody bought.
     const { state, ctx } = fourPlayerMatch();
     for (const lane of Object.values(state.lanes)) {
       lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
       lane.fortress.hp = lane.fortress.maxHp;
     }
     fund(state, 'a', 100_000);
-    const sends = data.waves.maxConcurrentMonsters + 10;
+    const sends = data.waves.maxConcurrentSends + 10;
     for (let i = 0; i < sends; i++) {
       state.lanes.a!.sendCooldowns = {};
       applyCommand(ctx, state, { kind: 'send', teamId: 'a', targetTeamId: 'b', sendId: 'grub' });
@@ -260,11 +260,18 @@ describe('sends (§11.5)', () => {
     const b = state.lanes.b!;
     const view = viewFor(ctx, state, 'b').lane!;
     expect(view.sendLog).toHaveLength(0);
+    // The ten over their cap wait, and so may some within it: the spawn zone
+    // only has ground for so many at once, and those walk in a few ticks
+    // behind the clump as it moves off (spawn.ts, `packWave`).
     const waiting = b.reserve.filter((queued) => queued.sendId === 'grub').length;
-    expect(waiting).toBeGreaterThan(0);
+    expect(waiting).toBeGreaterThanOrEqual(10);
     expect(view.reserveSends).toBe(waiting);
-    // Last in the queue: everything the wave brought enters first.
-    expect(b.reserve.slice(-waiting).every((queued) => queued.sendId === 'grub')).toBe(true);
+    let walkIn = 0;
+    while (countLiving(b, 'sends') < data.waves.maxConcurrentSends && walkIn++ < 400) {
+      step(ctx, state);
+    }
+    expect(walkIn).toBeLessThan(400);
+    expect(countLiving(b, 'sends')).toBe(data.waves.maxConcurrentSends);
 
     // And the count runs down to nothing as they walk in.
     for (let guard = 0; b.reserve.some((q) => q.sendId) && guard < 40_000; guard++) {

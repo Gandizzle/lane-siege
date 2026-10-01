@@ -14,6 +14,7 @@ import { fastestStep } from './fixtures.ts';
 import {
   applyCommand,
   buildDefIndex,
+  countLiving,
   createContext,
   createMatch,
   createMonster,
@@ -831,7 +832,8 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
     return { state, ctx, d };
   }
 
-  it('keeps the whole defence out of it, however hard it is pushed', () => {
+  // A full pool of sends on the field beside the wave: heavy enough to need saying.
+  it('keeps the whole defence out of it, however hard it is pushed', { timeout: 60_000 }, () => {
     const { state, ctx } = underSiege();
     const lane = state.lanes.l1!;
 
@@ -847,7 +849,8 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
     expect(deepest).toBeGreaterThan(-0.2);
   });
 
-  it('never lets a monster be born inside a unit', () => {
+  // A full pool of sends on the field beside the wave: heavy enough to need saying.
+  it('never lets a monster be born inside a unit', { timeout: 60_000 }, () => {
     const { state, ctx } = underSiege();
     const lane = state.lanes.l1!;
     const seen = new Set<number>();
@@ -876,22 +879,28 @@ describe('the spawn zone is the attacker’s ground (§5.2, amended again)', () 
     expect(overlapping).toBe(0);
   });
 
-  it('still fills the lane to the cap while a queue is waiting', () => {
+  // A full pool of sends on the field beside the wave: heavy enough to need saying.
+  it('still fills each pool to its cap while a queue is waiting', { timeout: 60_000 }, () => {
     // The point of the rule is not fewer monsters - it is that the ones the
-    // cap allows have somewhere to be.
+    // caps allow have somewhere to be. Sixty grubs sent: a full pool of sends
+    // on the field beside the wave, and the rest queued (§8.1, amended).
     const { state, ctx, d } = underSiege();
     const lane = state.lanes.l1!;
-    let peak = 0;
+    let peakSent = 0;
+    let peakWave = 0;
     let sawQueue = false;
 
     for (let t = 0; t < 600; t++) {
       step(ctx, state);
-      peak = Math.max(peak, lane.monsters.filter((m) => m.alive).length);
+      peakSent = Math.max(peakSent, countLiving(lane, 'sends'));
+      peakWave = Math.max(peakWave, countLiving(lane, 'wave'));
       if (lane.reserve.length > 0) sawQueue = true;
     }
 
     expect(sawQueue).toBe(true);
-    expect(peak).toBe(d.waves.maxConcurrentMonsters);
+    expect(peakSent).toBe(d.waves.maxConcurrentSends);
+    expect(peakWave).toBeGreaterThan(0);
+    expect(peakWave).toBeLessThanOrEqual(d.waves.maxConcurrentMonsters);
   });
 
   // Three hundred bodies for 2,200 ticks: slow enough to need saying so.

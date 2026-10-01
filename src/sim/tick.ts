@@ -47,7 +47,15 @@ import type { SimContext } from './context.ts';
 import { moveSeekers, planMoves, type Walker } from './steering.ts';
 import { beginEndless, endlessTick, respawnUnit } from './endless.ts';
 import { beginShowdown, showdownEliminations, showdownTick } from './showdown.ts';
-import { admitFromReserve, countLiving, createMonster, placeWave } from './spawn.ts';
+import {
+  admitFromReserve,
+  countLiving,
+  createMonster,
+  packWave,
+  poolCap,
+  poolOf,
+  type MonsterPool,
+} from './spawn.ts';
 import { holdOrAcquire, nearestInRange, withinRange } from './targeting.ts';
 import {
   FORTRESS_ID,
@@ -559,11 +567,12 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): voi
     }
   }
 
-  if (anyMonsterDied) {
-    // Drop the corpses, then let the reserve queue refill the free slots (§8.1).
-    lane.monsters = lane.monsters.filter((m) => m.alive);
-    admitFromReserve(state, ctx.data, ctx.defs, lane);
-  }
+  // Drop the corpses, then let the reserve queue refill the free slots (§8.1).
+  if (anyMonsterDied) lane.monsters = lane.monsters.filter((m) => m.alive);
+  // Every tick there is a queue, not only on a death: a body can be waiting
+  // for GROUND rather than for a slot, and ground opens up as the crowd in
+  // the spawn zone walks off (spawn.ts, `admitFromReserve`).
+  if (lane.reserve.length > 0) admitFromReserve(state, ctx.data, ctx.defs, lane);
 
   if (lane.fortress.hp <= 0) lane.fortress.destroyed = true;
 }
@@ -602,7 +611,6 @@ function spawnWave(ctx: SimContext, state: MatchState): void {
   const specs = generateWave(ctx.data, state.seed, state.wave);
   if (specs.length === 0) return;
 
-  const cap = ctx.data.waves.maxConcurrentMonsters;
   let totalSpawned = 0;
 
   for (const team of state.teams) {
@@ -625,14 +633,23 @@ function spawnWave(ctx: SimContext, state: MatchState): void {
     // coming, so it clears when that wave actually lands.
     lane.sendLog.length = 0;
 
-    // Everyone who fits under the cap spawns together, as one packed clump at
-    // the centre of the spawn zone; the rest wait in reserve (§8.1).
+    // Everyone who fits under their pool's cap spawns together, as one packed
+    // clump at the centre of the spawn zone; the rest wait in reserve (§8.1).
+    // Two pools, so a wave that fills its own cap does not push the sends
+    // that joined it to the back of the queue (§8.1, amended).
+    const room: Record<MonsterPool, number> = {
+      wave: poolCap(ctx.data, 'wave') - countLiving(lane, 'wave'),
+      sends: poolCap(ctx.data, 'sends') - countLiving(lane, 'sends'),
+    };
     const arriving: SpawnSpec[] = [];
+    const overflow: SpawnSpec[] = [];
     for (const spec of [...specs, ...incoming]) {
-      if (arriving.length + countLiving(lane) < cap) {
+      const pool = poolOf(spec);
+      if (room[pool] > 0) {
         arriving.push(spec);
+        room[pool] -= 1;
       } else {
-        lane.reserve.push(spec);
+        overflow.push(spec);
       }
       totalSpawned++;
     }
@@ -641,11 +658,21 @@ function spawnWave(ctx: SimContext, state: MatchState): void {
       const def = ctx.defs.monsters.get(spec.defId);
       return def ? resolveMonsterStats(ctx.data, def, spec.waveNumber).radius : 0.3;
     });
-    const positions = placeWave(ctx.data, radii);
+    // A wave and a full pool of sends can be more than the zone has ground
+    // for. What does not fit waits at the head of the queue - it was due now -
+    // and walks in as the clump moves off, a few ticks behind it.
+    const positions = packWave(ctx.data, radii);
+    const noRoom: SpawnSpec[] = [];
     arriving.forEach((spec, i) => {
-      const monster = createMonster(state, ctx.data, ctx.defs, spec, positions[i]!);
+      const at = positions[i];
+      if (!at) {
+        noRoom.push(spec);
+        return;
+      }
+      const monster = createMonster(state, ctx.data, ctx.defs, spec, at);
       if (monster) lane.monsters.push(monster);
     });
+    lane.reserve.push(...noRoom, ...overflow);
   }
 
   if (totalSpawned > 0) {

@@ -44,6 +44,18 @@ for (const id of teamIds) {
     }
   }
 }
+// A full pool of sends at every lane joining a late wave: since sends have a
+// pool of their own on the field (§8.1, amended), the most monsters a lane can
+// show at once - and the most a spectator's frame can carry.
+for (const id of teamIds) {
+  const lane = state.lanes[id]!;
+  for (let i = 0; i < data.waves.maxConcurrentSends; i++) {
+    const send = data.sends.sends[i % data.sends.sends.length]!;
+    for (const defId of send.monsters) {
+      lane.incomingSends.push({ defId, fromTeamId: 'elsewhere', sendId: send.id });
+    }
+  }
+}
 // A late wave, so the monster count is the one §15.3 budgets for rather than
 // wave one's handful.
 state.wave = 19;

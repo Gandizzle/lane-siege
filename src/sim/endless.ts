@@ -25,10 +25,10 @@
  *
  * And sends, which a solo player can only aim at themselves: one bought in the
  * last build phase, or during the stream, walks in at once rather than waiting
- * for a next wave that is never coming. When the field is full it waits at the
- * FRONT of the reserve, behind only the sends bought before it: a send that
- * queued behind the stream could surface minutes after it was bought - long
- * after auto-send was switched off - which reads as sends nobody paid for.
+ * for a next wave that is never coming. Sends have a pool of their own on the
+ * field (§8.1, amended), so a send only ever waits behind other sends: one
+ * that queued behind the stream used to surface minutes after it was bought -
+ * long after auto-send was switched off - which read as sends nobody paid for.
  *
  * DETERMINISM
  *
@@ -43,7 +43,7 @@ import type { DefIndex } from './defs.ts';
 import { stat } from './defs.ts';
 import { recomputeUnitBuffs } from './buffs.ts';
 import { waveRng } from './rng.ts';
-import { countLiving, createMonster, reservePosition } from './spawn.ts';
+import { countLiving, createMonster, freeSpawnPoint, poolCap, poolOf } from './spawn.ts';
 import { freshAbilityState } from './status.ts';
 import type { DefensiveUnit, Lane, MatchState } from './types.ts';
 import { resolveMonsterStats, sendBounty, type SpawnSpec } from './waves.ts';
@@ -211,17 +211,15 @@ function bodyBounty(ctx: Ctx, defId: string): number {
 /** How many of the stream's own bodies are waiting in the reserve: sends not counted. */
 function streamQueued(lane: Lane): number {
   let count = 0;
-  for (const queued of lane.reserve) if (!queued.sendId) count++;
+  for (const queued of lane.reserve) if (poolOf(queued) === 'wave') count++;
   return count;
 }
 
 /**
- * Put one body into the lane: onto the field if the cap allows, into the
- * reserve if not (§8.1), and onto its step's enrage clock either way.
- *
- * A send that has to wait goes ahead of the stream's bodies and behind the
- * sends already waiting, so the reserve always reads sends first, in the
- * order they were bought, then the stream.
+ * Put one body into the lane: onto the field if its pool has room, into the
+ * reserve if not (§8.1), and onto its step's enrage clock either way. The
+ * stream, bosses included, counts against the wave's pool and sends against
+ * their own, so neither waits behind the other (§8.1, amended).
  */
 function admit(ctx: Ctx, state: MatchState, lane: Lane, spec: SpawnSpec): void {
   // One clock per step, as one per wave (§8): bodies of a step that are still
@@ -234,22 +232,23 @@ function admit(ctx: Ctx, state: MatchState, lane: Lane, spec: SpawnSpec): void {
   }
   clock.remaining += 1;
 
-  if (countLiving(lane) >= ctx.data.waves.maxConcurrentMonsters) {
-    const firstOfStream = spec.sendId ? lane.reserve.findIndex((q) => !q.sendId) : -1;
-    if (firstOfStream < 0) lane.reserve.push(spec);
-    else lane.reserve.splice(firstOfStream, 0, spec);
-    return;
-  }
+  const pool = poolOf(spec);
   const def = ctx.defs.monsters.get(spec.defId);
   if (!def) return;
   const radius = resolveMonsterStats(ctx.data, def, spec.waveNumber).radius;
-  const monster = createMonster(
-    state,
-    ctx.data,
-    ctx.defs,
-    spec,
-    reservePosition(ctx.data, radius, lane.monsters),
-  );
+  // Straight in if its pool has room, nobody of its pool is already waiting
+  // (which would be jumping the queue), and the zone has ground for it;
+  // otherwise it waits its turn (spawn.ts, `admitFromReserve`).
+  const at =
+    countLiving(lane, pool) < poolCap(ctx.data, pool) &&
+    !lane.reserve.some((queued) => poolOf(queued) === pool)
+      ? freeSpawnPoint(ctx.data, radius, lane.monsters)
+      : null;
+  if (!at) {
+    lane.reserve.push(spec);
+    return;
+  }
+  const monster = createMonster(state, ctx.data, ctx.defs, spec, at);
   if (monster) lane.monsters.push(monster);
 }
 

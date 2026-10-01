@@ -353,6 +353,114 @@ describe('the reserve queue (§8.1)', () => {
   });
 });
 
+describe('two pools on the field (§8.1, amended)', () => {
+  it('holds waves and sends to caps of their own, each refilled from its own queue', () => {
+    const state = createMatch(data, {
+      seed: 1,
+      teams: [
+        { id: 'lane1', playerIds: ['p1'] },
+        { id: 'lane2', playerIds: ['p2'] },
+      ],
+    });
+    const ctx = createContext(data);
+    const lane = state.lanes.lane1!;
+    const waveCap = data.waves.maxConcurrentMonsters;
+    const sendCap = data.waves.maxConcurrentSends;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    lane.fortress.hp = lane.fortress.maxHp;
+
+    // The biggest authored wave, which overflows its own pool, and more sends
+    // than theirs holds: both pools full at once, and both queues waiting.
+    const biggest = data.waves.composition
+      .map((w) => ({ wave: w.wave, n: w.entries.reduce((sum, e) => sum + (e.count ?? 0), 0) }))
+      .reduce((a, b) => (b.n > a.n ? b : a));
+    expect(biggest.n).toBeGreaterThan(waveCap);
+    state.wave = biggest.wave - 1;
+    for (let i = 0; i < sendCap + 5; i++) {
+      lane.incomingSends.push({ defId: 'grub', fromTeamId: 'lane2', sendId: 'grub' });
+    }
+    runToPhase(ctx, state, 'combat');
+
+    expect(countLiving(lane, 'wave')).toBe(waveCap);
+    expect(countLiving(lane, 'sends')).toBe(sendCap);
+    expect(countLiving(lane)).toBe(waveCap + sendCap);
+    const queued = (pool: 'wave' | 'sends') =>
+      lane.reserve.filter((q) => (q.sendId ? 'sends' : 'wave') === pool).length;
+    const waveQueued = queued('wave');
+    expect(waveQueued).toBeGreaterThan(0);
+    expect(queued('sends')).toBe(5);
+
+    // Three of the wave die: three of the wave come in, and no send jumps in.
+    const living = lane.monsters.filter((m) => m.alive);
+    for (const monster of living.filter((m) => m.sendId === null).slice(0, 3)) monster.hp = 0;
+    step(ctx, state);
+    expect(queued('wave')).toBe(waveQueued - 3);
+    expect(queued('sends')).toBe(5);
+    expect(countLiving(lane, 'wave')).toBe(waveCap);
+
+    // Two sends die: two sends come in, whatever of the wave is still waiting.
+    for (const monster of lane.monsters.filter((m) => m.alive && m.sendId).slice(0, 2)) {
+      monster.hp = 0;
+    }
+    step(ctx, state);
+    expect(queued('sends')).toBe(3);
+    expect(countLiving(lane, 'sends')).toBe(sendCap);
+  });
+});
+
+describe('ground to stand on (§8.1, amended)', () => {
+  it('never stacks a wave and its sends on one point: what the zone cannot hold walks in behind', () => {
+    // Sixty bodies are more than the spawn zone has ground for at the clump's
+    // spacing - thirty of the largest send most of all. Stacked on the centre
+    // they used to be shoved apart by contact resolution and arrive as a burst.
+    const state = createMatch(data, {
+      seed: 1,
+      teams: [
+        { id: 'lane1', playerIds: ['p1'] },
+        { id: 'lane2', playerIds: ['p2'] },
+      ],
+    });
+    const ctx = createContext(data);
+    const lane = state.lanes.lane1!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    lane.fortress.hp = lane.fortress.maxHp;
+    const biggest = data.waves.composition
+      .map((w) => ({ wave: w.wave, n: w.entries.reduce((sum, e) => sum + (e.count ?? 0), 0) }))
+      .reduce((a, b) => (b.n > a.n ? b : a));
+    state.wave = biggest.wave - 1;
+    const behemoth = data.sends.sends.find((x) => x.id === 'behemoth')!;
+    for (let i = 0; i < data.waves.maxConcurrentSends; i++) {
+      lane.incomingSends.push({
+        defId: behemoth.monsters[0]!,
+        fromTeamId: 'lane2',
+        sendId: behemoth.id,
+      });
+    }
+    runToPhase(ctx, state, 'combat');
+
+    const living = lane.monsters.filter((m) => m.alive);
+    for (let i = 0; i < living.length; i++) {
+      for (let j = i + 1; j < living.length; j++) {
+        const a = living[i]!;
+        const b = living[j]!;
+        const apart = Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y) - a.radius - b.radius;
+        expect(apart, `${a.defId} ${a.id} and ${b.defId} ${b.id}`).toBeGreaterThanOrEqual(0);
+      }
+    }
+    // Some had no ground yet...
+    expect(lane.reserve.some((queued) => queued.sendId === behemoth.id)).toBe(true);
+
+    // ...and they walk in behind the clump within seconds, not a wave later.
+    let ticks = 0;
+    while (lane.reserve.some((q) => q.sendId === behemoth.id) && ticks < 20 * TICKS_PER_SECOND) {
+      step(ctx, state);
+      ticks++;
+    }
+    expect(lane.reserve.some((q) => q.sendId === behemoth.id)).toBe(false);
+    expect(countLiving(lane, 'sends')).toBe(data.waves.maxConcurrentSends);
+  });
+});
+
 describe('elimination (§13)', () => {
   it('gives simultaneous deaths distinct placements', () => {
     const { state, ctx } = freshMatch(4);

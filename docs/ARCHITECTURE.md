@@ -553,7 +553,9 @@ than strings, positions quantised to a hundredth of a tile, HP as a byte, and
 derives armour, damage type and body radius from the definition instead of
 transmitting them. Same load: **32.7 KiB/s and 117.9 KiB/s** as JSON, and
 Colyseus puts messages through msgpack, so those are upper bounds. `npm run
-wire` measures it.
+wire` measures it. With sends' own pool on the field (§8.1, amended) the worst
+a lane can show is a full wave and a full pool of sends, and the harness loads
+that: 83.0 KiB/s and 293.8 KiB/s.
 
 **Colyseus's state sync is deliberately unused.** Its `Schema` classes would
 mean a parallel type tree mirroring `MatchState`, kept in step by hand, and the
@@ -625,6 +627,57 @@ held 77% of combat, and the wave now reaches 13 of 14 rows as the line gives
 way. Spawn placement was tightened to match — the hex lattice is ten rings
 deep, far more than the zone holds, so points that would put a body outside it
 are skipped rather than spawning out of bounds and being shoved back in.
+
+### Two pools on the field: the wave and the sends
+
+§8.1 caps a lane at `maxConcurrentMonsters` on the field at once, with the
+excess queued in a reserve that feeds in as bodies die. That cap used to be
+shared, so a wave that filled it pushed the sends that joined it to the back
+of the queue, and a flood of sends held the wave back. **There are two pools
+now** (§8.1, amended): `maxConcurrentMonsters` (30) for what the wave brought -
+in solo's endless wave, the stream and its bosses - and `maxConcurrentSends`
+(30, equal on purpose) for what was sent. A full wave and a full complement of
+sends can stand in a lane together, sixty bodies.
+
+- **One queue, read per pool.** `lane.reserve` is still a single list, but a
+  slot freed in a pool goes to the first body waiting for THAT pool
+  (`admitFromReserve` in spawn.ts; `poolOf`, `poolCap`). Each pool keeps its
+  own order, and neither waits behind the other.
+- **Room means ground too.** The clump's spacing gives the spawn zone room
+  for about thirty-seven of the usual 0.22-tile body - a wave alone never needs
+  more, and a wave and its sends can. A body the zone has no ground for is not
+  stacked on the centre to be shoved apart by contact resolution, which
+  arrives as a burst: it waits at the head of the queue (`packWave`) and walks
+  in as the clump moves off, a few ticks behind it. So `admitFromReserve` runs
+  every tick there is a queue, not only when something dies, and admits a body
+  only where `freeSpawnPoint` finds it a place.
+- **What it costs.** The expensive part of a tick is the distance fields:
+  one per kind of walking body per lane, each marking every body in the lane
+  and, for a unit, a ring of attack positions around every monster at that
+  unit's reach. Twice the monsters is twice the rings. Measured with a real
+  line of every unit kind (`npm run perf`): four lanes with a full wave each,
+  10.9 ms of the 50 ms tick; with a full pool of sends as well, 20.4 ms. On the
+  wire (`npm run wire`): 83.0 KiB/s for a player and 293.8 KiB/s for a
+  spectator of all four lanes, up from 52.4 and 171.3, as JSON and so upper
+  bounds.
+- **What made room for it.** A unit's field is a lane minus the spawn zone,
+  and a long-reach unit's ring around a monster still in that zone was being
+  sampled cell by blocked cell at the fine resolution, for nothing. `markRing`,
+  `markObstacle` and `markCrowd` now stop at `FlowField.open` - the rectangle
+  of cells with any ground inside the world, set by `markOutside` - which
+  changes no field (every cell past it is blocked at both resolutions already)
+  and took a third off the tick: 15.7 ms to 11.3 ms with a full wave, 34.8 ms
+  to 19.2 ms with sends as well. The harness used to measure a line of one
+  melee unit, which read a third of the true cost; it measures a mixed line
+  now.
+- **Where that leaves a phone.** An online match is simulated on the server,
+  and solo is one lane, so neither is close. The heavy case is a practice match
+  late in the game, where the phone simulates all four lanes itself and the
+  scripted lanes send at each other: at a few times slower than the machine
+  the numbers above came from, that can approach the budget. The loop catches
+  up at most `MAX_CATCHUP_TICKS` ticks a frame (src/util/loop.ts), so the
+  failure is slow motion rather than a spiral, but it wants checking on a real
+  mid-range phone.
 
 ### The Final Showdown: one arena, four armies
 
@@ -711,9 +764,10 @@ floor is tinted with its seat's colour and each body wears a ring in the same
 colour — two readings of one fact, and the spoke tint survives a crowded
 centre.
 
-Measured: **5.1 ms per tick** with four armies of forty (10% of the 50 ms
-budget, against 1.5 ms for four lanes at the §15.3 load — the arena's field is
-nine times a lane's area), and **71.7 KiB/s** on the wire, below the 129.5
+Measured: **7.6 ms per tick** with four armies of forty (15% of the 50 ms
+budget, against 10.9 ms for four lanes with a full wave each - the arena's
+field is nine times a lane's area, but it is one army's kinds against another
+rather than every lane's), and **99.3 KiB/s** on the wire, below the 171.3
 KiB/s a four-lane spectator already costs. `npm run perf` and `npm run wire`.
 
 To look at it without playing twenty-five waves: `?wave=25` starts a practice
@@ -762,11 +816,12 @@ so the stream never ends on its own.
   is shared with `respawnUnits` in tick.ts), and the board stays open
   (`boardOpen` in apply.ts; `boardOpenIn` is the renderer's copy, since a client
   has a view rather than a state). A send made during the stream walks in at
-  once - or, when the field is at its cap, waits at the **front** of the
-  reserve, behind only the sends bought before it. It used to wait at the back,
-  behind up to a reserve's worth of the stream, and a playtest found the
-  result: auto-send switched off, no more gems spent, and its swarmlings still
-  walking in minutes later, which looked exactly like sends nobody had bought.
+  once - or, when its own pool is full, waits behind only other sends: sends
+  have a pool of their own on the field (§8.1, amended), and the stream fills
+  the wave's. It used to share one cap and wait behind up to a reserve's worth
+  of the stream, and a playtest found the result: auto-send switched off, no
+  more gems spent, and its swarmlings still walking in minutes later, which
+  looked exactly like sends nobody had bought.
 - **A full reserve holds the stream back** (`maxReserve`, 60) rather than
   queueing without end: a player that far behind is about to lose anyway.
   Full of the stream's OWN bodies: sends are not counted, or a pile of cheap
@@ -1465,9 +1520,8 @@ gets noticed. The bottom row also carries §11.5's incoming-send warning.
 
 That warning counts every send still on its way, not just the ones in the send
 log. The log holds sends for the NEXT wave and clears when that wave spawns,
-but a wave with more in it than the field holds keeps the rest in reserve,
-sends last (§8.1), and those can still be walking in long after the log went
-quiet. So once a wave is out, the lane view's `reserveSends` - how many of the
+but more sends than their pool holds on the field wait in reserve (§8.1,
+amended), and those can still be walking in long after the log went quiet. So once a wave is out, the lane view's `reserveSends` - how many of the
 reserve were sent - keeps the line up: `⚠ 5 sends still to come`, or in solo,
 where every send is your own, `5 of your sends still to come` (`sendNotice` in
 hud.ts). Without it a solo player who switched auto-send off saw their own
@@ -1872,7 +1926,8 @@ Implemented and tested (388 tests):
   positions, move-and-slide with yielding (§5.3 and §4.2, both amended)
 - Wave generation as a pure function of (seed, waveNumber), boss waves, scaling
   past the authored range, and the build-phase preview (§9.1–§9.3, §3.4)
-- The reserve queue and the lane cap (§8.1)
+- The reserve queue and the lane's two caps, one for the wave and one for
+  sends (§8.1, amended)
 - Commands: place, upgrade in place, weapon type, aura, tech, fortress, supply
   and send — with cost, supply, tile and phase validation inside the simulation
   (§7.3, §11.4, §3.2)

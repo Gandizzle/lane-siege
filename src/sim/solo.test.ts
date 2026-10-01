@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import {
   applyCommand,
+  countLiving,
   createContext,
   createMatch,
   endlessPool,
@@ -326,13 +327,14 @@ describe('solo mode', () => {
   });
 
   it(
-    'puts a send that finds the field full ahead of the stream, so switching sends off stops them soon',
+    'lets a send in beside a stream that has filled its own pool, so switching sends off stops them at once',
     { timeout: 60_000 },
     () => {
       // The playtest report: auto-send on through the endless wave, then off -
-      // and swarmlings kept walking in for minutes, with no gems spent. They had
-      // been paid for; they were queued behind up to a reserve's worth of the
-      // stream. Now a send waits at the front, behind only the sends before it.
+      // and swarmlings kept walking in for minutes, with no gems spent. They
+      // had been paid for; they were queued behind up to a reserve's worth of
+      // the stream. Sends now have a pool of their own (§8.1, amended), so the
+      // stream filling the field holds none of them back.
       const { state, ctx } = solo();
       openEndless(ctx, state);
       const lane = state.lanes.me!;
@@ -341,12 +343,12 @@ describe('solo mode', () => {
       const wall = () => {
         lane.fortress.hp = lane.fortress.maxHp;
       };
-      // Nothing on the board and a wall that cannot fall: the field fills to the
-      // cap and the stream starts to queue.
+      // Nothing on the board: the stream fills its pool and starts to queue.
       stepUntil(ctx, state, () => {
         wall();
         return lane.reserve.length >= 20;
       });
+      expect(countLiving(lane, 'wave')).toBe(data.waves.maxConcurrentMonsters);
 
       // Auto-send, as the build bar does it: again whenever the cooldown allows.
       const send = data.sends.sends[0]!;
@@ -362,74 +364,93 @@ describe('solo mode', () => {
         } as const;
         if (applyCommand(ctx, state, command).ok) sent++;
         step(ctx, state);
+        // Every one walks straight in: nothing of theirs is queued.
+        expect(lane.reserve.some((queued) => queued.sendId)).toBe(false);
       }
 
-      // Switched off. Every waiting send is ahead of every stream body...
-      const waiting = lane.reserve.filter((queued) => queued.sendId).length;
-      expect(waiting).toBeGreaterThan(0);
-      expect(lane.reserve.slice(0, waiting).every((queued) => queued.sendId === send.id)).toBe(
-        true,
-      );
-      expect(viewFor(ctx, state, 'me').lane!.reserveSends).toBe(waiting);
-
-      // ...so they are all on the field within that many deaths.
-      let deaths = 0;
-      while (lane.reserve.some((queued) => queued.sendId) && deaths < 500) {
-        wall();
-        const victim = lane.monsters.find((m) => m.alive && m.sendId === null);
-        if (victim) {
-          victim.hp = 0;
-          deaths++;
-        }
-        step(ctx, state);
-      }
-      expect(deaths).toBeLessThanOrEqual(waiting);
+      // Switched off: there is nothing still to come.
       expect(viewFor(ctx, state, 'me').lane!.reserveSends).toBe(0);
+      expect(countLiving(lane)).toBeGreaterThan(data.waves.maxConcurrentMonsters);
     },
   );
 
-  it(
-    'keeps the stream coming however many sends are queued in front of it',
-    { timeout: 60_000 },
-    () => {
-      // Counted against the reserve's limit, a pile of cheap sends would hold
-      // the stream back for as long as it took to kill them.
-      const { state, ctx } = solo();
-      openEndless(ctx, state);
-      const lane = state.lanes.me!;
-      // A wall nothing can bring down in one tick, however far the stream climbs.
-      lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
-      const wall = () => {
-        lane.fortress.hp = lane.fortress.maxHp;
-      };
-      stepUntil(ctx, state, () => {
-        wall();
-        return lane.reserve.length >= 1;
-      });
+  it('queues sends only behind sends, when their own pool is full', { timeout: 60_000 }, () => {
+    const { state, ctx } = solo();
+    openEndless(ctx, state);
+    const lane = state.lanes.me!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    const wall = () => {
+      lane.fortress.hp = lane.fortress.maxHp;
+    };
+    stepUntil(ctx, state, () => {
+      wall();
+      return lane.reserve.length >= 5;
+    });
 
-      lane.economy.gems = 100_000;
-      for (let i = 0; i < cfg.maxReserve + 10; i++) {
-        lane.sendCooldowns = {};
-        applyCommand(ctx, state, {
-          kind: 'send',
-          teamId: 'me',
-          targetTeamId: 'me',
-          sendId: data.sends.sends[0]!.id,
-        });
-      }
+    // More sends than their pool holds, bought at once.
+    const sendCap = data.waves.maxConcurrentSends;
+    lane.economy.gems = 100_000;
+    for (let i = 0; i < sendCap + 4; i++) {
+      lane.sendCooldowns = {};
+      applyCommand(ctx, state, {
+        kind: 'send',
+        teamId: 'me',
+        targetTeamId: 'me',
+        sendId: data.sends.sends[0]!.id,
+      });
+    }
+    wall();
+    step(ctx, state);
+    expect(countLiving(lane, 'sends')).toBe(sendCap);
+    const sendsQueued = () => lane.reserve.filter((queued) => queued.sendId).length;
+    expect(sendsQueued()).toBe(4);
+    expect(viewFor(ctx, state, 'me').lane!.reserveSends).toBe(4);
+
+    // A send dies: the next send walks in, however much of the stream waits.
+    lane.monsters.find((m) => m.alive && m.sendId)!.hp = 0;
+    wall();
+    step(ctx, state);
+    expect(sendsQueued()).toBe(3);
+    expect(countLiving(lane, 'sends')).toBe(sendCap);
+  });
+
+  it('keeps the stream coming however many sends are queued', { timeout: 60_000 }, () => {
+    // Counted against the reserve's limit, a pile of cheap sends would hold
+    // the stream back for as long as it took to kill them.
+    const { state, ctx } = solo();
+    openEndless(ctx, state);
+    const lane = state.lanes.me!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    const wall = () => {
+      lane.fortress.hp = lane.fortress.maxHp;
+    };
+    stepUntil(ctx, state, () => {
+      wall();
+      return lane.reserve.length >= 1;
+    });
+
+    lane.economy.gems = 100_000;
+    for (let i = 0; i < cfg.maxReserve + data.waves.maxConcurrentSends + 10; i++) {
+      lane.sendCooldowns = {};
+      applyCommand(ctx, state, {
+        kind: 'send',
+        teamId: 'me',
+        targetTeamId: 'me',
+        sendId: data.sends.sends[0]!.id,
+      });
+    }
+    wall();
+    step(ctx, state);
+    const stream = () => lane.reserve.filter((queued) => !queued.sendId).length;
+    expect(lane.reserve.filter((queued) => queued.sendId).length).toBeGreaterThan(cfg.maxReserve);
+    const before = stream();
+
+    for (let i = 0; i < secondsToTicks(cfg.firstGapSeconds * 4); i++) {
       wall();
       step(ctx, state);
-      const stream = () => lane.reserve.filter((queued) => !queued.sendId).length;
-      expect(lane.reserve.length).toBeGreaterThan(cfg.maxReserve);
-      const before = stream();
-
-      for (let i = 0; i < secondsToTicks(cfg.firstGapSeconds * 4); i++) {
-        wall();
-        step(ctx, state);
-      }
-      expect(stream()).toBeGreaterThan(before);
-    },
-  );
+    }
+    expect(stream()).toBeGreaterThan(before);
+  });
 
   it('ends when the fortress falls', () => {
     const { state, ctx } = solo();

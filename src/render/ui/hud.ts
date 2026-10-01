@@ -29,22 +29,21 @@ import { centreOn, clock, label, overlaid } from './text.ts';
 import { speedLabel, type GameSpeed } from '../preferences.ts';
 import { comesNext } from '../laneView.ts';
 
-/** A reading on the HUD that the tutorial can point at (`locate`). */
 /**
  * What the HUD says about sends on their way to this lane, or null for nothing.
  *
  * Two counts, because a send is on its way for longer than its log entry
  * lasts. `sendLog` holds sends for the NEXT wave and is cleared when that wave
- * spawns (§11.5) - but a wave with more in it than the field holds keeps the
- * rest in reserve (§8.1), sends last, and those can still be walking in long
- * after the log said nothing. Unsaid, that looks like sends arriving that
- * nobody bought: in solo, your own, still coming after auto-send was switched
- * off. So once a wave is out, whatever of it was sent and has not yet entered
- * is counted too (`reserveSends`).
+ * spawns (§11.5) - but sends have a pool of their own on the field (§8.1,
+ * amended), and more of them than it holds wait in reserve and can still be
+ * walking in long after the log said nothing. Unsaid, that looks like sends
+ * arriving that nobody bought: in solo, your own, still coming after
+ * auto-send was switched off. So once a wave is out, whatever was sent and
+ * has not yet entered is counted too (`reserveSends`).
  *
  * Alone, every send is your own (§3.3, solo): not a warning, a receipt. In the
- * endless wave a send walks in on the next tick when there is room, so only
- * the ones the cap is holding back are worth a line.
+ * endless wave a send walks in on the next tick when its pool has room, so
+ * only the ones the cap is holding back are worth a line.
  */
 export function sendNotice(
   view: Pick<MatchView, 'solo'>,
@@ -84,6 +83,7 @@ export function sendNotice(
   return null;
 }
 
+/** A reading on the HUD that the tutorial can point at (`locate`). */
 export type HudPart = 'phase' | 'wallet' | 'income' | 'incoming' | 'notice' | 'kills';
 
 export class Hud extends Container {

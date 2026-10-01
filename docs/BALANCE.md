@@ -1558,6 +1558,17 @@ and the metric that has to exist is **gold of enemy defence forced per gem
 spent**. If that is below 1 for every attack send, sending is never correct and
 three of the five sends are dead content.
 
+**Sends have a pool of their own on the field** (§8.1, amended): a wave
+keeps its 30, and up to 30 sends stand beside it instead of queueing behind
+it. That makes a send land with the wave rather than trickle in after it, and
+practice is harder for it. `npm run bots`, the same 24 tables before and after:
+the mean last wave a bot stood at fell from 16.4 to 14.6, the bots that reached
+wave 20 from 40% to 31%, and the tables where any bot did from 21 to 17 (wave
+25: 10 to 9). Every archetype but the Rookie (two bots) lost ground, the
+Specialist most (13.7 to 9.3), then the Raider and the Horde (about 2.3 waves
+each). The levers, if sends now hit too hard: `maxConcurrentSends` itself, the
+attack sends' prices, and the send bounty (`sendBountyPerTenGems`).
+
 **Solo's endless wave** is first-guess numbers, not tuned ones
 (`waves.endless`): a body every 1.2 s quickening by 10% a step to a 0.3 s floor,
 a step every 30 s, a boss a minute, bodies paid at 0.6 gold per bounty weight.

@@ -38,6 +38,8 @@
     "maxReserve": 60
   },
   "maxConcurrentMonsters": 30,
+  "maxConcurrentSends": 30,
+  "_poolsNote": "§8.1, amended: a lane has two pools on the field, not one. maxConcurrentMonsters caps what the wave brought (and solo's endless stream, bosses included); maxConcurrentSends caps what was sent at the lane. Each pool's overflow waits in the reserve and enters as a body OF THE SAME POOL dies, so sends never queue behind the wave and the wave never queues behind sends. Equal on purpose: a full wave and a full complement of sends can be on the field at once, sixty bodies, and the perf harness (npm run perf) and the wire harness (npm run wire) measure exactly that.",
   "enrage": {
     "_comment": "Additive, not compounding: multiplier = 1 + ratePerSecond * secondsEnraged. rate 0.03 is derived from the doc's worked example (60s in = 2.8x). Applies to monster damage, move speed and attack speed - never to HP.",
     "delaySeconds": 60,

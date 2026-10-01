@@ -191,6 +191,16 @@ function checkWaveReferences(data: GameData, errors: string[]): void {
     if (!known.has(id)) errors.push(`bossBank references unknown monster '${id}'`);
   }
 
+  // §8.1, amended: two pools on the field. A cap of zero would hold a pool's
+  // bodies in reserve for ever, and a wave that cannot end is a match that
+  // cannot end.
+  for (const key of ['maxConcurrentMonsters', 'maxConcurrentSends'] as const) {
+    const value = (data.waves as Partial<GameData['waves']>)[key];
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 1) {
+      errors.push(`waves.${key} must be a whole number of at least 1`);
+    }
+  }
+
   // Solo mode's endless last wave (§3.3, solo). Every number is a rate or a
   // clock, and a zero in any of them is a stream that never moves or one
   // that arrives all at once.

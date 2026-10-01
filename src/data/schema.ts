@@ -509,8 +509,17 @@ export interface WavesFile {
   bossEveryNWaves: number;
   showdown: ShowdownFile;
   endless: EndlessFile;
-  /** Lane cap; the excess waits in the reserve queue (§8.1). */
+  /**
+   * Lane cap for what the WAVE brought - and in solo's endless wave, what the
+   * stream brings, bosses included. The excess waits in the reserve queue
+   * (§8.1).
+   */
   maxConcurrentMonsters: number;
+  /**
+   * Lane cap for what was SENT at the lane (§11.5), a pool of its own (§8.1,
+   * amended): sends neither wait behind the wave nor hold it back.
+   */
+  maxConcurrentSends: number;
   enrage: EnrageConfig;
   scaling: {
     count: Unfilled<number>;

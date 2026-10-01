@@ -53,8 +53,8 @@ export {
   healingMultiplier,
   summonHealthMultiplier,
 } from './dampening.ts';
-export { createMonster, createUnit, placeWave, spawnCentre } from './spawn.ts';
-export { countLiving } from './spawn.ts';
+export { createMonster, createUnit, packWave, placeWave, spawnCentre } from './spawn.ts';
+export { countLiving, poolCap, poolOf, type MonsterPool } from './spawn.ts';
 // For the balance harness, which stands armies up directly rather than buying
 // them one build phase at a time (src/balance/arena.ts).
 export { recomputeUnitBuffs } from './buffs.ts';

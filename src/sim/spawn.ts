@@ -126,16 +126,24 @@ function spawnLattice(data: GameData, pitch: number): Vec2[] {
 }
 
 /**
- * A position for every monster in a wave, in spawn order, none overlapping.
+ * A position for every monster in a wave, in spawn order, none overlapping -
+ * or null for one the zone has no room left for.
  *
  * Bodies wider than the lattice pitch - bosses - take a point and consume every
  * point they cover, so the next body lands clear of them.
+ *
+ * The zone holds about thirty-seven of the usual 0.22-tile body at this
+ * spacing, which a wave alone never reaches. A wave AND a full pool of sends
+ * can (§8.1, amended), and the ones without room wait in the reserve and walk
+ * in as the clump moves off (`admitFromReserve`) rather than being stacked on
+ * the centre and shoved apart, which arrives as a burst.
  */
-export function placeWave(data: GameData, radii: readonly number[]): Vec2[] {
+export function packWave(data: GameData, radii: readonly number[]): (Vec2 | null)[] {
+  if (radii.length === 0) return [];
   const pitch = latticePitch(Math.min(...radii));
   const lattice = spawnLattice(data, pitch);
   const taken: { x: number; y: number; radius: number }[] = [];
-  const positions: Vec2[] = [];
+  const positions: (Vec2 | null)[] = [];
 
   for (const radius of radii) {
     let chosen: Vec2 | null = null;
@@ -156,27 +164,43 @@ export function placeWave(data: GameData, radii: readonly number[]): Vec2[] {
         break;
       }
     }
-    // The zone is full: stack at the centre and let contact resolution sort it
-    // out. That takes a wave far larger than the cap permits, so in a match it
-    // does not happen.
-    const at = chosen ?? spawnCentre(data);
-    taken.push({ x: at.x, y: at.y, radius: Math.max(radius, pitch / 2) });
-    positions.push({ x: at.x, y: at.y });
+    if (!chosen) {
+      positions.push(null);
+      continue;
+    }
+    taken.push({ x: chosen.x, y: chosen.y, radius: Math.max(radius, pitch / 2) });
+    positions.push({ x: chosen.x, y: chosen.y });
   }
 
   return positions;
 }
 
 /**
- * Where a single late arrival - one admitted from the reserve - stands: the
- * innermost lattice point not currently under a living monster.
+ * `packWave`, with every body placed: one the zone has no room for is stacked
+ * on the centre for contact resolution to sort out. For callers that must put
+ * everything down at once; the simulation itself waits for room instead.
  */
-export function reservePosition(data: GameData, radius: number, living: readonly Monster[]): Vec2 {
+export function placeWave(data: GameData, radii: readonly number[]): Vec2[] {
+  return packWave(data, radii).map((at) => at ?? spawnCentre(data));
+}
+
+/**
+ * Where a single late arrival - one admitted from the reserve - stands: the
+ * innermost lattice point not currently under a living monster, or null when
+ * the zone has no room for it yet.
+ */
+export function freeSpawnPoint(
+  data: GameData,
+  radius: number,
+  living: readonly Monster[],
+): Vec2 | null {
   for (const point of spawnLattice(data, latticePitch(radius))) {
     if (!insideSpawnZone(data, point, radius)) continue;
     let clear = true;
     for (const monster of living) {
-      if (!monster.alive) continue;
+      // Only a body near the zone can be in the way of a point in it: one a
+      // tile into the grid would need a radius of most of a tile to reach.
+      if (!monster.alive || monster.pos.y >= 1) continue;
       const need = monster.radius + radius + PACK_GAP;
       const dx = point.x - monster.pos.x;
       const dy = point.y - monster.pos.y;
@@ -187,7 +211,7 @@ export function reservePosition(data: GameData, radius: number, living: readonly
     }
     if (clear) return { x: point.x, y: point.y };
   }
-  return spawnCentre(data);
+  return null;
 }
 
 export function createMonster(
@@ -302,10 +326,38 @@ export function createUnit(
 }
 
 /**
- * §8.1: a lane holds at most `maxConcurrentMonsters`. The excess waits in
- * reserve and enters one at a time as active monsters die, each arriving into
- * its own wave's current enrage state - which is automatic here, because enrage
+ * §8.1, amended: the two pools a lane's monsters are counted in. What the wave
+ * brought - or in solo's endless wave, the stream - is one; what was sent at
+ * the lane (§11.5) is the other. Each has its own cap, so a full wave does not
+ * hold sends back and a flood of sends does not hold the wave back.
+ */
+export type MonsterPool = 'wave' | 'sends';
+
+/** Which pool a body counts against: a sent one carries the send that bought it. */
+export function poolOf(body: { sendId?: string | null }): MonsterPool {
+  return body.sendId ? 'sends' : 'wave';
+}
+
+/** How many of a pool may be on the field at once (waves.json). */
+export function poolCap(data: GameData, pool: MonsterPool): number {
+  return pool === 'sends' ? data.waves.maxConcurrentSends : data.waves.maxConcurrentMonsters;
+}
+
+/**
+ * §8.1: a lane holds at most a pool's cap of each pool. The excess waits in
+ * reserve and enters one at a time as room appears, each arriving into its
+ * own wave's current enrage state - which is automatic here, because enrage
  * is read from the wave's clock rather than stamped onto the monster.
+ *
+ * One queue, read per pool: a slot freed in a pool goes to the first body
+ * waiting for THAT pool, so each pool keeps its own order and neither waits
+ * behind the other (§8.1, amended). And room means room on the ground too: a
+ * body enters only where there is space for it in the spawn zone, so a body
+ * the zone cannot take yet waits a tick or two for the crowd in front of it to
+ * move off, and the next of its pool waits behind it.
+ *
+ * Run every tick there is anything waiting (tick.ts), not only when something
+ * dies: space in the zone opens up as a clump walks out of it.
  */
 export function admitFromReserve(
   state: MatchState,
@@ -313,28 +365,47 @@ export function admitFromReserve(
   defs: DefIndex,
   lane: Lane,
 ): void {
-  const cap = data.waves.maxConcurrentMonsters;
+  if (lane.reserve.length === 0) return;
+  const room: Record<MonsterPool, number> = {
+    wave: poolCap(data, 'wave') - countLiving(lane, 'wave'),
+    sends: poolCap(data, 'sends') - countLiving(lane, 'sends'),
+  };
 
-  while (lane.reserve.length > 0 && countLiving(lane) < cap) {
-    const spec = lane.reserve.shift();
-    if (!spec) break;
+  let i = 0;
+  while (i < lane.reserve.length && (room.wave > 0 || room.sends > 0)) {
+    const spec = lane.reserve[i]!;
+    const pool = poolOf(spec);
+    if (room[pool] <= 0) {
+      i++;
+      continue;
+    }
     const def = defs.monsters.get(spec.defId);
-    if (!def) continue;
-
+    if (!def) {
+      lane.reserve.splice(i, 1);
+      continue;
+    }
     const radius = resolveMonsterStats(data, def, spec.waveNumber).radius;
-    const monster = createMonster(
-      state,
-      data,
-      defs,
-      spec,
-      reservePosition(data, radius, lane.monsters),
-    );
-    if (monster) lane.monsters.push(monster);
+    const at = freeSpawnPoint(data, radius, lane.monsters);
+    if (!at) {
+      // No ground for it yet: its pool waits, in order, for the next tick.
+      room[pool] = 0;
+      i++;
+      continue;
+    }
+    lane.reserve.splice(i, 1);
+    const monster = createMonster(state, data, defs, spec, at);
+    if (monster) {
+      lane.monsters.push(monster);
+      room[pool] -= 1;
+    }
   }
 }
 
-export function countLiving(lane: Lane): number {
+/** Living monsters in the lane: all of them, or one pool's (§8.1, amended). */
+export function countLiving(lane: Lane, pool?: MonsterPool): number {
   let count = 0;
-  for (const monster of lane.monsters) if (monster.alive) count++;
+  for (const monster of lane.monsters) {
+    if (monster.alive && (pool === undefined || poolOf(monster) === pool)) count++;
+  }
   return count;
 }

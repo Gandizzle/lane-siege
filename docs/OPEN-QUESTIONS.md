@@ -334,7 +334,8 @@ Already decided in DESIGN.md and simply written into `data/`:
 - The full damage matrix (§6) — `matrix.json`
 - Build zone 8×10 (§4.2), build phase 30s (§3.1), boss every 5 waves (§3.4),
   25 authored waves (§3.3, though what follows them is no longer §3.3's),
-  lane cap 30 monsters (§8.1)
+  lane cap 30 monsters (§8.1; since amended to the wave's own pool, beside an
+  equal one for sends - see the design changes below)
 - Enrage: 60s delay, cap ~6× (§8). The **rate** of 0.03/second is derived from
   the doc's own worked example ("60 seconds in = 2.8×", and 1 + 0.03 × 60 = 2.8),
   because that formula's code block is empty in the document as supplied.
@@ -381,6 +382,15 @@ Decisions that override the document rather than filling a gap in it:
   vocabulary rather than a rule. `waves.showdown` in `data/waves.json` holds all
   four numbers.
 
+- **§8.1 — two pools on the field, not one.** §8.1 caps a lane at 30
+  monsters at once with the excess in a reserve. That cap is now the wave's
+  alone, and sends have a pool of their own of the same size, so a full wave
+  and a full complement of sends can stand in a lane together - sixty bodies -
+  and neither queues behind the other. A body the spawn zone has no ground
+  for yet waits at the head of the queue and walks in as the clump moves off,
+  rather than being stacked and shoved apart. `maxConcurrentMonsters` and
+  `maxConcurrentSends` in `data/waves.json`; the cost is measured in
+  ARCHITECTURE.md, "Two pools on the field".
 - **§3.3 — solo: one lane, your own sends, and a wave that never ends.** A
   mode DESIGN.md does not have. One lane; every send lands on the lane that
   bought it (still paying its income, still carrying its bounty); and in place

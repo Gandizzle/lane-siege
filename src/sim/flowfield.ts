@@ -195,6 +195,21 @@ export interface FlowField {
   nextInBucket: Int32Array;
   prevInBucket: Int32Array;
   bucketOf: Int32Array;
+
+  /**
+   * The rectangle of routing cells that hold any ground inside the world's
+   * bounds, inclusive: the whole grid until `markOutside` narrows it. Every
+   * cell beyond it is blocked at both resolutions, so nothing there can be a
+   * goal, and `markRing` does not look.
+   *
+   * Worth having because a unit's field is a lane minus the spawn zone (the
+   * defence stops at the grid's edge), and a long-reach unit's ring around a
+   * monster still in the spawn zone used to be sampled, cell by blocked cell,
+   * at the fine resolution - for nothing. With a full wave and a full pool of
+   * sends on the field (§8.1, amended) that was the largest single cost in a
+   * tick.
+   */
+  open: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 export function createFlowField(
@@ -222,6 +237,7 @@ export function createFlowField(
     nextInBucket: new Int32Array(cells),
     prevInBucket: new Int32Array(cells),
     bucketOf: new Int32Array(cells),
+    open: { minX: 0, maxX: width - 1, minY: 0, maxY: depth - 1 },
   };
 }
 
@@ -243,6 +259,10 @@ export function clearField(field: FlowField): void {
   field.sources.fill(0);
   field.crowd.fill(0);
   field.owner.fill(NO_OWNER);
+  field.open.minX = 0;
+  field.open.maxX = field.width - 1;
+  field.open.minY = 0;
+  field.open.maxY = field.depth - 1;
 }
 
 /** Tile-space position to cell index, clamped into the grid. */
@@ -275,11 +295,14 @@ export function markObstacle(field: FlowField, shape: FieldShape, inflate: numbe
   const reach = (shape.radius + inflate) * sub;
   const reachSq = reach * reach;
 
+  // Both passes keep to the ground inside the world (`FlowField.open`): past
+  // it every cell is blocked already, at both resolutions.
+  const open = field.open;
   {
-    const minX = Math.max(0, Math.floor(spineMin - reach));
-    const maxX = Math.min(field.width - 1, Math.ceil(spineMax + reach));
-    const minY = Math.max(0, Math.floor(cy - reach));
-    const maxY = Math.min(field.depth - 1, Math.ceil(cy + reach));
+    const minX = Math.max(open.minX, Math.floor(spineMin - reach));
+    const maxX = Math.min(open.maxX, Math.ceil(spineMax + reach));
+    const minY = Math.max(open.minY, Math.floor(cy - reach));
+    const maxY = Math.min(open.maxY, Math.ceil(cy + reach));
     for (let gy = minY; gy <= maxY; gy++) {
       for (let gx = minX; gx <= maxX; gx++) {
         const px = gx + 0.5;
@@ -298,10 +321,10 @@ export function markObstacle(field: FlowField, shape: FieldShape, inflate: numbe
     const fy = cy * FINE;
     const fineReach = reach * FINE;
     const fineReachSq = fineReach * fineReach;
-    const minX = Math.max(0, Math.floor(fineMin - fineReach));
-    const maxX = Math.min(fineWidth - 1, Math.ceil(fineMax + fineReach));
-    const minY = Math.max(0, Math.floor(fy - fineReach));
-    const maxY = Math.min(field.depth * FINE - 1, Math.ceil(fy + fineReach));
+    const minX = Math.max(open.minX * FINE, Math.floor(fineMin - fineReach));
+    const maxX = Math.min((open.maxX + 1) * FINE - 1, Math.ceil(fineMax + fineReach));
+    const minY = Math.max(open.minY * FINE, Math.floor(fy - fineReach));
+    const maxY = Math.min((open.maxY + 1) * FINE - 1, Math.ceil(fy + fineReach));
     for (let gy = minY; gy <= maxY; gy++) {
       for (let gx = minX; gx <= maxX; gx++) {
         const px = gx + 0.5;
@@ -350,10 +373,13 @@ export function markCrowd(field: FlowField, shape: FieldShape, inflate: number):
   const reach = (shape.radius + inflate) * sub;
   const reachSq = reach * reach;
 
-  const minX = Math.max(0, Math.floor(spineMin - reach));
-  const maxX = Math.min(field.width - 1, Math.ceil(spineMax + reach));
-  const minY = Math.max(0, Math.floor(cy - reach));
-  const maxY = Math.min(field.depth - 1, Math.ceil(cy + reach));
+  // Not past the ground inside the world (`FlowField.open`): a cell out there
+  // is blocked, never entered, and its crowd never read.
+  const open = field.open;
+  const minX = Math.max(open.minX, Math.floor(spineMin - reach));
+  const maxX = Math.min(open.maxX, Math.ceil(spineMax + reach));
+  const minY = Math.max(open.minY, Math.floor(cy - reach));
+  const maxY = Math.min(open.maxY, Math.ceil(cy + reach));
 
   for (let gy = minY; gy <= maxY; gy++) {
     for (let gx = minX; gx <= maxX; gx++) {
@@ -385,6 +411,43 @@ export function markCrowd(field: FlowField, shape: FieldShape, inflate: number):
 export function markOutside(field: FlowField, bounds: Bounds, inflate: number): void {
   blockOutside(field.blocked, field, bounds, inflate, 1);
   blockOutside(field.blockedFine, field, bounds, inflate, FINE);
+
+  // Where any fine ground is left, in routing cells: the same spans the fine
+  // pass just blocked outside of, so nothing beyond this rectangle is clear at
+  // either resolution. The cross's corners stay inside it - this is a bound,
+  // not the shape - which only means `markRing` looks at a few cells it need
+  // not have.
+  const sub = field.subdivision * FINE;
+  const x = centreSpan(bounds.minX + inflate, bounds.maxX - inflate, 0, field.width * FINE, sub);
+  const y = centreSpan(
+    bounds.minY + inflate,
+    bounds.maxY - inflate,
+    field.originY,
+    field.depth * FINE,
+    sub,
+  );
+  const open = field.open;
+  open.minX = Math.max(open.minX, Math.floor(x.first / FINE));
+  open.maxX = Math.min(open.maxX, Math.floor(x.last / FINE));
+  open.minY = Math.max(open.minY, Math.floor(y.first / FINE));
+  open.maxY = Math.min(open.maxY, Math.floor(y.last / FINE));
+}
+
+/**
+ * The first and last cell whose CENTRE lies inside [lo, hi], as indices, on a
+ * grid of `count` cells at `sub` cells per tile starting at `origin`.
+ */
+function centreSpan(
+  lo: number,
+  hi: number,
+  origin: number,
+  count: number,
+  sub: number,
+): { first: number; last: number } {
+  return {
+    first: Math.max(0, Math.ceil((lo - origin) * sub - 0.5)),
+    last: Math.min(count - 1, Math.floor((hi - origin) * sub - 0.5)),
+  };
 }
 
 /**
@@ -405,12 +468,8 @@ function blockOutside(
   const width = field.width * scale;
   const depth = field.depth * scale;
   const sub = field.subdivision * scale;
-
-  /** First and last cell whose CENTRE lies inside [lo, hi], as indices. */
-  const span = (lo: number, hi: number, origin: number, count: number) => ({
-    first: Math.max(0, Math.ceil((lo - origin) * sub - 0.5)),
-    last: Math.min(count - 1, Math.floor((hi - origin) * sub - 0.5)),
-  });
+  const span = (lo: number, hi: number, origin: number, count: number) =>
+    centreSpan(lo, hi, origin, count, sub);
 
   const x = span(bounds.minX + inflate, bounds.maxX - inflate, 0, width);
   const y = span(bounds.minY + inflate, bounds.maxY - inflate, field.originY, depth);
@@ -480,10 +539,13 @@ export function markRing(
   const near = (shape.radius + inflate) * sub;
   const far = near + range * sub;
 
-  const minX = Math.max(0, Math.floor(spineMin - far));
-  const maxX = Math.min(field.width - 1, Math.ceil(spineMax + far));
-  const minY = Math.max(0, Math.floor(cy - far));
-  const maxY = Math.min(field.depth - 1, Math.ceil(cy + far));
+  // Only where there is ground to stand on (`FlowField.open`): beyond it every
+  // cell is blocked at both resolutions and could never be a goal.
+  const open = field.open;
+  const minX = Math.max(open.minX, Math.floor(spineMin - far));
+  const maxX = Math.min(open.maxX, Math.ceil(spineMax + far));
+  const minY = Math.max(open.minY, Math.floor(cy - far));
+  const maxY = Math.min(open.maxY, Math.ceil(cy + far));
   const nearSq = near * near;
   const farSq = far * far;
   const fineWidth = field.width * FINE;
