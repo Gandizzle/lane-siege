@@ -38,6 +38,7 @@ function lane(aura: string | null, radius: number, strength: number): LaneView {
     },
     economy: null,
     reserveCount: 0,
+    reserveSends: 0,
     sendLog: [],
     attacks: [],
     unitSpend: [],

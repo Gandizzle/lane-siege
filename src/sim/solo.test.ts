@@ -325,6 +325,112 @@ describe('solo mode', () => {
     expect(arrived.some((m) => m.sendId === send.id)).toBe(true);
   });
 
+  it(
+    'puts a send that finds the field full ahead of the stream, so switching sends off stops them soon',
+    { timeout: 60_000 },
+    () => {
+      // The playtest report: auto-send on through the endless wave, then off -
+      // and swarmlings kept walking in for minutes, with no gems spent. They had
+      // been paid for; they were queued behind up to a reserve's worth of the
+      // stream. Now a send waits at the front, behind only the sends before it.
+      const { state, ctx } = solo();
+      openEndless(ctx, state);
+      const lane = state.lanes.me!;
+      // A wall nothing can bring down in one tick, however far the stream climbs.
+      lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+      const wall = () => {
+        lane.fortress.hp = lane.fortress.maxHp;
+      };
+      // Nothing on the board and a wall that cannot fall: the field fills to the
+      // cap and the stream starts to queue.
+      stepUntil(ctx, state, () => {
+        wall();
+        return lane.reserve.length >= 20;
+      });
+
+      // Auto-send, as the build bar does it: again whenever the cooldown allows.
+      const send = data.sends.sends[0]!;
+      lane.economy.gems = 10_000;
+      let sent = 0;
+      while (sent < 10) {
+        wall();
+        const command = {
+          kind: 'send',
+          teamId: 'me',
+          targetTeamId: 'me',
+          sendId: send.id,
+        } as const;
+        if (applyCommand(ctx, state, command).ok) sent++;
+        step(ctx, state);
+      }
+
+      // Switched off. Every waiting send is ahead of every stream body...
+      const waiting = lane.reserve.filter((queued) => queued.sendId).length;
+      expect(waiting).toBeGreaterThan(0);
+      expect(lane.reserve.slice(0, waiting).every((queued) => queued.sendId === send.id)).toBe(
+        true,
+      );
+      expect(viewFor(ctx, state, 'me').lane!.reserveSends).toBe(waiting);
+
+      // ...so they are all on the field within that many deaths.
+      let deaths = 0;
+      while (lane.reserve.some((queued) => queued.sendId) && deaths < 500) {
+        wall();
+        const victim = lane.monsters.find((m) => m.alive && m.sendId === null);
+        if (victim) {
+          victim.hp = 0;
+          deaths++;
+        }
+        step(ctx, state);
+      }
+      expect(deaths).toBeLessThanOrEqual(waiting);
+      expect(viewFor(ctx, state, 'me').lane!.reserveSends).toBe(0);
+    },
+  );
+
+  it(
+    'keeps the stream coming however many sends are queued in front of it',
+    { timeout: 60_000 },
+    () => {
+      // Counted against the reserve's limit, a pile of cheap sends would hold
+      // the stream back for as long as it took to kill them.
+      const { state, ctx } = solo();
+      openEndless(ctx, state);
+      const lane = state.lanes.me!;
+      // A wall nothing can bring down in one tick, however far the stream climbs.
+      lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+      const wall = () => {
+        lane.fortress.hp = lane.fortress.maxHp;
+      };
+      stepUntil(ctx, state, () => {
+        wall();
+        return lane.reserve.length >= 1;
+      });
+
+      lane.economy.gems = 100_000;
+      for (let i = 0; i < cfg.maxReserve + 10; i++) {
+        lane.sendCooldowns = {};
+        applyCommand(ctx, state, {
+          kind: 'send',
+          teamId: 'me',
+          targetTeamId: 'me',
+          sendId: data.sends.sends[0]!.id,
+        });
+      }
+      wall();
+      step(ctx, state);
+      const stream = () => lane.reserve.filter((queued) => !queued.sendId).length;
+      expect(lane.reserve.length).toBeGreaterThan(cfg.maxReserve);
+      const before = stream();
+
+      for (let i = 0; i < secondsToTicks(cfg.firstGapSeconds * 4); i++) {
+        wall();
+        step(ctx, state);
+      }
+      expect(stream()).toBeGreaterThan(before);
+    },
+  );
+
   it('ends when the fortress falls', () => {
     const { state, ctx } = solo();
     openEndless(ctx, state);

@@ -30,6 +30,60 @@ import { speedLabel, type GameSpeed } from '../preferences.ts';
 import { comesNext } from '../laneView.ts';
 
 /** A reading on the HUD that the tutorial can point at (`locate`). */
+/**
+ * What the HUD says about sends on their way to this lane, or null for nothing.
+ *
+ * Two counts, because a send is on its way for longer than its log entry
+ * lasts. `sendLog` holds sends for the NEXT wave and is cleared when that wave
+ * spawns (§11.5) - but a wave with more in it than the field holds keeps the
+ * rest in reserve (§8.1), sends last, and those can still be walking in long
+ * after the log said nothing. Unsaid, that looks like sends arriving that
+ * nobody bought: in solo, your own, still coming after auto-send was switched
+ * off. So once a wave is out, whatever of it was sent and has not yet entered
+ * is counted too (`reserveSends`).
+ *
+ * Alone, every send is your own (§3.3, solo): not a warning, a receipt. In the
+ * endless wave a send walks in on the next tick when there is room, so only
+ * the ones the cap is holding back are worth a line.
+ */
+export function sendNotice(
+  view: Pick<MatchView, 'solo'>,
+  lane: Pick<NonNullable<MatchView['lane']>, 'sendLog' | 'reserveSends'>,
+  attackers: number,
+): { text: string; solo: boolean } | null {
+  const waiting = lane.reserveSends;
+  if (view.solo) {
+    const next = view.solo.endless ? 0 : lane.sendLog.length;
+    if (waiting > 0) {
+      const total = waiting + next;
+      return { text: `${total} of your sends still to come`, solo: true };
+    }
+    if (next > 0) {
+      return {
+        text: next === 1 ? '1 send joins your next wave' : `${next} sends join your next wave`,
+        solo: true,
+      };
+    }
+    return null;
+  }
+  const incoming = lane.sendLog.length;
+  if (incoming > 0) {
+    return {
+      text:
+        `⚠ ${incoming} send${incoming === 1 ? '' : 's'} incoming` +
+        ` from ${attackers} lane${attackers === 1 ? '' : 's'}`,
+      solo: false,
+    };
+  }
+  if (waiting > 0) {
+    return {
+      text: `⚠ ${waiting} send${waiting === 1 ? '' : 's'} still to come`,
+      solo: false,
+    };
+  }
+  return null;
+}
+
 export type HudPart = 'phase' | 'wallet' | 'income' | 'incoming' | 'notice' | 'kills';
 
 export class Hud extends Container {
@@ -178,26 +232,10 @@ export class Hud extends Container {
         : null;
     // §11.5: being sent at is the one thing that happens to you because of
     // somebody else, so it needs saying out loud.
-    const notice = () =>
-      // Alone, every send is your own (§3.3, solo): not a warning, a receipt.
-      view.solo && lane.sendLog.length > 0
-        ? label(
-            lane.sendLog.length === 1
-              ? '1 send joins your next wave'
-              : `${lane.sendLog.length} sends join your next wave`,
-            11,
-            UI.accent,
-            '700',
-          )
-        : lane.sendLog.length > 0
-          ? label(
-              `⚠ ${lane.sendLog.length} send${lane.sendLog.length === 1 ? '' : 's'} incoming` +
-                ` from ${attackers.size} lane${attackers.size === 1 ? '' : 's'}`,
-              11,
-              UI.danger,
-              '700',
-            )
-          : null;
+    const notice = () => {
+      const said = sendNotice(view, lane, attackers.size);
+      return said ? label(said.text, 11, said.solo ? UI.accent : UI.danger, '700') : null;
+    };
 
     if (l.orientation === 'landscape') {
       // One stack, in reading order: what wave it is, what is happening, what

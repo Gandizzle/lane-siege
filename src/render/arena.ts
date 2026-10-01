@@ -78,6 +78,7 @@ export function arenaAsLane(view: MatchView): LaneView | null {
     },
     economy: null,
     reserveCount: 0,
+    reserveSends: 0,
     sendLog: [],
     attacks: showdown.attacks,
     unitSpend: [],

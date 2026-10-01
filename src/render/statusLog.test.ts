@@ -38,6 +38,7 @@ function board(units: number[], monsters: number[]): LaneView {
     },
     economy: null,
     reserveCount: 0,
+    reserveSends: 0,
     sendLog: [],
     attacks: [],
     unitSpend: [],

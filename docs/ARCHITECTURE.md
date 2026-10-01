@@ -762,9 +762,15 @@ so the stream never ends on its own.
   is shared with `respawnUnits` in tick.ts), and the board stays open
   (`boardOpen` in apply.ts; `boardOpenIn` is the renderer's copy, since a client
   has a view rather than a state). A send made during the stream walks in at
-  once.
+  once - or, when the field is at its cap, waits at the **front** of the
+  reserve, behind only the sends bought before it. It used to wait at the back,
+  behind up to a reserve's worth of the stream, and a playtest found the
+  result: auto-send switched off, no more gems spent, and its swarmlings still
+  walking in minutes later, which looked exactly like sends nobody had bought.
 - **A full reserve holds the stream back** (`maxReserve`, 60) rather than
   queueing without end: a player that far behind is about to lose anyway.
+  Full of the stream's OWN bodies: sends are not counted, or a pile of cheap
+  ones could hold the stream back for as long as they took to kill.
 
 **The tally.** `lane.kills` counts every monster that dies in the lane, in any
 phase, by any hand, and `MatchView.solo` carries it - with the stream's age,
@@ -1456,6 +1462,16 @@ the one that decides how fast the other three move, and the whole reason an
 early send is an investment rather than an attack. It shows at zero too,
 dimmed, because zero is where everyone starts and seeing it is how the lever
 gets noticed. The bottom row also carries §11.5's incoming-send warning.
+
+That warning counts every send still on its way, not just the ones in the send
+log. The log holds sends for the NEXT wave and clears when that wave spawns,
+but a wave with more in it than the field holds keeps the rest in reserve,
+sends last (§8.1), and those can still be walking in long after the log went
+quiet. So once a wave is out, the lane view's `reserveSends` - how many of the
+reserve were sent - keeps the line up: `⚠ 5 sends still to come`, or in solo,
+where every send is your own, `5 of your sends still to come` (`sendNotice` in
+hud.ts). Without it a solo player who switched auto-send off saw their own
+earlier sends still arriving and nothing to say they had been bought.
 
 The band's height is `max(11.5% of the screen, 102px)`, and the lane gives up
 what that takes. A share of the screen divides a tall phone correctly and a

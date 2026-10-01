@@ -25,7 +25,10 @@
  *
  * And sends, which a solo player can only aim at themselves: one bought in the
  * last build phase, or during the stream, walks in at once rather than waiting
- * for a next wave that is never coming.
+ * for a next wave that is never coming. When the field is full it waits at the
+ * FRONT of the reserve, behind only the sends bought before it: a send that
+ * queued behind the stream could surface minutes after it was bought - long
+ * after auto-send was switched off - which reads as sends nobody paid for.
  *
  * DETERMINISM
  *
@@ -165,10 +168,12 @@ export function endlessTick(ctx: Ctx, state: MatchState, lane: Lane): void {
 
   // The stream. A full reserve holds it back rather than queueing without end:
   // a player who cannot keep up is about to lose anyway, and a reserve of a
-  // thousand bodies is memory spent on a foregone conclusion.
+  // thousand bodies is memory spent on a foregone conclusion. Full of the
+  // STREAM's bodies, that is: sends are counted out, or a player could hold
+  // the stream back by queueing cheap sends in front of it.
   const pool = endlessPool(data);
   endless.nextBody -= 1;
-  if (endless.nextBody <= 0 && lane.reserve.length < cfg.maxReserve && pool.monsters.length > 0) {
+  if (endless.nextBody <= 0 && streamQueued(lane) < cfg.maxReserve && pool.monsters.length > 0) {
     const rng = waveRng(state.seed, ENDLESS_SALT + endless.spawned);
     const defId = pool.monsters[rng.int(pool.monsters.length)]!;
     endless.spawned += 1;
@@ -203,9 +208,20 @@ function bodyBounty(ctx: Ctx, defId: string): number {
   return Math.max(0, weight) * ctx.data.waves.endless.bountyPerWeight;
 }
 
+/** How many of the stream's own bodies are waiting in the reserve: sends not counted. */
+function streamQueued(lane: Lane): number {
+  let count = 0;
+  for (const queued of lane.reserve) if (!queued.sendId) count++;
+  return count;
+}
+
 /**
  * Put one body into the lane: onto the field if the cap allows, into the
  * reserve if not (§8.1), and onto its step's enrage clock either way.
+ *
+ * A send that has to wait goes ahead of the stream's bodies and behind the
+ * sends already waiting, so the reserve always reads sends first, in the
+ * order they were bought, then the stream.
  */
 function admit(ctx: Ctx, state: MatchState, lane: Lane, spec: SpawnSpec): void {
   // One clock per step, as one per wave (§8): bodies of a step that are still
@@ -219,7 +235,9 @@ function admit(ctx: Ctx, state: MatchState, lane: Lane, spec: SpawnSpec): void {
   clock.remaining += 1;
 
   if (countLiving(lane) >= ctx.data.waves.maxConcurrentMonsters) {
-    lane.reserve.push(spec);
+    const firstOfStream = spec.sendId ? lane.reserve.findIndex((q) => !q.sendId) : -1;
+    if (firstOfStream < 0) lane.reserve.push(spec);
+    else lane.reserve.splice(firstOfStream, 0, spec);
     return;
   }
   const def = ctx.defs.monsters.get(spec.defId);

@@ -426,8 +426,12 @@ export interface Lane {
   /**
    * Overflow beyond maxConcurrentMonsters. Spawns one at a time as active
    * monsters die, into its own wave's current enrage state (§8.1).
+   *
+   * Each entry is a whole `SpawnSpec` (waves.ts), and says so: a sent body
+   * keeps its `sendId` and its `bounty` while it waits, so what is still
+   * queued can be told apart from what the wave brought.
    */
-  reserve: { defId: string; waveNumber: number }[];
+  reserve: { defId: string; waveNumber: number; sendId?: string; bounty?: number }[];
   /** Extra monsters sent by opponents, merged into the next wave (§11.5). */
   incomingSends: { defId: string; fromTeamId: TeamId; sendId: string }[];
   /**

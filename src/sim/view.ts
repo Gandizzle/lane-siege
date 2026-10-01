@@ -227,6 +227,12 @@ export interface LaneView {
   economy: EconomyView | null;
   /** §8.1: how many monsters are still queued to enter. */
   reserveCount: number;
+  /**
+   * How many of those were sent (§11.5). A send stays on its way until it is
+   * on the field, and once its wave has spawned the send log no longer counts
+   * it - so this is the only place a player can see sends still to come.
+   */
+  reserveSends: number;
   /** §11.5: who has sent what at this lane, for the incoming-attack notice. */
   sendLog: { sendId: string; fromTeamId: TeamId }[];
   /**
@@ -493,6 +499,7 @@ function laneView(ctx: SimContext, lane: Lane, own: boolean): LaneView {
         }
       : null,
     reserveCount: lane.reserve.length,
+    reserveSends: lane.reserve.reduce((n, queued) => (queued.sendId ? n + 1 : n), 0),
     sendLog: lane.sendLog.map((s) => ({ sendId: s.sendId, fromTeamId: s.fromTeamId })),
     attacks: lane.attacks.map((a: Attack) => ({
       attackerId: a.attackerId,

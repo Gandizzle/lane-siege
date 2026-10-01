@@ -110,6 +110,8 @@ export interface WireLane {
   f: [number, number, number, number, number, number, number];
   /** Reserve count (§8.1). */
   r: number;
+  /** How many of the reserve were sent (§11.5). Absent for none, which is most frames. */
+  rs?: number;
   /** `[sendIndex, fromTeamIndex]` per send received. */
   s: [number, number][];
   /**
@@ -506,6 +508,7 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
       Math.round(lane.fortress.auraStrength * POSITION_SCALE),
     ],
     r: lane.reserveCount,
+    ...(lane.reserveSends > 0 && { rs: lane.reserveSends }),
     s: lane.sendLog.map(
       (entry) =>
         [tables.sendIds.indexOf(entry.sendId), tables.teamIds.indexOf(entry.fromTeamId)] as [
@@ -596,6 +599,7 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
     },
     economy,
     reserveCount: wire.r,
+    reserveSends: wire.rs ?? 0,
     sendLog: wire.s
       .filter(([sendIndex]) => sendIndex >= 0)
       .map(([sendIndex, fromIndex]) => ({

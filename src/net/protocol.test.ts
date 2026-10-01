@@ -581,6 +581,23 @@ describe('solo on the wire (§3.3, solo)', () => {
     expect(decoded.solo).toEqual(original.solo);
   });
 
+  it('carries how many queued monsters were sent, so sends still to come can be shown', () => {
+    const { state, ctx } = soloMatch();
+    const lane = state.lanes.me!;
+    lane.reserve.push(
+      { defId: 'swarmling', waveNumber: 3, sendId: 'swarmling', bounty: 1 },
+      { defId: 'husk', waveNumber: 3 },
+      { defId: 'grub', waveNumber: 3, sendId: 'grub', bounty: 2 },
+    );
+    const { original, decoded } = soloRoundTrip(state, ctx);
+    expect(original.lane!.reserveCount).toBe(3);
+    expect(original.lane!.reserveSends).toBe(2);
+    expect(decoded.lane!.reserveSends).toBe(2);
+
+    lane.reserve.length = 0;
+    expect(soloRoundTrip(state, ctx).decoded.lane!.reserveSends).toBe(0);
+  });
+
   it('says nothing about solo in a standard match', () => {
     const { state, ctx } = match();
     const { decoded } = roundTrip(state, ctx, 'a');

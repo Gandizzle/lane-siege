@@ -238,6 +238,42 @@ describe('sends (§11.5)', () => {
     expect(state.lanes.b!.incomingSends).toHaveLength(0);
   });
 
+  it('keeps counting the sends the cap holds back after their wave has spawned', () => {
+    // §8.1: a wave with more in it than the field holds keeps the rest in
+    // reserve, and sends go last. The send log clears when the wave spawns, so
+    // without this count the sends still waiting are invisible - and in solo,
+    // where they are your own, they look like sends nobody bought.
+    const { state, ctx } = fourPlayerMatch();
+    for (const lane of Object.values(state.lanes)) {
+      lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+      lane.fortress.hp = lane.fortress.maxHp;
+    }
+    fund(state, 'a', 100_000);
+    const sends = data.waves.maxConcurrentMonsters + 10;
+    for (let i = 0; i < sends; i++) {
+      state.lanes.a!.sendCooldowns = {};
+      applyCommand(ctx, state, { kind: 'send', teamId: 'a', targetTeamId: 'b', sendId: 'grub' });
+    }
+    expect(viewFor(ctx, state, 'b').lane!.sendLog).toHaveLength(sends);
+
+    while (state.phase !== 'combat') step(ctx, state);
+    const b = state.lanes.b!;
+    const view = viewFor(ctx, state, 'b').lane!;
+    expect(view.sendLog).toHaveLength(0);
+    const waiting = b.reserve.filter((queued) => queued.sendId === 'grub').length;
+    expect(waiting).toBeGreaterThan(0);
+    expect(view.reserveSends).toBe(waiting);
+    // Last in the queue: everything the wave brought enters first.
+    expect(b.reserve.slice(-waiting).every((queued) => queued.sendId === 'grub')).toBe(true);
+
+    // And the count runs down to nothing as they walk in.
+    for (let guard = 0; b.reserve.some((q) => q.sendId) && guard < 40_000; guard++) {
+      for (const monster of b.monsters) if (monster.alive) monster.hp = 0;
+      step(ctx, state);
+    }
+    expect(viewFor(ctx, state, 'b').lane!.reserveSends).toBe(0);
+  });
+
   it('closes with every other purchase once the showdown begins (§3.3, replaced)', () => {
     const { state, ctx } = fourPlayerMatch();
     fund(state, 'a', 500);
