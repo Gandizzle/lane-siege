@@ -32,9 +32,11 @@ is money rather than code.
   match at the last build phase; `?showdown=1` starts inside the arena.
 - **Solo** — one lane and nobody else. Every send you buy comes back at you, for
   the income it pays and the bounty it carries, and after wave 25 there is no
-  showdown but one last wave that never ends: monsters of every type the waves
-  used, one at a time, faster and stronger every thirty seconds, with a boss
-  every minute. The score is how many monsters you killed, and the best one is
+  showdown but one last wave that never ends: thirty monsters of every type the
+  waves used on the field at once, each one that dies replaced, stronger every
+  thirty seconds, and a batch of bosses every thirty seconds that grows as it
+  goes. Once it starts nothing can be bought and nothing respawns - only sends
+  are left. The score is how many monsters you killed, and the best one is
   kept. `?wave=26` with Solo starts at the build phase before the endless wave.
 - `npm run server` then `?server=ws://localhost:2567` — the same match against
   three other people, with the server deciding everything. Players gather in a

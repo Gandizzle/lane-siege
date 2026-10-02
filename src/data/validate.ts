@@ -208,23 +208,16 @@ function checkWaveReferences(data: GameData, errors: string[]): void {
   if (!endless) {
     errors.push('waves.endless is missing: solo mode has no last wave');
   } else {
-    for (const key of [
-      'stepSeconds',
-      'firstGapSeconds',
-      'gapPerStep',
-      'minGapSeconds',
-      'bossEverySeconds',
-      'respawnSeconds',
-      'bountyPerWeight',
-      'maxReserve',
-    ] as const) {
+    for (const key of ['stepSeconds', 'bossEverySeconds', 'bossGrowthEvery'] as const) {
       const value = endless[key];
       if (typeof value !== 'number' || !(value > 0)) {
         errors.push(`waves.endless.${key} must be a positive number`);
       }
     }
-    if ((endless.gapPerStep ?? 0) > 1) {
-      errors.push('waves.endless.gapPerStep above 1 would slow the stream down as it climbs');
+    // Zero is allowed: a stream that brings no bosses until its batches grow.
+    const first = endless.firstBosses;
+    if (typeof first !== 'number' || !Number.isInteger(first) || first < 0) {
+      errors.push('waves.endless.firstBosses must be a whole number, 0 or more');
     }
   }
 }

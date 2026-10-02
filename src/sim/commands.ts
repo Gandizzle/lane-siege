@@ -103,6 +103,8 @@ export type CommandRejection =
   | 'no-such-unit'
   | 'max-level'
   | 'building-closed'
+  /** Solo's endless wave: nothing can be bought but sends (endless.ts). */
+  | 'sends-only'
   | 'eliminated'
   | 'target-eliminated'
   /** §7.1: that unit belongs to a builder this lane is not playing. */

@@ -395,13 +395,15 @@ Decisions that override the document rather than filling a gap in it:
   mode DESIGN.md does not have. One lane; every send lands on the lane that
   bought it (still paying its income, still carrying its bounty); and in place
   of the Final Showdown, which needs somebody to meet, the last build phase is
-  followed by an endless wave - monsters drawn at random from every type the
-  twenty-five waves used, a boss on a one-minute clock, and the stream climbing
-  the waves' own growth curve a wave's worth every thirty seconds. Because the
-  stream has no gaps, three between-wave rules move into it: income is paid
-  every step, a fallen unit stands back up after fifteen seconds, and the board
-  stays open. The match ends when the fortress falls, and the score is the
-  number of monsters killed. `waves.endless` in `data/waves.json`;
+  followed by an endless wave: the field filled to its thirty at once with
+  monsters drawn at random from every type the twenty-five waves used, every
+  one that dies replaced on the next tick, a batch of bosses every thirty
+  seconds that grows by one every two batches and takes the next places free,
+  and the whole stream climbing the waves' own growth curve a wave's worth
+  every thirty seconds. Once it opens the line is what was built before it:
+  nothing can be bought (only sends are open), a fallen unit stays down, and
+  no gold is paid. The match ends when the fortress falls, and the score is
+  the number of monsters killed. `waves.endless` in `data/waves.json`;
   `src/sim/endless.ts`.
 - **§3.1 — the shop stays open during combat; only the board closes.** §3.1
   puts placing, upgrading, tech, fortress upgrades and queued sends all in the

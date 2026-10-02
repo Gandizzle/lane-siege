@@ -1,12 +1,20 @@
 /**
  * What the renderer makes of a solo match (§3.3, solo): which preview the lane
- * draws, when the board is open, and how the endless wave's clock reads. The
+ * draws, what is open to buy, and how the endless wave's clock reads. The
  * simulation's side is src/sim/solo.test.ts.
  */
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { boardOpenIn, createContext, createMatch, step, viewFor } from '../sim/index.ts';
+import {
+  boardOpenIn,
+  createContext,
+  createMatch,
+  sendsOpenIn,
+  shopOpenIn,
+  step,
+  viewFor,
+} from '../sim/index.ts';
 import type { MatchState } from '../sim/index.ts';
 import { comesNext } from './laneView.ts';
 import { clock } from './ui/text.ts';
@@ -64,14 +72,18 @@ describe('the solo renderer', () => {
     expect(comesNext(data, viewFor(ctx, state, 'a'))).toBe('wave');
   });
 
-  it('opens the board in the build phase and the endless wave, and not in an ordinary fight', () => {
+  it('opens the board only in a build phase, and leaves only sends in the endless wave', () => {
     const state = solo();
-    expect(boardOpenIn(viewFor(ctx, state, 'me'))).toBe(true);
+    const gates = () => {
+      const view = viewFor(ctx, state, 'me');
+      return { board: boardOpenIn(view), shop: shopOpenIn(view), sends: sendsOpenIn(view) };
+    };
+    expect(gates()).toEqual({ board: true, shop: true, sends: true });
     state.phase = 'combat';
-    expect(boardOpenIn(viewFor(ctx, state, 'me'))).toBe(false);
+    expect(gates()).toEqual({ board: false, shop: true, sends: true });
     endless(state);
     expect(state.phase).toBe('combat');
-    expect(boardOpenIn(viewFor(ctx, state, 'me'))).toBe(true);
+    expect(gates()).toEqual({ board: false, shop: false, sends: true });
   });
 
   it('reads the endless clock as minutes and seconds', () => {

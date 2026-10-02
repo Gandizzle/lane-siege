@@ -535,15 +535,14 @@ export interface EndlessState {
   age: number;
   /** Bodies the stream has sent: the index the next one is drawn with. */
   spawned: number;
-  /** Ticks until the next body walks in. */
-  nextBody: number;
-  /** Ticks until the next boss. */
-  nextBoss: number;
-  /**
-   * Units that have fallen, and the ticks until each stands back up on its own
-   * tile. There is no build phase left to respawn them in (§5.4).
-   */
-  fallen: Record<EntityId, number>;
+  /** Bosses the stream has sent: the index the next one is drawn with. */
+  bossesSpawned: number;
+  /** Boss batches fallen due so far: the next batch's size is a function of this. */
+  batches: number;
+  /** Bosses fallen due and not yet on the field. They take the next places free. */
+  bossesDue: number;
+  /** Ticks until the next batch of bosses falls due. */
+  nextBatch: number;
 }
 
 export interface MatchState {

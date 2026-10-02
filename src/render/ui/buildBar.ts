@@ -51,6 +51,8 @@ import { buildableUnits } from '../../data/roster.ts';
 import {
   boardOpenIn,
   resolveMonsterStats,
+  sendsOpenIn,
+  shopOpenIn,
   sellValue,
   sendOpen,
   sendPrice,
@@ -887,9 +889,10 @@ export class BuildBar extends Container {
     // supply, the weapon type, the aura, sends - stays open through combat,
     // because none of it touches the line and a player with nothing to do for
     // the length of a fight is watching rather than playing. Both close when
-    // the armies march (§3.3, replaced). Solo's endless wave keeps the board
-    // open too, since it has no build phase to wait for (endless.ts).
-    const canShop = view.phase !== 'showdown';
+    // the armies march (§3.3, replaced). Solo's endless wave shuts both and
+    // leaves only sends (endless.ts), so the Send tab has a gate of its own.
+    const canShop = shopOpenIn(view);
+    const canSend = sendsOpenIn(view);
     const canBuild = canShop && boardOpenIn(view);
     // §13: out of the match means out of the shop, whatever the phase says.
     const alive = !view.eliminated;
@@ -957,7 +960,7 @@ export class BuildBar extends Container {
     if (this.panels.tech.visible) this.renderTech(economy, canShop && alive);
     if (this.panels.fort.visible) this.renderFort(economy, canShop && alive);
     if (this.panels.aura.visible) this.renderAura(lane, canShop && alive);
-    if (this.panels.send.visible) this.renderSend(view, economy, canShop && alive);
+    if (this.panels.send.visible) this.renderSend(view, economy, canSend && alive);
   }
 
   /** §11.5: pick a target, then pick what to throw at it. */
@@ -1103,7 +1106,9 @@ export class BuildBar extends Container {
         // by (§11.5).
         // Written tight - no space before "gem" - so a 500-gem send's line
         // still fits a phone-width button whole.
-        detail: `${GEM}${cost} → +${GOLD}${income}/wave`,
+        // Solo's endless wave pays no income (endless.ts), so there the price
+        // is the price and nothing more.
+        detail: view.solo?.endless ? `${GEM}${cost}` : `${GEM}${cost} → +${GOLD}${income}/wave`,
         // ONE NAME PER BUTTON. What is worth the line is what the send is FOR:
         // the economy for the three that pay the best rate, and otherwise what
         // the monster DOES and whether the gems also buy a look at the lane
@@ -1114,12 +1119,18 @@ export class BuildBar extends Container {
           : armed
             ? 'auto'
             : [
-                def.economic === true ? 'economy' : (icon?.abilityName ?? null),
+                // Not in the endless wave, which pays no income at all.
+                def.economic === true && !view.solo?.endless
+                  ? 'economy'
+                  : (icon?.abilityName ?? null),
                 def.grantsVision ? 'sight' : null,
               ]
                 .filter((part) => part !== null)
                 .join(' · '),
-        noteColour: open && (armed || def.economic === true) ? UI.accent : UI.textMuted,
+        noteColour:
+          open && (armed || (def.economic === true && !view.solo?.endless))
+            ? UI.accent
+            : UI.textMuted,
         cooldown,
         enabled: canAct && aimed && open && gems >= cost,
         // Dimmed when the gems are not there, but still able to take a HOLD:

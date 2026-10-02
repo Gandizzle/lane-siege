@@ -25,6 +25,7 @@ const MESSAGES: Record<CommandRejection, string> = {
   'no-such-unit': 'That unit is gone',
   'max-level': 'Already fully upgraded',
   'building-closed': 'The Final Showdown has begun',
+  'sends-only': 'Only sends in the endless wave',
   eliminated: 'You are out',
   'target-eliminated': 'That player is out',
   'invalid-target': 'Pick an opponent',

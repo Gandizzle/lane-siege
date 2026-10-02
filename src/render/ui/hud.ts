@@ -201,10 +201,11 @@ export class Hud extends Container {
     // how fast the other three move. Dimmed at zero, because zero is the honest
     // starting value and seeing it there is how a player learns the lever
     // exists.
-    // The endless wave pays it every step rather than every wave (endless.ts).
-    const per = endless ? `${this.data.waves.endless.stepSeconds}s` : 'wave';
+    // Not in the endless wave, which pays none: nothing can be bought in it,
+    // so gold stops (endless.ts).
     const income = () => {
-      this.income.set(`+${GOLD}${Math.floor(economy?.passiveIncome ?? 0)} / ${per}`);
+      if (endless) return null;
+      this.income.set(`+${GOLD}${Math.floor(economy?.passiveIncome ?? 0)} / wave`);
       this.income.setColour((economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted);
       return this.income;
     };

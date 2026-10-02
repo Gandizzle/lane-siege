@@ -60,7 +60,7 @@ export { countLiving, poolCap, poolOf, type MonsterPool } from './spawn.ts';
 export { recomputeUnitBuffs } from './buffs.ts';
 export { modifiersOf } from './status.ts';
 export { stat } from './defs.ts';
-export { boardOpenIn, viewFor } from './view.ts';
+export { boardOpenIn, sendsOpenIn, shopOpenIn, viewFor } from './view.ts';
 export type {
   AttackView,
   EconomyView,
@@ -77,5 +77,5 @@ export type {
   UnitDamageView,
 } from './view.ts';
 // Solo mode's endless last wave (§3.3, solo).
-export { endlessPool, endlessStep, endlessWaveNumber } from './endless.ts';
+export { bossBatchSize, endlessPool, endlessStep, endlessWaveNumber } from './endless.ts';
 export { STATUS_MARKS, hasMark, markBit, markOfEffect, type StatusMark } from './statusMarks.ts';

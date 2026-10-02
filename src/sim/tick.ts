@@ -34,7 +34,7 @@ import {
 } from './abilityRuntime.ts';
 import { Rng } from './rng.ts';
 import { dealDamage } from './strike.ts';
-import { canAttack, canMove, modifiersOf, tauntedBy } from './status.ts';
+import { canAttack, canMove, freshAbilityState, modifiersOf, tauntedBy } from './status.ts';
 import type { Command } from './commands.ts';
 import { applyCommands } from './apply.ts';
 import { resolveDamage } from './damage.ts';
@@ -45,7 +45,7 @@ import { monsterEnrage } from './enrage.ts';
 import type { Body } from './motion.ts';
 import type { SimContext } from './context.ts';
 import { moveSeekers, planMoves, type Walker } from './steering.ts';
-import { beginEndless, endlessTick, respawnUnit } from './endless.ts';
+import { beginEndless, endlessTick } from './endless.ts';
 import { beginShowdown, showdownEliminations, showdownTick } from './showdown.ts';
 import {
   admitFromReserve,
@@ -588,6 +588,29 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): voi
  */
 function respawnUnits(lane: Lane, energyMax: number): void {
   for (const unit of lane.units) respawnUnit(unit, energyMax);
+}
+
+/** One unit, back on its tile and whole (§5.4). */
+function respawnUnit(unit: DefensiveUnit, energyMax: number): void {
+  unit.alive = true;
+  unit.maxHp = unit.baseMaxHp;
+  unit.hp = unit.maxHp;
+  // A fresh body, which is what §5.4 says respawning is: no burns carried
+  // over from the fight that killed it, no cooldowns part-spent, and a FULL
+  // ENERGY POOL. A pool that carried over would make the first wave after a
+  // long fight quietly weaker than the one after a short one, for a reason no
+  // player could see. Nothing can spend it during the build phase either
+  // (abilityRuntime.ts, `AbilityEnv.fighting`), so full here is full when the
+  // wave lands.
+  Object.assign(unit, freshAbilityState(energyMax));
+  unit.targetId = null;
+  unit.cooldown = 0;
+  // Units advance during combat (§5.2, amended), so put it back on the tile
+  // the player chose rather than wherever it drifted to.
+  unit.pos.x = unit.homeTileX + 0.5;
+  unit.pos.y = unit.homeTileY + 0.5;
+  unit.engaged = false;
+  unit.fieldCell = -1;
 }
 
 /**

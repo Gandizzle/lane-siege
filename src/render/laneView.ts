@@ -31,6 +31,10 @@ export function comesNext(data: GameData, view: MatchView): 'wave' | 'endless' {
   return view.phase === 'build' && view.wave >= data.waves.showdown.afterWave ? 'endless' : 'wave';
 }
 
+function bosses(count: number): string {
+  return count === 1 ? '1 boss' : `${count} bosses`;
+}
+
 /**
  * Radius of a monster's silhouette in the wave preview, in pixels.
  *
@@ -330,7 +334,7 @@ export class LaneView extends Container {
     const endless = view.solo?.endless ?? null;
     const heading = label(
       endless
-        ? `endless wave · boss in ${clock(ticksToSeconds(endless.nextBossTicks))}`
+        ? `endless wave · ${bosses(endless.nextBosses)} in ${clock(ticksToSeconds(endless.nextBossTicks))}`
         : 'next: the endless wave',
       10,
       endless ? UI.danger : UI.textMuted,
@@ -342,7 +346,7 @@ export class LaneView extends Container {
 
     const bossSeconds = this.data.waves.endless.bossEverySeconds;
     const note = label(
-      `Any of these, one at a time and faster as it goes, and a boss every ${bossSeconds}s`,
+      `Any of these, ${this.data.waves.maxConcurrentMonsters} at a time, and more bosses every ${bossSeconds}s`,
       10,
       UI.textMuted,
       '600',

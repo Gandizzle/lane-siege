@@ -27,15 +27,11 @@
     }
   },
   "endless": {
-    "_comment": "Solo mode's last wave, in place of the Final Showdown (§3.3, solo). After the last authored wave and one more build phase, monsters walk in one at a time and never stop: each a type drawn at random from every monster the waves used, a boss every bossEverySeconds from every boss they used. Every stepSeconds the stream climbs one wave of the growth curve (scaling), pays the passive income a wave would, and its gap shrinks by gapPerStep down to minGapSeconds. Fallen units stand back up after respawnSeconds, since there is no build phase to respawn them in, and the line can be built, upgraded and sold throughout. The match ends when the fortress falls; the score is the monsters killed.",
+    "_comment": "Solo mode's last wave, in place of the Final Showdown (§3.3, solo). After the last authored wave and one more build phase, the field fills to maxConcurrentMonsters at once and stays full: every monster that dies is replaced on the next tick, each a type drawn at random from every monster the waves used. Every bossEverySeconds a batch of bosses falls due - firstBosses in the first, one more every bossGrowthEvery batches - and they take the next places that free up. Every stepSeconds the stream climbs one wave of the growth curve (scaling). Nothing can be bought once it opens and a fallen unit stays down: only sends are still open. The match ends when the fortress falls; the score is the monsters killed.",
     "stepSeconds": 30,
-    "firstGapSeconds": 1.2,
-    "gapPerStep": 0.9,
-    "minGapSeconds": 0.3,
-    "bossEverySeconds": 60,
-    "respawnSeconds": 15,
-    "bountyPerWeight": 0.6,
-    "maxReserve": 60
+    "bossEverySeconds": 30,
+    "firstBosses": 1,
+    "bossGrowthEvery": 2
   },
   "maxConcurrentMonsters": 30,
   "maxConcurrentSends": 30,

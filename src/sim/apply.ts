@@ -57,23 +57,29 @@ function fail(rejection: CommandRejection): CommandResult {
  * because `incomingSends` is drained when a wave spawns rather than when it is
  * queued. Nothing lands on a fight already in progress.
  *
+ * Solo's endless wave closes the shop too, and leaves only sends open
+ * (`sendsOpen`): the line it is fought with is the one built before it, and
+ * the score is how long that line holds (endless.ts).
+ *
  * `shopOpen` is checked BEFORE the build-phase check wherever both apply, so
- * that a tap during the showdown is answered with "there is nothing left to
- * buy" rather than with "wait for the build phase", which would be a lie about
- * a build phase that is never coming.
+ * that a tap during the showdown or the endless wave is answered with "there
+ * is nothing left to buy" rather than with "wait for the build phase", which
+ * would be a lie about a build phase that is never coming.
  */
-function shopOpen(state: MatchState): boolean {
+function shopOpen(state: MatchState): CommandRejection | null {
+  if (state.phase === 'showdown') return 'building-closed';
+  if (state.endless) return 'sends-only';
+  return null;
+}
+
+/** Sends, which are the one purchase solo's endless wave leaves open. */
+function sendsOpen(state: MatchState): boolean {
   return state.phase !== 'showdown';
 }
 
-/**
- * §3.1: the line itself is only editable while a wave is not running - and
- * throughout solo's endless wave, which is never not running. There is no
- * build phase left after it opens, so a board that stayed shut would leave
- * the gold the stream pays with nothing to buy (endless.ts).
- */
+/** §3.1: the line itself is only editable while a wave is not running. */
 function boardOpen(state: MatchState): boolean {
-  return state.phase === 'build' || state.endless !== null;
+  return state.phase === 'build';
 }
 
 function laneFor(state: MatchState, teamId: string): Lane | null {
@@ -90,7 +96,8 @@ function placeUnit(
   tileX: number,
   tileY: number,
 ): CommandResult {
-  if (!shopOpen(state)) return fail('building-closed');
+  const closed = shopOpen(state);
+  if (closed) return fail(closed);
   // §3.1: building happens in the build phase.
   if (!boardOpen(state)) return fail('not-build-phase');
 
@@ -174,7 +181,8 @@ function buyTech(
   lane: Lane,
   trackId: string,
 ): CommandResult {
-  if (!shopOpen(state)) return fail('building-closed');
+  const closed = shopOpen(state);
+  if (closed) return fail(closed);
 
   const track = ctx.data.economy.tech.tracks.find((t) => t.id === trackId);
   if (!track) return fail('unknown-definition');
@@ -196,7 +204,8 @@ function buySupply(
   state: MatchState,
   lane: Lane,
 ): CommandResult {
-  if (!shopOpen(state)) return fail('building-closed');
+  const closed = shopOpen(state);
+  if (closed) return fail(closed);
 
   const ladder = ctx.data.economy.supply.capUpgrades;
   const current = lane.fortress.upgrades.supply ?? 0;
@@ -221,7 +230,8 @@ function buyFortressUpgrade(
   lane: Lane,
   upgradeId: string,
 ): CommandResult {
-  if (!shopOpen(state)) return fail('building-closed');
+  const closed = shopOpen(state);
+  if (closed) return fail(closed);
 
   const f = ctx.data.fortress;
   const ladders: Record<string, readonly UpgradeLevel[]> = {
@@ -337,8 +347,8 @@ function send(
   // where the monsters land - only about when the player got to decide. It was
   // build-phase-only at first, on the argument that one shopping window is
   // tidier than two; watching a wave you have no way to act on is worse than
-  // untidy.
-  if (!shopOpen(state)) return fail('building-closed');
+  // untidy. And through solo's endless wave, when nothing else is.
+  if (!sendsOpen(state)) return fail('building-closed');
 
   const def = ctx.defs.sends.get(sendId);
   if (!def) return fail('unknown-definition');
@@ -400,7 +410,8 @@ function upgradeUnit(
   lane: Lane,
   unitId: number,
 ): CommandResult {
-  if (!shopOpen(state)) return fail('building-closed');
+  const closed = shopOpen(state);
+  if (closed) return fail(closed);
   if (!boardOpen(state)) return fail('not-build-phase');
 
   const unit = lane.units.find((u) => u.id === unitId && u.alive);
@@ -467,7 +478,8 @@ function sellUnit(
   lane: Lane,
   unitId: number,
 ): CommandResult {
-  if (!shopOpen(state)) return fail('building-closed');
+  const closed = shopOpen(state);
+  if (closed) return fail(closed);
   if (!boardOpen(state)) return fail('not-build-phase');
 
   const unit = lane.units.find((u) => u.id === unitId);
@@ -516,15 +528,19 @@ export function applyCommand(
     // §10.1: free and instant. A small decision that keeps every player
     // engaging with the damage matrix, and one of the things there is no
     // reason to make somebody wait for a build phase to take (`shopOpen`).
-    case 'setWeaponType':
-      if (!shopOpen(state)) return fail('building-closed');
+    case 'setWeaponType': {
+      const closed = shopOpen(state);
+      if (closed) return fail(closed);
       lane.fortress.weaponDamageType = command.damageType;
       return OK;
+    }
 
-    case 'setAura':
-      if (!shopOpen(state)) return fail('building-closed');
+    case 'setAura': {
+      const closed = shopOpen(state);
+      if (closed) return fail(closed);
       lane.fortress.activeAura = command.aura;
       return OK;
+    }
 
     case 'send':
       return send(ctx, state, lane, command.targetTeamId, command.sendId);

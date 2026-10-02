@@ -1570,16 +1570,19 @@ each). The levers, if sends now hit too hard: `maxConcurrentSends` itself, the
 attack sends' prices, and the send bounty (`sendBountyPerTenGems`).
 
 **Solo's endless wave** is first-guess numbers, not tuned ones
-(`waves.endless`): a body every 1.2 s quickening by 10% a step to a 0.3 s floor,
-a step every 30 s, a boss a minute, bodies paid at 0.6 gold per bounty weight.
-The one measurement so far is the default bot playing Thornweald with its
-income sends aimed at itself: it reached the stream and held it 3:51, killing
-638 there, while banking 20,000 gold it never spent because the bot only builds
-in build phases. A person who keeps building should last longer; whether
-"longer" is five minutes or twenty is the thing to find out. The knobs, in
-order of bite: `gapPerStep` and `minGapSeconds` (how fast the stream thickens),
-`stepSeconds` (how fast it hardens), and `bountyPerWeight` (how much it pays to
-keep up).
+(`waves.endless`): thirty on the field and refilled as they die, a step of
+strength every 30 s, a batch of bosses every 30 s starting at one and growing
+by one every two batches. Nothing can be bought once it opens and nothing
+respawns, so it is a test of the line built before it. Measured with the
+default bot spending a wave-25 army's worth of gold (21,000, from the
+army-gold ladder) in the last build phase and sending nothing: the line held
+0:27 to 0:45 and killed 15 to 53, across the four builders and two seeds. The
+same armies against the stream as it was first built - one body at a time,
+quickening, with units respawning - held 1:24 to 3:08. That is a hard ending
+on purpose, but probably harder than it should be. The knobs, in order of
+bite: where the stream starts on the growth curve (`endlessWaveNumber`, today
+the wave after the last), `stepSeconds` (how fast it hardens), and the boss
+batches (`firstBosses`, `bossGrowthEvery`, `bossEverySeconds`).
 
 **Phase 5 — humans.** The simulation cannot measure whether 30 seconds is enough
 to make five decisions on a phone, whether the build bar is legible mid-panic,

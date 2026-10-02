@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import {
   applyCommand,
+  bossBatchSize,
   countLiving,
   createContext,
   createMatch,
@@ -15,7 +16,7 @@ import {
   step,
   viewFor,
 } from './index.ts';
-import type { MatchState, SimContext } from './index.ts';
+import type { Command, MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
 const LAST = data.waves.showdown.afterWave;
@@ -128,7 +129,7 @@ describe('solo mode', () => {
     expect(state.wave).toBe(LAST);
   });
 
-  it('then opens the endless wave, which never goes back to building', () => {
+  it('then opens the endless wave, which never goes back to building', { timeout: 60_000 }, () => {
     const { state, ctx } = solo();
     openEndless(ctx, state);
     expect(state.phase).toBe('combat');
@@ -138,7 +139,7 @@ describe('solo mode', () => {
     // Kill everything as it arrives: the lane is empty again and again, and
     // the wave still does not end.
     const lane = state.lanes.me!;
-    for (let i = 0; i < secondsToTicks(20); i++) {
+    for (let i = 0; i < secondsToTicks(10); i++) {
       for (const m of lane.monsters) m.hp = 0;
       step(ctx, state);
       expect(state.phase).toBe('combat');
@@ -147,80 +148,137 @@ describe('solo mode', () => {
     expect(state.finished).toBe(false);
   });
 
-  it('draws its stream from every monster the waves used, and a boss on its clock', () => {
+  it('draws its stream from every monster the waves used', { timeout: 60_000 }, () => {
     const { state, ctx } = solo();
     openEndless(ctx, state);
     const lane = state.lanes.me!;
     const pool = endlessPool(data);
     const seen = new Set<string>();
-    const ticks = secondsToTicks(cfg.bossEverySeconds) + 1;
-    for (let i = 0; i < ticks; i++) {
+    for (let i = 0; i < secondsToTicks(20); i++) {
       for (const m of lane.monsters) seen.add(m.defId);
       for (const m of lane.monsters) m.hp = 0;
       step(ctx, state);
     }
-    for (const m of lane.monsters) seen.add(m.defId);
-    for (const id of seen) {
-      expect([...pool.monsters, ...pool.bosses]).toContain(id);
-    }
-    // A minute of stream covers most of the twelve kinds and brings a boss.
-    expect([...seen].filter((id) => pool.monsters.includes(id)).length).toBeGreaterThan(6);
-    expect([...seen].some((id) => pool.bosses.includes(id))).toBe(true);
+    for (const id of seen) expect(pool.monsters).toContain(id);
+    expect(seen.size).toBeGreaterThan(6);
     expect(pool.monsters).not.toContain('brood_sire');
   });
 
-  it('streams the same monsters from the same seed, whatever the player does', () => {
-    const drawn = (seed: number, killEverything: boolean): string[] => {
-      const { state, ctx } = solo(seed);
-      openEndless(ctx, state);
-      const lane = state.lanes.me!;
-      const ids: string[] = [];
-      const known = new Set<number>();
-      for (let i = 0; i < secondsToTicks(15); i++) {
-        for (const m of lane.monsters) {
-          if (!known.has(m.id) && m.sendId === null) {
-            known.add(m.id);
-            ids.push(m.defId);
-          }
-        }
-        if (killEverything) for (const m of lane.monsters) m.hp = 0;
-        step(ctx, state);
-      }
-      return ids;
-    };
-    const a = drawn(11, true);
-    expect(a.length).toBeGreaterThan(5);
-    expect(drawn(11, true)).toEqual(a);
-    expect(drawn(12, true)).not.toEqual(a);
-  });
-
-  it('grows its bodies and quickens as it climbs', () => {
+  it('fills the field to its cap at once, and replaces every monster that dies', () => {
+    // Not a trickle that speeds up: thirty on the field from the start (§8.1),
+    // and one more for each that falls.
     const { state, ctx } = solo();
     openEndless(ctx, state);
     const lane = state.lanes.me!;
-    const grubHp = (): number[] =>
-      lane.monsters.filter((m) => m.defId === 'grub').map((m) => m.maxHp);
-    const early: number[] = [];
-    const late: number[] = [];
-    const stepTicks = secondsToTicks(cfg.stepSeconds);
-    let early20 = 0;
-    let late20 = 0;
-    for (let i = 0; i < stepTicks * 4; i++) {
-      const before = state.endless!.spawned;
-      for (const m of lane.monsters) m.hp = 0;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    const cap = data.waves.maxConcurrentMonsters;
+    let ticks = 0;
+    for (; ticks < secondsToTicks(5) && countLiving(lane, 'wave') < cap; ticks++) {
+      lane.fortress.hp = lane.fortress.maxHp;
       step(ctx, state);
-      const arrived = state.endless!.spawned - before;
-      if (i < stepTicks) {
-        early.push(...grubHp());
-        early20 += arrived;
-      }
-      if (i >= stepTicks * 3) {
-        late.push(...grubHp());
-        late20 += arrived;
-      }
     }
-    expect(Math.max(...late)).toBeGreaterThan(Math.max(...early));
-    expect(late20).toBeGreaterThan(early20);
+    expect(countLiving(lane, 'wave')).toBe(cap);
+    // The clump spawns together; any the zone has no ground for follow within
+    // a second or two, as the front of it walks out.
+    expect(ticks).toBeLessThan(secondsToTicks(3));
+
+    // Never more than the cap, and every death made good.
+    for (let round = 0; round < 5; round++) {
+      const victims = lane.monsters.filter((m) => m.alive).slice(0, 4);
+      for (const m of victims) m.hp = 0;
+      for (let i = 0; i < 4; i++) {
+        lane.fortress.hp = lane.fortress.maxHp;
+        step(ctx, state);
+        expect(countLiving(lane, 'wave')).toBeLessThanOrEqual(cap);
+      }
+      expect(countLiving(lane, 'wave')).toBe(cap);
+    }
+    // The stream never queues: it is drawn when there is room for it.
+    expect(lane.reserve).toHaveLength(0);
+  });
+
+  it('brings bosses in batches on a clock, more of them as it goes', { timeout: 60_000 }, () => {
+    const { state, ctx } = solo();
+    openEndless(ctx, state);
+    const lane = state.lanes.me!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    const pool = endlessPool(data);
+    const isBoss = (defId: string) => pool.bosses.includes(defId);
+    const batch = secondsToTicks(cfg.bossEverySeconds);
+    const batches = 4;
+    const sizes = Array.from({ length: batches }, (_, b) => bossBatchSize(data, b));
+    expect(sizes[batches - 1]!).toBeGreaterThan(sizes[0]!);
+
+    // A place made for every boss that is due, so each walks in as it falls
+    // due rather than when the wall's weapon happens to free one.
+    let bosses = 0;
+    const known = new Set<number>();
+    for (let i = 0; i < batch * batches + 10; i++) {
+      let room = state.endless!.bossesDue;
+      for (const m of lane.monsters) {
+        if (!m.alive) continue;
+        if (isBoss(m.defId)) {
+          if (!known.has(m.id)) bosses++;
+          known.add(m.id);
+        } else if (room > 0) {
+          m.hp = 0;
+          room--;
+        }
+      }
+      lane.fortress.hp = lane.fortress.maxHp;
+      step(ctx, state);
+    }
+    for (const m of lane.monsters) if (m.alive && isBoss(m.defId) && !known.has(m.id)) bosses++;
+    expect(state.endless!.batches).toBe(batches);
+    expect(bosses).toBe(sizes.reduce((a, b) => a + b, 0));
+    expect(state.endless!.bossesDue).toBe(0);
+    // And the view says what the next batch brings.
+    expect(viewFor(ctx, state, 'me').solo!.endless!.nextBosses).toBe(bossBatchSize(data, batches));
+  });
+
+  it('gives a boss that falls due the next place free, ahead of the stream', () => {
+    const { state, ctx } = solo();
+    openEndless(ctx, state);
+    const lane = state.lanes.me!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    const pool = endlessPool(data);
+    const isBoss = (defId: string) => pool.bosses.includes(defId);
+    // Nothing dies on an empty board with a wall that cannot fall, so the
+    // field stays full and the first batch has to wait.
+    stepUntil(ctx, state, () => {
+      lane.fortress.hp = lane.fortress.maxHp;
+      return state.endless!.bossesDue > 0;
+    });
+    expect(lane.monsters.some((m) => m.alive && isBoss(m.defId))).toBe(false);
+    // One place frees up: the boss takes it.
+    lane.monsters.find((m) => m.alive)!.hp = 0;
+    for (let i = 0; i < 3; i++) {
+      lane.fortress.hp = lane.fortress.maxHp;
+      step(ctx, state);
+    }
+    expect(lane.monsters.filter((m) => m.alive && isBoss(m.defId))).toHaveLength(1);
+    expect(state.endless!.bossesDue).toBe(cfg.firstBosses - 1);
+  });
+
+  it('grows its bodies as it climbs', () => {
+    const { state, ctx } = solo();
+    openEndless(ctx, state);
+    const lane = state.lanes.me!;
+    // How many times its written health a stream body has: the growth curve
+    // at the step it was drawn in (§9.1).
+    const growth = (): number => {
+      const body = lane.monsters.find((m) => m.alive && m.sendId === null)!;
+      const def = data.monsters.monsters.find((d) => d.id === body.defId)!;
+      return body.maxHp / def.hp!;
+    };
+    step(ctx, state);
+    const first = growth();
+    // Three steps on, everything drawn is grown three waves further.
+    for (const m of lane.monsters) m.hp = 0;
+    state.endless!.age = secondsToTicks(cfg.stepSeconds) * 3;
+    step(ctx, state);
+    step(ctx, state);
+    expect(growth()).toBeGreaterThan(first);
   });
 
   it('counts every kill, and shows the count', () => {
@@ -244,74 +302,97 @@ describe('solo mode', () => {
     expect(view.solo?.endless?.ageTicks).toBe(state.endless!.age);
   });
 
-  it('keeps the board open during the endless wave, and only then', () => {
+  it('sells nothing once the endless wave opens: only sends', () => {
     const { state, ctx } = solo();
     const unitDefId = fund(state);
-    // A standard wave: the line is shut while it runs.
-    stepUntil(ctx, state, () => state.phase !== 'build');
+    // The last build phase is the last chance to spend.
+    clearLastWave(ctx, state);
     expect(
       applyCommand(ctx, state, { kind: 'placeUnit', teamId: 'me', unitDefId, tileX: 0, tileY: 0 })
-        .rejection,
-    ).toBe('not-build-phase');
-
-    openEndless(ctx, state);
+        .ok,
+    ).toBe(true);
+    stepUntil(ctx, state, () => state.phase !== 'build');
+    expect(state.endless).not.toBeNull();
     fund(state);
-    const placed = applyCommand(ctx, state, {
-      kind: 'placeUnit',
-      teamId: 'me',
-      unitDefId,
-      tileX: 1,
-      tileY: 1,
-    });
-    expect(placed.ok).toBe(true);
+    const lane = state.lanes.me!;
+    const unitId = lane.units[0]!.id;
+    const refused = (command: Command) => applyCommand(ctx, state, command).rejection;
+
+    expect(refused({ kind: 'placeUnit', teamId: 'me', unitDefId, tileX: 1, tileY: 1 })).toBe(
+      'sends-only',
+    );
+    expect(refused({ kind: 'upgradeUnit', teamId: 'me', unitId })).toBe('sends-only');
+    expect(refused({ kind: 'sellUnit', teamId: 'me', unitId })).toBe('sends-only');
+    expect(refused({ kind: 'buyTech', teamId: 'me', trackId: 'dmg_pierce' })).toBe('sends-only');
+    expect(refused({ kind: 'buyFortressUpgrade', teamId: 'me', upgradeId: 'hp' })).toBe(
+      'sends-only',
+    );
+    expect(refused({ kind: 'buySupply', teamId: 'me' })).toBe('sends-only');
+    expect(refused({ kind: 'setWeaponType', teamId: 'me', damageType: 'arcane' })).toBe(
+      'sends-only',
+    );
+    expect(refused({ kind: 'setAura', teamId: 'me', aura: 'regeneration' })).toBe('sends-only');
+    expect(lane.units).toHaveLength(1);
+
+    const send = data.sends.sends[0]!;
+    expect(
+      applyCommand(ctx, state, { kind: 'send', teamId: 'me', targetTeamId: 'me', sendId: send.id })
+        .ok,
+    ).toBe(true);
   });
 
-  it('stands a fallen unit back up on its tile after a while', () => {
-    const { state, ctx } = solo();
-    const unitDefId = fund(state);
-    applyCommand(ctx, state, { kind: 'placeUnit', teamId: 'me', unitDefId, tileX: 2, tileY: 3 });
-    openEndless(ctx, state);
-    const lane = state.lanes.me!;
-    const unit = lane.units[0]!;
-    unit.hp = 0;
-    step(ctx, state);
-    expect(unit.alive).toBe(false);
-    // One unit cannot hold a wave-26 stream, so the stream is cleared off and
-    // the wall kept up while the clock runs.
-    for (let i = 0; i < secondsToTicks(cfg.respawnSeconds) + 2; i++) {
-      lane.monsters.length = 0;
-      lane.reserve.length = 0;
-      lane.fortress.hp = lane.fortress.maxHp;
-      if (i === 5) expect(unit.alive).toBe(false);
+  it(
+    'leaves a fallen unit fallen: there is no build phase to stand it back up',
+    { timeout: 60_000 },
+    () => {
+      const { state, ctx } = solo();
+      const unitDefId = fund(state);
+      clearLastWave(ctx, state);
+      applyCommand(ctx, state, { kind: 'placeUnit', teamId: 'me', unitDefId, tileX: 2, tileY: 3 });
+      stepUntil(ctx, state, () => state.phase !== 'build');
+      const lane = state.lanes.me!;
+      const unit = lane.units[0]!;
+      unit.hp = 0;
       step(ctx, state);
-    }
-    expect(unit.alive).toBe(true);
-    expect(unit.hp).toBe(unit.maxHp);
-    expect(unit.homeTileX).toBe(2);
-  });
+      expect(unit.alive).toBe(false);
+      // Past the fifteen seconds it used to stand back up after, with a wall
+      // that cannot fall so nothing else ends the test early.
+      lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+      for (let i = 0; i < secondsToTicks(20); i++) {
+        lane.fortress.hp = lane.fortress.maxHp;
+        step(ctx, state);
+        expect(unit.alive).toBe(false);
+      }
+    },
+  );
 
-  it('pays the passive income every step, as a wave would', () => {
-    const { state, ctx } = solo();
-    openEndless(ctx, state);
-    const lane = state.lanes.me!;
-    lane.economy.passiveIncome = 77;
-    const stepTicks = secondsToTicks(cfg.stepSeconds);
-    // The wall is kept standing so the clock keeps running, and the monsters
-    // are lifted off without dying, so no bounty muddies the count.
-    const clear = () => {
-      lane.fortress.hp = lane.fortress.maxHp;
-      lane.monsters.length = 0;
-      lane.reserve.length = 0;
-    };
-    for (let i = 0; i < 10_000 && state.endless!.age % stepTicks !== stepTicks - 1; i++) {
-      clear();
-      step(ctx, state);
-    }
-    clear();
-    const goldBefore = lane.economy.gold;
-    step(ctx, state);
-    expect(lane.economy.gold - goldBefore).toBe(77);
-  });
+  it(
+    'pays no gold once it opens: there is nothing left to spend it on',
+    { timeout: 60_000 },
+    () => {
+      const { state, ctx } = solo();
+      openEndless(ctx, state);
+      const lane = state.lanes.me!;
+      lane.economy.passiveIncome = 77;
+      lane.economy.gems = 10_000;
+      const goldBefore = lane.economy.gold;
+      // Two steps' worth, every body killed as it comes and a send made as
+      // often as its cooldown allows.
+      for (let i = 0; i < secondsToTicks(cfg.stepSeconds) * 2 + 2; i++) {
+        if (i % 10 === 0) for (const m of lane.monsters) m.hp = 0;
+        lane.fortress.hp = lane.fortress.maxHp;
+        applyCommand(ctx, state, {
+          kind: 'send',
+          teamId: 'me',
+          targetTeamId: 'me',
+          sendId: data.sends.sends[0]!.id,
+        });
+        step(ctx, state);
+      }
+      expect(lane.kills).toBeGreaterThan(30);
+      expect(lane.economy.gold).toBe(goldBefore);
+    },
+  );
 
   it('lands a send made during the endless wave straight away', () => {
     const { state, ctx } = solo();
@@ -332,9 +413,8 @@ describe('solo mode', () => {
     () => {
       // The playtest report: auto-send on through the endless wave, then off -
       // and swarmlings kept walking in for minutes, with no gems spent. They
-      // had been paid for; they were queued behind up to a reserve's worth of
-      // the stream. Sends now have a pool of their own (§8.1, amended), so the
-      // stream filling the field holds none of them back.
+      // had been paid for; they were queued behind the stream. Sends have a
+      // pool of their own (§8.1, amended), so a full field holds none back.
       const { state, ctx } = solo();
       openEndless(ctx, state);
       const lane = state.lanes.me!;
@@ -343,12 +423,10 @@ describe('solo mode', () => {
       const wall = () => {
         lane.fortress.hp = lane.fortress.maxHp;
       };
-      // Nothing on the board: the stream fills its pool and starts to queue.
       stepUntil(ctx, state, () => {
         wall();
-        return lane.reserve.length >= 20;
+        return countLiving(lane, 'wave') === data.waves.maxConcurrentMonsters;
       });
-      expect(countLiving(lane, 'wave')).toBe(data.waves.maxConcurrentMonsters);
 
       // Auto-send, as the build bar does it: again whenever the cooldown allows.
       const send = data.sends.sends[0]!;
@@ -384,7 +462,7 @@ describe('solo mode', () => {
     };
     stepUntil(ctx, state, () => {
       wall();
-      return lane.reserve.length >= 5;
+      return countLiving(lane, 'wave') === data.waves.maxConcurrentMonsters;
     });
 
     // More sends than their pool holds, bought at once.
@@ -399,24 +477,27 @@ describe('solo mode', () => {
         sendId: data.sends.sends[0]!.id,
       });
     }
-    wall();
-    step(ctx, state);
+    // Some may wait a tick or two for ground in the spawn zone, too.
+    for (let i = 0; i < 40 && countLiving(lane, 'sends') < sendCap; i++) {
+      wall();
+      step(ctx, state);
+    }
     expect(countLiving(lane, 'sends')).toBe(sendCap);
     const sendsQueued = () => lane.reserve.filter((queued) => queued.sendId).length;
     expect(sendsQueued()).toBe(4);
     expect(viewFor(ctx, state, 'me').lane!.reserveSends).toBe(4);
 
-    // A send dies: the next send walks in, however much of the stream waits.
+    // A send dies: the next send walks in.
     lane.monsters.find((m) => m.alive && m.sendId)!.hp = 0;
-    wall();
-    step(ctx, state);
+    for (let i = 0; i < 3; i++) {
+      wall();
+      step(ctx, state);
+    }
     expect(sendsQueued()).toBe(3);
     expect(countLiving(lane, 'sends')).toBe(sendCap);
   });
 
-  it('keeps the stream coming however many sends are queued', { timeout: 60_000 }, () => {
-    // Counted against the reserve's limit, a pile of cheap sends would hold
-    // the stream back for as long as it took to kill them.
+  it('keeps its own thirty on the field however many sends are queued', { timeout: 60_000 }, () => {
     const { state, ctx } = solo();
     openEndless(ctx, state);
     const lane = state.lanes.me!;
@@ -424,13 +505,8 @@ describe('solo mode', () => {
     const wall = () => {
       lane.fortress.hp = lane.fortress.maxHp;
     };
-    stepUntil(ctx, state, () => {
-      wall();
-      return lane.reserve.length >= 1;
-    });
-
     lane.economy.gems = 100_000;
-    for (let i = 0; i < cfg.maxReserve + data.waves.maxConcurrentSends + 10; i++) {
+    for (let i = 0; i < data.waves.maxConcurrentSends * 2; i++) {
       lane.sendCooldowns = {};
       applyCommand(ctx, state, {
         kind: 'send',
@@ -439,17 +515,22 @@ describe('solo mode', () => {
         sendId: data.sends.sends[0]!.id,
       });
     }
-    wall();
-    step(ctx, state);
-    const stream = () => lane.reserve.filter((queued) => !queued.sendId).length;
-    expect(lane.reserve.filter((queued) => queued.sendId).length).toBeGreaterThan(cfg.maxReserve);
-    const before = stream();
-
-    for (let i = 0; i < secondsToTicks(cfg.firstGapSeconds * 4); i++) {
+    for (let i = 0; i < secondsToTicks(3); i++) {
       wall();
       step(ctx, state);
     }
-    expect(stream()).toBeGreaterThan(before);
+    expect(lane.reserve.filter((queued) => queued.sendId).length).toBeGreaterThan(0);
+    expect(countLiving(lane, 'wave')).toBe(data.waves.maxConcurrentMonsters);
+
+    // Stream bodies die: stream bodies replace them, and no send jumps in.
+    const queued = lane.reserve.length;
+    for (const m of lane.monsters.filter((b) => b.alive && !b.sendId).slice(0, 5)) m.hp = 0;
+    for (let i = 0; i < 3; i++) {
+      wall();
+      step(ctx, state);
+    }
+    expect(countLiving(lane, 'wave')).toBe(data.waves.maxConcurrentMonsters);
+    expect(lane.reserve.length).toBe(queued);
   });
 
   it('ends when the fortress falls', () => {

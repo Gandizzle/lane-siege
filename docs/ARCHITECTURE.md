@@ -784,10 +784,11 @@ the only lane is yours.
 **Every send comes home.** `send` in `src/sim/apply.ts` replaces whatever target
 the command named with the sender's own lane, and the rule a standard match
 keeps - you may not send at yourself - is waived. Nothing else about a send
-changes: it costs the same, pays the same income, carries the same bounty and
-joins the next wave. So the economy sends are what they always were, an
-investment, and an attack send is a way to buy a harder, richer wave. The send
-tab shows one chip, "Yourself", saying when the send will arrive.
+changes through the twenty-five waves: it costs the same, pays the same income,
+carries the same bounty and joins the next wave. So the economy sends are what
+they always were, an investment, and an attack send is a way to buy a harder,
+richer wave. The send tab shows one chip, "Yourself", saying when the send will
+arrive.
 
 **After the last wave, an endless one** (`src/sim/endless.ts`). The build
 phase after wave 25 runs as any other, and where a standard match would cut to
@@ -796,52 +797,57 @@ the Final Showdown, `beginEndless` opens a stream instead. The phase is
 so the stream never ends on its own.
 
 - **What comes.** `endlessPool` collects every non-boss monster the authored
-  waves used (twelve today) and every boss in the bank or the waves. Body `n`
-  is drawn uniformly from the first list by `waveRng(seed, 1_000_000 + n)`,
-  and a boss arrives every `bossEverySeconds` drawn by the minute rather than
-  by the count, so the stream a seed makes is the same whatever the player
-  does to it, and a replay is exact (§9.2).
+  waves used (twelve today) and every boss in the bank or the waves. The
+  field is filled to the wave's cap (`maxConcurrentMonsters`, 30) on the
+  stream's first tick and kept there: every body that dies is replaced on the
+  next tick (`fillTheField`), wherever the spawn zone has ground for it. The
+  stream never queues; a body is drawn when there is a place for it. Body `n`
+  is drawn uniformly by `waveRng(seed, 1_000_000 + n)` and boss `n` by
+  `waveRng(seed, 2_000_000 + n)`, so which monsters a seed sends, in what
+  order, is the same whatever the player does - only how soon each arrives
+  depends on play - and a replay is exact (§9.2).
+- **Bosses come in batches.** Every `bossEverySeconds` (30) a batch falls due:
+  `firstBosses` (1) in the first, and one more every `bossGrowthEvery` (2)
+  batches - 1, 1, 2, 2, 3, 3... (`bossBatchSize`). They do not push past the
+  cap: they take the next places that free up, ahead of the stream's own
+  bodies, so a few minutes in, a death is replaced by a boss as often as not.
 - **How hard.** Each `stepSeconds` (30) is a step: bodies of step `k` are grown
-  as wave `26 + k` would be, by the same §9.1 curve the waves use, and the gap
-  between arrivals shrinks by `gapPerStep` from `firstGapSeconds` down to
-  `minGapSeconds`. Each step keeps its own enrage clock (§8), so bodies a
-  minute old enrage together and a fresh step does not inherit an old one's
-  fury.
-- **What it pays.** A body pays its bounty weight at `bountyPerWeight`; a boss
-  adds the §3.4 purse. There is no wave pool to split, so the weight is the
-  price.
-- **Three rules that only existed because waves had gaps** move into the
-  stream: passive income is paid every step rather than every build phase, a
-  fallen unit stands back up on its own tile after `respawnSeconds` (`respawnUnit`
-  is shared with `respawnUnits` in tick.ts), and the board stays open
-  (`boardOpen` in apply.ts; `boardOpenIn` is the renderer's copy, since a client
-  has a view rather than a state). A send made during the stream walks in at
-  once - or, when its own pool is full, waits behind only other sends: sends
-  have a pool of their own on the field (§8.1, amended), and the stream fills
-  the wave's. It used to share one cap and wait behind up to a reserve's worth
-  of the stream, and a playtest found the result: auto-send switched off, no
-  more gems spent, and its swarmlings still walking in minutes later, which
-  looked exactly like sends nobody had bought.
-- **A full reserve holds the stream back** (`maxReserve`, 60) rather than
-  queueing without end: a player that far behind is about to lose anyway.
-  Full of the stream's OWN bodies: sends are not counted, or a pile of cheap
-  ones could hold the stream back for as long as they took to kill.
+  as wave `26 + k` would be, by the same §9.1 curve the waves use. Each step
+  keeps its own enrage clock (§8), so bodies a minute old enrage together and
+  a fresh step does not inherit an old one's fury.
+- **The line is what you brought.** Once the stream opens nothing can be
+  bought - not a unit, an upgrade, tech, the fortress, supply, the weapon or
+  the aura (`shopOpen` refuses with `sends-only`; `shopOpenIn` and
+  `sendsOpenIn` are the renderer's copies, which grey every panel but Send) -
+  and a unit that falls stays down, since there is no build phase left to
+  respawn it in. It was built the other way first, with the board open and
+  fallen units standing back up after fifteen seconds; a playtest asked for
+  the stream to be a test of the line built before it instead. Gold stops
+  with it: the stream's bodies and the sends pay no bounty, and no passive
+  income is paid, because there is nothing left to spend it on. The HUD drops
+  the income line, and the send buttons drop the income from their price.
+- **Sends are the one thing left.** Gems still come in, and a send - always at
+  yourself - is more to kill for the tally, at the wall's risk. One made
+  during the stream walks in at once, or, when its own pool is full, waits
+  behind only other sends: sends have a pool of their own on the field (§8.1,
+  amended). It used to share one cap and wait behind the stream, and a
+  playtest found the result: auto-send switched off, no more gems spent, and
+  its swarmlings still walking in minutes later, which looked exactly like
+  sends nobody had bought.
 
 **The tally.** `lane.kills` counts every monster that dies in the lane, in any
 phase, by any hand, and `MatchView.solo` carries it - with the stream's age,
-step and the next boss when it is running - on the wire as one short row
-(`so` in protocol.ts). The HUD shows it all match; the wave label reads
-"Endless next", then "Endless wave" with a clock counting up; the lane's
-preview shows the twelve silhouettes the stream draws from and the time to the
-next boss. When the fortress falls the end card shows how long the wall held,
+step, and the size and time of the next boss batch when it is running - on the
+wire as one short row (`so` in protocol.ts). The HUD shows it all match; the
+wave label reads "Endless next", then "Endless wave" with a clock counting up;
+the lane's preview shows the twelve silhouettes the stream draws from and when
+the next batch of bosses is due. When the fortress falls the end card shows how long the wall held,
 the number killed, and whether it is a new best (`soloBest` in preferences,
 also shown on the home button).
 
 To look at it without twenty-five waves: choose Solo with `?wave=26`, which
 starts at the build phase before the stream with the usual late-start purse.
-In a headless run the default bot holds the stream about four minutes with
-Thornweald, never spending the gold it earns there, because it only builds
-in build phases; a player who keeps building does better.
+How long a line lasts is in BALANCE.md, under the phases.
 
 ### Movement: engaged or seeking
 
@@ -1439,8 +1445,8 @@ and closes only when the Final Showdown starts. Two predicates in
 `src/sim/apply.ts`, `shopOpen` and `boardOpen`, and the build bar greys exactly
 the Build tab and the selected unit's Upgrade and Sell buttons.
 
-Solo's endless wave is the one exception: it has no build phase to wait for,
-so the board stays open throughout it (see [Solo](#solo-your-own-sends-and-a-wave-that-never-ends)).
+Solo's endless wave closes both, and leaves only sends open (see
+[Solo](#solo-your-own-sends-and-a-wave-that-never-ends)).
 
 A send bought during combat behaves exactly as one bought during a build phase:
 its monsters join the target's **next** wave, because `incomingSends` is

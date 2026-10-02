@@ -560,15 +560,16 @@ describe('solo on the wire (§3.3, solo)', () => {
     expect(decoded.solo).toEqual(original.solo);
   });
 
-  it('carries the endless wave: its age, its step and the next boss', () => {
+  it('carries the endless wave: its age, its step and the next bosses', () => {
     const { state, ctx } = soloMatch();
     state.wave = data.waves.showdown.afterWave;
     state.phase = 'build';
     state.phaseTicksLeft = 1;
     for (let guard = 0; !state.endless && guard < 10_000; guard++) step(ctx, state);
     expect(state.endless).not.toBeNull();
-    // Past the first step, with the wall kept standing so the match is still on.
+    // Past the first step, with a wall that cannot fall so the match is still on.
     const lane = state.lanes.me!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
     for (let i = 0; i < 700; i++) {
       lane.fortress.hp = lane.fortress.maxHp;
       step(ctx, state);
@@ -578,6 +579,7 @@ describe('solo on the wire (§3.3, solo)', () => {
     const { original, decoded } = soloRoundTrip(state, ctx);
     expect(original.solo!.endless).not.toBeNull();
     expect(original.solo!.endless!.step).toBeGreaterThan(0);
+    expect(original.solo!.endless!.nextBosses).toBeGreaterThan(0);
     expect(decoded.solo).toEqual(original.solo);
   });
 

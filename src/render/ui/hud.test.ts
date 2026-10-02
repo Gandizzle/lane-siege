@@ -12,7 +12,9 @@ import { describe, expect, it } from 'vitest';
 import { sendNotice } from './hud.ts';
 
 const SOLO = { solo: { kills: 0, endless: null } };
-const ENDLESS = { solo: { kills: 0, endless: { ageTicks: 600, step: 1, nextBossTicks: 600 } } };
+const ENDLESS = {
+  solo: { kills: 0, endless: { ageTicks: 600, step: 1, nextBossTicks: 600, nextBosses: 1 } },
+};
 const STANDARD = { solo: null };
 
 function log(count: number) {

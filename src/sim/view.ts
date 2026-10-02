@@ -54,7 +54,7 @@
 import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
 import { energyCostOf, type AbilityIndex } from './abilityRuntime.ts';
 import { auraFor } from './buffs.ts';
-import { endlessStep } from './endless.ts';
+import { bossBatchSize, endlessStep } from './endless.ts';
 import type { SimContext } from './context.ts';
 import { modifiersOf } from './status.ts';
 import { statusMarks } from './statusMarks.ts';
@@ -342,8 +342,10 @@ export interface SoloView {
     ageTicks: number;
     /** Steps up the growth curve it has climbed, from 0 (endless.ts). */
     step: number;
-    /** Ticks until the next boss. */
+    /** Ticks until the next batch of bosses falls due. */
     nextBossTicks: number;
+    /** How many bosses that batch brings (endless.ts, `bossBatchSize`). */
+    nextBosses: number;
   } | null;
 }
 
@@ -553,11 +555,25 @@ function showdownView(
 /**
  * Whether the board - placing, upgrading in place, selling back - is open in
  * this view: the renderer's copy of apply.ts `boardOpen`, which a client
- * cannot call on a state it does not have. The build phase, and in solo the
- * endless wave (endless.ts).
+ * cannot call on a state it does not have. The build phase only.
  */
-export function boardOpenIn(view: Pick<MatchView, 'phase' | 'solo'>): boolean {
-  return view.phase === 'build' || (view.solo?.endless ?? null) !== null;
+export function boardOpenIn(view: Pick<MatchView, 'phase'>): boolean {
+  return view.phase === 'build';
+}
+
+/**
+ * Whether the shop - tech, the fortress, supply, the weapon, the aura - is
+ * open in this view: apply.ts `shopOpen`, from the client's side. Shut in the
+ * Final Showdown, and in solo's endless wave, where only sends are left
+ * (endless.ts).
+ */
+export function shopOpenIn(view: Pick<MatchView, 'phase' | 'solo'>): boolean {
+  return view.phase !== 'showdown' && !view.solo?.endless;
+}
+
+/** Whether sends are open in this view: apply.ts `sendsOpen`. */
+export function sendsOpenIn(view: Pick<MatchView, 'phase'>): boolean {
+  return view.phase !== 'showdown';
 }
 
 /**
@@ -637,7 +653,8 @@ export function viewFor(
               ? {
                   ageTicks: state.endless.age,
                   step: endlessStep(ctx.data, state.endless.age),
-                  nextBossTicks: state.endless.nextBoss,
+                  nextBossTicks: state.endless.nextBatch,
+                  nextBosses: bossBatchSize(ctx.data, state.endless.batches),
                 }
               : null,
           }
