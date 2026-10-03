@@ -1558,6 +1558,18 @@ and the metric that has to exist is **gold of enemy defence forced per gem
 spent**. If that is below 1 for every attack send, sending is never correct and
 three of the five sends are dead content.
 
+**Two Ironvow abilities that were doing less than they said.** Vigil's Warding
+Light and Absolution went to the NEAREST allies, which for a support unit set
+back in the line meant the ones beside and behind it; they now go to the
+allies furthest forward (`frontAllies`). Judgement III's Final Sentence
+executed below a tenth of health, which one of its shots takes off almost
+anything, so it all but never fired; it executes below a quarter now. The waves
+sweep at waves 20 and 25, before and after, against each line's rung-mates:
+Judgement III x0.95 to x0.99 (armies clearing 70% to 81%), Vigil III x0.93 to
+x0.96 (25% to 34%), Vigil I and II unchanged inside the noise; Ironvow's gold
+to clear half the late waves 0.90 to 0.88. Both moved toward parity, neither
+past it, so no price moved.
+
 **Sends have a pool of their own on the field** (§8.1, amended): a wave
 keeps its 30, and up to 30 sends stand beside it instead of queueing behind
 it. That makes a send land with the wave rather than trickle in after it, and
