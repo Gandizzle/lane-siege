@@ -1093,7 +1093,7 @@ What is in it is what exists to be set. Sound: three levels, mute, which music
 plays (one piece or shuffle), skip to the next piece, and which effects pack is
 in use, shown even while there is only one so the option is visible. Then the
 game: your name, the game speed, whether status markers are drawn (below), the
-effects guide and the damage chart side by side, leaving the match, and closing
+battlefield underfoot (below), the effects guide and the damage chart side by side, leaving the match, and closing
 the menu. Upright it is one
 column; on a short screen the two sections sit side by side, since one column
 of every row would run off the bottom.
@@ -1199,6 +1199,38 @@ the ability. Adding a kind of marker is therefore three edits: append it to
 entry. It then appears on the board, in the legend and in the guide at once. A
 new ability needs nothing at all: it is listed under its marker the moment
 something carries it.
+
+### Battlefield backgrounds: a ground to fight on
+
+The lane and the arena can be drawn on a ground other than the flat dark one:
+Meadow, Dunes or Cobblestone, picked in the menu and saved with the other
+preferences (`src/render/battlefield.ts`). They are cosmetic and meant one day
+to be earned or bought; for now every one is open, and `unlockedBattlefields` is
+the single place that rule will live. `battlefieldInUse` is what the renderer
+draws — the choice, if it is still unlocked, and the plain ground otherwise —
+so a saved choice that stops being available falls back rather than failing.
+
+**Quiet on purpose.** Every channel on a body already means something —
+silhouette is armour, fill is damage type, outline means monster (§14.2) — so a
+ground that drew shapes or colours a body could be mistaken for would cost a
+read mid-fight. Each ground is dark, low in contrast and still: details sit a
+few shades off the base, nothing is the size or brightness of a body, and
+nothing is laid out on the tile grid. Cobbles are a staggered lattice smaller
+than a tile, ripples run at a slant and in pieces, and tufts are scattered.
+
+**The grid stays the brightest straight line.** Over a textured ground the build
+grid is drawn at 0.4 rather than 0.32 (`gridAlpha`), and the zones become
+translucent tints over the ground rather than flat fills: the spawn and fortress
+zones still read, and the build zone, which the grid already marks, takes the
+ground as it is.
+
+**Drawn, not loaded.** Each ground is painted with Graphics from a fixed seed,
+in tile units, so it is the same at every screen size and visit, costs no
+download, and is painted once per layout (the lane's on `drawBands`, the
+arena's floor once per zoom) rather than per frame. Every detail is kept wholly
+inside its area, so nothing needs a mask. The arena's cross is painted as three
+pieces with their own seeds — the column and the two arms — so neighbouring
+pieces are not copies.
 
 ### The practice bots: seven ways to play
 
@@ -1526,6 +1558,11 @@ the three pictures when it tours the wallet.
 
 Three rows of text above a row of four tabs. Left: the wave and whether it is a
 boss, then the phase — seconds while building, monsters left while fighting.
+While building, the wave named is the one coming — `Wave 6 incoming`, `Wave 1
+incoming` in place of the old `Prepare` — since the one just fought is history
+and the one coming is what the build is for. Where the band is too narrow for
+`Wave 5 incoming · BOSS` it drops the word rather than the boss
+(`Wave 5 · BOSS`): the phase clock under it already says it is a build.
 Right: gold, gems, supply, then what the wave DEALS (§9.3), then **passive
 income as a rate** (§11.6) — `+12 / wave` beside a coin, which is not a number you spend but
 the one that decides how fast the other three move, and the whole reason an

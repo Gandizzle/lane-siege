@@ -18,6 +18,7 @@ import type { LaneLayout } from './layout.ts';
 import { fortressShape, screenToTilePoint } from './layout.ts';
 import { DAMAGE_COLOURS, UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
+import { gridAlpha, isTextured, paintGround, type BattlefieldId } from './battlefield.ts';
 import { clock, label } from './ui/text.ts';
 
 /**
@@ -46,13 +47,6 @@ function bosses(count: number): string {
  */
 const PREVIEW_GLYPH_RADIUS = 9;
 
-/**
- * How strongly the build grid reads. Bright enough to aim at against the dark
- * build zone, short of the full white the selected-tile ring is drawn in - that
- * ring has to stand out against these lines, not compete with them.
- */
-const GRID_ALPHA = 0.32;
-
 export interface LaneViewHandlers {
   /**
    * A tap somewhere in the lane, in TILE SPACE and fractional.
@@ -67,8 +61,14 @@ export interface LaneViewHandlers {
 }
 
 export class LaneView extends Container {
+  /** The screen behind everything: what is not the lane. */
+  private readonly backdrop = new Graphics();
+  /** The battlefield's own ground, when it has one (battlefield.ts). */
+  private readonly ground = new Graphics();
+  /** The three zones: solid on the plain ground, a tint over a painted one. */
   private readonly bands = new Graphics();
   private readonly grid = new Graphics();
+  private battlefield: BattlefieldId = 'plain';
   private readonly furniture = new Graphics();
   private readonly overlay = new Container();
   private readonly touch = new Container();
@@ -79,7 +79,15 @@ export class LaneView extends Container {
     private readonly handlers: LaneViewHandlers,
   ) {
     super();
-    this.addChild(this.bands, this.grid, this.furniture, this.overlay, this.touch);
+    this.addChild(
+      this.backdrop,
+      this.ground,
+      this.bands,
+      this.grid,
+      this.furniture,
+      this.overlay,
+      this.touch,
+    );
     this.setLayout(layout);
   }
 
@@ -92,16 +100,45 @@ export class LaneView extends Container {
     this.installTouchArea();
   }
 
-  private drawBands(): void {
-    const g = this.bands;
-    const l = this.layout;
-    g.clear();
+  /**
+   * Which ground to paint the lane on (battlefield.ts). Cheap to call every
+   * frame: it repaints only when the choice has changed.
+   */
+  setBattlefield(id: BattlefieldId): void {
+    if (id === this.battlefield) return;
+    this.battlefield = id;
+    this.drawBands();
+    this.drawGrid();
+  }
 
-    g.rect(0, 0, l.screen.width, l.screen.height).fill({ color: UI.background });
-    g.rect(l.spawn.x, l.spawn.y, l.spawn.width, l.spawn.height).fill({ color: UI.spawnZone });
-    g.rect(l.build.x, l.build.y, l.build.width, l.build.height).fill({ color: UI.buildZone });
+  /**
+   * The ground and the three zones on it. On the plain ground the zones are
+   * flat colours; on a painted one they are tints over it, so the spawn zone
+   * still reads as the attacker's ground and the fortress zone as the wall's,
+   * whatever the ground is made of.
+   */
+  private drawBands(): void {
+    const l = this.layout;
+    const textured = isTextured(this.battlefield);
+
+    this.backdrop.clear();
+    this.backdrop.rect(0, 0, l.screen.width, l.screen.height).fill({ color: UI.background });
+
+    this.ground.clear();
+    paintGround(this.ground, this.battlefield, l.lane, l.tileSize);
+
+    const g = this.bands;
+    g.clear();
+    g.rect(l.spawn.x, l.spawn.y, l.spawn.width, l.spawn.height).fill({
+      color: UI.spawnZone,
+      alpha: textured ? 0.55 : 1,
+    });
+    if (!textured) {
+      g.rect(l.build.x, l.build.y, l.build.width, l.build.height).fill({ color: UI.buildZone });
+    }
     g.rect(l.fortress.x, l.fortress.y, l.fortress.width, l.fortress.height).fill({
       color: UI.fortressZone,
+      alpha: textured ? 0.6 : 1,
     });
   }
 
@@ -130,7 +167,11 @@ export class LaneView extends Container {
       const py = gridOrigin.y + y * tileSize;
       g.moveTo(gridOrigin.x, py).lineTo(gridOrigin.x + grid.width * tileSize, py);
     }
-    g.stroke({ width: 1, color: UI.outline, alpha: GRID_ALPHA });
+    // Bright enough to aim at against the ground, short of the full white
+    // the selected-tile ring is drawn in - that ring has to stand out against
+    // these lines, not compete with them. A shade stronger over a painted
+    // ground (battlefield.ts, `gridAlpha`).
+    g.stroke({ width: 1, color: UI.outline, alpha: gridAlpha(this.battlefield) });
   }
 
   /**

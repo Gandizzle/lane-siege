@@ -67,6 +67,7 @@ import type { SoundSystem } from '../audio/engine.ts';
 import type { DeathRule } from './deaths.ts';
 import type { PreferenceStore } from './preferences.ts';
 import { ArenaStage, arenaAsLane } from './arena.ts';
+import { battlefieldInUse, type BattlefieldId } from './battlefield.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
@@ -965,6 +966,7 @@ export class Game extends Container {
 
     this.auraLayer.read(lane);
     if (lane) {
+      this.laneLayer.setBattlefield(this.battlefield());
       this.laneLayer.render(view, this.summary);
       this.auraLayer.render();
       this.entities.render(lane, transport.alpha, {
@@ -1053,12 +1055,18 @@ export class Game extends Container {
     return this.services.preferences.settings.statusEffects ? this.statusClock : null;
   }
 
+  /** The ground to paint the board on: the player's choice, if it is theirs to make. */
+  private battlefield(): BattlefieldId {
+    return battlefieldInUse(this.services.preferences.settings.battlefield);
+  }
+
   private arenaLane(): LaneView | null {
     return this.view ? arenaAsLane(this.view) : null;
   }
 
   private renderShowdown(view: MatchView, alpha: number, deltaMs: number): void {
     const lane = this.arenaLane();
+    this.arena.setBattlefield(this.battlefield());
     if (lane) this.arena.render(view, lane, alpha, this.statusTime());
     // The card is a cut, so it goes over the arena rather than beside it, and
     // the arena is already standing behind it when it lifts (showdown.ts).

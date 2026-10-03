@@ -6,8 +6,9 @@
  * Sound, which is what exists to be set: three levels, mute, which music plays
  * (one piece, or shuffle the list), skip to the next piece, and which sound
  * pack plays the effects (src/audio). Then the game: your name, how fast a
- * practice match runs, whether the status markers are drawn (statusMarks.ts)
- * and a guide to what they mean (effectsPanel.ts), leaving the match you are
+ * practice match runs, whether the status markers are drawn (statusMarks.ts),
+ * which battlefield the board is painted on (battlefield.ts) and a guide to
+ * what the markers mean (effectsPanel.ts), leaving the match you are
  * in, and closing the menu. A practice match is paused behind
  * the menu, because nobody else is waiting on it; an online match is not, and
  * the panel says so rather than letting a player think they have stopped time.
@@ -33,6 +34,7 @@ import { MUSIC_TRACKS, SOUND_PACKS } from '../../audio/catalog.ts';
 import type { SoundSystem } from '../../audio/engine.ts';
 import type { AudioSettings, MusicChoice } from '../../audio/settings.ts';
 import { GAME_SPEEDS, speedLabel, type PreferenceStore } from '../preferences.ts';
+import { battlefieldInUse, battlefieldName, unlockedBattlefields } from '../battlefield.ts';
 import type { LaneLayout, Rect } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { fit, label, wrapped } from './text.ts';
@@ -406,6 +408,7 @@ export class Menu extends Container {
   private readonly nameRow: LineWithButton;
   private readonly statusEffects: Toggle;
   private readonly speed: Picker;
+  private readonly battlefield: Picker;
   private readonly guide: PanelButton;
   private readonly chart: PanelButton;
   private readonly note: Text;
@@ -455,6 +458,12 @@ export class Menu extends Container {
         practiceSpeed: cycle(GAME_SPEEDS, this.preferences.settings.practiceSpeed, by),
       }),
     );
+    // Only the ones this player has (battlefield.ts): today, all of them.
+    this.battlefield = new Picker('Battlefield', (by) =>
+      this.preferences.configure({
+        battlefield: cycle(unlockedBattlefields(), this.preferences.settings.battlefield, by),
+      }),
+    );
     this.note = wrapped('', 11);
     this.leave = new PanelButton('Leave match', () => this.tapLeave());
     this.resume = new PanelButton('Close', () => this.handlers.onClose());
@@ -483,6 +492,7 @@ export class Menu extends Container {
       this.nameRow,
       this.speed,
       this.statusEffects,
+      this.battlefield,
       this.guide,
       this.chart,
       this.note,
@@ -529,6 +539,10 @@ export class Menu extends Container {
     );
     this.nameRow.show(state.name);
     this.statusEffects.show(this.preferences.settings.statusEffects);
+    this.battlefield.show(
+      battlefieldName(battlefieldInUse(this.preferences.settings.battlefield)),
+      unlockedBattlefields().length,
+    );
     // A room runs at the speed everybody in it shares, so the picker is shown
     // but cannot move while in one; at home it sets the next practice match.
     const speedApplies = !state.inMatch || state.paused;
@@ -603,7 +617,7 @@ export class Menu extends Container {
 
     const heading = 22;
     const soundH = heading + soundRows * rowH;
-    const gameH = heading + rowH * 3 + 40 + noteH + (inMatch ? 42 : 0) + 42 + 22;
+    const gameH = heading + rowH * 4 + 40 + noteH + (inMatch ? 42 : 0) + 42 + 22;
     const top = 50;
     const bodyH = twoColumns ? Math.max(soundH, gameH) : soundH + 12 + gameH;
     const panelH = top + bodyH + pad;
@@ -655,6 +669,8 @@ export class Menu extends Container {
     place(this.speed, { x: gx, y, width: colW, height: rowH });
     y += rowH;
     place(this.statusEffects, { x: gx, y, width: colW, height: rowH });
+    y += rowH;
+    place(this.battlefield, { x: gx, y, width: colW, height: rowH });
     y += rowH;
     // The two reference cards side by side: what the markers mean, and what
     // beats what.

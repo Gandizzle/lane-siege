@@ -141,11 +141,17 @@ export class Hud extends Container {
     const endless = view.solo?.endless ?? null;
     // ...and the build phase before it, which has no next wave to number.
     const endlessNext = !endless && comesNext(this.data, view) === 'endless';
+    // The wave the banner is about: during a build phase the one that is
+    // coming - the number the player is building for - and otherwise the one
+    // being fought. It used to name the last wave until the next one spawned,
+    // which is thirty seconds of the banner being one behind the preview.
+    const incoming = view.phase === 'build';
+    const shownWave = incoming ? view.wave + 1 : view.wave;
     const isBoss =
       !endless &&
       !endlessNext &&
-      view.wave > 0 &&
-      view.wave % this.data.waves.bossEveryNWaves === 0;
+      shownWave > 0 &&
+      shownWave % this.data.waves.bossEveryNWaves === 0;
     const economy = lane.economy;
     const remaining = lane.monsters.length + lane.reserveCount;
     const seconds = Math.ceil(ticksToSeconds(view.phaseTicksLeft));
@@ -153,19 +159,25 @@ export class Hud extends Container {
 
     // What there is to say, once, so the two arrangements below differ only in
     // where they put it.
-    const wave = () =>
-      label(
-        endless
-          ? 'Endless wave'
-          : endlessNext
-            ? 'Endless next'
-            : view.wave === 0
-              ? 'Prepare'
-              : `Wave ${view.wave}${isBoss ? ' · BOSS' : ''}`,
+    // `room` is the width it may take: "Wave 25 incoming · BOSS" is long, and
+    // where it would run into the purse it drops "incoming", which the phase
+    // line under it ("Build · 24s") already says.
+    const wave = (room = Infinity) => {
+      if (endless || endlessNext) {
+        return label(endless ? 'Endless wave' : 'Endless next', 15, UI.danger, '700');
+      }
+      const boss = isBoss ? ' · BOSS' : '';
+      const colour = isBoss ? UI.danger : UI.text;
+      const full = label(
+        `Wave ${shownWave}${incoming ? ' incoming' : ''}${boss}`,
         15,
-        isBoss || endless || endlessNext ? UI.danger : UI.text,
+        colour,
         '700',
       );
+      if (!incoming || full.width <= room) return full;
+      full.destroy();
+      return label(`Wave ${shownWave}${boss}`, 15, colour, '700');
+    };
     // §3.3, solo: the score, all match long - it is the one number a solo
     // match is played for.
     const kills = () =>
@@ -254,7 +266,10 @@ export class Hud extends Container {
         y += gap;
       };
 
-      place(this.tag('phase', wave()), 21);
+      place(
+        this.tag('phase', wave(l.tabs.x + l.tabs.width - 12 - (button.x + button.width + 8))),
+        21,
+      );
       place(this.tag('phase', phase()), 18);
       place(this.tag('kills', kills()), 18);
       if (economy) {
@@ -292,13 +307,9 @@ export class Hud extends Container {
         this.content.addChild(text);
       };
 
-      const waveLabel = this.tag('phase', wave());
-      left(waveLabel, rowOne);
-      const phaseLabel = this.tag('phase', phase());
-      left(phaseLabel, rowTwo);
-      left(this.tag('notice', notice()), rowThree);
       // Gold and gems are deliberately separate currencies with separate sinks
-      // (§11.3).
+      // (§11.3). Placed first, because the wave label is fitted to what they
+      // leave of the row.
       let walletLeft = rightEdge;
       if (economy) {
         // Supply first from the right, then the purse left of it: one row,
@@ -311,6 +322,11 @@ export class Hud extends Container {
         walletLeft = purseLabel.x;
         right(this.tag('income', income()), rowThree);
       }
+      const waveLabel = this.tag('phase', wave(walletLeft - 12 - leftEdge));
+      left(waveLabel, rowOne);
+      const phaseLabel = this.tag('phase', phase());
+      left(phaseLabel, rowTwo);
+      left(this.tag('notice', notice()), rowThree);
       const offenceLabel = this.tag('incoming', offence());
       right(offenceLabel, rowTwo + 2);
 

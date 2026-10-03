@@ -33,6 +33,7 @@ import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
 import { arenaCamera, centredOn, type Camera, type Rect } from './layout.ts';
 import { SEAT_COLOURS, UI } from './palette.ts';
+import { isTextured, paintGround, type BattlefieldId } from './battlefield.ts';
 
 /** How strongly a spoke's floor carries its owner's colour. A tint, not a fill. */
 const SPOKE_TINT_ALPHA = 0.1;
@@ -102,6 +103,18 @@ export function seatColour(seat: number): number {
 
 export class ArenaStage extends Container {
   private readonly ground = new Graphics();
+  /**
+   * The battlefield's painted floor (battlefield.ts), in arena space from its
+   * top-left: painted once per zoom and skin and moved with the camera, since
+   * a drag repaints `ground` every move and a painted floor is thousands of
+   * shapes.
+   */
+  private readonly floor = new Graphics();
+  /** The seat tints, the centre square and the wall line, over the floor. */
+  private readonly marks = new Graphics();
+  private battlefield: BattlefieldId = 'plain';
+  /** What `floor` was last painted for: skin and tile size. */
+  private floorFor = '';
   private readonly entities: EntityLayer;
   private readonly effectsLayer: EffectsLayer;
   private readonly touch = new Container();
@@ -131,7 +144,15 @@ export class ArenaStage extends Container {
     this.effectsLayer = new EffectsLayer(this.camera, data, defs);
     // The hill goes over the ground and under the bodies: it is painted
     // ground, and it must never obscure the fight standing on it.
-    this.addChild(this.ground, this.centre, this.entities, this.effectsLayer, this.touch);
+    this.addChild(
+      this.ground,
+      this.floor,
+      this.marks,
+      this.centre,
+      this.entities,
+      this.effectsLayer,
+      this.touch,
+    );
     this.installTouchArea();
     this.drawGround();
   }
@@ -144,6 +165,13 @@ export class ArenaStage extends Container {
     this.framed = false;
     this.recompute();
     this.installTouchArea();
+  }
+
+  /** Which ground to paint the arena on. Repaints only when it changes. */
+  setBattlefield(id: BattlefieldId): void {
+    if (id === this.battlefield) return;
+    this.battlefield = id;
+    this.drawGround();
   }
 
   /** Drop the interpolation and any swing still in the air, for a fresh arena. */
@@ -224,19 +252,27 @@ export class ArenaStage extends Container {
     const g = this.ground;
     const { tileSize, gridOrigin } = this.camera;
     const { spokeLength, spokeWidth, size } = this.shape;
+    const textured = isTextured(this.battlefield);
     const px = (tiles: number) => tiles * tileSize;
-    const at = (x: number, y: number, w: number, h: number) =>
-      g.rect(gridOrigin.x + px(x), gridOrigin.y + px(y), px(w), px(h));
+    const at = (gr: Graphics, x: number, y: number, w: number, h: number) =>
+      gr.rect(gridOrigin.x + px(x), gridOrigin.y + px(y), px(w), px(h));
 
     g.clear();
     g.rect(0, 0, this.screen.width, this.screen.height).fill({ color: UI.background });
 
-    // Vertical bar, then horizontal: their union is the cross.
-    at(spokeLength, 0, spokeWidth, size).fill({ color: UI.arenaFloor });
-    at(0, spokeLength, size, spokeWidth).fill({ color: UI.arenaFloor });
+    // Vertical bar, then horizontal: their union is the cross. A painted
+    // ground brings its own floor instead.
+    if (!textured) {
+      at(g, spokeLength, 0, spokeWidth, size).fill({ color: UI.arenaFloor });
+      at(g, 0, spokeLength, size, spokeWidth).fill({ color: UI.arenaFloor });
+    }
+    this.paintFloor();
+    this.floor.position.set(gridOrigin.x, gridOrigin.y);
 
     // Whose ground is whose, in the order arena.ts seats them: clockwise from
     // south. The tint stops at the centre, which belongs to nobody.
+    const m = this.marks;
+    m.clear();
     const far = spokeLength + spokeWidth;
     const spokes: Record<(typeof LEGS)[number], [number, number, number, number]> = {
       south: [spokeLength, far, spokeWidth, spokeLength],
@@ -246,15 +282,44 @@ export class ArenaStage extends Container {
     };
     LEGS.forEach((leg, seat) => {
       const [x, y, w, h] = spokes[leg];
-      at(x, y, w, h).fill({ color: seatColour(seat), alpha: SPOKE_TINT_ALPHA });
+      at(m, x, y, w, h).fill({ color: seatColour(seat), alpha: SPOKE_TINT_ALPHA });
     });
 
-    at(spokeLength, spokeLength, spokeWidth, spokeWidth).fill({ color: UI.arenaCentre });
+    at(m, spokeLength, spokeLength, spokeWidth, spokeWidth).fill({
+      color: UI.arenaCentre,
+      alpha: textured ? 0.5 : 1,
+    });
 
     // An outline around the whole cross, so its edge reads as a wall rather
     // than as where the paint happened to stop.
-    at(spokeLength, 0, spokeWidth, size).stroke({ width: 1, color: UI.panelEdge });
-    at(0, spokeLength, size, spokeWidth).stroke({ width: 1, color: UI.panelEdge });
+    at(m, spokeLength, 0, spokeWidth, size).stroke({ width: 1, color: UI.panelEdge });
+    at(m, 0, spokeLength, size, spokeWidth).stroke({ width: 1, color: UI.panelEdge });
+  }
+
+  /**
+   * The cross in the battlefield's ground, as three pieces that do not
+   * overlap - the vertical bar, and the two arms either side of it - so no
+   * part is painted twice and nothing needs masking to the cross's shape.
+   */
+  private paintFloor(): void {
+    const key = `${this.battlefield}:${this.camera.tileSize}`;
+    if (key === this.floorFor) return;
+    this.floorFor = key;
+    const f = this.floor;
+    f.clear();
+    const t = this.camera.tileSize;
+    const { spokeLength, spokeWidth, size } = this.shape;
+    const piece = (x: number, y: number, w: number, h: number, seed: number) =>
+      paintGround(
+        f,
+        this.battlefield,
+        { x: x * t, y: y * t, width: w * t, height: h * t },
+        t,
+        seed,
+      );
+    piece(spokeLength, 0, spokeWidth, size, 1);
+    piece(0, spokeLength, spokeLength, spokeWidth, 2);
+    piece(spokeLength + spokeWidth, spokeLength, spokeLength, spokeWidth, 3);
   }
 
   /**

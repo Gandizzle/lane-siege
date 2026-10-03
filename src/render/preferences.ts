@@ -8,6 +8,7 @@
  */
 
 import type { KeyValueStore } from '../net/identity.ts';
+import { BATTLEFIELD_IDS, type BattlefieldId } from './battlefield.ts';
 
 /**
  * How fast a match in this tab runs: a multiple of real time. Slower is for
@@ -46,6 +47,12 @@ export interface Preferences {
    * when there is a number to beat.
    */
   soloBest: number;
+  /**
+   * The ground the lane and the arena are painted on (battlefield.ts). The
+   * plain one until a player picks another; which they may pick is
+   * battlefield.ts's to say.
+   */
+  battlefield: BattlefieldId;
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -53,6 +60,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   practiceSpeed: 1,
   tutorialDone: [],
   soloBest: 0,
+  battlefield: 'plain',
 };
 
 const STORAGE_KEY = 'lane-siege.preferences';
@@ -75,6 +83,9 @@ export function parsePreferences(raw: unknown): Preferences {
       typeof r.soloBest === 'number' && Number.isFinite(r.soloBest) && r.soloBest > 0
         ? Math.floor(r.soloBest)
         : d.soloBest,
+    battlefield: BATTLEFIELD_IDS.includes(r.battlefield as BattlefieldId)
+      ? (r.battlefield as BattlefieldId)
+      : d.battlefield,
   };
 }
 
