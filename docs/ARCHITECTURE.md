@@ -1203,34 +1203,56 @@ something carries it.
 ### Battlefield backgrounds: a ground to fight on
 
 The lane and the arena can be drawn on a ground other than the flat dark one:
-Meadow, Dunes or Cobblestone, picked in the menu and saved with the other
-preferences (`src/render/battlefield.ts`). They are cosmetic and meant one day
-to be earned or bought; for now every one is open, and `unlockedBattlefields` is
-the single place that rule will live. `battlefieldInUse` is what the renderer
-draws — the choice, if it is still unlocked, and the plain ground otherwise —
-so a saved choice that stops being available falls back rather than failing.
+Meadow, Dunes, Cobblestone or Molten (`src/render/battlefield.ts`). They are
+cosmetic and meant one day to be earned or bought; for now every one is open,
+and `unlockedBattlefields` is the single place that rule will live.
+`battlefieldInUse` is what the renderer draws — the choice, if it is still
+unlocked, and the plain ground otherwise — so a saved choice that stops being
+available falls back rather than failing.
 
-**Quiet on purpose.** Every channel on a body already means something —
-silhouette is armour, fill is damage type, outline means monster (§14.2) — so a
-ground that drew shapes or colours a body could be mistaken for would cost a
-read mid-fight. Each ground is dark, low in contrast and still: details sit a
-few shades off the base, nothing is the size or brightness of a body, and
-nothing is laid out on the tile grid. Cobbles are a staggered lattice smaller
-than a tile, ripples run at a slant and in pieces, and tufts are scattered.
+**Chosen by sight.** The menu's Battlefield row names the ground in use and
+opens a panel of previews over the menu (`ui/battlefieldPicker.ts`); closing it,
+by Done, ✕ or Esc, goes back to the menu. Each card paints its ground the way
+the board does, with the build grid over it and two units and two monsters of
+four damage types standing on it, taken from the game's data — because the
+question is not whether it is pretty but whether the fight still reads on it.
+A tap picks it, and the card in use is framed. A ground that is not unlocked
+will show dimmed and marked, and cannot be picked. The cards are laid out in
+the fewest columns that fit (`cardGrid`): two across upright, one row on a
+phone turned sideways.
+
+**Seen, but never the point.** The first version of the three calm grounds was
+so quiet it could hardly be seen on a phone; they are now a good deal stronger,
+but they keep the rules. Every channel on a body already means something —
+silhouette is armour, fill is damage type, outline means monster (§14.2) — so
+nothing in a calm ground is the size or brightness of a body, and nothing is
+laid out on the tile grid: cobbles are a staggered lattice smaller than a
+tile, ripples run at a slant and in pieces, and tufts are scattered.
+
+**Molten is the experiment.** Basalt plates over lava that glows, pulses in
+bands that roll down the lane towards the wall, and throws up a few slow
+embers. It was made deliberately bolder than the rest to see how far is too
+far: its orange sits near the impact and blast fills, its cracks are bright
+lines, and its embers are small moving lights — each of which the calm grounds
+avoid. The plates are the cells of a jittered lattice (`voronoiCells`), each
+drawn back towards its middle so the lava under them shows in the cracks.
 
 **The grid stays the brightest straight line.** Over a textured ground the build
-grid is drawn at 0.4 rather than 0.32 (`gridAlpha`), and the zones become
+grid is drawn at 0.5 rather than 0.32 (`gridAlpha`), and the zones become
 translucent tints over the ground rather than flat fills: the spawn and fortress
 zones still read, and the build zone, which the grid already marks, takes the
 ground as it is.
 
-**Drawn, not loaded.** Each ground is painted with Graphics from a fixed seed,
-in tile units, so it is the same at every screen size and visit, costs no
-download, and is painted once per layout (the lane's on `drawBands`, the
-arena's floor once per zoom) rather than per frame. Every detail is kept wholly
-inside its area, so nothing needs a mask. The arena's cross is painted as three
-pieces with their own seeds — the column and the two arms — so neighbouring
-pieces are not copies.
+**Drawn, not loaded.** A `GroundView` paints its ground with Graphics from a
+fixed seed, in tile units, so it is the same at every screen size and visit,
+costs no download, and is painted once per layout (the lane's on `drawBands`,
+the arena's floor once per zoom) rather than per frame. What moves on Molten is
+only the alpha of four layers and a dozen or so embers, on a wall-time clock of
+its own (`animate`): it is scenery, so it keeps moving while a practice match is
+paused and does not speed up with it. A still ground's `animate` returns at
+once. Every detail is kept wholly inside its area, so nothing needs a mask. The
+arena's cross is painted as three areas with their own seeds — the column and
+the two arms — so neighbouring pieces are not copies.
 
 ### The practice bots: seven ways to play
 

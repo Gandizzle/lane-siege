@@ -90,6 +90,7 @@ import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Menu, MenuButton } from './ui/menu.ts';
 import { EffectsButton, EffectsPanel } from './ui/effectsPanel.ts';
 import { DamageChart } from './ui/damageChart.ts';
+import { BattlefieldPicker } from './ui/battlefieldPicker.ts';
 import { StatusLog } from './statusLog.ts';
 import { LEGEND_BUTTON_SIZE, type Rect } from './layout.ts';
 import { Hud } from './ui/hud.ts';
@@ -181,6 +182,7 @@ export class Game extends Container {
   private readonly effectsPanel: EffectsPanel;
   /** Every damage type against every armour: from the menu, and the tutorial. */
   private readonly damageChart: DamageChart;
+  private readonly battlefieldPicker: BattlefieldPicker;
   /** Which kinds of marker have been on screen, for the legend. */
   private readonly statusLog = new StatusLog();
   /** The chapter list, and the coach over a chapter's match. */
@@ -202,6 +204,12 @@ export class Game extends Container {
    * everything else holds still.
    */
   private statusClock = 0;
+  /**
+   * The ground's clock, in seconds of wall time (battlefield.ts). It is
+   * scenery rather than the match, so it keeps going while the match is
+   * paused and does not speed up with it.
+   */
+  private groundClock = 0;
   /** True once the arena has taken the screen, so the swap happens once. */
   private inShowdown = false;
   private readonly defs: DefIndex;
@@ -315,6 +323,8 @@ export class Game extends Container {
         this.setMenu(false);
         this.damageChart.open();
       },
+      // Over the menu rather than instead of it: closing it goes back there.
+      onBattlefields: () => this.battlefieldPicker.open(),
     });
     this.tutorialScreen = new TutorialScreen(this.layout, CHAPTERS, {
       onStart: (index) => this.startLesson(index),
@@ -330,6 +340,9 @@ export class Game extends Container {
     this.effectsButton.visible = false;
     this.effectsPanel = new EffectsPanel(this.layout, data, () => this.effectsPanel.close());
     this.damageChart = new DamageChart(this.layout, data, () => this.damageChart.close());
+    this.battlefieldPicker = new BattlefieldPicker(this.layout, data, services.preferences, () =>
+      this.battlefieldPicker.close(),
+    );
 
     this.addChild(
       // The arena replaces the lane stack rather than sitting over it: in the
@@ -365,6 +378,8 @@ export class Game extends Container {
       this.menuButton,
       this.effectsButton,
       this.menu,
+      // Over the menu it is opened from.
+      this.battlefieldPicker,
       // Over the menu, which is one of the two ways into it.
       this.effectsPanel,
       this.damageChart,
@@ -374,10 +389,15 @@ export class Game extends Container {
   }
 
   /**
-   * The Esc key: close the effects panel if it is open, and otherwise open or
+   * The Esc key: close whatever is open over the menu - the battlefield
+   * previews, the effects panel, the damage chart - and otherwise open or
    * close the menu.
    */
   toggleMenu(): void {
+    if (this.battlefieldPicker.isOpen) {
+      this.battlefieldPicker.close();
+      return;
+    }
     if (this.effectsPanel.isOpen) {
       this.effectsPanel.close();
       return;
@@ -806,12 +826,14 @@ export class Game extends Container {
     this.menu.setLayout(this.layout);
     this.effectsPanel.setLayout(this.layout);
     this.damageChart.setLayout(this.layout);
+    this.battlefieldPicker.setLayout(this.layout);
     this.effectsButtonAt = '';
   }
 
   /** One animation frame. `deltaMs` is wall time; the simulation never sees it. */
   frame(deltaMs: number): void {
     const transport = this.transport;
+    this.groundClock += deltaMs / 1000;
 
     // A match in this tab stops while the menu is open: nobody else is waiting
     // on it. A room does not, because three other people are.
@@ -842,6 +864,7 @@ export class Game extends Container {
     // stopped so the player can look, and a flame is easier to point out lit.
     this.statusClock += (paused && !reading ? deltaMs : matchDelta) / 1000;
     this.effectsPanel.render(this.statusLog, this.statusClock, deltaMs);
+    this.battlefieldPicker.render(deltaMs);
 
     if (!transport) {
       // On the home screen or the picker, with no match yet. Nothing to
@@ -967,6 +990,7 @@ export class Game extends Container {
     this.auraLayer.read(lane);
     if (lane) {
       this.laneLayer.setBattlefield(this.battlefield());
+      this.laneLayer.animateGround(this.groundClock);
       this.laneLayer.render(view, this.summary);
       this.auraLayer.render();
       this.entities.render(lane, transport.alpha, {
@@ -1067,6 +1091,7 @@ export class Game extends Container {
   private renderShowdown(view: MatchView, alpha: number, deltaMs: number): void {
     const lane = this.arenaLane();
     this.arena.setBattlefield(this.battlefield());
+    this.arena.animateGround(this.groundClock);
     if (lane) this.arena.render(view, lane, alpha, this.statusTime());
     // The card is a cut, so it goes over the arena rather than beside it, and
     // the arena is already standing behind it when it lifts (showdown.ts).

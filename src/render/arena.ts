@@ -33,7 +33,7 @@ import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
 import { arenaCamera, centredOn, type Camera, type Rect } from './layout.ts';
 import { SEAT_COLOURS, UI } from './palette.ts';
-import { isTextured, paintGround, type BattlefieldId } from './battlefield.ts';
+import { GroundView, isTextured, type BattlefieldId } from './battlefield.ts';
 
 /** How strongly a spoke's floor carries its owner's colour. A tint, not a fill. */
 const SPOKE_TINT_ALPHA = 0.1;
@@ -109,7 +109,7 @@ export class ArenaStage extends Container {
    * a drag repaints `ground` every move and a painted floor is thousands of
    * shapes.
    */
-  private readonly floor = new Graphics();
+  private readonly floor = new GroundView();
   /** The seat tints, the centre square and the wall line, over the floor. */
   private readonly marks = new Graphics();
   private battlefield: BattlefieldId = 'plain';
@@ -305,21 +305,28 @@ export class ArenaStage extends Container {
     const key = `${this.battlefield}:${this.camera.tileSize}`;
     if (key === this.floorFor) return;
     this.floorFor = key;
-    const f = this.floor;
-    f.clear();
     const t = this.camera.tileSize;
     const { spokeLength, spokeWidth, size } = this.shape;
-    const piece = (x: number, y: number, w: number, h: number, seed: number) =>
-      paintGround(
-        f,
-        this.battlefield,
-        { x: x * t, y: y * t, width: w * t, height: h * t },
-        t,
-        seed,
-      );
-    piece(spokeLength, 0, spokeWidth, size, 1);
-    piece(0, spokeLength, spokeLength, spokeWidth, 2);
-    piece(spokeLength + spokeWidth, spokeLength, spokeLength, spokeWidth, 3);
+    const piece = (x: number, y: number, w: number, h: number): Rect => ({
+      x: x * t,
+      y: y * t,
+      width: w * t,
+      height: h * t,
+    });
+    this.floor.paint(
+      this.battlefield,
+      [
+        piece(spokeLength, 0, spokeWidth, size),
+        piece(0, spokeLength, spokeLength, spokeWidth),
+        piece(spokeLength + spokeWidth, spokeLength, spokeLength, spokeWidth),
+      ],
+      t,
+    );
+  }
+
+  /** Move whatever moves in the floor (battlefield.ts, `GroundView.animate`). */
+  animateGround(seconds: number): void {
+    this.floor.animate(seconds);
   }
 
   /**

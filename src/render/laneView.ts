@@ -18,7 +18,7 @@ import type { LaneLayout } from './layout.ts';
 import { fortressShape, screenToTilePoint } from './layout.ts';
 import { DAMAGE_COLOURS, UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
-import { gridAlpha, isTextured, paintGround, type BattlefieldId } from './battlefield.ts';
+import { GroundView, gridAlpha, isTextured, type BattlefieldId } from './battlefield.ts';
 import { clock, label } from './ui/text.ts';
 
 /**
@@ -64,7 +64,7 @@ export class LaneView extends Container {
   /** The screen behind everything: what is not the lane. */
   private readonly backdrop = new Graphics();
   /** The battlefield's own ground, when it has one (battlefield.ts). */
-  private readonly ground = new Graphics();
+  private readonly ground = new GroundView();
   /** The three zones: solid on the plain ground, a tint over a painted one. */
   private readonly bands = new Graphics();
   private readonly grid = new Graphics();
@@ -112,6 +112,14 @@ export class LaneView extends Container {
   }
 
   /**
+   * Move whatever moves in the ground, `seconds` into its own clock. Free on a
+   * still ground; Molten's lava pulses and throws embers.
+   */
+  animateGround(seconds: number): void {
+    this.ground.animate(seconds);
+  }
+
+  /**
    * The ground and the three zones on it. On the plain ground the zones are
    * flat colours; on a painted one they are tints over it, so the spawn zone
    * still reads as the attacker's ground and the fortress zone as the wall's,
@@ -124,8 +132,7 @@ export class LaneView extends Container {
     this.backdrop.clear();
     this.backdrop.rect(0, 0, l.screen.width, l.screen.height).fill({ color: UI.background });
 
-    this.ground.clear();
-    paintGround(this.ground, this.battlefield, l.lane, l.tileSize);
+    this.ground.paint(this.battlefield, [l.lane], l.tileSize);
 
     const g = this.bands;
     g.clear();

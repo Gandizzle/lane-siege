@@ -7,7 +7,8 @@
  * (one piece, or shuffle the list), skip to the next piece, and which sound
  * pack plays the effects (src/audio). Then the game: your name, how fast a
  * practice match runs, whether the status markers are drawn (statusMarks.ts),
- * which battlefield the board is painted on (battlefield.ts) and a guide to
+ * which battlefield the board is painted on (chosen from previews in its own
+ * panel, battlefieldPicker.ts) and a guide to
  * what the markers mean (effectsPanel.ts), leaving the match you are
  * in, and closing the menu. A practice match is paused behind
  * the menu, because nobody else is waiting on it; an online match is not, and
@@ -34,7 +35,7 @@ import { MUSIC_TRACKS, SOUND_PACKS } from '../../audio/catalog.ts';
 import type { SoundSystem } from '../../audio/engine.ts';
 import type { AudioSettings, MusicChoice } from '../../audio/settings.ts';
 import { GAME_SPEEDS, speedLabel, type PreferenceStore } from '../preferences.ts';
-import { battlefieldInUse, battlefieldName, unlockedBattlefields } from '../battlefield.ts';
+import { battlefieldInUse, battlefieldName } from '../battlefield.ts';
 import type { LaneLayout, Rect } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { fit, label, wrapped } from './text.ts';
@@ -47,6 +48,8 @@ export interface MenuHandlers {
   onEffectsGuide(): void;
   /** Open the damage chart (damageChart.ts). */
   onDamageChart(): void;
+  /** Open the battlefield previews (battlefieldPicker.ts), over the menu. */
+  onBattlefields(): void;
 }
 
 /** What the menu needs to know about the game behind it, each frame it is open. */
@@ -408,7 +411,7 @@ export class Menu extends Container {
   private readonly nameRow: LineWithButton;
   private readonly statusEffects: Toggle;
   private readonly speed: Picker;
-  private readonly battlefield: Picker;
+  private readonly battlefield: LineWithButton;
   private readonly guide: PanelButton;
   private readonly chart: PanelButton;
   private readonly note: Text;
@@ -458,11 +461,9 @@ export class Menu extends Container {
         practiceSpeed: cycle(GAME_SPEEDS, this.preferences.settings.practiceSpeed, by),
       }),
     );
-    // Only the ones this player has (battlefield.ts): today, all of them.
-    this.battlefield = new Picker('Battlefield', (by) =>
-      this.preferences.configure({
-        battlefield: cycle(unlockedBattlefields(), this.preferences.settings.battlefield, by),
-      }),
+    // Chosen by sight, not by name: a panel of previews over this one.
+    this.battlefield = new LineWithButton('Battlefield', 'Choose', () =>
+      this.handlers.onBattlefields(),
     );
     this.note = wrapped('', 11);
     this.leave = new PanelButton('Leave match', () => this.tapLeave());
@@ -539,10 +540,7 @@ export class Menu extends Container {
     );
     this.nameRow.show(state.name);
     this.statusEffects.show(this.preferences.settings.statusEffects);
-    this.battlefield.show(
-      battlefieldName(battlefieldInUse(this.preferences.settings.battlefield)),
-      unlockedBattlefields().length,
-    );
+    this.battlefield.show(battlefieldName(battlefieldInUse(this.preferences.settings.battlefield)));
     // A room runs at the speed everybody in it shares, so the picker is shown
     // but cannot move while in one; at home it sets the next practice match.
     const speedApplies = !state.inMatch || state.paused;
