@@ -263,6 +263,15 @@ mechanism is trustworthy: the ability's own `text` is what the panel shows a
 player, and unlike a `traits` line it cannot describe a rule the game has not
 got.
 
+**Support aims at the front line.** `nearestAllies` takes whoever stands
+closest, which for a support unit set back in the line is the units beside it
+and behind it - the ones nothing is hitting. `frontAllies` takes the allies
+inside its radius that stand furthest forward instead, nearest first only
+between two that stand level. Forward is the ability environment's to say
+(`AbilityEnv.forward`), since it differs by side and by world: up the lane for
+a unit, down it for a monster, and inward toward the centre in the arena.
+Vigil's Warding Light and Absolution both use it.
+
 **Stacking is a rule, not a number.** `from: "any"` stacks on every
 application; `"perSource"` gives one body one stack, so a unit cannot stack its
 own debuff by attacking faster; `"perSourceType"` gives one UNIT TYPE one

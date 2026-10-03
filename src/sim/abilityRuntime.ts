@@ -49,6 +49,7 @@ import type {
   StatKey,
 } from '../data/schema.ts';
 import { refId, refRank, resolveAbility } from '../data/schema.ts';
+import { arenaCentre, arenaShape } from './arena.ts';
 import { TICKS_PER_SECOND } from './constants.ts';
 import { crowdControlMultiplier, healBy, healingMultiplier } from './dampening.ts';
 import { dealDamage, type Strike, type StrikeEnv } from './strike.ts';
@@ -189,6 +190,13 @@ export interface AbilityEnv {
    */
   fighting: boolean;
   sides: (body: AbilityBody) => { allies: readonly AbilityBody[]; enemies: readonly AbilityBody[] };
+  /**
+   * How far forward a body stands, toward its enemies' end of the field:
+   * larger is further forward. Only ever compared between allies, so its zero
+   * is anywhere. In a lane that is up the lane for a unit and down it for a
+   * monster; in the arena it is toward the centre, where the armies meet.
+   */
+  forward: (body: AbilityBody) => number;
   /** What this body's own swing is worth, after tech and auras. */
   attackDamage: (body: AbilityBody) => number;
   /** For crediting damage over time to whoever applied it. */
@@ -479,6 +487,19 @@ function selectTargets(
       trim(hits, clause);
       break;
 
+    case 'frontAllies':
+      collectInRadius(hits, source, allies, clause, clause.includeSelf ? -1 : source.id, false);
+      // Furthest forward first; level with each other, the nearest; and the
+      // id last, so the order is a total one and the same on every client.
+      hits.sort(
+        (a, b) =>
+          env.forward(b.body) - env.forward(a.body) ||
+          distanceSquared(a.body.pos, source.pos) - distanceSquared(b.body.pos, source.pos) ||
+          a.body.id - b.body.id,
+      );
+      trim(hits, clause);
+      break;
+
     case 'lowestHealthAlly': {
       let worst: AbilityBody | null = null;
       let worstFraction = Infinity;
@@ -569,6 +590,11 @@ function collectInRadius(
   pool: readonly AbilityBody[],
   clause: ResolvedTarget,
   skipId: EntityId,
+  /**
+   * Cut the list to `max`, nearest first. False for a caller that orders the
+   * bodies some other way and must see all of them before it cuts.
+   */
+  trimToMax = true,
 ): void {
   for (const body of pool) {
     if (body.id === skipId) continue;
@@ -580,7 +606,7 @@ function collectInRadius(
     hits.sort((a, b) => bodyDistanceSquared(centre, a.body) - bodyDistanceSquared(centre, b.body));
   }
   applyFalloff(hits, clause);
-  trim(hits, clause);
+  if (trimToMax) trim(hits, clause);
 }
 
 /**
@@ -940,6 +966,10 @@ export function buildLaneAbilityEnv(
       body.monster
         ? { allies: lane.monsters, enemies: lane.units }
         : { allies: lane.units, enemies: lane.monsters },
+    // Monsters come down the lane from the spawn zone at the top (y < 0) and
+    // the fortress is at the bottom, so a unit's forward is up and a
+    // monster's is down.
+    forward: (body) => (body.monster ? body.pos.y : -body.pos.y),
     attackDamage: (body) =>
       body.monster
         ? ((body as unknown as { damage: number }).damage ?? 0)
@@ -983,6 +1013,7 @@ export function buildArenaAbilityEnv(
   rng: Rng,
 ): AbilityEnv {
   const dampening = ctx.data.waves.showdown.dampening;
+  const centre = arenaCentre(arenaShape(ctx.data));
   const allies = new Map<string, AbilityBody[]>();
   const enemies = new Map<string, AbilityBody[]>();
   const everyone: AbilityBody[] = [];
@@ -1026,6 +1057,9 @@ export function buildArenaAbilityEnv(
       const team = teamOf.get(body.id) ?? '';
       return { allies: allies.get(team) ?? NONE_BODIES, enemies: enemies.get(team) ?? NONE_BODIES };
     },
+    // Every army comes in down its own spoke and meets the others in the
+    // middle, so forward is toward the centre.
+    forward: (body) => -distanceSquared(body.pos, centre),
     // No monsters in the arena, so every attack damage is a unit's definition.
     attackDamage: (body) => ctx.defs.units.get(body.defId)?.damage ?? 0,
     bodyById: (id) => everyone.find((unit) => unit.id === id) ?? null,

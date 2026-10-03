@@ -130,6 +130,8 @@ export function targetLine(target: ResolvedTarget): string {
       return many(target.includeSelf ? 'allies, itself included' : 'allies', target.radius);
     case 'nearestAllies':
       return many('of the nearest allies', target.radius);
+    case 'frontAllies':
+      return many('allies, furthest forward first,', target.radius);
     case 'lowestHealthAlly':
       return `The most wounded ally within ${n(target.radius)} tiles`;
     case 'randomEnemy':

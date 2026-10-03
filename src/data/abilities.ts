@@ -166,6 +166,13 @@ export const TARGETS = [
   'alliesInRadius',
   /** The `max` nearest allies, wherever they are inside `radius`. */
   'nearestAllies',
+  /**
+   * The `max` allies inside `radius` standing furthest forward - nearest the
+   * enemy's end of the field - the nearest of them first where two stand level.
+   * For support that belongs on the front line rather than on whoever happens
+   * to be standing beside it.
+   */
+  'frontAllies',
   'lowestHealthAlly',
   'randomEnemy',
   /** From the attack target outward: each jump finds the next nearest enemy. */
@@ -197,7 +204,7 @@ export interface AbilityTarget {
    * better than a single hit at the same numbers.
    */
   falloff?: Tunable;
-  /** `alliesInRadius` / `nearestAllies`: whether the source counts as one. */
+  /** `alliesInRadius` / `nearestAllies` / `frontAllies`: whether the source counts as one. */
   includeSelf?: boolean;
   /** Only bodies carrying this tag - the other half of a synergy. */
   requiresTag?: string;

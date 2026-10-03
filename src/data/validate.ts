@@ -390,6 +390,7 @@ const NEEDS_RADIUS = new Set([
   'enemiesInRadius',
   'alliesInRadius',
   'nearestAllies',
+  'frontAllies',
   'lowestHealthAlly',
   'randomEnemy',
   'chain',

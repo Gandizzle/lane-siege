@@ -29,9 +29,12 @@ import {
   resolveAbility,
   type AbilityDef,
 } from '../data/schema.ts';
+import { buildArenaAbilityEnv, buildLaneAbilityEnv, fire } from './abilityRuntime.ts';
 import { applyCommand } from './apply.ts';
+import { arenaCentre, arenaShape } from './arena.ts';
 import { TICKS_PER_SECOND } from './constants.ts';
 import { dampeningRemaining } from './dampening.ts';
+import { Rng } from './rng.ts';
 import { createContext, createMatch, step } from './index.ts';
 import { beginShowdown } from './showdown.ts';
 import { createMonster } from './spawn.ts';
@@ -532,6 +535,100 @@ describe('a real roster applies its real abilities', () => {
     }
     expect(arrived, 'the paid carapace reached the lane').toBe(true);
     expect(braced, 'and arrived braced').toBe(true);
+  });
+});
+
+describe('Ironvow: support that reaches the front, and a sentence that bites', () => {
+  it('wards the allies furthest forward, not the ones beside it (Vigil: Warding Light)', () => {
+    const { state, ctx } = match('ironvow');
+    // A Vigil with Pledges beside it and behind it, nearest of all, and two
+    // more two rows ahead of it - further away, and further forward.
+    place(ctx, state, 'vigil', 3, 5);
+    place(ctx, state, 'pledge', 2, 5);
+    place(ctx, state, 'pledge', 4, 5);
+    place(ctx, state, 'pledge', 3, 6);
+    place(ctx, state, 'pledge', 3, 3);
+    place(ctx, state, 'pledge', 4, 3);
+    const lane = state.lanes.lane1!;
+    const warded = () =>
+      lane.units.filter((u) =>
+        u.statuses.some((st) => st.kind === 'shield' && st.abilityId === 'warding_light'),
+      );
+    for (let t = 0; t < 20 * TICKS_PER_SECOND && warded().length === 0; t++) step(ctx, state);
+    // Rank 1 wards two: the two in front.
+    expect(
+      warded()
+        .map((u) => `${u.homeTileX},${u.homeTileY}`)
+        .sort(),
+    ).toEqual(['3,3', '4,3']);
+  });
+
+  it('counts forward toward the enemy: up the lane for a unit, down it for a monster, inward in the arena', () => {
+    const { state, ctx } = match('ironvow');
+    place(ctx, state, 'pledge', 1, 2);
+    place(ctx, state, 'pledge', 1, 7);
+    const lane = state.lanes.lane1!;
+    const [ahead, behind] = lane.units as [(typeof lane.units)[0], (typeof lane.units)[0]];
+    const early = createMonster(
+      state,
+      data,
+      ctx.defs,
+      { defId: 'grub', waveNumber: 1 },
+      { x: 4, y: -1 },
+    )!;
+    const deep = createMonster(
+      state,
+      data,
+      ctx.defs,
+      { defId: 'grub', waveNumber: 1 },
+      { x: 4, y: 6 },
+    )!;
+    lane.monsters.push(early, deep);
+
+    const env = buildLaneAbilityEnv(ctx, lane, new Rng(1), true);
+    expect(env.forward(ahead)).toBeGreaterThan(env.forward(behind));
+    // A monster's front is the fortress end.
+    expect(env.forward(deep)).toBeGreaterThan(env.forward(early));
+
+    // In the arena every army walks inward, so forward is toward the middle.
+    const centre = arenaCentre(arenaShape(data));
+    ahead.pos = { x: centre.x + 1, y: centre.y };
+    behind.pos = { x: centre.x + 6, y: centre.y };
+    const arena = buildArenaAbilityEnv(
+      ctx,
+      { age: 0, armies: [{ teamId: 'lane1', units: lane.units }] },
+      new Rng(1),
+    );
+    expect(arena.forward(ahead)).toBeGreaterThan(arena.forward(behind));
+  });
+
+  it('finishes what a Judgement III blow leaves below a quarter (Judgement: Final Sentence)', () => {
+    // The execute used to be at a tenth - less than one blow takes off almost
+    // anything, so it all but never fired. At a quarter it is the blow it saves.
+    const { state, ctx } = match('ironvow');
+    place(ctx, state, 'judgement_3', 3, 5);
+    const lane = state.lanes.lane1!;
+    const judge = lane.units[0]!;
+    const boss = createMonster(
+      state,
+      data,
+      ctx.defs,
+      { defId: 'brood_sire', waveNumber: 25 },
+      { x: 3.5, y: 1 },
+    )!;
+    lane.monsters.push(boss);
+    const env = buildLaneAbilityEnv(ctx, lane, new Rng(1), true);
+
+    // A fifth left after the blow: Verdict takes its slice, and the sentence
+    // the rest.
+    boss.hp = boss.maxHp * 0.2;
+    fire(env, judge, 'onAttack', { target: boss });
+    expect(boss.hp).toBe(0);
+
+    // Well above a quarter it stands, down only Verdict's slice.
+    boss.hp = boss.maxHp * 0.6;
+    fire(env, judge, 'onAttack', { target: boss });
+    expect(boss.hp).toBeGreaterThan(boss.maxHp * 0.25);
   });
 });
 
