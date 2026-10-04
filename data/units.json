@@ -50,7 +50,7 @@
     {
       "id": "pledge_2",
       "builderId": "ironvow",
-      "name": "Pledge II",
+      "name": "Super Pledge",
       "rung": 1,
       "mark": 2,
       "upgradesTo": "pledge_3",
@@ -75,7 +75,7 @@
     {
       "id": "pledge_3",
       "builderId": "ironvow",
-      "name": "Pledge III",
+      "name": "Ultra Pledge",
       "rung": 1,
       "mark": 3,
       "goldCost": 152,
@@ -121,7 +121,7 @@
     {
       "id": "oathwall_2",
       "builderId": "ironvow",
-      "name": "Oathwall II",
+      "name": "Super Oathwall",
       "rung": 4,
       "mark": 2,
       "goldCost": 260,
@@ -146,7 +146,7 @@
     {
       "id": "oathwall_3",
       "builderId": "ironvow",
-      "name": "Oathwall III",
+      "name": "Ultra Oathwall",
       "rung": 4,
       "mark": 3,
       "goldCost": 515,
@@ -192,7 +192,7 @@
     {
       "id": "sentinel_2",
       "builderId": "ironvow",
-      "name": "Sentinel II",
+      "name": "Super Sentinel",
       "rung": 2,
       "mark": 2,
       "goldCost": 85,
@@ -217,7 +217,7 @@
     {
       "id": "sentinel_3",
       "builderId": "ironvow",
-      "name": "Sentinel III",
+      "name": "Ultra Sentinel",
       "rung": 2,
       "mark": 3,
       "goldCost": 190,
@@ -263,7 +263,7 @@
     {
       "id": "judgement_2",
       "builderId": "ironvow",
-      "name": "Judgement II",
+      "name": "Super Judgement",
       "rung": 6,
       "mark": 2,
       "goldCost": 614,
@@ -288,7 +288,7 @@
     {
       "id": "judgement_3",
       "builderId": "ironvow",
-      "name": "Judgement III",
+      "name": "Ultra Judgement",
       "rung": 6,
       "mark": 3,
       "goldCost": 1170,
@@ -334,7 +334,7 @@
     {
       "id": "sanction_2",
       "builderId": "ironvow",
-      "name": "Sanction II",
+      "name": "Super Sanction",
       "rung": 5,
       "mark": 2,
       "upgradesTo": "sanction_3",
@@ -359,7 +359,7 @@
     {
       "id": "sanction_3",
       "builderId": "ironvow",
-      "name": "Sanction III",
+      "name": "Ultra Sanction",
       "rung": 5,
       "mark": 3,
       "goldCost": 910,
@@ -405,7 +405,7 @@
     {
       "id": "vigil_2",
       "builderId": "ironvow",
-      "name": "Vigil II",
+      "name": "Super Vigil",
       "rung": 3,
       "mark": 2,
       "upgradesTo": "vigil_3",
@@ -430,7 +430,7 @@
     {
       "id": "vigil_3",
       "builderId": "ironvow",
-      "name": "Vigil III",
+      "name": "Ultra Vigil",
       "rung": 3,
       "mark": 3,
       "goldCost": 462,
@@ -477,7 +477,7 @@
     {
       "id": "ember_2",
       "builderId": "pyre",
-      "name": "Ember II",
+      "name": "Super Ember",
       "rung": 1,
       "mark": 2,
       "upgradesTo": "ember_3",
@@ -503,7 +503,7 @@
     {
       "id": "ember_3",
       "builderId": "pyre",
-      "name": "Ember III",
+      "name": "Ultra Ember",
       "rung": 1,
       "mark": 3,
       "goldCost": 148,
@@ -549,7 +549,7 @@
     {
       "id": "slagmaw_2",
       "builderId": "pyre",
-      "name": "Slagmaw II",
+      "name": "Super Slagmaw",
       "rung": 4,
       "mark": 2,
       "goldCost": 280,
@@ -574,7 +574,7 @@
     {
       "id": "slagmaw_3",
       "builderId": "pyre",
-      "name": "Slagmaw III",
+      "name": "Ultra Slagmaw",
       "rung": 4,
       "mark": 3,
       "goldCost": 530,
@@ -620,7 +620,7 @@
     {
       "id": "firebrand_2",
       "builderId": "pyre",
-      "name": "Firebrand II",
+      "name": "Super Firebrand",
       "rung": 5,
       "mark": 2,
       "upgradesTo": "firebrand_3",
@@ -646,7 +646,7 @@
     {
       "id": "firebrand_3",
       "builderId": "pyre",
-      "name": "Firebrand III",
+      "name": "Ultra Firebrand",
       "rung": 5,
       "mark": 3,
       "goldCost": 1150,
@@ -693,7 +693,7 @@
     {
       "id": "wickling_2",
       "builderId": "pyre",
-      "name": "Wickling II",
+      "name": "Super Wickling",
       "rung": 2,
       "mark": 2,
       "goldCost": 85,
@@ -719,7 +719,7 @@
     {
       "id": "wickling_3",
       "builderId": "pyre",
-      "name": "Wickling III",
+      "name": "Ultra Wickling",
       "rung": 2,
       "mark": 3,
       "goldCost": 160,
@@ -766,7 +766,7 @@
     {
       "id": "scoria_2",
       "builderId": "pyre",
-      "name": "Scoria II",
+      "name": "Super Scoria",
       "rung": 6,
       "mark": 2,
       "goldCost": 600,
@@ -792,7 +792,7 @@
     {
       "id": "scoria_3",
       "builderId": "pyre",
-      "name": "Scoria III",
+      "name": "Ultra Scoria",
       "rung": 6,
       "mark": 3,
       "goldCost": 1130,
@@ -839,7 +839,7 @@
     {
       "id": "foxfire_2",
       "builderId": "pyre",
-      "name": "Foxfire II",
+      "name": "Super Foxfire",
       "rung": 3,
       "mark": 2,
       "goldCost": 190,
@@ -865,7 +865,7 @@
     {
       "id": "foxfire_3",
       "builderId": "pyre",
-      "name": "Foxfire III",
+      "name": "Ultra Foxfire",
       "rung": 3,
       "mark": 3,
       "goldCost": 370,
@@ -911,7 +911,7 @@
     {
       "id": "thornling_2",
       "builderId": "thornweald",
-      "name": "Thornling II",
+      "name": "Super Thornling",
       "rung": 1,
       "mark": 2,
       "upgradesTo": "thornling_3",
@@ -936,7 +936,7 @@
     {
       "id": "thornling_3",
       "builderId": "thornweald",
-      "name": "Thornling III",
+      "name": "Ultra Thornling",
       "rung": 1,
       "mark": 3,
       "goldCost": 132,
@@ -983,7 +983,7 @@
     {
       "id": "hollowbark_2",
       "builderId": "thornweald",
-      "name": "Hollowbark II",
+      "name": "Super Hollowbark",
       "rung": 4,
       "mark": 2,
       "goldCost": 262,
@@ -1009,7 +1009,7 @@
     {
       "id": "hollowbark_3",
       "builderId": "thornweald",
-      "name": "Hollowbark III",
+      "name": "Ultra Hollowbark",
       "rung": 4,
       "mark": 3,
       "goldCost": 640,
@@ -1056,7 +1056,7 @@
     {
       "id": "sporecrown_2",
       "builderId": "thornweald",
-      "name": "Sporecrown II",
+      "name": "Super Sporecrown",
       "rung": 5,
       "mark": 2,
       "upgradesTo": "sporecrown_3",
@@ -1082,7 +1082,7 @@
     {
       "id": "sporecrown_3",
       "builderId": "thornweald",
-      "name": "Sporecrown III",
+      "name": "Ultra Sporecrown",
       "rung": 5,
       "mark": 3,
       "goldCost": 1080,
@@ -1128,7 +1128,7 @@
     {
       "id": "mycelia_2",
       "builderId": "thornweald",
-      "name": "Mycelia II",
+      "name": "Super Mycelia",
       "rung": 2,
       "mark": 2,
       "goldCost": 88,
@@ -1153,7 +1153,7 @@
     {
       "id": "mycelia_3",
       "builderId": "thornweald",
-      "name": "Mycelia III",
+      "name": "Ultra Mycelia",
       "rung": 2,
       "mark": 3,
       "goldCost": 190,
@@ -1199,7 +1199,7 @@
     {
       "id": "nettlespire_2",
       "builderId": "thornweald",
-      "name": "Nettlespire II",
+      "name": "Super Nettlespire",
       "rung": 6,
       "mark": 2,
       "upgradesTo": "nettlespire_3",
@@ -1224,7 +1224,7 @@
     {
       "id": "nettlespire_3",
       "builderId": "thornweald",
-      "name": "Nettlespire III",
+      "name": "Ultra Nettlespire",
       "rung": 6,
       "mark": 3,
       "goldCost": 1305,
@@ -1270,7 +1270,7 @@
     {
       "id": "rotgourd_2",
       "builderId": "thornweald",
-      "name": "Rotgourd II",
+      "name": "Super Rotgourd",
       "rung": 3,
       "mark": 2,
       "goldCost": 212,
@@ -1295,7 +1295,7 @@
     {
       "id": "rotgourd_3",
       "builderId": "thornweald",
-      "name": "Rotgourd III",
+      "name": "Ultra Rotgourd",
       "rung": 3,
       "mark": 3,
       "goldCost": 385,
@@ -1342,7 +1342,7 @@
     {
       "id": "fathomhold_2",
       "builderId": "gloomtide",
-      "name": "Fathomhold II",
+      "name": "Super Fathomhold",
       "rung": 4,
       "mark": 2,
       "goldCost": 238,
@@ -1368,7 +1368,7 @@
     {
       "id": "fathomhold_3",
       "builderId": "gloomtide",
-      "name": "Fathomhold III",
+      "name": "Ultra Fathomhold",
       "rung": 4,
       "mark": 3,
       "goldCost": 470,
@@ -1414,7 +1414,7 @@
     {
       "id": "kelpsnare_2",
       "builderId": "gloomtide",
-      "name": "Kelpsnare II",
+      "name": "Super Kelpsnare",
       "rung": 1,
       "mark": 2,
       "goldCost": 68,
@@ -1439,7 +1439,7 @@
     {
       "id": "kelpsnare_3",
       "builderId": "gloomtide",
-      "name": "Kelpsnare III",
+      "name": "Ultra Kelpsnare",
       "rung": 1,
       "mark": 3,
       "goldCost": 118,
@@ -1486,7 +1486,7 @@
     {
       "id": "torrent_2",
       "builderId": "gloomtide",
-      "name": "Torrent II",
+      "name": "Super Torrent",
       "rung": 6,
       "mark": 2,
       "upgradesTo": "torrent_3",
@@ -1512,7 +1512,7 @@
     {
       "id": "torrent_3",
       "builderId": "gloomtide",
-      "name": "Torrent III",
+      "name": "Ultra Torrent",
       "rung": 6,
       "mark": 3,
       "goldCost": 1450,
@@ -1558,7 +1558,7 @@
     {
       "id": "sleet_2",
       "builderId": "gloomtide",
-      "name": "Sleet II",
+      "name": "Super Sleet",
       "rung": 3,
       "mark": 2,
       "goldCost": 216,
@@ -1583,7 +1583,7 @@
     {
       "id": "sleet_3",
       "builderId": "gloomtide",
-      "name": "Sleet III",
+      "name": "Ultra Sleet",
       "rung": 3,
       "mark": 3,
       "goldCost": 540,
@@ -1630,7 +1630,7 @@
     {
       "id": "maelstrom_2",
       "builderId": "gloomtide",
-      "name": "Maelstrom II",
+      "name": "Super Maelstrom",
       "rung": 5,
       "mark": 2,
       "upgradesTo": "maelstrom_3",
@@ -1656,7 +1656,7 @@
     {
       "id": "maelstrom_3",
       "builderId": "gloomtide",
-      "name": "Maelstrom III",
+      "name": "Ultra Maelstrom",
       "rung": 5,
       "mark": 3,
       "goldCost": 900,
@@ -1702,7 +1702,7 @@
     {
       "id": "murmur_2",
       "builderId": "gloomtide",
-      "name": "Murmur II",
+      "name": "Super Murmur",
       "rung": 2,
       "mark": 2,
       "goldCost": 81,
@@ -1727,7 +1727,7 @@
     {
       "id": "murmur_3",
       "builderId": "gloomtide",
-      "name": "Murmur III",
+      "name": "Ultra Murmur",
       "rung": 2,
       "mark": 3,
       "goldCost": 156,

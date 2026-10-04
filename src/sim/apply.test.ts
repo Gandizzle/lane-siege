@@ -366,6 +366,36 @@ describe('who is paid for a kill the FORTRESS made (§11.1, amended)', () => {
     expect(state.lanes.lane2!.economy.gold).toBe(before.two);
     expect(state.lanes.lane3!.economy.gold).toBe(before.three + bounty);
   });
+
+  it("keeps the wave's tally: what the line earned, and what the wall's kills cost", () => {
+    // The tutorial and the wave-cleared card quote both halves (types.ts,
+    // `WaveTally`), so a kill by the line and a kill by the wall must each
+    // land on its own side.
+    const { state, ctx } = oneMonsterAtMyWall();
+    const lane = state.lanes.lane1!;
+    const worth = lane.monsters[0]!.bounty;
+    lane.waveTally = { kills: 0, fortressKills: 0, bounty: 0, missed: 0 };
+
+    killIt(ctx, state, true);
+    expect(lane.waveTally).toEqual({ kills: 0, fortressKills: 1, bounty: 0, missed: worth });
+
+    const again = oneMonsterAtMyWall();
+    const mine = again.state.lanes.lane1!;
+    const paid = mine.monsters[0]!.bounty;
+    mine.waveTally = { kills: 0, fortressKills: 0, bounty: 0, missed: 0 };
+    killIt(again.ctx, again.state, false);
+    expect(mine.waveTally).toEqual({ kills: 1, fortressKills: 0, bounty: paid, missed: 0 });
+  });
+
+  it('starts a fresh tally with every wave', () => {
+    const { state, ctx } = freshMatch();
+    const lane = state.lanes.lane1!;
+    lane.waveTally = { kills: 9, fortressKills: 9, bounty: 99, missed: 99 };
+    state.phaseTicksLeft = 1;
+    for (let i = 0; i < 5 && state.phase === 'build'; i++) step(ctx, state);
+    expect(state.phase).toBe('combat');
+    expect(lane.waveTally).toEqual({ kills: 0, fortressKills: 0, bounty: 0, missed: 0 });
+  });
 });
 
 describe('the fortress weapon type (§10.1)', () => {

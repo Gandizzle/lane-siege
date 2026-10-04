@@ -125,6 +125,11 @@ export interface WireLane {
   /** Own lane only: `[sendIndex, ticksLeft]` for every send still cooling down. */
   sc?: [number, number][];
   /**
+   * Own lane only: the wave's tally, `[kills, fortressKills, bounty, missed]`,
+   * gold rounded to whole coins (sim/types.ts, `WaveTally`).
+   */
+  wt?: [number, number, number, number];
+  /**
    * Own lane only: what each unit cost, flat and parallel to `u`: gold spent
    * this build phase, gold spent earlier, next unit's, ... Two numbers rather
    * than the refund they add up to, so the sell price is computed by the one
@@ -197,9 +202,9 @@ export interface WireFrame {
   l: WireLane | null;
   /**
    * `[teamIndex, fortressHp, fortressMaxHp, eliminated, placement, watching,
-   * visionTicksLeft]` per opponent.
+   * visionTicksLeft, fighting]` per opponent.
    */
-  o: [number, number, number, number, number, number, number][];
+  o: [number, number, number, number, number, number, number, number?][];
   wl: WireLane[];
   /** The Final Showdown, once it has started (§3.3, replaced). Absent before then. */
   sd?: WireShowdown;
@@ -537,6 +542,8 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
     out.sc = Object.entries(e.sendCooldowns).map(
       ([id, ticks]) => [tables.sendIds.indexOf(id), ticks] as [number, number],
     );
+    const t = e.waveTally;
+    out.wt = [t.kills, t.fortressKills, Math.round(t.bounty), Math.round(t.missed)];
     out.sp = flattenSpend(lane.unitSpend);
     out.dm = flattenDamage(lane.unitDamage, tables.unitIndex);
   }
@@ -569,6 +576,12 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
             .filter(([index]) => index >= 0)
             .map(([index, ticks]) => [tables.sendIds[index]!, ticks]),
         ),
+        waveTally: {
+          kills: wire.wt?.[0] ?? 0,
+          fortressKills: wire.wt?.[1] ?? 0,
+          bounty: wire.wt?.[2] ?? 0,
+          missed: wire.wt?.[3] ?? 0,
+        },
       }
     : null;
 
@@ -672,7 +685,8 @@ export function encodeFrame(view: MatchView, tables: WireTables): WireFrame {
           o.placement ?? 0,
           o.watching ? 1 : 0,
           o.visionTicksLeft,
-        ] as [number, number, number, number, number, number, number],
+          o.fighting ? 1 : 0,
+        ] as [number, number, number, number, number, number, number, number],
     ),
     wl: Object.values(view.watching).map((lane) => encodeLane(lane, tables)),
   };
@@ -710,7 +724,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
     placement: frame.pc === 0 ? null : frame.pc,
     lane: frame.l ? decodeLane(frame.l, tables) : null,
     opponents: frame.o.map(
-      ([teamIndex, hp, maxHp, eliminated, placement, watchingFlag, visionTicksLeft]) => ({
+      ([teamIndex, hp, maxHp, eliminated, placement, watchingFlag, visionTicksLeft, fighting]) => ({
         teamId: tables.teamIds[teamIndex] ?? '',
         // Not in the frame: a name is constant for a match and arrives with
         // the hello (`WireHello.teamNames`).
@@ -721,6 +735,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
         placement: placement === 0 ? null : placement,
         watching: watchingFlag === 1,
         visionTicksLeft,
+        fighting: fighting === 1,
       }),
     ),
     watching,

@@ -153,7 +153,7 @@ function unitFor(key: StatKey, def: UnitDef): string {
   return '';
 }
 
-function isMelee(def: UnitDef): boolean {
+export function isMelee(def: UnitDef): boolean {
   return (def.range ?? 0) < RANGED_MIN_TILES;
 }
 

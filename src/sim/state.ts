@@ -10,7 +10,7 @@
 import type { GameData } from '../data/schema.ts';
 import { secondsToTicks } from './constants.ts';
 import { Rng } from './rng.ts';
-import type { Lane, MatchMode, MatchState, PlayerId, Team, TeamId } from './types.ts';
+import type { Lane, MatchMode, MatchState, PlayerId, Team, TeamId, WaveTally } from './types.ts';
 
 export class MissingDataError extends Error {
   constructor(public readonly paths: string[]) {
@@ -95,6 +95,7 @@ function createLane(data: GameData, teamId: TeamId, builderId: string, missing: 
     sendCooldowns: {},
     attacks: [],
     kills: 0,
+    waveTally: emptyTally(),
     fortress: {
       hp: maxHp,
       maxHp,
@@ -204,4 +205,9 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     finished: false,
     eliminatedCount: 0,
   };
+}
+
+/** A wave's tally before anything has died in it (types.ts, `WaveTally`). */
+export function emptyTally(): WaveTally {
+  return { kills: 0, fortressKills: 0, bounty: 0, missed: 0 };
 }

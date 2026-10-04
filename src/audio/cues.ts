@@ -93,6 +93,8 @@ interface Snapshot {
   aura: string | null;
   cooldowns: Record<string, number>;
   sendsAtMe: number;
+  /** Your lane has beaten the wave in front of it (ui/waveCleared.ts, `laneIsClear`). */
+  clear: boolean;
 }
 
 function snapshot(view: MatchView): Snapshot {
@@ -115,6 +117,13 @@ function snapshot(view: MatchView): Snapshot {
     aura: lane?.fortress.activeAura ?? null,
     cooldowns: { ...(economy?.sendCooldowns ?? {}) },
     sendsAtMe: lane?.sendLog.length ?? 0,
+    clear:
+      view.phase === 'combat' &&
+      !view.eliminated &&
+      !view.solo?.endless &&
+      !!lane &&
+      !lane.fortress.destroyed &&
+      lane.monsters.length + lane.reserveCount === 0,
   };
 }
 
@@ -134,9 +143,12 @@ function ending(view: MatchView): CueId {
  */
 export class MatchCues {
   private last: Snapshot | null = null;
+  /** The wave whose clearing has already been heard, so its end is not heard twice. */
+  private chimed = -1;
 
   reset(): void {
     this.last = null;
+    this.chimed = -1;
   }
 
   observe(view: MatchView): CueId[] {
@@ -150,8 +162,18 @@ export class MatchCues {
     if (!was.over && now.over) cues.add(ending(view));
 
     if (was.phase === 'build' && now.phase === 'combat') cues.add('wave.start');
-    if (was.phase === 'combat' && now.phase === 'build' && !view.eliminated)
+    // The chime is for YOUR lane going clear, which is the moment the card
+    // celebrates (ui/waveCleared.ts) - usually well before the last lane
+    // finishes and the wave ends. The wave ending only chimes if that moment
+    // was missed: a match joined with the lane already clear.
+    if (!was.clear && now.clear) {
       cues.add('wave.cleared');
+      this.chimed = view.wave;
+    }
+    if (was.phase === 'combat' && now.phase === 'build' && !view.eliminated) {
+      // A build phase carries the number of the wave it follows.
+      if (this.chimed !== view.wave) cues.add('wave.cleared');
+    }
 
     if (now.countdown !== null && was.countdown !== null && now.countdown < was.countdown) {
       cues.add(now.countdown === 0 ? 'showdown.start' : 'showdown.tick');

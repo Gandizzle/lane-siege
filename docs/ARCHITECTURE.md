@@ -1328,9 +1328,9 @@ have to explain.
 ### The tutorial: chapters, a coach, and a match that waits
 
 Home has a **Tutorial** button, lit for anybody who has not finished a chapter
-yet. It opens a list of six chapters (`ui/tutorialScreen.ts`): the lane, a
-first line and a first wave, upgrading and selling, counters, gems and sends,
-and reading a battle. A new player takes the big button, which plays them in
+yet. It opens a list of seven chapters (`ui/tutorialScreen.ts`): the lane, a
+first line and a first wave, upgrading and selling, supply, counters, gems and
+sends, and reading a battle. A new player takes the big button, which plays them in
 order: each chapter ends on a card whose main button starts the next one, and
 the last offers a practice match. A returning player taps any one chapter for
 a refresher. Finished chapters get a tick and are saved (`tutorialDone` in
@@ -1358,7 +1358,12 @@ of steps, each a line of text, a thing to point at, and what ends it.
 - `tap` steps want the player to do something, and `done` checks the match or
   the interface for it: the Sentinel card selected, four units on the board,
   the weapon switched. A step is over the moment the thing is done.
-- `free` steps are for watching a wave or closing a card.
+- `free` steps are for closing a card the player opened.
+- `watch` steps run the match until something happens - the lane clears, a
+  monster catches fire - and then hold it, with Next up. They never move on by
+  themselves. Two of these used to be `free` steps that ended the moment the
+  thing happened, and a playtester lost both cards mid-sentence; now the player
+  finishes reading, and the moment they were reading about is still on screen.
 
 A step can also open a reference card as it begins (`opens`, so far only the
 damage chart). The runner reports each step as it starts (`onEnter`) before
@@ -1386,14 +1391,32 @@ a layout change.
 
 The blockers are four rectangles round the hole, because Pixi hit-tests a
 shape's area, not its paint, so a sheet with a hole cut in it would swallow the
-hole's taps too. The card goes wherever it covers least of the target, and never
-under the menu or legend buttons, which are drawn over the coach and stay in
-reach throughout. While the menu or the effects panel is open, the coach stands
-aside.
+hole's taps too.
+
+**The card sits beside what it is about** (`placeCard`): under the target, over
+it, or to either side, whichever fits and is nearest, so the words and the
+thing are read together. It used to go wherever it covered least of the
+target, which on a phone meant the far end of the screen. A button kept clear
+(the menu and legend buttons, drawn over the coach) pushes it on past rather
+than ruling the side out. Where there is an arrow it sits in the gap between
+card and target, pointing from one to the other: on every `tap` step, and on a
+reading step whose target is small enough that a ring alone is easy to miss -
+a number in the stats, a single button (`wantsArrow`). Only a target too big to
+sit beside (the whole lane) falls back to the old least-covered spot. The card
+grows with the screen's text scale like the rest of the interface. While the
+menu or the effects panel is open, the coach stands aside.
+
+**The bottom row is ◀ Exit Next ▶.** Back (`TutorialRunner.back`) shows the step
+before again without running it again: nothing is staged, `done` is not
+checked, the match holds, and every step looked back on has a Next, whatever it
+was. Next walks forward through the steps already done to where the player
+left off, which is live again exactly as it was. A silent step (one that was
+only there while a card was open) is passed over both ways.
 
 **The match waits while the coach talks.** Every step holds the match unless it
-says `run`, and the chapter-complete card holds it too, so a wave never walks
-in while the player is reading about the build grid. It is the same pause the
+says `run` (or is a `watch` step whose moment has not come), and the
+chapter-complete card holds it too, so a wave never walks in while the player
+is reading about the build grid. It is the same pause the
 menu uses. The status markers keep animating through it, because a flame is
 easier to point out lit.
 
@@ -1402,6 +1425,92 @@ easier to point out lit.
 what a tap on each target would do. A chapter that asks for something the match
 will not allow (a unit it cannot afford, a button that is not there, a wave
 that never ends) fails there, not on a new player's phone.
+
+### What the tutorial teaches, after the first playtest
+
+A player's notes on the tutorial changed what several chapters say and show.
+
+- **The first wave says where its gold came from.** "Wave cleared!" quotes the
+  wave's tally (`waveEarnings` in chapters.ts): how many monsters your units
+  killed and the gold that paid, out of the wave's whole bounty, and how many
+  got through and were finished by the fortress - which pays nothing, so it says
+  what those cost. The tally is the simulation's own (below), so the numbers are
+  the ones the wallet moved by.
+- **Supply is its own chapter, shown rather than told.** The figure and what it
+  allows (25 supply, 25 one-supply units); opening the Fort tab and buying more;
+  the Build tab, pointing at the supply number on a card and working out how
+  few of the biggest units fit; and a unit upgraded once already, whose Upgrade
+  button says the second upgrade takes more supply. (A unit's first upgrade
+  takes none, its second as much again as the unit: units.json.)
+- **Tech is explained as what it is**: an upgrade for a whole kind of unit at
+  once, for the rest of the match, with a step after the purchase that says
+  what changed, how far the levels go, and what Plating and Cadence do.
+- Smaller things: "a line of four Pledges", an arrow at the number the stats
+  arrow explains, "tap the ability", "dot" rather than "pip", "the right unit"
+  rather than "tool", a send's cooldown said plainly, and what an incoming send
+  does to the next wave said in full.
+
+### Super and Ultra, not Mark II and III
+
+An upgraded unit is named for how far it has been upgraded: Pledge, Super
+Pledge, Ultra Pledge (units.json). "Mark II" and "Mark III" were the design
+documents' words and meant nothing to a player; the numbering is still `mark` in
+the data and the code, where it is a number, and nowhere a player reads it. A
+unit at the top of its ladder says "fully upgraded" on its button.
+
+### A cleared lane is celebrated
+
+When your own lane is clear - usually well before the wave ends, since it ends
+only when every lane has beaten it - a card bursts open in the middle of the
+board with a chime (`ui/waveCleared.ts`, `wave.cleared` in audio/cues.ts):
+
+```text
+Wave 3 cleared!
++38 gold from 24 kills
+2 finished by your fortress: 6 gold lost
+Still fighting: Rookie, Tactician
+```
+
+It is paint only, up for about three and a half seconds, and never for a lane
+emptied by its fortress falling or in solo's endless wave. The chime moved with
+it: it used to sound when the whole wave ended, which was the moment that
+mattered least to the player. It sounds at the end of the wave only when the
+lane-clear was missed (a match joined mid-wave).
+
+Two numbers it needs are new on the wire:
+
+- **`WaveTally`** (sim/types.ts, on `EconomyView` for your own lane): the wave's
+  kills by your line and by your fortress, the gold the first paid and the gold
+  the second did not. Reset as each wave starts; kept through the build phase
+  after it, which is when the tutorial reads it.
+- **`OpponentView.fighting`**: whether a lane is still at the wave. Public
+  whatever can be seen of the lane - it says nothing about what is in it, and
+  the wave ending says the same thing moments later - so "still fighting" can be
+  answered without sight of anybody's board. The fog-of-war test lists it.
+
+### An upgrade shows on the board
+
+Upgrading is in place, so the only sign on the board used to be one more dot.
+Now the unit flashes, two gold rings swell off it, chevrons rise over it (one
+per upgrade, like the dots), and "Super!" or "Ultra!" floats up - about a
+second in all (`upgradeBursts.ts`). It watches the lane on screen every frame
+and runs on wall time, rather than living in the effects layer, which only
+looks at a lane when a tick arrives and only moves while the match does: an
+upgrade is a tap, lands between ticks in a practice match, and the tutorial
+makes it while the match is held.
+
+### What a unit card says
+
+Each Build card now says whether the unit is **melee** or **ranged** on its
+third line, ahead of the counter verdict ("ranged · ▲ strong"), by the same
+rule the stat panel uses (`isMelee`, the attack-style threshold). Where it
+stands follows from that, and the silhouette does not say. The unit's own
+silhouette in the corner is drawn larger than a colour chip (`bodySize` in
+gridButton.ts): it is a shape the player has to learn to pick out of a crowd.
+
+The ability card is bigger and set larger (20/15/14 at a scale of 1, from
+16/11/11), and "Tap anywhere to close" is a full-width bar in the accent colour
+where a button would be, not small print.
 
 ### The damage chart
 

@@ -462,6 +462,28 @@ export interface Lane {
    * match because the count costs nothing and is true everywhere.
    */
   kills: number;
+  /** What the wave being fought has paid this lane so far (`WaveTally`). */
+  waveTally: WaveTally;
+}
+
+/**
+ * One wave's kills in one lane, and what they paid: reset as each wave starts.
+ *
+ * §11.1, amended: a monster your line kills pays you its bounty, and one your
+ * fortress has to finish pays you nothing (tick.ts, `payTheTable`). The tally
+ * keeps both sides of that, so the player can be told what the wave paid and
+ * what letting monsters reach the wall cost them - in the tutorial, and on the
+ * card that celebrates a cleared lane.
+ */
+export interface WaveTally {
+  /** Monsters your line killed: units and their abilities. */
+  kills: number;
+  /** Monsters the fortress weapon finished. */
+  fortressKills: number;
+  /** Gold those kills by your line paid you. */
+  bounty: number;
+  /** Gold the fortress's kills would have paid, had your line made them. */
+  missed: number;
 }
 
 /**

@@ -91,6 +91,8 @@ import { Menu, MenuButton } from './ui/menu.ts';
 import { EffectsButton, EffectsPanel } from './ui/effectsPanel.ts';
 import { DamageChart } from './ui/damageChart.ts';
 import { BattlefieldPicker } from './ui/battlefieldPicker.ts';
+import { WaveCleared } from './ui/waveCleared.ts';
+import { UpgradeBursts } from './upgradeBursts.ts';
 import { StatusLog } from './statusLog.ts';
 import { LEGEND_BUTTON_SIZE, type Rect } from './layout.ts';
 import { Hud } from './ui/hud.ts';
@@ -174,6 +176,10 @@ export class Game extends Container {
   /** §3.3, replaced: the cross the last fight happens on, and the card that opens it. */
   private readonly arena: ArenaStage;
   private readonly countdown: ShowdownCountdown;
+  /** The burst when your lane is clear (ui/waveCleared.ts). */
+  private readonly waveCleared: WaveCleared;
+  /** The burst on a unit just upgraded (upgradeBursts.ts). */
+  private readonly upgradeBursts: UpgradeBursts;
   /** Over everything, on every screen: settings, and the way out of a match. */
   private readonly menu: Menu;
   private readonly menuButton: MenuButton;
@@ -243,6 +249,7 @@ export class Game extends Container {
     this.entities = new EntityLayer(this.layout, defs);
     // Above the bodies, so a swing reads as landing ON what it hits (§14.2).
     this.effectsLayer = new EffectsLayer(this.layout, data, defs);
+    this.upgradeBursts = new UpgradeBursts(this.layout, defs);
     this.hud = new Hud(this.layout, data);
     this.tabs = new OpponentTabs(this.layout, {
       onWatch: (teamId) => this.watch(teamId),
@@ -307,6 +314,7 @@ export class Game extends Container {
     );
     this.arena.visible = false;
     this.countdown = new ShowdownCountdown(this.layout);
+    this.waveCleared = new WaveCleared(this.layout);
     this.menuButton = new MenuButton(this.layout, () => this.setMenu(true));
     this.menu = new Menu(this.layout, services.sound, services.preferences, {
       onClose: () => this.setMenu(false),
@@ -332,6 +340,7 @@ export class Game extends Container {
     });
     this.coach = new TutorialCoach(this.layout, {
       onNext: () => this.lesson?.runner.next(),
+      onBack: () => this.lesson?.runner.back(),
       onExit: () => this.leaveLesson(),
       onContinue: () => this.continueLesson(),
       onChapters: () => this.leaveLesson(),
@@ -354,6 +363,7 @@ export class Game extends Container {
       this.auraLayer,
       this.entities,
       this.effectsLayer,
+      this.upgradeBursts,
       this.hud,
       this.tabs,
       this.banner,
@@ -362,6 +372,9 @@ export class Game extends Container {
       // on it and a tap anywhere has to close it rather than reach the board.
       this.abilityCard,
       this.toast,
+      // Over the board and the bar, under the coach and every panel: it is
+      // a moment, and anything the player opens or is being told outranks it.
+      this.waveCleared,
       this.gameOver,
       // Over the board and under the front screens: it is a cut to a card, but
       // it must not cover the home screen if a match is abandoned under it.
@@ -543,7 +556,9 @@ export class Game extends Container {
     this.summarisedBuilder = '';
     this.entities.reset();
     this.effectsLayer.reset();
+    this.upgradeBursts.reset();
     this.matchCues.reset();
+    this.waveCleared.reset();
     this.statusLog.reset();
     this.gameOver.reset();
     this.buildBar.reset();
@@ -651,6 +666,8 @@ export class Game extends Container {
         return this.hud.locate('phase');
       case 'hudWallet':
         return this.hud.locate('wallet');
+      case 'hudSupply':
+        return this.hud.locate('supply');
       case 'hudIncome':
         return this.hud.locate('income');
       case 'hudIncoming':
@@ -714,8 +731,15 @@ export class Game extends Container {
           step: runner.stepIndex + 1,
           steps: runner.stepCount,
           text: runner.text(view),
-          mode: runner.step?.mode ?? 'next',
-          nextLabel: runner.step?.nextLabel ?? 'Next',
+          mode: runner.mode,
+          nextLabel: runner.nextLabel,
+          canGoBack: runner.canGoBack,
+          // What the card says where Next would be, when there is no Next.
+          hint: runner.waiting
+            ? "Next appears when it's done"
+            : runner.mode === 'tap'
+              ? 'Tap the highlighted spot'
+              : '',
         };
     const target = runner.complete ? null : runner.target(view, this.probe());
     this.coach.render(
@@ -763,7 +787,9 @@ export class Game extends Container {
     this.gameOver.reset();
     this.entities.reset();
     this.effectsLayer.reset();
+    this.upgradeBursts.reset();
     this.matchCues.reset();
+    this.waveCleared.reset();
     this.statusLog.reset();
     this.buildBar.reset();
     this.leaveShowdown();
@@ -808,6 +834,7 @@ export class Game extends Container {
     this.auraLayer.setLayout(this.layout);
     this.entities.setLayout(this.layout);
     this.effectsLayer.setLayout(this.layout);
+    this.upgradeBursts.setLayout(this.layout);
     this.hud.setLayout(this.layout);
     this.tabs.setLayout(this.layout);
     this.banner.setLayout(this.layout);
@@ -816,6 +843,7 @@ export class Game extends Container {
     this.gameOver.setLayout(this.layout);
     this.arena.setLayout(this.layout.screen, this.layout.tileSize);
     this.countdown.setLayout(this.layout);
+    this.waveCleared.setLayout(this.layout);
     this.builderSelect.setLayout(this.layout);
     this.home.setLayout(this.layout);
     this.lobbyScreen.setLayout(this.layout);
@@ -999,6 +1027,8 @@ export class Game extends Container {
       });
       this.effectsLayer.render();
     }
+    this.upgradeBursts.observe(lane);
+    this.upgradeBursts.render(deltaMs);
     this.hud.render(view, this.summary, speed);
     this.tabs.render(view, this.watchingTeamId);
     if (connected) this.banner.render(view, this.watchingTeamId);
@@ -1015,6 +1045,8 @@ export class Game extends Container {
     }
     this.abilityCard.render(this.resolveOpenAbility());
     this.toast.update(deltaMs, this.layout);
+    this.waveCleared.observe(view);
+    this.waveCleared.render(view, deltaMs);
     this.showEffectsButton();
     this.recordSolo(view);
     this.gameOver.render(view, this.soloResult);
@@ -1042,6 +1074,7 @@ export class Game extends Container {
       this.auraLayer,
       this.entities,
       this.effectsLayer,
+      this.upgradeBursts,
       this.hud,
       this.tabs,
       this.banner,
@@ -1057,6 +1090,7 @@ export class Game extends Container {
       this.arena.reset();
       this.entities.reset();
       this.effectsLayer.reset();
+      this.upgradeBursts.reset();
       this.selection = null;
       this.pendingUnitDefId = null;
       this.watchingTeamId = null;
@@ -1119,6 +1153,7 @@ export class Game extends Container {
     // air belongs to the lane it was fired in.
     this.entities.reset();
     this.effectsLayer.reset();
+    this.upgradeBursts.reset();
     // Nothing selected in a lane you are only looking at.
     this.selection = null;
     this.pendingUnitDefId = null;

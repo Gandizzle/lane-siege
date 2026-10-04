@@ -28,9 +28,20 @@ import { describeAbility, CONTROL_NOTE } from './abilityText.ts';
 import { label, wrapped } from './text.ts';
 
 /** Inset from the screen edge, and the card's own padding. */
-const MARGIN = 20;
-const PAD = 16;
-const LINE = 15;
+const MARGIN = 16;
+const PAD = 18;
+
+/**
+ * The card's type sizes at a text scale of 1 (layout.ts, `textScaleFor`).
+ * They were 16, 11, 11 and 10, with "tap anywhere to close" at 9 in the muted
+ * colour - a card a player opened in order to READ, set in small print, and
+ * closed by an instruction they could barely see.
+ */
+const TITLE_SIZE = 20;
+const TEXT_SIZE = 15;
+const LINE_SIZE = 14;
+const NOTE_SIZE = 13;
+const CLOSE_SIZE = 14;
 
 export class AbilityCard extends Container {
   private layout: LaneLayout;
@@ -90,66 +101,76 @@ export class AbilityCard extends Container {
 
     const card = describeAbility(ability);
     const screen = this.layout.screen;
-    const width = Math.min(screen.width - MARGIN * 2, 380);
+    const scale = this.layout.textScale;
+    const px = (size: number) => Math.round(size * scale);
+    const width = Math.min(screen.width - MARGIN * 2, Math.round(440 * Math.max(1, scale)));
     const x = (screen.width - width) / 2;
     const inner = width - PAD * 2;
     const controls = ability.effects.some((e) => e.kind === 'control');
 
     // Laid out top down against a measured height, so the box is exactly as
     // tall as what is in it however long the wording turns out.
-    const title = label(card.name, 16, UI.text, '700');
-    const text = wrapped(card.text, 11, UI.textMuted);
+    const title = label(card.name, px(TITLE_SIZE), UI.text, '700');
+    const text = wrapped(card.text, px(TEXT_SIZE), UI.text);
     text.style.wordWrapWidth = inner;
     const lines = card.mechanics.map((line) => {
-      const item = wrapped(`· ${line}`, 11, UI.text);
+      const item = wrapped(`· ${line}`, px(LINE_SIZE), UI.textMuted);
       item.style.wordWrapWidth = inner - 6;
       return item;
     });
-    const note = controls ? wrapped(CONTROL_NOTE, 10, UI.textMuted) : null;
+    const note = controls ? wrapped(CONTROL_NOTE, px(NOTE_SIZE), UI.textMuted) : null;
     if (note) note.style.wordWrapWidth = inner;
-    const dismiss = label('tap anywhere to close', 9, UI.textMuted);
+    // Not a footnote: the one thing to do with the card, said where a button
+    // would be and looking like one.
+    const dismiss = label('Tap anywhere to close', px(CLOSE_SIZE), UI.background, '700');
+    const closeH = Math.round(dismiss.height + 16);
 
+    const gap = px(10);
     let height = PAD;
-    height += 22 + 4;
-    height += text.height + 10;
-    for (const line of lines) height += line.height + 5;
-    if (note) height += 6 + note.height;
-    height += 10 + LINE + PAD - 10;
+    height += title.height + gap;
+    height += text.height + gap;
+    for (const line of lines) height += line.height + px(6);
+    if (note) height += px(6) + note.height;
+    height += gap + closeH + PAD;
 
+    // Taller than the screen only on a very long ability on a very short
+    // screen; it starts at the top then, rather than off it.
     const y = Math.max(MARGIN, (screen.height - height) / 2);
 
     // A scrim over the whole screen: the card is modal, and a tap anywhere
     // outside it has to reach this rather than the board underneath.
     const scrim = new Graphics();
-    scrim.rect(0, 0, screen.width, screen.height).fill({ color: 0x000000, alpha: 0.55 });
+    scrim.rect(0, 0, screen.width, screen.height).fill({ color: 0x000000, alpha: 0.6 });
     const box = new Graphics();
     box
-      .roundRect(x, y, width, height, 12)
+      .roundRect(x, y, width, height, 14)
       .fill({ color: UI.panel })
-      .stroke({ width: 1, color: UI.panelEdge });
+      .stroke({ width: 1.5, color: UI.accent, alpha: 0.7 });
     this.hitArea = new Rectangle(0, 0, screen.width, screen.height);
     this.addChild(scrim, box);
 
     let cursor = y + PAD;
     title.position.set(x + PAD, cursor);
     this.addChild(title);
-    cursor += 22 + 4;
+    cursor += title.height + gap;
 
     text.position.set(x + PAD, cursor);
     this.addChild(text);
-    cursor += text.height + 10;
+    cursor += text.height + gap;
 
     for (const line of lines) {
       line.position.set(x + PAD, cursor);
       this.addChild(line);
-      cursor += line.height + 5;
+      cursor += line.height + px(6);
     }
     if (note) {
-      note.position.set(x + PAD, cursor + 6);
+      note.position.set(x + PAD, cursor + px(6));
       this.addChild(note);
     }
 
-    dismiss.position.set(x + PAD, y + height - PAD - 2);
+    const closeY = y + height - PAD - closeH;
+    box.roundRect(x + PAD, closeY, inner, closeH, 10).fill({ color: UI.accent });
+    dismiss.position.set(x + (width - dismiss.width) / 2, closeY + (closeH - dismiss.height) / 2);
     this.addChild(dismiss);
   }
 }

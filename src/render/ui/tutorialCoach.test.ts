@@ -1,11 +1,12 @@
 /**
- * Where the coach's card goes (tutorialCoach.ts, `placeCard`): off the thing
- * it is pointing at, and never under a button that is drawn over it.
+ * Where the coach's card goes (tutorialCoach.ts, `placeCard`): beside the
+ * thing it is pointing at, off it, and never under a button that is drawn
+ * over it.
  */
 
 import { describe, expect, it } from 'vitest';
 import type { Rect } from '../layout.ts';
-import { placeCard } from './tutorialCoach.ts';
+import { placeCard, wantsArrow } from './tutorialCoach.ts';
 
 const PHONE: Rect = { x: 0, y: 0, width: 390, height: 844 };
 const CARD = { width: 366, height: 140 };
@@ -27,11 +28,35 @@ describe('the coach card', () => {
     expect(at.y).toBeGreaterThan(PHONE.height / 2);
   });
 
-  it('moves to the top when the target is at the bottom', () => {
+  it('sits just above a target at the bottom, not at the far end of the screen', () => {
     const buildBar: Rect = { x: 0, y: 633, width: 390, height: 211 };
     const at = placeCard(PHONE, CARD, buildBar, [MENU, LEGEND]);
     expect(overlaps(cardAt(at), buildBar)).toBe(false);
-    expect(at.y).toBeLessThan(PHONE.height / 2);
+    expect(at.side).toBe('above');
+    expect(buildBar.y - (at.y + CARD.height)).toBeLessThanOrEqual(12);
+  });
+
+  it('sits right under a target near the top', () => {
+    const wallet: Rect = { x: 203, y: 4, width: 175, height: 22 };
+    const at = placeCard(PHONE, CARD, wallet, [MENU, LEGEND]);
+    expect(at.side).toBe('below');
+    expect(overlaps(cardAt(at), wallet)).toBe(false);
+    expect(at.y).toBeLessThan(PHONE.height / 3);
+  });
+
+  it('leaves the gap it is asked for, where the arrow goes', () => {
+    const card: Rect = { x: 130, y: 700, width: 120, height: 80 };
+    const at = placeCard(PHONE, CARD, card, [MENU, LEGEND], 38);
+    expect(at.side).toBe('above');
+    expect(card.y - (at.y + CARD.height)).toBeCloseTo(38, 5);
+  });
+
+  it('goes beside a target on a wide screen when that is nearest', () => {
+    const wide: Rect = { x: 0, y: 0, width: 1280, height: 800 };
+    const tall: Rect = { x: 400, y: 20, width: 300, height: 760 };
+    const at = placeCard(wide, CARD, tall, [MENU, LEGEND]);
+    expect(['left', 'right']).toContain(at.side);
+    expect(overlaps(cardAt(at), tall)).toBe(false);
   });
 
   it('never covers the menu or the legend button, which are drawn over it', () => {
@@ -49,10 +74,23 @@ describe('the coach card', () => {
     }
   });
 
-  it('picks the spot that covers least of a target too big to miss', () => {
-    // The whole lane: either end covers some of it, and the bottom covers less.
-    const lane: Rect = { x: 0, y: 102, width: 390, height: 531 };
+  it('picks the spot that covers least of a target too big to sit beside', () => {
+    // Nearly the whole screen: nowhere beside it fits, so it covers the least.
+    const lane: Rect = { x: 0, y: 40, width: 390, height: 700 };
     const at = placeCard(PHONE, CARD, lane, [MENU, LEGEND]);
+    expect(at.side).toBeNull();
     expect(at.y).toBeGreaterThan(PHONE.height / 2);
+  });
+});
+
+describe('the coach arrow', () => {
+  it('points at anything to tap, and at a small thing to read', () => {
+    const button: Rect = { x: 10, y: 700, width: 120, height: 44 };
+    const lane: Rect = { x: 0, y: 102, width: 390, height: 531 };
+    expect(wantsArrow('tap', lane, PHONE)).toBe(true);
+    expect(wantsArrow('next', button, PHONE)).toBe(true);
+    // A ring round half the screen says enough on its own.
+    expect(wantsArrow('next', lane, PHONE)).toBe(false);
+    expect(wantsArrow('next', null, PHONE)).toBe(false);
   });
 });

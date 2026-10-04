@@ -44,6 +44,7 @@ import type { DefIndex } from './defs.ts';
 import { recomputeUnitBuffs } from './buffs.ts';
 import { waveRng } from './rng.ts';
 import { countLiving, createMonster, freeSpawnPoint, poolCap, poolOf } from './spawn.ts';
+import { emptyTally } from './state.ts';
 import type { EndlessState, Lane, MatchState } from './types.ts';
 import { resolveMonsterStats, type SpawnSpec } from './waves.ts';
 
@@ -124,6 +125,7 @@ export function beginEndless(ctx: Ctx, state: MatchState): void {
   for (const lane of Object.values(state.lanes)) {
     recomputeUnitBuffs(ctx.data, ctx.defs, lane);
     for (const unit of lane.units) unit.damageDealt = 0;
+    lane.waveTally = emptyTally();
   }
 }
 

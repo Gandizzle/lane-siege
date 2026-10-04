@@ -12,7 +12,21 @@
  *           the real thing. A tap anywhere else is swallowed, and makes the ring
  *           flash so it is clear where to go instead.
  *   `free`  Nothing dims and nothing is blocked: watching a wave, closing a
- *           card the player opened. The ring still marks the target.
+ *           card the player opened. The ring still marks the target. (A
+ *           `watch` step is `free` until its moment, then `next`: the runner
+ *           says which, tutorial/runner.ts.)
+ *
+ * THE CARD SITS BESIDE WHAT IT IS ABOUT. Under the target, over it, or to
+ * either side - whichever is nearest and fits - rather than parked at the
+ * bottom of the screen with the target somewhere else entirely. Where there is
+ * an arrow, it sits in the gap between the two, pointing from the words to the
+ * thing. An arrow is drawn for every step that wants a tap, and for a reading
+ * step whose target is small enough that a ring alone is easy to miss (a
+ * number in the stats, a single button).
+ *
+ * The bottom row is ◀ (back over the steps already done, without doing them
+ * again: tutorial/runner.ts), Exit, and Next ▶ - or, on a step that waits for
+ * the player to do something, a line saying what.
  *
  * The blockers are four rectangles round the hole rather than one sheet with a
  * hole cut in it, because Pixi hit-tests a shape's area, not its paint: a
@@ -47,6 +61,10 @@ export type CoachCard =
       mode: StepMode;
       /** The Next button's words, for a step whose Next does something. */
       nextLabel: string;
+      /** There is a step before this one to look back at. */
+      canGoBack: boolean;
+      /** Said where Next would be, on a step with no Next. Empty for nothing. */
+      hint: string;
     }
   | {
       kind: 'complete';
@@ -66,6 +84,8 @@ export interface CoachFrame {
 
 export interface CoachHandlers {
   onNext(): void;
+  /** Look back at the step before (tutorial/runner.ts, `back`). */
+  onBack(): void;
   /** Leave the chapter, for the chapter list. */
   onExit(): void;
   /** On the chapter-complete card: go on. */
@@ -79,11 +99,22 @@ const HOLE_PAD = 6;
 const CARD_PAD = 14;
 const BUTTON_H = 34;
 const EDGE = 12;
+/** Between the card and its target: room for the arrow, or a breath without one. */
+const ARROW_GAP = 38;
+const PLAIN_GAP = 10;
+/** A target at most this share of the screen gets an arrow even on a reading step. */
+const SMALL_TARGET = 0.12;
+
+/** Which side of its target the card sits on. */
+export type Side = 'above' | 'below' | 'left' | 'right';
 
 /**
- * Where the card goes: the spot that covers least of the target, trying the
- * bottom of the screen first (it is where a phone's text is expected), then
- * the top, then the sides. `avoid` is the target, grown by the hole's pad.
+ * Where the card goes: BESIDE the target if it can be - under it, over it, or
+ * to either side, `gap` away, whichever fits on screen, covers nothing kept
+ * clear and is nearest the target - and otherwise, as before, the spot that
+ * covers least of it, trying the bottom of the screen first, then the top,
+ * then the sides. `avoid` is the target, grown by the hole's pad; `side` says
+ * where the card ended up relative to it, null when it is not beside it.
  *
  * `keepClear` is what is drawn OVER the coach - the menu button and the
  * effects legend button - which the card moves out from under rather than
@@ -94,11 +125,56 @@ export function placeCard(
   size: { width: number; height: number },
   avoid: Rect | null,
   keepClear: readonly Rect[] = [],
-): { x: number; y: number } {
+  gap = PLAIN_GAP,
+): { x: number; y: number; side: Side | null } {
   const width = Math.min(size.width, screen.width - EDGE * 2);
-  const across = (x: number, r: Rect) => r.x < x + width && r.x + r.width > x;
+  const box = (x: number, y: number): Rect => ({ x, y, width, height: size.height });
+  const onScreen = (r: Rect) =>
+    r.x >= EDGE - 0.5 &&
+    r.y >= EDGE - 0.5 &&
+    r.x + r.width <= screen.width - EDGE + 0.5 &&
+    r.y + r.height <= screen.height - EDGE + 0.5;
+  const coversKept = (r: Rect) => keepClear.some((k) => overlapArea(r, k) > 0);
+
+  if (avoid) {
+    const clampX = (x: number) => Math.min(Math.max(x, EDGE), screen.width - width - EDGE);
+    const clampY = (y: number) => Math.min(Math.max(y, EDGE), screen.height - size.height - EDGE);
+    const cx = avoid.x + avoid.width / 2;
+    const cy = avoid.y + avoid.height / 2;
+    const beside: { side: Side; x: number; y: number }[] = [
+      { side: 'below', x: clampX(cx - width / 2), y: avoid.y + avoid.height + gap },
+      { side: 'above', x: clampX(cx - width / 2), y: avoid.y - gap - size.height },
+      { side: 'right', x: avoid.x + avoid.width + gap, y: clampY(cy - size.height / 2) },
+      { side: 'left', x: avoid.x - gap - width, y: clampY(cy - size.height / 2) },
+    ];
+    // A button kept clear in the way pushes the card on past it, the same
+    // way: on a phone the card is the screen's width, and just under the top
+    // band is where the legend button sits.
+    for (const at of beside) {
+      for (let pass = 0; pass < keepClear.length; pass++) {
+        const hit = keepClear.find((k) => overlapArea(box(at.x, at.y), k) > 0);
+        if (!hit) break;
+        if (at.side === 'below') at.y = hit.y + hit.height + 6;
+        else if (at.side === 'above') at.y = hit.y - 6 - size.height;
+        else break;
+      }
+    }
+    const distance = (at: { x: number; y: number }) =>
+      Math.hypot(at.x + width / 2 - cx, at.y + size.height / 2 - cy);
+    const fitting = beside
+      .filter((at) => {
+        const r = box(at.x, at.y);
+        return onScreen(r) && !coversKept(r) && overlapArea(r, avoid) === 0;
+      })
+      // Stable, so a tie keeps the order above: under first, as a phone
+      // reader expects.
+      .sort((a, b) => distance(a) - distance(b));
+    if (fitting[0]) return fitting[0];
+  }
+
   // Pushed below whatever is kept clear in the top half, and above whatever
   // is in the bottom half, over the card's own width.
+  const across = (x: number, r: Rect) => r.x < x + width && r.x + r.width > x;
   const topAt = (x: number) =>
     keepClear
       .filter((r) => across(x, r) && r.y < screen.height / 2)
@@ -124,7 +200,7 @@ export function placeCard(
   let best = candidates[0]!;
   let bestCost = Infinity;
   for (const at of candidates) {
-    const card = { x: at.x, y: at.y, width, height: size.height };
+    const card = box(at.x, at.y);
     // Covering a button that is drawn over the card is worse than covering
     // any amount of the target: the button would sit on the words.
     const cost =
@@ -135,7 +211,14 @@ export function placeCard(
       bestCost = cost;
     }
   }
-  return best;
+  return { ...best, side: null };
+}
+
+/** Whether a step pointing at `hole` gets an arrow as well as a ring. */
+export function wantsArrow(mode: StepMode, hole: Rect | null, screen: Rect): boolean {
+  if (!hole) return false;
+  if (mode === 'tap') return true;
+  return mode === 'next' && hole.width * hole.height <= SMALL_TARGET * screen.width * screen.height;
 }
 
 function overlapArea(a: Rect, b: Rect): number {
@@ -168,6 +251,7 @@ export class TutorialCoach extends Container {
   private readonly body: Text;
   private readonly hint: Text;
   private readonly nextButton: PanelButton;
+  private readonly backButton: PanelButton;
   private readonly exitButton: PanelButton;
 
   /** Seconds, for the ring's pulse and the arrow's bob. */
@@ -200,6 +284,9 @@ export class TutorialCoach extends Container {
       if (this.complete) this.handlers.onContinue();
       else this.handlers.onNext();
     });
+    this.backButton = new PanelButton('◀', () => {
+      if (!this.complete) this.handlers.onBack();
+    });
     this.exitButton = new PanelButton(
       'Exit',
       () => {
@@ -219,6 +306,7 @@ export class TutorialCoach extends Container {
       this.body,
       this.hint,
       this.nextButton,
+      this.backButton,
       this.exitButton,
     );
 
@@ -243,14 +331,19 @@ export class TutorialCoach extends Container {
 
     const card = frame.card;
     this.complete = card.kind === 'complete';
-    const mode: StepMode = card.kind === 'complete' ? 'next' : card.mode;
+    // A `watch` step reaches here as `free` or `next` (tutorial/runner.ts);
+    // were one ever passed through, it holds the screen as `free` does.
+    const given: StepMode = card.kind === 'complete' ? 'next' : card.mode;
+    const mode: StepMode = given === 'watch' ? 'free' : given;
     const screen = this.layout.screen;
     const hole = frame.target ? grow(frame.target, HOLE_PAD) : null;
+    const arrow = wantsArrow(mode, hole, screen);
 
     this.drawShade(mode, hole, screen);
     this.placeBlockers(mode, hole, screen);
-    this.drawPointer(mode, hole, screen);
-    this.drawCard(card, hole, screen);
+    // The card first, so the arrow can go in the gap it leaves.
+    const side = this.drawCard(card, hole, screen, arrow);
+    this.drawPointer(mode, hole, screen, arrow, side);
   }
 
   /** Dim the board round the hole; lighter with nothing to single out. */
@@ -284,8 +377,18 @@ export class TutorialCoach extends Container {
     });
   }
 
-  /** The ring round the target, a ripple and an arrow when it wants a tap. */
-  private drawPointer(mode: StepMode, hole: Rect | null, screen: Rect): void {
+  /**
+   * The ring round the target, a ripple when it wants a tap, and an arrow:
+   * in the gap between the card and the target when the card sits beside it,
+   * and otherwise on whichever side has most room.
+   */
+  private drawPointer(
+    mode: StepMode,
+    hole: Rect | null,
+    screen: Rect,
+    arrow: boolean,
+    cardSide: Side | null,
+  ): void {
     this.ring.clear();
     this.arrow.clear();
     if (!hole) return;
@@ -297,32 +400,33 @@ export class TutorialCoach extends Container {
       color: flash > 0 ? UI.selected : UI.accent,
       alpha: mode === 'free' ? 0.45 + 0.3 * pulse : 0.7 + 0.3 * pulse,
     });
-    if (mode !== 'tap') return;
+    if (mode === 'tap') {
+      // A ripple spreading off the hole, over and over: "press here".
+      const phase = (this.clock % 1.2) / 1.2;
+      const spread = 2 + phase * 12;
+      this.ring
+        .roundRect(
+          hole.x - spread,
+          hole.y - spread,
+          hole.width + spread * 2,
+          hole.height + spread * 2,
+          8 + spread,
+        )
+        .stroke({ width: 2, color: UI.accent, alpha: (1 - phase) * 0.6 });
+    }
+    if (!arrow) return;
 
-    // A ripple spreading off the hole, over and over: "press here".
-    const phase = (this.clock % 1.2) / 1.2;
-    const spread = 2 + phase * 12;
-    this.ring
-      .roundRect(
-        hole.x - spread,
-        hole.y - spread,
-        hole.width + spread * 2,
-        hole.height + spread * 2,
-        8 + spread,
-      )
-      .stroke({ width: 2, color: UI.accent, alpha: (1 - phase) * 0.6 });
-
-    // An arrow on whichever side of the target has the most room, pointing at
-    // it and bobbing towards it.
+    // Pointing at the target and bobbing towards it, from the card's side if
+    // the card is beside it, else from the side with most room.
     const room = {
       above: hole.y,
       below: screen.height - (hole.y + hole.height),
       left: hole.x,
       right: screen.width - (hole.x + hole.width),
     };
-    const side = (Object.keys(room) as (keyof typeof room)[]).reduce((a, b) =>
-      room[b] > room[a] ? b : a,
-    );
+    const side =
+      cardSide ??
+      (Object.keys(room) as (keyof typeof room)[]).reduce((a, b) => (room[b] > room[a] ? b : a));
     if (room[side] < 34) return;
     const bob = 4 + 5 * (0.5 + 0.5 * Math.sin(this.clock * Math.PI * 2 * 1.4));
     const cx = hole.x + hole.width / 2;
@@ -348,29 +452,43 @@ export class TutorialCoach extends Container {
       .stroke({ width: 2, color: UI.background, alpha: 0.8 });
   }
 
-  private drawCard(card: CoachCard, hole: Rect | null, screen: Rect): void {
-    const width = Math.min(380, screen.width - EDGE * 2);
+  /** Lay the card out and put it beside the target if it fits; says which side. */
+  private drawCard(card: CoachCard, hole: Rect | null, screen: Rect, arrow: boolean): Side | null {
+    // As large as the rest of the interface on this screen (layout.ts,
+    // `textScaleFor`): on a desktop the card at phone size was a note in a
+    // corner of a very big board.
+    const scale = Math.max(1, this.layout.textScale);
+    const width = Math.min(Math.round(380 * scale), screen.width - EDGE * 2);
     const inner = width - CARD_PAD * 2;
+    this.heading.style.fontSize = Math.round(11 * scale);
+    this.counter.style.fontSize = Math.round(11 * scale);
+    this.body.style.fontSize = Math.round(14 * scale);
+    this.body.style.lineHeight = Math.round(14 * scale) + 4;
+    this.hint.style.fontSize = Math.round(12 * scale);
 
     this.heading.text = card.heading;
     this.counter.text = card.kind === 'step' ? `${card.step} / ${card.steps}` : '';
     this.body.style.wordWrapWidth = inner;
     this.body.text = card.text;
 
-    // What the bottom row holds: Next for a reading step, a reminder of what
-    // to do for the others, and Exit always.
+    // What the bottom row holds: back and Exit always, then Next for a
+    // reading step, or a line saying what to do on the others.
     const wantsNext = card.kind === 'complete' || card.mode === 'next';
-    this.hint.text = card.kind === 'step' && card.mode === 'tap' ? 'Tap the highlighted spot' : '';
+    this.hint.text = card.kind === 'step' ? card.hint : '';
     this.nextButton.visible = wantsNext;
     this.hint.visible = !wantsNext && this.hint.text !== '';
+    this.backButton.visible = card.kind === 'step';
 
-    const bodyTop = CARD_PAD + 20;
+    const bodyTop = CARD_PAD + this.heading.height + 6;
     const buttonsTop = bodyTop + this.body.height + 12;
     const height = buttonsTop + BUTTON_H + CARD_PAD;
-    const at = placeCard(screen, { width, height }, hole, [
-      this.layout.menuButton,
-      this.layout.legendButton,
-    ]);
+    const at = placeCard(
+      screen,
+      { width, height },
+      hole,
+      [this.layout.menuButton, this.layout.legendButton],
+      arrow ? ARROW_GAP : PLAIN_GAP,
+    );
 
     this.card.position.set(at.x, at.y);
     this.card.hitArea = new Rectangle(0, 0, width, height);
@@ -384,14 +502,31 @@ export class TutorialCoach extends Container {
     this.counter.position.set(width - CARD_PAD - this.counter.width, CARD_PAD);
     this.body.position.set(CARD_PAD, bodyTop);
 
+    // ◀  Exit  ...  Next ▶
+    const backWidth = card.kind === 'step' ? 44 : 0;
+    if (card.kind === 'step') {
+      this.backButton.place(CARD_PAD, buttonsTop, backWidth, BUTTON_H);
+      this.backButton.set('◀', 'plain', card.canGoBack);
+    }
+    const exitX = CARD_PAD + (backWidth > 0 ? backWidth + 8 : 0);
     const exitWidth = card.kind === 'complete' ? 110 : 64;
-    this.exitButton.place(CARD_PAD, buttonsTop, exitWidth, BUTTON_H);
+    this.exitButton.place(exitX, buttonsTop, exitWidth, BUTTON_H);
     this.exitButton.set(card.kind === 'complete' ? 'Chapters' : 'Exit', 'plain');
 
-    const nextWidth = Math.min(inner - exitWidth - 10, card.kind === 'complete' ? 200 : 150);
+    const nextWidth = Math.min(
+      width - CARD_PAD - (exitX + exitWidth + 10),
+      card.kind === 'complete' ? 200 : 160,
+    );
     this.nextButton.place(width - CARD_PAD - nextWidth, buttonsTop, nextWidth, BUTTON_H);
-    this.nextButton.set(card.kind === 'complete' ? card.continueLabel : card.nextLabel, 'primary');
-    this.hint.position.set(width - CARD_PAD - this.hint.width, buttonsTop + 9);
+    this.nextButton.set(
+      card.kind === 'complete' ? card.continueLabel : `${card.nextLabel} ▶`,
+      'primary',
+    );
+    this.hint.position.set(
+      width - CARD_PAD - this.hint.width,
+      buttonsTop + (BUTTON_H - this.hint.height) / 2,
+    );
+    return at.side;
   }
 }
 

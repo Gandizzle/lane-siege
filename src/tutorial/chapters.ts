@@ -129,14 +129,41 @@ function waveOver(view: MatchView): boolean {
 
 /**
  * The first opponent still fighting, counted the way the tabs show them (by
- * team id, opponentTabs.ts); -1 if none is, or none can be seen.
+ * team id, opponentTabs.ts); -1 if none is (`OpponentView.fighting`).
  */
 export function stillFighting(view: MatchView): number {
   const ordered = [...view.opponents].sort((a, b) => a.teamId.localeCompare(b.teamId));
-  return ordered.findIndex((o) => {
-    const lane = view.watching[o.teamId];
-    return !o.eliminated && !!lane && lane.monsters.length + lane.reserveCount > 0;
-  });
+  return ordered.findIndex((o) => o.fighting);
+}
+
+/** A monster in your lane is on fire. */
+function burning(view: MatchView): boolean {
+  return (view.lane?.monsters ?? []).some((m) => hasMark(m.statusMarks ?? 0, 'burning'));
+}
+
+/**
+ * What the wave just fought paid, and where it came from: the kills your line
+ * made and the gold they paid, and the ones your fortress had to finish, which
+ * paid nothing (sim/types.ts, \`WaveTally\`).
+ */
+export function waveEarnings(data: GameData, view: MatchView): string {
+  const tally = view.lane?.economy?.waveTally;
+  const kills = tally?.kills ?? 0;
+  const walled = tally?.fortressKills ?? 0;
+  const gold = Math.round(tally?.bounty ?? 0);
+  const missed = Math.round(tally?.missed ?? 0);
+  const monsters = (n: number) => `${n} ${n === 1 ? 'monster' : 'monsters'}`;
+  const earned =
+    `Wave cleared! Your units killed ${monsters(kills)}, and that earned you ${gold} gold. ` +
+    `A wave is worth ${data.economy.waveBounty} gold in all, split between its monsters, and ` +
+    'each one your units kill pays you its share.';
+  const wall =
+    walled > 0
+      ? ` ${capitalised(monsters(walled))} got through, and your fortress finished ` +
+        `${walled === 1 ? 'it' : 'them'} off: ${walled === 1 ? 'that pays' : 'those pay'} ` +
+        `nothing, so they cost you ${missed} gold.`
+      : ' Any your fortress has to finish off pays you nothing.';
+  return `${earned}${wall} Units that fell are back, fully healed.`;
 }
 
 /** The armour most of the wave on the preview wears. */
@@ -269,9 +296,8 @@ const FIRST_LINE: Chapter = {
       target: { kind: 'unitCard', defId: FIRST_UNIT },
       text: (data) =>
         `Tap the ${unitName(data, FIRST_UNIT)}: cheap, and it shoots from a few squares back. ` +
-        'Each card ' +
-        'shows the price in gold and supply, and whether the unit is strong or weak against the ' +
-        'coming wave.',
+        'Each card shows the price in gold and supply, whether the unit fights up close (melee) ' +
+        'or from a distance (ranged), and whether it is strong or weak against the coming wave.',
       done: (c) => c.ui.selection?.kind === 'unitDef' && c.ui.selection.unitDefId === FIRST_UNIT,
     },
     {
@@ -306,8 +332,9 @@ const FIRST_LINE: Chapter = {
         'the wave waits for you: start it when you are ready.',
     },
     {
-      mode: 'free',
-      run: true,
+      // Watched, not skipped: the match runs while the player reads, and
+      // when the lane is clear it holds for them to finish and tap Next.
+      mode: 'watch',
       enter: startWave,
       target: { kind: 'lane' },
       text:
@@ -318,24 +345,23 @@ const FIRST_LINE: Chapter = {
     {
       // Your lane can be empty long before the wave is over, and without a
       // word here the tutorial just looks stuck.
-      mode: 'free',
-      run: true,
+      mode: 'watch',
       target: (c) => {
         const index = stillFighting(c.view);
         return index >= 0 ? { kind: 'opponentTab', index } : { kind: 'opponentTabs' };
       },
-      text:
-        'Your lane is clear! A wave only ends once EVERY lane has beaten it, so now you wait for ' +
-        "the others. Tap a player's tab to watch how their fight is going.",
+      text: (_data, view) =>
+        waveOver(view)
+          ? "Your lane is clear, and so is everyone else's: a wave only ends once EVERY lane " +
+            'has beaten it, and this one is over.'
+          : 'Your lane is clear! A wave only ends once EVERY lane has beaten it, so now you wait ' +
+            "for the others. Tap a player's tab to watch how their fight is going.",
       done: (c) => waveOver(c.view),
     },
     {
       mode: 'next',
       target: { kind: 'hudWallet' },
-      text: (data) =>
-        `Wave cleared! Every kill paid gold: a wave is worth ${data.economy.waveBounty} in all, ` +
-        'split between its monsters. The ones your fortress has to finish pay you nothing, so a ' +
-        'line that holds is a line that earns. Units that fell are back, fully healed.',
+      text: (data, view) => waveEarnings(data, view),
     },
     {
       mode: 'next',
@@ -359,9 +385,9 @@ const UPGRADES: Chapter = {
     {
       mode: 'next',
       target: { kind: 'buildGrid' },
-      text:
-        'Here is a line of four, and some gold to spend. Units can be made stronger where they ' +
-        'stand, which is often better than building more.',
+      text: (data) =>
+        `Here is a line of four ${unitName(data, 'pledge')}s, and some gold to spend. Units can ` +
+        'be made stronger where they stand, which is often better than building more.',
     },
     {
       mode: 'tap',
@@ -371,17 +397,17 @@ const UPGRADES: Chapter = {
     },
     {
       mode: 'next',
-      target: { kind: 'barPanel' },
+      target: { kind: 'stat', key: 'hp' },
       text:
-        'This panel describes the unit: its health, damage and attack speed. An arrow shows what ' +
-        'an upgrade would change.',
+        'This panel describes the unit: its health, damage and attack speed. Where a number has ' +
+        'an arrow, the number after it is what an upgrade would make it.',
     },
     {
       mode: 'tap',
       target: { kind: 'abilityChips' },
       text:
         'Every unit has an ability, and it is what makes one unit play differently from the ' +
-        'next - these Pledges hit harder side by side. Tap its name to read what it does.',
+        'next - these Pledges hit harder side by side. Tap the ability to read what it does.',
       done: (c) => c.ui.abilityOpen,
     },
     {
@@ -393,17 +419,15 @@ const UPGRADES: Chapter = {
     {
       mode: 'tap',
       target: selectedOr({ kind: 'upgrade' }),
-      text: (data) =>
-        `Now tap Upgrade. It costs ${unitCost(data, 'pledge_2')} gold, and the unit gets much ` +
-        'stronger for it: an upgrade usually beats building another one.',
+      text: 'Upgrading usually beats building another of the same unit.',
       done: (c) => ownUnits(c.view).some((u) => u.defId === 'pledge_2'),
     },
     {
       mode: 'next',
-      target: { kind: 'barPanel' },
-      text:
-        'It is a Mark II now: see the extra pip under it. Units go up to Mark III, and the top ' +
-        'mark unlocks a second ability.',
+      target: { kind: 'unit', index: 1 },
+      text: (data) =>
+        `It is a ${unitName(data, 'pledge_2')} now: see the dot under it. One more upgrade ` +
+        `makes it an ${unitName(data, 'pledge_3')}, with two dots and a second ability.`,
     },
     {
       mode: 'tap',
@@ -416,9 +440,133 @@ const UPGRADES: Chapter = {
     {
       mode: 'next',
       target: { kind: 'hudWallet' },
+      text: 'All of it came back, the upgrade too.',
+    },
+  ],
+};
+
+/** The first rung's unit, the second's... of the roster a chapter plays, by supply. */
+function bySupply(data: GameData, builderId: string): { name: string; supply: number }[] {
+  const seen = new Set<number>();
+  return buildableUnits(data, builderId)
+    .map((u) => ({ name: u.name, supply: u.supplyCost ?? 0 }))
+    .sort((a, b) => a.supply - b.supply)
+    .filter((u) => (seen.has(u.supply) ? false : (seen.add(u.supply), true)));
+}
+
+/**
+ * Supply, shown rather than told: the figure, what it allows, buying more of
+ * it, and then that a bigger unit - and a second upgrade - take more of it.
+ */
+const SUPPLY: Chapter = {
+  id: 'supply',
+  title: 'Supply',
+  summary: 'How big your army can be, and how to grow it',
+  builderId: 'ironvow',
+  setup: (scene) => {
+    buildLine(scene, 'pledge', [2, 3, 4, 5]);
+    setWallet(scene, { gold: 300 });
+  },
+  steps: [
+    {
+      mode: 'next',
+      target: { kind: 'hudSupply' },
+      text: (data, view) => {
+        const cap = view.lane?.economy?.supplyCap ?? data.economy.supply.capBase ?? 0;
+        const used = view.lane?.economy?.supplyUsed ?? 0;
+        const pledge = unitName(data, 'pledge');
+        return (
+          `This figure is your supply: how big your army can be. You have ${cap}, and a ` +
+          `${pledge} takes 1, so you could field up to ${cap} ${pledge}s. These four use ${used}.`
+        );
+      },
+    },
+    {
+      mode: 'tap',
+      target: { kind: 'tab', tab: 'fort' },
+      text: 'To field more, raise the cap. Open the Fort tab.',
+      done: (c) => c.ui.view === 'fort',
+    },
+    {
+      mode: 'tap',
+      target: { kind: 'supplyCap' },
+      text: (data) => {
+        const first = data.economy.supply.capUpgrades[0];
+        const more = (first?.value ?? 0) - (data.economy.supply.capBase ?? 0);
+        return `Tap Supply Cap: ${first?.goldCost ?? 0} gold for ${more} more supply.`;
+      },
+      done: (c) => (c.view.lane?.economy?.supplyCap ?? 0) > (c.data.economy.supply.capBase ?? 0),
+    },
+    {
+      mode: 'next',
+      target: { kind: 'hudSupply' },
+      text: (data, view) => {
+        const cap = view.lane?.economy?.supplyCap ?? 0;
+        const more = cap - (data.economy.supply.capBase ?? 0);
+        return (
+          `${cap} now: room for ${more} more ${unitName(data, 'pledge')}s. You can keep raising ` +
+          'it whenever your army fills up.'
+        );
+      },
+    },
+    {
+      mode: 'tap',
+      target: { kind: 'tab', tab: 'build' },
+      text: 'Not every unit takes 1 supply. Open the Build tab.',
+      done: (c) => c.ui.view === 'build',
+    },
+    {
+      mode: 'next',
+      target: (c) => {
+        const top = bySupply(c.data, 'ironvow').at(-1);
+        const def = buildableUnits(c.data, 'ironvow').find((u) => u.name === top?.name);
+        return def ? { kind: 'unitCard', defId: def.id } : { kind: 'barPanel' };
+      },
+      text: (data, view) => {
+        const cap = view.lane?.economy?.supplyCap ?? data.economy.supply.capBase ?? 0;
+        const tiers = bySupply(data, 'ironvow');
+        const top = tiers.at(-1)!;
+        const each = listed(tiers.map((u) => `a ${u.name} ${u.supply}`));
+        return (
+          `The number beside the figure on each card is the supply it takes: ${each}. So ` +
+          `${cap} supply holds ${cap} ${tiers[0]!.name}s, but only ${Math.floor(cap / top.supply)} ` +
+          `${top.name}s.`
+        );
+      },
+    },
+    {
+      mode: 'tap',
+      // One of the line, upgraded once already, so the second upgrade - the
+      // one that takes supply - is the next one on its button.
+      enter: (scene) =>
+        scene.stage((state, ctx) => {
+          const lane = state.lanes[scene.teamId];
+          const unit = lane?.units[0];
+          if (!lane || !unit) return;
+          const gold = lane.economy.gold;
+          lane.economy.gold = 1_000_000;
+          applyCommand(ctx, state, { kind: 'upgradeUnit', teamId: scene.teamId, unitId: unit.id });
+          lane.economy.gold = gold;
+        }),
+      target: { kind: 'unit', index: 0 },
       text: (data) =>
-        `All of it came back. One more thing: every unit uses supply, and you start with ` +
-        `${data.economy.supply.capBase}. When you need more, buy it in the Fort tab.`,
+        `Upgrades can take supply too. This one is a ${unitName(data, 'pledge_2')} already: ` +
+        'tap it.',
+      done: (c) => c.ui.selection?.kind === 'placedUnit',
+    },
+    {
+      mode: 'next',
+      target: selectedOr({ kind: 'upgrade' }),
+      text: (data) =>
+        `Its next upgrade, to ${unitName(data, 'pledge_3')}, takes ` +
+        `${unitSupply(data, 'pledge_3')} more supply: it says so beside the price. A unit's ` +
+        'first upgrade never takes supply; its second takes as much again as the unit itself.',
+    },
+    {
+      mode: 'next',
+      text:
+        'So keep an eye on the figure as you build. When it is full, raise the cap in the Fort ' +
+        'tab, or upgrade the units you already have.',
     },
   ],
 };
@@ -428,7 +576,7 @@ const COUNTERS_BUILDER = 'ironvow';
 const COUNTERS: Chapter = {
   id: 'counters',
   title: 'Counters',
-  summary: 'Damage types, armour and the right tool',
+  summary: 'Damage types, armour and the right unit',
   builderId: COUNTERS_BUILDER,
   setup: (scene) => {
     setWallet(scene, { gold: 400 });
@@ -444,7 +592,7 @@ const COUNTERS: Chapter = {
       mode: 'next',
       text:
         'Not every unit is good against every monster. This chapter is about bringing the right ' +
-        'tool for the wave.',
+        'unit for the wave.',
     },
     {
       mode: 'next',
@@ -518,8 +666,8 @@ const COUNTERS: Chapter = {
       mode: 'tap',
       target: { kind: 'tab', tab: 'tech' },
       text:
-        'Tech is for the long run: it makes every unit of one damage type hit harder, whatever ' +
-        'the wave, for the rest of the match. Open the Tech tab.',
+        'Upgrading a unit makes that one unit stronger. Tech makes a whole KIND of unit stronger ' +
+        'at once, and it lasts all match. Open the Tech tab.',
       done: (c) => c.ui.view === 'tech',
     },
     {
@@ -532,12 +680,32 @@ const COUNTERS: Chapter = {
           .filter((u) => u.damageType === 'impact')
           .map((u) => u.name);
         return (
-          `${listed(impact)} all deal impact damage. Buy Impact: ${first?.goldCost ?? 0} gold ` +
-          `for +${Math.round((first?.value ?? 0) * 100)}% damage on every one you own, now and ` +
-          'later.'
+          'There is a button for each damage type. Buying one makes EVERY unit of that type deal ' +
+          `more damage. ${listed(impact)} deal impact damage, so buy Impact: ` +
+          `${first?.goldCost ?? 0} gold for +${Math.round((first?.value ?? 0) * 100)}% damage on ` +
+          'all of them.'
         );
       },
       done: (c) => (c.view.lane?.economy?.tech['dmg_impact'] ?? 0) >= 1,
+    },
+    {
+      mode: 'next',
+      target: { kind: 'tech', trackId: 'dmg_impact' },
+      text: (data) => {
+        const tracks = data.economy.tech.tracks;
+        const impact = tracks.find((t) => t.id === 'dmg_impact');
+        const pct = (value: number | null | undefined) => Math.round((value ?? 0) * 100);
+        const plating = tracks.find((t) => t.id === 'def_hp');
+        const cadence = tracks.find((t) => t.id === 'def_speed');
+        return (
+          `Done. Every impact unit now deals +${pct(impact?.levels[0]?.value)}% damage: the ones ` +
+          'on the board, the ones you build later, and the ones that fall and come back. Each ' +
+          `level adds more, up to +${pct(impact?.levels.at(-1)?.value)}%. ` +
+          `${plating?.name ?? 'Plating'} and ${cadence?.name ?? 'Cadence'} work the same way for ` +
+          `every unit, whatever its type: +${pct(plating?.levels[0]?.value)}% health, and ` +
+          `+${pct(cadence?.levels[0]?.value)}% attack speed.`
+        );
+      },
     },
     {
       mode: 'next',
@@ -629,8 +797,8 @@ const SENDS: Chapter = {
       mode: 'next',
       target: { kind: 'send', sendId: 'swarmling' },
       text:
-        'The shade sweeping across the card is its cooldown. Press and hold a card for a second to ' +
-        'auto-send it whenever it is ready; hold again to stop.',
+        'Each send has a cooldown. Press and hold a card for a second to auto-send it; hold again ' +
+        'to stop.',
     },
     {
       mode: 'next',
@@ -650,8 +818,8 @@ const SENDS: Chapter = {
           });
         }),
       text:
-        'The other players send at you too. When they do, a warning shows up here, and what they ' +
-        'sent joins your next wave.',
+        'The other players can send monsters at you too. When they do, a warning shows up here. ' +
+        'Those monsters are added to the next wave you fight, on top of its usual monsters.',
     },
   ],
 };
@@ -671,16 +839,19 @@ const THE_BATTLE: Chapter = {
       nextLabel: 'Start the wave',
       text:
         "Last chapter: reading a fight, and how a match ends. This line is Pyre's Embers, which " +
-        'set whatever they hit on fire.',
+        'set their targets on fire.',
     },
     {
-      mode: 'free',
-      run: true,
+      // Watched, not skipped: when the first monster catches, the match holds
+      // so the burning one is still there to be pointed at.
+      mode: 'watch',
       enter: startWave,
       target: { kind: 'lane' },
-      text: 'Watch the monsters as they reach the Embers.',
-      done: (c) =>
-        (c.view.lane?.monsters ?? []).some((m) => hasMark(m.statusMarks ?? 0, 'burning')),
+      text: (_data, view) =>
+        burning(view)
+          ? 'There: one of them has caught fire.'
+          : 'Watch the monsters as they reach the Embers.',
+      done: (c) => burning(c.view),
     },
     {
       mode: 'next',
@@ -728,7 +899,7 @@ const THE_BATTLE: Chapter = {
     {
       mode: 'next',
       text: (data) =>
-        'If your fortress falls you are out, though you can stay and watch. Survive all ' +
+        'If your fortress falls, you are out (though you can stay and watch). Survive all ' +
         `${data.waves.showdown.afterWave} waves and every army left marches into one arena for ` +
         'the Final Showdown: the last army standing wins.',
     },
@@ -745,6 +916,7 @@ export const CHAPTERS: readonly Chapter[] = [
   THE_LANE,
   FIRST_LINE,
   UPGRADES,
+  SUPPLY,
   COUNTERS,
   SENDS,
   THE_BATTLE,

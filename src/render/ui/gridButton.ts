@@ -92,6 +92,10 @@ export class GridButton extends Container {
   /** The lines' sizes and the inset, from the last layout (`lineSizes`). */
   private sizes = { title: TITLE_SIZE, detail: DETAIL_SIZE, note: NOTE_SIZE, pad: 6 };
   private swatchSize = 14;
+  /** A body in the corner is drawn larger than a colour chip: it is a shape to learn. */
+  private bodySize = 22;
+  /** The size of whatever is in the corner now, 0 for nothing. */
+  private cornerSize = 0;
   private hasSwatch = false;
   /** Whether the third line has room under the other two. */
   private noteFits = true;
@@ -228,6 +232,7 @@ export class GridButton extends Container {
     this.detailMore.setFontSize(detail);
     this.note.setFontSize(note);
     this.swatchSize = Math.round(Math.min(14 * textScale, height * 0.24));
+    this.bodySize = Math.round(Math.min(24 * textScale, height * 0.38, width * 0.26));
     this.titleKey = '';
     this.inlineKey = '';
 
@@ -309,9 +314,11 @@ export class GridButton extends Container {
   setSwatch(mark: number | EntityStyle | null): void {
     this.swatch.clear();
     this.hasSwatch = mark !== null;
+    this.cornerSize = 0;
     if (mark === null) return;
 
-    const size = this.swatchSize;
+    const size = typeof mark === 'number' ? this.swatchSize : this.bodySize;
+    this.cornerSize = size;
     const top = this.sizes.pad + 1;
     if (typeof mark === 'number') {
       this.swatch.roundRect(this.w - size - 8, top, size, size, 3).fill({ color: mark });
@@ -398,7 +405,7 @@ export class GridButton extends Container {
       const key = `${opts.title}|${opts.shortTitle ?? ''}|${opts.detail}|${room}|${this.hasSwatch}`;
       if (key !== this.inlineKey) {
         this.inlineKey = key;
-        const swatch = this.hasSwatch ? this.swatchSize + 6 : 0;
+        const swatch = this.hasSwatch ? this.cornerSize + 6 : 0;
         this.detail.set(opts.detail, room - swatch);
         const price = this.detail.width;
         this.fitTitle(opts.title, opts.shortTitle, room - swatch - price - 8);
@@ -414,7 +421,7 @@ export class GridButton extends Container {
       this.detailMore.visible = false;
     } else {
       // The name does not run under the swatch in the corner.
-      this.fitTitle(opts.title, opts.shortTitle, room - (this.hasSwatch ? this.swatchSize + 6 : 0));
+      this.fitTitle(opts.title, opts.shortTitle, room - (this.hasSwatch ? this.cornerSize + 6 : 0));
       this.title.x = inset;
       this.title.y = this.sizes.pad;
     }

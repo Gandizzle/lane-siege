@@ -119,6 +119,9 @@ class Player {
       case 'watchBack':
         this.ui.watching = null;
         return;
+      case 'supplyCap':
+        this.transport.submit({ kind: 'buySupply', teamId });
+        return;
       default:
         throw new Error(`nothing to tap at ${target.kind}`);
     }
@@ -172,6 +175,20 @@ function play(chapterIndex: number): {
 
     if (step.mode === 'next') {
       runner.next();
+    } else if (step.mode === 'watch') {
+      // The match runs until the moment comes; then it holds, and only Next
+      // moves on - however long the player takes to read.
+      for (let tick = 0; tick < MAX_RUN_TICKS && runner.mode !== 'next'; tick++) {
+        expect(runner.holds).toBe(false);
+        transport.update(MS_PER_TICK);
+        runner.update(player.view, player.ui, MS_PER_TICK / 1000);
+        expect(runner.stepIndex).toBe(at);
+      }
+      if (runner.mode !== 'next') throw new Error(`${chapter.id} step ${at} never came`);
+      expect(runner.holds).toBe(true);
+      said.set(at, runner.text(player.view));
+      runner.next();
+      continue;
     } else if (step.run) {
       for (let tick = 0; tick < MAX_RUN_TICKS && runner.stepIndex === at; tick++) {
         transport.update(MS_PER_TICK);
@@ -284,6 +301,79 @@ describe('the tutorial', () => {
     expect(said.has(chart)).toBe(true);
     const weapon = [...said.values()].find((text) => text.includes('switch the fortress weapon'));
     expect(weapon).toMatch(/hits \w+ for ×\d/);
+  });
+
+  it('never moves past a watched moment by itself', () => {
+    // The playtest complaint: two cards in the first wave skipped themselves
+    // before the player had finished reading. A watched step waits for Next.
+    const chapter = CHAPTERS.find((c) => c.id === 'build')!;
+    const transport = tutorialMatch(data, chapter, 'Tester');
+    const runner = new TutorialRunner(chapter, sceneOf(data, transport));
+    runner.begin();
+    const watched = chapter.steps.findIndex((step) => step.mode === 'watch');
+    expect(watched).toBeGreaterThan(0);
+    // Up to it the way a player would: tap what is pointed at, Next the rest.
+    const player = new Player(transport);
+    const ui = player.ui;
+    while (runner.stepIndex < watched) {
+      if (runner.step!.mode === 'next') runner.next();
+      else player.tap(runner.target(player.view, ui)!);
+      runner.update(player.view, ui, 0);
+    }
+    // The game only runs the match while the coach is not holding it.
+    for (let tick = 0; tick < MAX_RUN_TICKS; tick++) {
+      if (!runner.holds) transport.update(MS_PER_TICK);
+      runner.update(transport.view()!, ui, runner.holds ? 0 : MS_PER_TICK / 1000);
+    }
+    // Long after the lane cleared, it is still on the same card, held still.
+    expect(runner.stepIndex).toBe(watched);
+    expect(runner.mode).toBe('next');
+    expect(runner.holds).toBe(true);
+    runner.next();
+    expect(runner.stepIndex).toBe(watched + 1);
+  });
+
+  it('looks back over steps without doing them again, and comes forward to the same place', () => {
+    const chapter = CHAPTERS.find((c) => c.id === 'upgrade')!;
+    const transport = tutorialMatch(data, chapter, 'Tester');
+    let entered = 0;
+    const runner = new TutorialRunner(chapter, sceneOf(data, transport), () => entered++);
+    runner.begin();
+    runner.next();
+    const live = runner.stepIndex;
+    expect(runner.canGoBack).toBe(true);
+    const before = { entered, gold: transport.view()!.lane!.economy!.gold };
+
+    runner.back();
+    expect(runner.stepIndex).toBe(live - 1);
+    expect(runner.reviewing).toBe(true);
+    expect(runner.mode).toBe('next');
+    expect(runner.holds).toBe(true);
+    expect(runner.canGoBack).toBe(false);
+    // Looking back changed nothing: no step began again, nothing was staged.
+    runner.next();
+    expect(runner.stepIndex).toBe(live);
+    expect(runner.reviewing).toBe(false);
+    expect(entered).toBe(before.entered);
+    expect(transport.view()!.lane!.economy!.gold).toBe(before.gold);
+    // And the live step is live again: a tap step waits for its tap.
+    expect(runner.mode).toBe(chapter.steps[live]!.mode);
+  });
+
+  it('teaches supply by doing: the cap goes up, and a second upgrade asks for more', () => {
+    const { view, said } = play(CHAPTERS.findIndex((c) => c.id === 'supply'));
+    expect(view.lane!.economy!.supplyCap).toBeGreaterThan(data.economy.supply.capBase ?? 0);
+    expect([...said.values()].some((text) => /holds \d+ Pledges, but only \d+/.test(text))).toBe(
+      true,
+    );
+    expect([...said.values()].some((text) => text.includes('more supply'))).toBe(true);
+  });
+
+  it('says what the first wave paid, and what the fortress kills cost', () => {
+    const { said } = play(CHAPTERS.findIndex((c) => c.id === 'build'));
+    const paid = [...said.values()].find((text) => text.startsWith('Wave cleared!'))!;
+    expect(paid).toMatch(/killed \d+ monsters?, and that earned you \d+ gold/);
+    expect(paid).toMatch(/pays you nothing|cost you \d+ gold/);
   });
 
   it('says which Fort upgrades cost gems and which cost gold', () => {

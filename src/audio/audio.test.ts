@@ -83,6 +83,7 @@ function lane(overrides: Partial<LaneView> = {}): LaneView {
       tech: {},
       upgrades: {},
       sendCooldowns: {},
+      waveTally: { kills: 0, fortressKills: 0, bounty: 0, missed: 0 },
     },
     reserveCount: 0,
     reserveSends: 0,
@@ -120,6 +121,7 @@ function match(
         fortressMaxHp: 1000,
         watching: false,
         visionTicksLeft: 0,
+        fighting: false,
       },
     ],
     watching: {},
@@ -392,8 +394,31 @@ describe('the match and your own lane', () => {
   });
 
   it('hears a wave start and a wave beaten', () => {
-    expect(heard(match({ phase: 'build' }), match({ phase: 'combat' }))).toEqual(['wave.start']);
+    // A wave walks in with its monsters: a lane empty from the first frame
+    // would read as beaten already.
+    const walkingIn = match({ phase: 'combat' }, { monsters: [body(9, 'grub')] });
+    expect(heard(match({ phase: 'build' }), walkingIn)).toEqual(['wave.start']);
     expect(heard(match({ phase: 'combat' }), match({ phase: 'build' }))).toEqual(['wave.cleared']);
+  });
+
+  it('chimes when YOUR lane is clear, not again when the wave ends after it', () => {
+    // Your lane is usually clear long before the last lane finishes: the
+    // chime goes with the card that celebrates it (ui/waveCleared.ts).
+    const cues = new MatchCues();
+    const fighting = match({ phase: 'combat' }, { monsters: [body(9, 'grub')] });
+    const clear = match({ phase: 'combat' });
+    const over = match({ phase: 'build', wave: 1 });
+    cues.observe(fighting);
+    expect(cues.observe(clear)).toEqual(['wave.cleared']);
+    expect(cues.observe(clear)).toEqual([]);
+    expect(cues.observe(over)).toEqual([]);
+  });
+
+  it('does not chime for a lane emptied by its fortress falling', () => {
+    const cues = new MatchCues();
+    cues.observe(match({ phase: 'combat' }, { monsters: [body(9, 'grub')] }));
+    const fallen = match({ phase: 'combat', eliminated: true });
+    expect(cues.observe(fallen)).not.toContain('wave.cleared');
   });
 
   it('hears a unit placed, upgraded and sold', () => {

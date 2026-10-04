@@ -69,6 +69,7 @@ import type {
   TeamId,
   UnitSpend,
   Vec2,
+  WaveTally,
 } from './types.ts';
 
 /**
@@ -210,6 +211,12 @@ export interface EconomyView {
   upgrades: Record<string, number>;
   /** Ticks before each send can be bought again. Absent is ready (apply.ts). */
   sendCooldowns: Record<string, number>;
+  /**
+   * What the wave being fought - or, in a build phase, the one just fought -
+   * has paid so far: kills by your line and by your fortress, and the gold
+   * each side of that came to (types.ts, `WaveTally`).
+   */
+  waveTally: WaveTally;
 }
 
 export interface LaneView {
@@ -289,6 +296,13 @@ export interface OpponentView {
   watching: boolean;
   /** Ticks of bought sight left, 0 when none. */
   visionTicksLeft: number;
+  /**
+   * Still fighting the wave: in combat, in the match, with monsters on the
+   * field or still to come. Public whatever can be seen of the lane - the wave
+   * ending says the same thing a moment later, and "who are we waiting on" is
+   * what a player with a clear lane wants to know (the wave-cleared card).
+   */
+  fighting: boolean;
 }
 
 /** One army in the Final Showdown, as everybody sees it (§3.3, replaced). */
@@ -498,6 +512,7 @@ function laneView(ctx: SimContext, lane: Lane, own: boolean): LaneView {
           tech: { ...lane.economy.tech },
           upgrades: { ...lane.fortress.upgrades },
           sendCooldowns: { ...lane.sendCooldowns },
+          waveTally: { ...lane.waveTally },
         }
       : null,
     reserveCount: lane.reserve.length,
@@ -576,6 +591,12 @@ export function sendsOpenIn(view: Pick<MatchView, 'phase'>): boolean {
   return view.phase !== 'showdown';
 }
 
+/** In combat, in the match, and with monsters on the field or still to come (`OpponentView.fighting`). */
+function stillFighting(state: MatchState, eliminated: boolean, lane: Lane | undefined): boolean {
+  if (state.phase !== 'combat' || eliminated || !lane) return false;
+  return lane.reserve.length > 0 || lane.monsters.some((m) => m.alive);
+}
+
 /**
  * Everything `teamId` is allowed to know about the match right now.
  *
@@ -623,6 +644,7 @@ export function viewFor(
       fortressMaxHp: lane ? lane.fortress.maxHp : 0,
       watching: canWatch,
       visionTicksLeft,
+      fighting: stillFighting(state, team.eliminated, lane),
     });
 
     if (canWatch && lane) watching[team.id] = laneView(ctx, lane, false);

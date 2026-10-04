@@ -12,6 +12,7 @@
 import type { DamageType, GameData } from '../data/schema.ts';
 import type { MatchState, MatchView, SimContext, StatusMark } from '../sim/index.ts';
 import type { Selection, Tab, View } from '../render/ui/buildBar.ts';
+import type { StatKey } from '../render/ui/unitStats.ts';
 
 /** Something on screen the coach can point at. */
 export type Target =
@@ -29,6 +30,8 @@ export type Target =
   // The top band.
   | { kind: 'hudPhase' }
   | { kind: 'hudWallet' }
+  /** The supply figure alone: used of cap. */
+  | { kind: 'hudSupply' }
   | { kind: 'hudIncome' }
   | { kind: 'hudIncoming' }
   | { kind: 'hudNotice' }
@@ -43,6 +46,10 @@ export type Target =
   | { kind: 'tab'; tab: Tab }
   | { kind: 'unitCard'; defId: string }
   | { kind: 'abilityChips' }
+  /** One number on the selected body's panel: its reading, arrow and all. */
+  | { kind: 'stat'; key: StatKey }
+  /** The Fort tab's Supply Cap button. */
+  | { kind: 'supplyCap' }
   | { kind: 'upgrade' }
   | { kind: 'sell' }
   | { kind: 'weapon'; damageType: DamageType }
@@ -88,10 +95,14 @@ export interface Scene {
  *   `next`  Read, then tap Next. Everything but the card is out of reach.
  *   `tap`   Do something at the target; only the target takes a tap. `done`
  *           says when it has been done.
- *   `free`  Anything goes; `done` says when the step is over. For watching a
- *           fight, or closing a card the player opened.
+ *   `free`  Anything goes; `done` says when the step is over. For closing a
+ *           card the player opened.
+ *   `watch` The match runs and anything goes, until `done`; then the match
+ *           holds and Next appears. Never moves on by itself: a player still
+ *           reading when the thing being watched happens keeps the words, and
+ *           the moment they were about, until they say they are done.
  */
-export type StepMode = 'next' | 'tap' | 'free';
+export type StepMode = 'next' | 'tap' | 'free' | 'watch';
 
 export interface Step {
   /**

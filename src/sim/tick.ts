@@ -33,6 +33,7 @@ import {
   type AbilityEnv,
 } from './abilityRuntime.ts';
 import { Rng } from './rng.ts';
+import { emptyTally } from './state.ts';
 import { dealDamage } from './strike.ts';
 import { canAttack, canMove, freshAbilityState, modifiersOf, tauntedBy } from './status.ts';
 import type { Command } from './commands.ts';
@@ -539,8 +540,15 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): voi
     anyMonsterDied = true;
     lane.kills += 1;
 
-    if (monster.killedByFortress) payTheTable(ctx, state, lane);
-    else lane.economy.gold += monster.bounty;
+    if (monster.killedByFortress) {
+      payTheTable(ctx, state, lane);
+      lane.waveTally.fortressKills += 1;
+      lane.waveTally.missed += monster.bounty;
+    } else {
+      lane.economy.gold += monster.bounty;
+      lane.waveTally.kills += 1;
+      lane.waveTally.bounty += monster.bounty;
+    }
 
     const clock = state.waveClocks.find((c) => c.waveNumber === monster.waveNumber);
     if (clock) clock.remaining -= 1;
@@ -768,6 +776,8 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
       // opened, which is what leaves the last wave's numbers up to be read
       // for the whole of that build phase (§14.1, added).
       for (const unit of lane.units) unit.damageDealt = 0;
+      // And so does what the wave pays (types.ts, `WaveTally`).
+      lane.waveTally = emptyTally();
     }
     return;
   }

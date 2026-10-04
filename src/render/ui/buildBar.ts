@@ -91,6 +91,7 @@ import {
   columnsThatFit,
   energyCost,
   energyMeter,
+  isMelee,
   panelRegions,
   statDirection,
   statText,
@@ -714,6 +715,13 @@ export class BuildBar extends Container {
       }
       case 'abilityChips':
         return screenRect(this.abilityChips);
+      case 'stat': {
+        const index = STAT_CELLS.findIndex((cell) => cell.key === target.key);
+        const cell = this.statCells[index];
+        return cell?.value.visible ? screenRect(cell.value) : null;
+      }
+      case 'supplyCap':
+        return screenRect(this.supplyButton);
       case 'upgrade':
         return screenRect(this.upgradeButton);
       case 'sell':
@@ -1247,13 +1255,22 @@ export class BuildBar extends Container {
       const canPay = economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap;
 
       const verdict = summary?.units.find((u) => u.unitId === def.id)?.verdict;
+      // Whether it stands in the fight or shoots into it: where it goes on the
+      // grid follows from that, and the silhouette does not say.
+      const reach = isMelee(def) ? 'melee' : 'ranged';
       button.setSwatch(glyphOf(def));
       button.update({
         title: def.name,
         detail: `${GOLD}${gold} · ${SUPPLY}${supply}`,
         // §9.3: say which units counter this wave, or the matrix stays invisible.
-        note: verdict === 'strong' ? '▲ strong' : verdict === 'weak' ? '▼ weak' : '',
-        noteColour: verdict === 'strong' ? UI.healthGood : UI.danger,
+        note:
+          verdict === 'strong'
+            ? `${reach} · ▲ strong`
+            : verdict === 'weak'
+              ? `${reach} · ▼ weak`
+              : reach,
+        noteColour:
+          verdict === 'strong' ? UI.healthGood : verdict === 'weak' ? UI.danger : UI.textMuted,
         enabled: canBuild && canPay,
         // Out for want of gold or supply, and only then: during a wave every
         // unit is out, and the price is not the reason.
@@ -1624,7 +1641,7 @@ export class BuildBar extends Container {
       // "max mark" is worth saying anyway - §7.3 gives different units
       // different ladder lengths, so where the top is is not obvious.
       this.upgradeButton.setSwatch(null);
-      this.upgradeButton.update({ title: 'Upgrade', detail: 'max mark', enabled: false });
+      this.upgradeButton.update({ title: 'Upgrade', detail: 'fully upgraded', enabled: false });
       return;
     }
 

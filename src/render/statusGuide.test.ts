@@ -44,7 +44,7 @@ describe('what causes each marker', () => {
     // Only the top of the line has it, so the line is named at that mark.
     expect(causes.burning).toContainEqual({
       ability: 'Conflagration',
-      owners: ['Ember III (Pyre)'],
+      owners: ['Ultra Ember (Pyre)'],
     });
     expect(causes.stunned.some((c) => c.owners.some((o) => o.endsWith('(boss)')))).toBe(true);
   });

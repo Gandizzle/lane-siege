@@ -9,12 +9,19 @@
 
 import type { GameData } from '../data/schema.ts';
 import type { MatchView } from '../sim/index.ts';
-import type { Chapter, Scene, Step, StepContext, Target, UiProbe } from './types.ts';
+import type { Chapter, Scene, Step, StepContext, StepMode, Target, UiProbe } from './types.ts';
 
 export class TutorialRunner {
   private index = -1;
+  /**
+   * The furthest step reached. Below it the player is looking back over steps
+   * already done (`back`): they are shown, never run again.
+   */
+  private furthest = -1;
   /** Match seconds since the step began. */
   private seconds = 0;
+  /** A `watch` step's thing has happened: the match holds and Next is up. */
+  private met = false;
 
   /**
    * `onEnter` hears each step as it begins, before anything can end it: how
@@ -54,10 +61,46 @@ export class TutorialRunner {
   /**
    * Whether the match should stand still. It does for every step that does not
    * say otherwise, so a player reading the coach never loses a wave to it, and
-   * once the chapter is over.
+   * once the chapter is over - and while looking back, and once a `watch`
+   * step's moment has come, so it is still there to be read about.
    */
   get holds(): boolean {
+    if (this.reviewing) return true;
+    if (this.step?.mode === 'watch') return this.met;
     return this.step?.run !== true;
+  }
+
+  /** Looking back at a step already done (`back`), rather than at the live one. */
+  get reviewing(): boolean {
+    return this.index < this.furthest;
+  }
+
+  /** Whether there is a step behind this one to look back at. */
+  get canGoBack(): boolean {
+    return this.previous(this.index) >= 0;
+  }
+
+  /**
+   * How the coach should hold the screen for this step (types.ts): a step
+   * being looked back on is read and Nexted past, whatever it was; a `watch`
+   * step is free until its moment comes, and a reading step after.
+   */
+  get mode(): StepMode {
+    const step = this.step;
+    if (!step) return 'next';
+    if (this.reviewing) return 'next';
+    if (step.mode === 'watch') return this.met ? 'next' : 'free';
+    return step.mode;
+  }
+
+  /** A `watch` step still waiting for its moment: the card has no Next yet. */
+  get waiting(): boolean {
+    return !this.reviewing && this.step?.mode === 'watch' && !this.met;
+  }
+
+  /** What the Next button says: the step's own words only when Next does what they say. */
+  get nextLabel(): string {
+    return this.reviewing ? 'Next' : (this.step?.nextLabel ?? 'Next');
   }
 
   get data(): GameData {
@@ -77,9 +120,42 @@ export class TutorialRunner {
     return typeof target === 'function' ? target(this.context(view, ui)) : target;
   }
 
-  /** The Next button: only a `next` step has one. */
+  /**
+   * The Next button: a `next` step, a `watch` step whose moment has come, or a
+   * step being looked back on. Forward through steps already done shows them
+   * again without running them, back to where the player left off.
+   */
   next(): void {
-    if (this.step?.mode === 'next') this.enter(this.index + 1);
+    if (this.reviewing) {
+      this.index = this.following(this.index);
+      return;
+    }
+    if (this.mode === 'next') this.enter(this.index + 1);
+  }
+
+  /** The back arrow: the step before, shown again but not run again. */
+  back(): void {
+    const to = this.previous(this.index);
+    if (to >= 0) this.index = to;
+  }
+
+  /**
+   * The step before `from` worth showing again. A silent step said nothing -
+   * it was there for a card the player had open - so it is passed over.
+   */
+  private previous(from: number): number {
+    for (let i = Math.min(from, this.chapter.steps.length) - 1; i >= 0; i--) {
+      if (this.chapter.steps[i]?.silent !== true) return i;
+    }
+    return -1;
+  }
+
+  /** The step after `from` while looking back, stopping at the live one. */
+  private following(from: number): number {
+    for (let i = from + 1; i < this.furthest; i++) {
+      if (this.chapter.steps[i]?.silent !== true) return i;
+    }
+    return this.furthest;
   }
 
   /**
@@ -89,8 +165,12 @@ export class TutorialRunner {
    */
   update(view: MatchView, ui: UiProbe, matchSeconds: number): void {
     const step = this.step;
-    if (!step) return;
+    if (!step || this.reviewing) return;
     this.seconds += matchSeconds;
+    if (step.mode === 'watch') {
+      if (!this.met && step.done?.(this.context(view, ui))) this.met = true;
+      return;
+    }
     if (step.done?.(this.context(view, ui))) this.enter(this.index + 1);
   }
 
@@ -100,7 +180,9 @@ export class TutorialRunner {
 
   private enter(index: number): void {
     this.index = Math.min(index, this.chapter.steps.length);
+    this.furthest = this.index;
     this.seconds = 0;
+    this.met = false;
     const step = this.step;
     if (!step) return;
     step.enter?.(this.scene);

@@ -84,7 +84,7 @@ export function sendNotice(
 }
 
 /** A reading on the HUD that the tutorial can point at (`locate`). */
-export type HudPart = 'phase' | 'wallet' | 'income' | 'incoming' | 'notice' | 'kills';
+export type HudPart = 'phase' | 'wallet' | 'supply' | 'income' | 'incoming' | 'notice' | 'kills';
 
 export class Hud extends Container {
   private readonly background = new Graphics();
@@ -285,7 +285,7 @@ export class Hud extends Container {
         // Two lines, because the column is too narrow for three numbers and
         // their units side by side.
         place(this.tag('wallet', purse()), px(17));
-        place(this.tag('wallet', army()), px(17));
+        place(this.tag('supply', this.tag('wallet', army())), px(17));
         place(this.tag('income', income()), px(17));
       }
       place(this.tag('incoming', offence()), px(16));
@@ -323,7 +323,7 @@ export class Hud extends Container {
       if (economy) {
         // Supply first from the right, then the purse left of it: one row,
         // two labels, so each keeps its own icons.
-        const armyLabel = this.tag('wallet', army());
+        const armyLabel = this.tag('supply', this.tag('wallet', army()));
         right(armyLabel, rowOne + 4);
         const purseLabel = this.tag('wallet', purse());
         right(purseLabel, rowOne + 4);

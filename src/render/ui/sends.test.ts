@@ -20,6 +20,7 @@ function opponent(teamId: string, eliminated = false): OpponentView {
     fortressMaxHp: 100,
     watching: false,
     visionTicksLeft: 0,
+    fighting: false,
   };
 }
 
