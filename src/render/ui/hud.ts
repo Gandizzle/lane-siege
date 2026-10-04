@@ -136,6 +136,15 @@ export class Hud extends Container {
 
     const l = this.layout;
     this.background.rect(l.tabs.x, l.tabs.y, l.tabs.width, l.tabs.height).fill({ color: UI.tabs });
+    // Sideways the HUD is a column the height of the screen, and on a tablet
+    // or a desktop its text at phone size was lost in it: it grows with the
+    // screen's text scale there (layout.ts, `textScaleFor`). Upright it is a
+    // band at its floor height on a phone, packed to the pixel, and stays put.
+    const k = l.orientation === 'landscape' ? Math.max(1, l.textScale) : 1;
+    const px = (size: number) => Math.round(size * k);
+    this.purse.setFontSize(px(12));
+    this.army.setFontSize(px(12));
+    this.income.setFontSize(px(11));
 
     // §3.3, solo: the endless last wave, once it is running.
     const endless = view.solo?.endless ?? null;
@@ -164,25 +173,25 @@ export class Hud extends Container {
     // line under it ("Build · 24s") already says.
     const wave = (room = Infinity) => {
       if (endless || endlessNext) {
-        return label(endless ? 'Endless wave' : 'Endless next', 15, UI.danger, '700');
+        return label(endless ? 'Endless wave' : 'Endless next', px(15), UI.danger, '700');
       }
       const boss = isBoss ? ' · BOSS' : '';
       const colour = isBoss ? UI.danger : UI.text;
       const full = label(
         `Wave ${shownWave}${incoming ? ' incoming' : ''}${boss}`,
-        15,
+        px(15),
         colour,
         '700',
       );
       if (!incoming || full.width <= room) return full;
       full.destroy();
-      return label(`Wave ${shownWave}${boss}`, 15, colour, '700');
+      return label(`Wave ${shownWave}${boss}`, px(15), colour, '700');
     };
     // §3.3, solo: the score, all match long - it is the one number a solo
     // match is played for.
     const kills = () =>
       view.solo
-        ? label(`${view.solo.kills.toLocaleString('en-GB')} killed`, 12, UI.accent, '700')
+        ? label(`${view.solo.kills.toLocaleString('en-GB')} killed`, px(12), UI.accent, '700')
         : null;
     // §3.1, amended: the build phase is the only phase with a clock. Combat now
     // runs until the lane is empty (§3.2, amended), so it counts monsters left
@@ -203,7 +212,7 @@ export class Hud extends Container {
     const phase = () =>
       label(
         (view.phase === 'build' ? `Build · ${seconds}s` : fighting) + pace,
-        12,
+        px(12),
         view.phase === 'build' ? UI.accent : UI.textMuted,
         '600',
       );
@@ -238,7 +247,7 @@ export class Hud extends Container {
         ? label(
             `incoming: ${Math.round(summary.dominantDamageShare * 100)}% ` +
               `${summary.dominantDamageType}`,
-            11,
+            px(11),
             DAMAGE_COLOURS[summary.dominantDamageType],
             '600',
           )
@@ -247,7 +256,7 @@ export class Hud extends Container {
     // somebody else, so it needs saying out loud.
     const notice = () => {
       const said = sendNotice(view, lane, attackers.size);
-      return said ? label(said.text, 11, said.solo ? UI.accent : UI.danger, '700') : null;
+      return said ? label(said.text, px(11), said.solo ? UI.accent : UI.danger, '700') : null;
     };
 
     if (l.orientation === 'landscape') {
@@ -268,19 +277,19 @@ export class Hud extends Container {
 
       place(
         this.tag('phase', wave(l.tabs.x + l.tabs.width - 12 - (button.x + button.width + 8))),
-        21,
+        px(21),
       );
-      place(this.tag('phase', phase()), 18);
-      place(this.tag('kills', kills()), 18);
+      place(this.tag('phase', phase()), px(18));
+      place(this.tag('kills', kills()), px(18));
       if (economy) {
         // Two lines, because the column is too narrow for three numbers and
         // their units side by side.
-        place(this.tag('wallet', purse()), 17);
-        place(this.tag('wallet', army()), 17);
-        place(this.tag('income', income()), 17);
+        place(this.tag('wallet', purse()), px(17));
+        place(this.tag('wallet', army()), px(17));
+        place(this.tag('income', income()), px(17));
       }
-      place(this.tag('incoming', offence()), 16);
-      place(this.tag('notice', notice()), 16);
+      place(this.tag('incoming', offence()), px(16));
+      place(this.tag('notice', notice()), px(16));
     } else {
       // Two columns: what is happening on the left, what you have on the right.
       // The last row is pinned just above the tab strip rather than at a fixed

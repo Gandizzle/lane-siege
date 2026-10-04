@@ -1741,6 +1741,52 @@ pixels, which is short on purpose: the REACH has to stay under one tile, or a
 tap on the empty tile beside a line would select the line instead of building
 there, and building beside a line is most of what the build phase is.
 
+### Reading the bar: text that grows with the screen, and buttons that stay legible
+
+**One text scale for the screen.** `textScaleFor` (layout.ts) reads the short
+side of the screen: about 1 on a phone either way up (0.92 on the smallest,
+where the panels have least room), and up to 1.4 on a tablet or a desktop
+window, where the bar's buttons are many times a phone's and phone-sized type
+was lost in them. It is on the layout as `textScale`, and every panel in the bar
+sizes its type from it — the grid buttons, the tabs, the page number, the
+selected-body panel, its ability chips and the damage panel — so a name is the
+same size on every tab. Sideways the HUD column grows with it too; upright the
+top band stays at its phone sizes, because it is a band at its floor height
+packed to the pixel.
+
+**Bigger at the written size.** A button's three lines are 14, 13 and 12 at a
+scale of 1 (`TITLE_SIZE`, `DETAIL_SIZE`, `NOTE_SIZE` in gridButton.ts). They
+were 11, 9 and 9 — the price, the number the button is read for, was the
+smallest thing on it. The selected-body panel went from 13/9/9/10 to
+15/11/11/12 (`PANEL_TEXT`), the tabs from 11 to 13, the ability chips from 10 to
+12, the damage panel from 10/11 to 12/13.
+
+**Then fitted to the box.** `lineSizes` shrinks a button's three lines together
+until they fit its height, but never below 78% — past that the note line is
+dropped instead. A long name shrinks to fit its width (to 85%), then a short
+name is used where the button has one (`shortTitle`: Fort HP, Regen, Gem Out,
+Aura Pwr, Aura Size, Supply, Speed), and only after that is it cut with an
+ellipsis. A price with a second half (`detailMore`: what a fortress level buys,
+what a send pays) stays on one line where it fits, takes a line of its own on a
+button tall enough for four, and only otherwise shrinks. Upgrade and Sell are a
+touch target tall, so they put the price beside the name (`priceBesideName`),
+and the next mark's glyph in the corner is the first thing given up on a narrow
+one. The selected-body panel measures its stat names at their drawn size and
+starts the values one gap past the widest, drawing a value smaller rather than
+into the next column's name.
+
+**A button that cannot be used is recessed, not faded.** It used to be drawn at
+42% opacity, words and all, which put a price you could not yet afford at about
+2 to 1 against its ground — unreadable exactly when it is the number you are
+saving towards. Now the ground goes darker (`UI.panelAsleep`), the name goes to
+the muted text colour, and the price says whether money is the reason: in
+`UI.unaffordable`, a warm coral, when the only thing missing is gold, gems or
+supply, and muted when the button is out for any other reason (the wrong phase,
+the top of its ladder). A usable button's price is drawn in the full text
+colour. The asleep Build tab during a wave gets its own dimmer caption colour
+rather than a fade. gridButton.test.ts holds every one of these combinations
+above 4.5 to 1.
+
 ### The selected body: what it says, and selling it back
 
 Tapping a body on the board replaces the Build grid with a panel about it: what

@@ -119,7 +119,7 @@ export class RichLabel extends Container {
   private colour: number;
 
   constructor(
-    private readonly fontSize: number,
+    private fontSize: number,
     colour: number = UI.textMuted,
     private readonly weight: '400' | '500' | '600' | '700' = '500',
   ) {
@@ -128,9 +128,23 @@ export class RichLabel extends Container {
     this.addChild(this.icons);
   }
 
+  /** The size of the words; the icons follow it. For text that scales with the screen. */
+  setFontSize(size: number): void {
+    if (size === this.fontSize) return;
+    this.fontSize = size;
+    for (const piece of this.pieces) piece.style.fontSize = size;
+    this.layOut();
+  }
+
   get text(): string {
     return this.current;
   }
+
+  /** How wide the line is at its own size, before any shrinking to fit. */
+  get naturalWidth(): number {
+    return this.natural;
+  }
+  private natural = 0;
 
   /**
    * Show `text`, shrunk to fit in `maxWidth` if it would run past it - a
@@ -173,6 +187,7 @@ export class RichLabel extends Container {
       }
     }
     for (let i = used; i < this.pieces.length; i++) this.pieces[i]!.visible = false;
+    this.natural = x;
     const scale = x > this.limit && x > 0 ? Math.max(0.7, this.limit / x) : 1;
     this.scale.set(scale);
   }

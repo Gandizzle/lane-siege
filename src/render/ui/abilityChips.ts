@@ -28,14 +28,25 @@ export interface Chip {
   upcoming: boolean;
 }
 
-const HEIGHT = 22;
+/** A chip's name at a text scale of 1 (layout.ts, `textScaleFor`). It was 10. */
+const FONT_SIZE = 12;
 const GAP = 5;
 const PAD = 9;
 
+/** The size a chip's name is drawn at on this screen. */
+function chipFont(textScale: number): number {
+  return Math.round(FONT_SIZE * textScale);
+}
+
+/** How tall a chip is on this screen: its name and a little air, never under 22. */
+export function chipHeight(textScale = 1): number {
+  return Math.max(22, Math.round(chipFont(textScale) * 2));
+}
+
 /** Roughly how wide a chip's name will draw, for wrapping without measuring. */
-function chipWidth(name: string, upcoming: boolean): number {
+function chipWidth(name: string, upcoming: boolean, textScale: number): number {
   const text = upcoming ? `+ ${name}` : name;
-  return Math.ceil([...text].length * 6.1) + PAD * 2;
+  return Math.ceil([...text].length * chipFont(textScale) * 0.61) + Math.round(PAD * textScale) * 2;
 }
 
 /**
@@ -44,13 +55,18 @@ function chipWidth(name: string, upcoming: boolean): number {
  * Pure, so a test can check the wrapping and the "never past the bottom" rule
  * without a canvas. Chips that do not fit are simply absent from the result.
  */
-export function layOutChips(chips: readonly Chip[], box: Rect): (Rect & { index: number })[] {
+export function layOutChips(
+  chips: readonly Chip[],
+  box: Rect,
+  textScale = 1,
+): (Rect & { index: number })[] {
   const out: (Rect & { index: number })[] = [];
+  const HEIGHT = chipHeight(textScale);
   let x = box.x;
   let y = box.y;
 
   for (const [index, chip] of chips.entries()) {
-    const width = Math.min(chipWidth(chip.name, chip.upcoming), box.width);
+    const width = Math.min(chipWidth(chip.name, chip.upcoming, textScale), box.width);
     if (x > box.x && x + width > box.x + box.width) {
       x = box.x;
       y += HEIGHT + GAP;
@@ -77,8 +93,8 @@ export class AbilityChips extends Container {
     this.signature = '';
   }
 
-  render(chips: readonly Chip[], box: Rect): void {
-    const signature = JSON.stringify([chips, box]);
+  render(chips: readonly Chip[], box: Rect, textScale = 1): void {
+    const signature = JSON.stringify([chips, box, textScale]);
     if (signature === this.signature) return;
     this.signature = signature;
 
@@ -88,7 +104,7 @@ export class AbilityChips extends Container {
     this.background.clear();
     this.addChild(this.background);
 
-    for (const placed of layOutChips(chips, box)) {
+    for (const placed of layOutChips(chips, box, textScale)) {
       const chip = chips[placed.index]!;
       this.background
         .roundRect(placed.x, placed.y, placed.width, placed.height, 6)
@@ -97,11 +113,14 @@ export class AbilityChips extends Container {
 
       const text = label(
         chip.upcoming ? `+ ${chip.name}` : chip.name,
-        10,
+        chipFont(textScale),
         chip.upcoming ? UI.textMuted : UI.text,
         '600',
       );
-      text.position.set(placed.x + PAD, placed.y + 5);
+      text.position.set(
+        placed.x + Math.round(PAD * textScale),
+        placed.y + (placed.height - text.height) / 2,
+      );
       this.labels.push(text);
       this.addChild(text);
 

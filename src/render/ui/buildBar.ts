@@ -82,10 +82,9 @@ import { GEM, GOLD, SUPPLY } from './currency.ts';
 import type { StatDirection } from './unitStats.ts';
 import {
   NOTHING_SPECIAL,
+  PANEL_TEXT,
   STAT_CELLS,
   STAT_COLUMNS,
-  STAT_ROW_HEIGHT,
-  STAT_VALUE_INSET,
   monsterChips,
   monsterStatText,
   MIN_ROW_HEIGHT,
@@ -168,20 +167,22 @@ const TABS: { id: Tab; name: string }[] = [
  * `unit` is what the next level's number MEANS - a price with no unit on the
  * other side of the arrow is a number you cannot compare to anything.
  */
-const FORT_UPGRADES: { id: string; name: string; unit: string }[] = [
+const FORT_UPGRADES: { id: string; name: string; short?: string; unit: string }[] = [
   { id: 'weapon', name: 'Weapon', unit: ' dmg' },
-  { id: 'hp', name: 'Fortress HP', unit: ' hp' },
-  { id: 'regen', name: 'Regeneration', unit: ' hp/s' },
+  // The short names are for a phone held upright, where the tab is four
+  // buttons across and the long ones would otherwise be cut off mid-word.
+  { id: 'hp', name: 'Fortress HP', short: 'Fort HP', unit: ' hp' },
+  { id: 'regen', name: 'Regeneration', short: 'Regen', unit: ' hp/s' },
   // A unit that is itself a currency goes in front, as the price does.
-  { id: 'gemOutput', name: 'Gem Output', unit: GEM },
+  { id: 'gemOutput', name: 'Gem Output', short: 'Gem Out', unit: GEM },
   { id: 'gemRate', name: 'Gem Rate', unit: '× rate' },
-  { id: 'auraStrength', name: 'Aura Power', unit: '' },
-  { id: 'auraRadius', name: 'Aura Radius', unit: ' tiles' },
+  { id: 'auraStrength', name: 'Aura Power', short: 'Aura Pwr', unit: '' },
+  { id: 'auraRadius', name: 'Aura Radius', short: 'Aura Size', unit: ' tiles' },
 ];
 
-const AURAS: { id: AuraType; name: string }[] = [
+const AURAS: { id: AuraType; name: string; short?: string }[] = [
   { id: 'damage', name: 'Damage' },
-  { id: 'attackSpeed', name: 'Atk Spd' },
+  { id: 'attackSpeed', name: 'Atk Spd', short: 'Speed' },
   { id: 'armour', name: 'Armour' },
   { id: 'regeneration', name: 'Regen' },
 ];
@@ -196,6 +197,13 @@ const MIN_TOUCH = 44;
  * either side.
  */
 const MIN_SEND_WIDTH = 110;
+
+/** A tab's caption at a text scale of 1 (layout.ts, `textScaleFor`). It was 11. */
+const TAB_TEXT = 13;
+/** A tab's height at a text scale of 1, and the least it is. */
+const TAB_HEIGHT = 26;
+/** The send tab's page number, at a text scale of 1. */
+const PAGE_TEXT = 12;
 
 /**
  * What colour a stat cell is drawn in: green when something is making the
@@ -230,18 +238,19 @@ class TabButton extends Container {
     onTap: () => void,
   ) {
     super();
-    this.caption = label(name, 11, UI.textMuted, '700');
+    this.caption = label(name, TAB_TEXT, UI.textMuted, '700');
     this.addChild(this.bg, this.caption);
     this.eventMode = 'static';
     this.cursor = 'pointer';
     this.on('pointertap', onTap);
   }
 
-  layout(x: number, y: number, width: number, height: number): void {
+  layout(x: number, y: number, width: number, height: number, textScale: number): void {
     this.position.set(x, y);
     this.w = width;
     this.h = height;
     this.hitArea = new Rectangle(0, 0, width, height);
+    this.caption.style.fontSize = Math.round(TAB_TEXT * textScale);
     this.redraw(false);
   }
 
@@ -255,9 +264,16 @@ class TabButton extends Container {
   redraw(active: boolean, enabled = true): void {
     this.bg.clear();
     this.bg.roundRect(0, 0, this.w, this.h, 6).fill({ color: active ? UI.panelEdge : UI.buildBar });
-    this.caption.style.fill = active ? UI.text : UI.textMuted;
-    this.alpha = enabled ? 1 : 0.45;
-    centreOn(this.caption, this.w / 2, this.h / 2 - 7);
+    // Asleep is a shade dimmer than idle, not faded out: it is still a word
+    // the player has to be able to read to tap.
+    this.caption.style.fill = active
+      ? enabled
+        ? UI.text
+        : UI.textMuted
+      : enabled
+        ? UI.textMuted
+        : UI.textAsleep;
+    centreOn(this.caption, this.w / 2, (this.h - this.caption.height) / 2);
   }
 }
 
@@ -270,6 +286,8 @@ export class BuildBar extends Container {
   private shown: View = 'build';
   /** The bar, and where its panels go under the tab strip, from the last layout. */
   private layoutRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
+  /** The screen's text scale, from the last layout (layout.ts, `textScaleFor`). */
+  private textScale = 1;
   private panelArea: Rect = { x: 0, y: 0, width: 0, height: 0 };
 
   private readonly damagePanel: DamagePanel;
@@ -287,8 +305,13 @@ export class BuildBar extends Container {
   private readonly unitButtons: GridButton[] = [];
   private unitSlots: (UnitDef | undefined)[] = [];
   private readonly techButtons: { trackId: string; name: string; button: GridButton }[] = [];
-  private readonly fortButtons: { id: string; name: string; unit: string; button: GridButton }[] =
-    [];
+  private readonly fortButtons: {
+    id: string;
+    name: string;
+    short: string | undefined;
+    unit: string;
+    button: GridButton;
+  }[] = [];
   private readonly supplyButton: GridButton;
   private readonly weaponButtons: { type: DamageType; button: GridButton }[] = [];
   private readonly auraButtons: { id: AuraType; button: GridButton }[] = [];
@@ -409,7 +432,7 @@ export class BuildBar extends Container {
 
     for (const up of FORT_UPGRADES) {
       const button = new GridButton(() => this.handlers.onBuyFortress(up.id));
-      this.fortButtons.push({ id: up.id, name: up.name, unit: up.unit, button });
+      this.fortButtons.push({ id: up.id, name: up.name, short: up.short, unit: up.unit, button });
       this.panels.fort.addChild(button);
     }
     this.supplyButton = new GridButton(() => this.handlers.onBuySupply());
@@ -455,24 +478,29 @@ export class BuildBar extends Container {
     // Five a page, and the arrows either side of the page number turn them.
     this.pagePrev = new GridButton(() => this.turnPage(-1));
     this.pageNext = new GridButton(() => this.turnPage(1));
-    this.pageLabel = label('', 10, UI.textMuted, '700');
+    this.pageLabel = label('', PAGE_TEXT, UI.textMuted, '700');
     this.panels.send.addChild(this.pagePrev, this.pageNext, this.pageLabel);
 
-    this.upgradeTitle = label('', 13, UI.text, '700');
-    this.upgradeSubtitle = label('', 9, UI.textMuted);
-    this.traitText = wrapped('', 10, UI.textMuted);
+    this.upgradeTitle = label('', PANEL_TEXT.title, UI.text, '700');
+    this.upgradeSubtitle = label('', PANEL_TEXT.subtitle, UI.textMuted);
+    this.traitText = wrapped('', PANEL_TEXT.trait, UI.textMuted);
     for (let i = 0; i < STAT_CELLS.length; i++) {
-      const cell = { name: label('', 9, UI.textMuted), value: label('', 10, UI.text, '600') };
+      const cell = {
+        name: label('', PANEL_TEXT.statName, UI.textMuted),
+        value: label('', PANEL_TEXT.statValue, UI.text, '600'),
+      };
       this.statCells.push(cell);
       this.upgradePanel.addChild(cell.name, cell.value);
     }
+    // A touch target tall, so the price goes beside the name and the type
+    // can be the size of everything else in the bar.
     this.upgradeButton = new GridButton(() => {
       if (this.selectedUnitId !== null) this.handlers.onUpgrade(this.selectedUnitId);
-    });
+    }).priceBesideName();
     this.sellButton = new GridButton(() => {
       if (this.selectedUnitId !== null) this.handlers.onSell(this.selectedUnitId);
-    });
-    this.energyLabel = label('', 8, UI.textMuted, '600');
+    }).priceBesideName();
+    this.energyLabel = label('', PANEL_TEXT.energy, UI.textMuted, '600');
     this.abilityChips = new AbilityChips((chip) =>
       this.handlers.onShowAbility(chip.abilityId, chip.rank),
     );
@@ -713,6 +741,9 @@ export class BuildBar extends Container {
     const l = layout;
     const bar = l.buildBar;
     this.layoutRect = bar;
+    // One scale for every panel, so a name is the same size on every tab.
+    const scale = l.textScale;
+    this.textScale = scale;
 
     this.background.clear();
     this.background.rect(bar.x, bar.y, bar.width, bar.height).fill({ color: UI.buildBar });
@@ -730,7 +761,7 @@ export class BuildBar extends Container {
     const tabGap = 4;
     const tabCols = l.orientation === 'landscape' ? 3 : TABS.length;
     const tabRows = Math.ceil(TABS.length / tabCols);
-    const tabH = 26;
+    const tabH = Math.round(Math.max(TAB_HEIGHT, TAB_HEIGHT * scale));
     const tabW = (inner - tabGap * (tabCols - 1)) / tabCols;
     this.tabButtons.forEach((button, i) => {
       button.layout(
@@ -738,6 +769,7 @@ export class BuildBar extends Container {
         bar.y + 3 + Math.floor(i / tabCols) * (tabH + tabGap),
         tabW,
         tabH,
+        scale,
       );
     });
 
@@ -753,7 +785,7 @@ export class BuildBar extends Container {
     const wide = l.orientation === 'portrait';
     const across = (items: GridButton[], portraitCols: number) => {
       const cols = wide ? portraitCols : 2;
-      grid(items, cols, Math.ceil(items.length / cols), 6, left, top, inner, height);
+      grid(items, cols, Math.ceil(items.length / cols), 6, left, top, inner, height, scale);
     };
 
     across(this.unitButtons, 3);
@@ -773,8 +805,8 @@ export class BuildBar extends Container {
     // sixty pixels each, so landscape puts them in two rows of two.
     const chipCols = l.orientation === 'landscape' ? 2 : 4;
     const chipRows = Math.ceil(this.targetButtons.length / chipCols);
-    const chipH = 38 * chipRows + 6 * (chipRows - 1);
-    grid(this.targetButtons, chipCols, chipRows, 6, left, top, inner, chipH);
+    const chipH = Math.round(Math.max(38, 40 * scale)) * chipRows + 6 * (chipRows - 1);
+    grid(this.targetButtons, chipCols, chipRows, 6, left, top, inner, chipH, scale);
     // One page of sends under the chips, and the page control in the grid's
     // SIXTH cell: five sends on a page leave one cell of a three-by-two or a
     // two-by-three grid empty, and the control fits there without taking a row
@@ -785,7 +817,7 @@ export class BuildBar extends Container {
     const sendTop = top + chipH + 6;
     const sendHeight = height - chipH - 6;
     const cells = SENDS_PER_PAGE + 1;
-    const sendCols = columnsThatFit(cells, inner, sendHeight, MIN_SEND_WIDTH, 6);
+    const sendCols = columnsThatFit(cells, inner, sendHeight, MIN_SEND_WIDTH * scale, 6);
     const sendRows = Math.ceil(cells / sendCols);
     for (let first = 0; first < this.sendButtons.length; first += SENDS_PER_PAGE) {
       grid(
@@ -797,17 +829,22 @@ export class BuildBar extends Container {
         sendTop,
         inner,
         sendHeight,
+        scale,
       );
     }
     const nav = gridCell(SENDS_PER_PAGE, sendCols, sendRows, 6, left, sendTop, inner, sendHeight);
     const arrowW = Math.min(44, nav.width / 3);
-    this.pagePrev.layout(nav.x, nav.y, arrowW, nav.height);
-    this.pageNext.layout(nav.x + nav.width - arrowW, nav.y, arrowW, nav.height);
-    this.pageLabelAt = { x: nav.x + nav.width / 2, y: nav.y + nav.height / 2 - 6 };
+    this.pagePrev.layout(nav.x, nav.y, arrowW, nav.height, scale);
+    this.pageNext.layout(nav.x + nav.width - arrowW, nav.y, arrowW, nav.height, scale);
+    this.pageLabel.style.fontSize = Math.round(PAGE_TEXT * scale);
+    this.pageLabelAt = {
+      x: nav.x + nav.width / 2,
+      y: nav.y + (nav.height - this.pageLabel.height) / 2,
+    };
     // "Page 2 of 3" where there is room between the arrows, "2/3" where not.
-    this.pageLabelShort = nav.width - 2 * arrowW < 72;
+    this.pageLabelShort = nav.width - 2 * arrowW < 86 * scale;
 
-    this.damagePanel.layout(bar, top, height);
+    this.damagePanel.layout(bar, top, height, scale);
 
     // The selected-body panel replaces the Build grid. Its boxes come from
     // `panelRegions`, which SUBTRACTS the title, the stats and the buttons
@@ -829,20 +866,40 @@ export class BuildBar extends Container {
   private placePanel(hasButtons: boolean): void {
     const { bar, top, height } = this.panelBox;
     this.panelHasButtons = hasButtons;
-    this.regions = panelRegions(bar, top, height, hasButtons);
+    this.regions = panelRegions(bar, top, height, hasButtons, this.textScale);
     const r = this.regions;
     const column = r.stats.width / STAT_COLUMNS;
+    const size = (written: number) => Math.round(written * this.textScale);
+    this.upgradeTitle.style.fontSize = size(PANEL_TEXT.title);
+    this.upgradeSubtitle.style.fontSize = size(PANEL_TEXT.subtitle);
+    this.energyLabel.style.fontSize = size(PANEL_TEXT.energy);
 
     this.upgradeTitle.position.set(r.title.x, r.title.y);
     // The type line is placed BESIDE the name, at render time, because where
     // it starts depends on how wide the name turned out to be.
 
+    // The values start one gap past the widest name, measured at the size it
+    // is drawn, so they line up and never sit on a name however large the
+    // text. A value runs to about ten characters ("351 → 1000"); on a narrow
+    // column it is drawn smaller rather than into the next column's name.
+    let nameWidth = 0;
+    this.statCells.forEach((cell, i) => {
+      cell.name.style.fontSize = size(PANEL_TEXT.statName);
+      cell.name.text = STAT_CELLS[i]?.name ?? '';
+      nameWidth = Math.max(nameWidth, cell.name.width);
+    });
+    const inset = Math.ceil(nameWidth + 8 * this.textScale);
+    const valueSize = Math.max(
+      10,
+      Math.min(size(PANEL_TEXT.statValue), Math.floor((column - inset - 6) / 6.2)),
+    );
     this.statCells.forEach((cell, i) => {
       const row = Math.floor(i / STAT_COLUMNS);
       const x = r.stats.x + (i % STAT_COLUMNS) * column;
-      const y = r.stats.y + row * STAT_ROW_HEIGHT;
+      const y = r.stats.y + row * r.statRowHeight;
+      cell.value.style.fontSize = valueSize;
       cell.name.position.set(x, y + 1);
-      cell.value.position.set(x + STAT_VALUE_INSET, y);
+      cell.value.position.set(x + inset, y);
       // A row that did not fit is not drawn. On a short phone the last one -
       // Dmg/s and Move - gives way to the ability names, and Dmg/s is the two
       // cells above it multiplied together anyway (unitStats.ts).
@@ -866,8 +923,15 @@ export class BuildBar extends Container {
     // thing to explain.
     const gap = 8;
     const actionWidth = (r.buttons.width - gap) / 2;
-    this.upgradeButton.layout(r.buttons.x, r.buttons.y, actionWidth, MIN_TOUCH);
-    this.sellButton.layout(r.buttons.x + actionWidth + gap, r.buttons.y, actionWidth, MIN_TOUCH);
+    const buttonH = Math.max(MIN_TOUCH, r.buttons.height);
+    this.upgradeButton.layout(r.buttons.x, r.buttons.y, actionWidth, buttonH, this.textScale);
+    this.sellButton.layout(
+      r.buttons.x + actionWidth + gap,
+      r.buttons.y,
+      actionWidth,
+      buttonH,
+      this.textScale,
+    );
   }
 
   render(
@@ -1108,7 +1172,8 @@ export class BuildBar extends Container {
         // still fits a phone-width button whole.
         // Solo's endless wave pays no income (endless.ts), so there the price
         // is the price and nothing more.
-        detail: view.solo?.endless ? `${GEM}${cost}` : `${GEM}${cost} → +${GOLD}${income}/wave`,
+        detail: `${GEM}${cost}`,
+        detailMore: view.solo?.endless ? '' : `→ +${GOLD}${income}/wave`,
         // ONE NAME PER BUTTON. What is worth the line is what the send is FOR:
         // the economy for the three that pay the best rate, and otherwise what
         // the monster DOES and whether the gems also buy a look at the lane
@@ -1133,6 +1198,7 @@ export class BuildBar extends Container {
             : UI.textMuted,
         cooldown,
         enabled: canAct && aimed && open && gems >= cost,
+        unaffordable: canAct && aimed && open && gems < cost,
         // Dimmed when the gems are not there, but still able to take a HOLD:
         // arming a send you cannot yet afford is exactly the case auto-send is
         // for (gridButton.ts).
@@ -1178,8 +1244,7 @@ export class BuildBar extends Container {
 
       const gold = def.goldCost ?? 0;
       const supply = def.supplyCost ?? 0;
-      const affordable =
-        canBuild && economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap;
+      const canPay = economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap;
 
       const verdict = summary?.units.find((u) => u.unitId === def.id)?.verdict;
       button.setSwatch(glyphOf(def));
@@ -1189,7 +1254,10 @@ export class BuildBar extends Container {
         // §9.3: say which units counter this wave, or the matrix stays invisible.
         note: verdict === 'strong' ? '▲ strong' : verdict === 'weak' ? '▼ weak' : '',
         noteColour: verdict === 'strong' ? UI.healthGood : UI.danger,
-        enabled: affordable,
+        enabled: canBuild && canPay,
+        // Out for want of gold or supply, and only then: during a wave every
+        // unit is out, and the price is not the reason.
+        unaffordable: canBuild && !canPay,
         selected: selection?.kind === 'unitDef' && selection.unitDefId === def.id,
       });
     });
@@ -1211,6 +1279,7 @@ export class BuildBar extends Container {
         detail: next ? `${GOLD}${cost}` : 'maxed',
         note: `level ${level}/${track.levels.length}`,
         enabled: canAct && next !== undefined && economy.gold >= cost,
+        unaffordable: canAct && next !== undefined && economy.gold < cost,
       });
     }
   }
@@ -1219,7 +1288,7 @@ export class BuildBar extends Container {
   private renderFort(economy: EconomyView, canAct: boolean): void {
     const ladders = fortressLadders(this.data);
 
-    for (const { id, name, unit, button } of this.fortButtons) {
+    for (const { id, name, short, unit, button } of this.fortButtons) {
       const ladder = ladders[id] ?? [];
       const level = economy.upgrades[id] ?? 0;
       const next = ladder.find((l) => l.level === level + 1);
@@ -1232,20 +1301,23 @@ export class BuildBar extends Container {
       const price = gems > 0 ? `${GEM}${gems}` : `${GOLD}${gold}`;
 
       const gain = next?.value ?? null;
+      const canPay =
+        economy.gems >= gems &&
+        economy.gold >= gold &&
+        economy.supplyUsed + supply <= economy.supplyCap;
       button.setSwatch(null);
       button.update({
         title: name,
-        detail: next
-          ? `${price} → ${unit === GEM ? `${GEM}${trim(gain)}` : `${trim(gain)}${unit}`}` +
+        shortTitle: short,
+        detail: next ? price : 'maxed',
+        // What the level buys, after the price or under it (gridButton.ts).
+        detailMore: next
+          ? `→ ${unit === GEM ? `${GEM}${trim(gain)}` : `${trim(gain)}${unit}`}` +
             (supply ? ` · ${SUPPLY}${supply}` : '')
-          : 'maxed',
+          : '',
         note: `level ${level}/${ladder.length}`,
-        enabled:
-          canAct &&
-          next !== undefined &&
-          economy.gems >= gems &&
-          economy.gold >= gold &&
-          economy.supplyUsed + supply <= economy.supplyCap,
+        enabled: canAct && next !== undefined && canPay,
+        unaffordable: canAct && next !== undefined && !canPay,
       });
     }
 
@@ -1256,9 +1328,12 @@ export class BuildBar extends Container {
     this.supplyButton.setSwatch(null);
     this.supplyButton.update({
       title: 'Supply Cap',
-      detail: next ? `${GOLD}${next.goldCost ?? 0} → ${SUPPLY}${next.value ?? 0}` : 'maxed',
+      shortTitle: 'Supply',
+      detail: next ? `${GOLD}${next.goldCost ?? 0}` : 'maxed',
+      detailMore: next ? `→ ${SUPPLY}${next.value ?? 0}` : '',
       note: `cap ${SUPPLY}${economy.supplyCap}`,
       enabled: canAct && next !== undefined && economy.gold >= (next.goldCost ?? 0),
+      unaffordable: canAct && next !== undefined && economy.gold < (next.goldCost ?? 0),
     });
   }
 
@@ -1290,6 +1365,7 @@ export class BuildBar extends Container {
         lane.fortress.auraStrength * (this.data.fortress.auras.regenerationPerStrength ?? 1) * 100;
       button.update({
         title: meta?.name ?? id,
+        shortTitle: meta?.short,
         detail: lane.fortress.auraRadius > 0 ? `r ${lane.fortress.auraRadius.toFixed(1)}` : 'aura',
         note: id === 'regeneration' ? `+${Number(regen.toFixed(2))}%/s` : `+${strength}%`,
         noteColour: auraColour(id),
@@ -1400,9 +1476,10 @@ export class BuildBar extends Container {
     // Beside the name rather than under it, so the panel spends one line where
     // it used to spend two. `width` is only meaningful once the text has been
     // measured, which is why this is here and not in `setLayout`.
+    // Sharing the name's baseline, near enough: bottoms aligned.
     this.upgradeSubtitle.position.set(
       this.regions.title.x + this.upgradeTitle.width + 8,
-      this.regions.title.y + 5,
+      this.regions.title.y + this.upgradeTitle.height - this.upgradeSubtitle.height - 1,
     );
     this.drawEnergy(body, defId);
   }
@@ -1455,7 +1532,10 @@ export class BuildBar extends Container {
 
     this.energyLabel.text = meter.label;
     this.energyLabel.style.fill = ready ? UI.accent : UI.textMuted;
-    this.energyLabel.position.set(track.x + track.width - this.energyLabel.width, track.y + 9);
+    this.energyLabel.position.set(
+      track.x + track.width - this.energyLabel.width,
+      track.y + track.height + 2,
+    );
   }
 
   /**
@@ -1470,14 +1550,20 @@ export class BuildBar extends Container {
   private renderAbilities(chips: Chip[], traits: readonly string[]): void {
     const box = this.regions.text;
     this.traitText.text = traits.join('\n');
-    this.traitText.style.fontSize = 10;
+    const traitSize = Math.round(PANEL_TEXT.trait * this.textScale);
+    this.traitText.style.fontSize = traitSize;
+    this.traitText.style.lineHeight = traitSize + 4;
     const traitHeight = traits.length > 0 ? Math.min(this.traitText.height + 4, box.height) : 0;
-    this.abilityChips.render(chips, {
-      x: box.x,
-      y: box.y + traitHeight,
-      width: box.width,
-      height: Math.max(0, box.height - traitHeight),
-    });
+    this.abilityChips.render(
+      chips,
+      {
+        x: box.x,
+        y: box.y + traitHeight,
+        width: box.width,
+        height: Math.max(0, box.height - traitHeight),
+      },
+      this.textScale,
+    );
   }
 
   /**
@@ -1547,10 +1633,12 @@ export class BuildBar extends Container {
     // The body it becomes, not just its colour: the mark pips are the clearest
     // statement of what the button buys.
     this.upgradeButton.setSwatch(glyphOf(next));
+    const canPay = economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap;
     this.upgradeButton.update({
       title: 'Upgrade',
       detail: `${GOLD}${gold}${supply ? ` · ${SUPPLY}+${supply}` : ''}`,
-      enabled: canAct && economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap,
+      enabled: canAct && canPay,
+      unaffordable: canAct && !canPay,
     });
   }
 
@@ -1660,9 +1748,11 @@ function grid(
   top: number,
   width: number,
   height: number,
+  /** The screen's text scale, which every button sizes its lines from. */
+  textScale: number,
 ): void {
   buttons.forEach((button, i) => {
     const cell = gridCell(i, cols, rows, gap, left, top, width, height);
-    button.layout(cell.x, cell.y, cell.width, cell.height);
+    button.layout(cell.x, cell.y, cell.width, cell.height, textScale);
   });
 }

@@ -10,7 +10,7 @@ import type { GameData, MonsterDef, UnitDef } from '../../data/schema.ts';
 import { refId, refRank } from '../../data/schema.ts';
 import { RANGED_MIN_TILES } from '../attackStyle.ts';
 import type { StatMods } from '../../sim/index.ts';
-import type { Chip } from './abilityChips.ts';
+import { chipHeight, type Chip } from './abilityChips.ts';
 
 /**
  * The selected-unit stat block, laid out two across and three down in reading
@@ -37,9 +37,22 @@ export const STAT_CELLS: { key: StatKey; name: string }[] = [
   { key: 'moveSpeed', name: 'Move' },
 ];
 export const STAT_COLUMNS = 2;
-export const STAT_ROW_HEIGHT = 15;
-/** How far the value sits from its name. Fixed, so the values line up. */
-export const STAT_VALUE_INSET = 58;
+/** A row of stat cells at a text scale of 1, and never less. */
+export const STAT_ROW_HEIGHT = 17;
+
+/**
+ * The selected-body panel's type sizes at a text scale of 1 (layout.ts,
+ * `textScaleFor`). They were 13, 9, 9 and 10: the name read, and everything
+ * under it was small print.
+ */
+export const PANEL_TEXT = {
+  title: 15,
+  subtitle: 11,
+  statName: 11,
+  statValue: 12,
+  trait: 12,
+  energy: 10,
+} as const;
 
 /**
  * How each stat cell is scaled by what is currently on the body.
@@ -181,6 +194,8 @@ export interface PanelRegions {
   statRows: number;
   /** Upgrade and Sell, or nothing at all for a body you do not own. */
   buttons: Rect;
+  /** One row of stat cells, at this screen's text scale. */
+  statRowHeight: number;
 }
 
 export interface Rect {
@@ -192,10 +207,13 @@ export interface Rect {
 
 /** Inset from the bar's edges, so the panel is not flush against them. */
 export const PANEL_INSET = 18;
-/** A touch target, from §14.1's one-thumb rule. */
+/** A touch target, from §14.1's one-thumb rule. The least the action buttons are. */
 export const PANEL_BUTTON_HEIGHT = 44;
-/** The title's line, including the gap under it. */
+/** The action buttons at a text scale of 1: a touch target, which holds their two lines. */
+const PANEL_BUTTON_WRITTEN = 44;
+/** The title's line, including the gap under it, at a text scale of 1, and never less. */
 const TITLE_HEIGHT = 24;
+const TITLE_WRITTEN = 26;
 /** Between the text block and whatever is under it. */
 const TEXT_GAP = 6;
 /**
@@ -211,36 +229,48 @@ const TEXT_GAP = 6;
  */
 const TEXT_MIN_HEIGHT = 26;
 
+/** `written` scaled for this screen, and never under `floor`. */
+function scaled(written: number, textScale: number, floor: number): number {
+  return Math.round(Math.max(floor, written * textScale));
+}
+
 export function panelRegions(
   bar: Rect,
   top: number,
   height: number,
   /** False for a monster, which has no buttons and gets their space instead. */
   hasButtons = true,
+  /** The screen's text scale (layout.ts, `textScaleFor`): every line grows with it. */
+  textScale = 1,
 ): PanelRegions {
   const x = bar.x + PANEL_INSET;
   const width = Math.max(0, bar.width - PANEL_INSET * 2);
   const statRows = Math.ceil(STAT_CELLS.length / STAT_COLUMNS);
+  const buttonsH = scaled(PANEL_BUTTON_WRITTEN, textScale, PANEL_BUTTON_HEIGHT);
+  const titleH = scaled(TITLE_WRITTEN, textScale, TITLE_HEIGHT);
+  const rowH = scaled(STAT_ROW_HEIGHT, textScale, 15);
+  // Two ability names, at the size they are drawn (abilityChips.ts).
+  const textFloor = Math.max(TEXT_MIN_HEIGHT, chipHeight(textScale) + 4);
 
   // The buttons are taken off the bottom FIRST, because being able to act on
   // the thing you selected outranks reading about it. Clamped to the top of
   // the panel so that a panel shorter than one touch target reports a
   // degenerate layout rather than boxes in the wrong order.
-  const buttonHeight = hasButtons ? PANEL_BUTTON_HEIGHT + 2 : 0;
+  const buttonHeight = hasButtons ? buttonsH + 2 : 0;
   const buttonTop = Math.max(top, top + height - buttonHeight);
 
   // Everything else is allocated from the top down, each part taking what it
   // wants or what is left, whichever is less.
   let y = top + 2;
-  const title = { x, y, width, height: Math.min(TITLE_HEIGHT, Math.max(0, buttonTop - y)) };
+  const title = { x, y, width, height: Math.min(titleH, Math.max(0, buttonTop - y)) };
   y += title.height;
 
   // Whole rows only - half a row of stat cells is a row of clipped numbers -
   // and never so many that the text is left with nothing (see
   // `TEXT_MIN_HEIGHT`).
-  const roomForStats = Math.max(0, buttonTop - y - TEXT_GAP - TEXT_MIN_HEIGHT);
-  const rowsThatFit = Math.max(0, Math.min(statRows, Math.floor(roomForStats / STAT_ROW_HEIGHT)));
-  const stats = { x, y, width, height: rowsThatFit * STAT_ROW_HEIGHT };
+  const roomForStats = Math.max(0, buttonTop - y - TEXT_GAP - textFloor);
+  const rowsThatFit = Math.max(0, Math.min(statRows, Math.floor(roomForStats / rowH)));
+  const stats = { x, y, width, height: rowsThatFit * rowH };
   y += stats.height + (stats.height > 0 ? TEXT_GAP : 0);
 
   const textTop = Math.min(y, buttonTop);
@@ -252,7 +282,8 @@ export function panelRegions(
     // is left between the stats and the buttons, and nothing else. It can be
     // nothing, and nothing is a legible outcome.
     text: { x, y: textTop, width, height: Math.max(0, buttonTop - textTop) },
-    buttons: { x, y: buttonTop + 2, width, height: hasButtons ? PANEL_BUTTON_HEIGHT : 0 },
+    buttons: { x, y: buttonTop + 2, width, height: hasButtons ? buttonsH : 0 },
+    statRowHeight: rowH,
   };
 }
 

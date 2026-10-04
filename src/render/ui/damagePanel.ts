@@ -48,7 +48,11 @@ import {
 } from './damageRows.ts';
 import { label } from './text.ts';
 
-const HEADER_HEIGHT = 17;
+/** The heading's line at a text scale of 1, and the type sizes (layout.ts, `textScaleFor`). */
+const HEADER_HEIGHT = 20;
+const HEADING_SIZE = 12;
+const NAME_SIZE = 12;
+const VALUE_SIZE = 13;
 
 class DamageRowView extends Container {
   private readonly bar = new Graphics();
@@ -62,8 +66,8 @@ class DamageRowView extends Container {
 
   constructor(onTap: (unitId: number) => void) {
     super();
-    this.caption = label('', 10, UI.text, '600');
-    this.value = label('', 11, UI.text, '700');
+    this.caption = label('', NAME_SIZE, UI.text, '600');
+    this.value = label('', VALUE_SIZE, UI.text, '700');
     this.addChild(this.bar, this.icon, this.caption, this.value);
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -72,12 +76,18 @@ class DamageRowView extends Container {
     });
   }
 
-  layout(x: number, y: number, width: number, height: number): void {
+  layout(x: number, y: number, width: number, height: number, textScale: number): void {
     this.position.set(x, y);
     this.w = width;
     this.h = height;
     this.hitArea = new Rectangle(0, 0, width, height);
+    this.caption.style.fontSize = Math.round(NAME_SIZE * textScale);
+    this.value.style.fontSize = Math.round(VALUE_SIZE * textScale);
+    this.iconMax = 8 * textScale;
   }
+
+  /** The largest the body icon is drawn, on this screen. */
+  private iconMax = 8;
 
   update(row: DamageRow, selected: boolean, alive: boolean): void {
     this.unitId = row.unitId;
@@ -98,7 +108,7 @@ class DamageRowView extends Container {
 
     // The same body §14.2 draws on the board, pips and all, so a row is read
     // by the same glance that reads the lane.
-    const radius = Math.min(8, this.h * 0.3);
+    const radius = Math.min(this.iconMax, this.h * 0.3);
     this.icon.clear();
     drawEntity(
       this.icon,
@@ -109,11 +119,11 @@ class DamageRowView extends Container {
     );
 
     if (this.caption.text !== row.def.name) this.caption.text = row.def.name;
-    this.caption.position.set(16 + radius * 2, this.h / 2 - 7);
+    this.caption.position.set(16 + radius * 2, (this.h - this.caption.height) / 2);
 
     const text = formatDamage(row.damage);
     if (this.value.text !== text) this.value.text = text;
-    this.value.position.set(this.w - 8 - this.value.width, this.h / 2 - 8);
+    this.value.position.set(this.w - 8 - this.value.width, (this.h - this.value.height) / 2);
 
     // Dimmed while it is down. Its numbers stand; the unit does not.
     this.alpha = alive ? 1 : 0.45;
@@ -135,9 +145,9 @@ export class DamagePanel extends Container {
     onSelectUnit: (unitId: number) => void,
   ) {
     super();
-    this.heading = label('', 10, UI.textMuted, '700');
-    this.total = label('', 10, UI.text, '700');
-    this.empty = label('', 10, UI.textMuted);
+    this.heading = label('', HEADING_SIZE, UI.textMuted, '700');
+    this.total = label('', HEADING_SIZE, UI.text, '700');
+    this.empty = label('', HEADING_SIZE, UI.textMuted);
     this.addChild(this.heading, this.total, this.empty);
 
     for (let i = 0; i < MAX_DAMAGE_ROWS; i++) {
@@ -147,19 +157,27 @@ export class DamagePanel extends Container {
     }
   }
 
-  /** Positions everything. `top` and `height` are the bar's panel area. */
-  layout(bar: Rect, top: number, height: number): void {
+  /**
+   * Positions everything. `top` and `height` are the bar's panel area, and
+   * `textScale` the screen's (layout.ts, `textScaleFor`).
+   */
+  layout(bar: Rect, top: number, height: number, textScale = 1): void {
     // Inside the bar: its own left edge, which is zero in portrait and the
     // right-hand column's in landscape.
     const left = bar.x + 6;
     const width = bar.width - 12;
     this.rowsRight = left + width;
+    const header = Math.round(Math.max(17, HEADER_HEIGHT * textScale));
+    for (const text of [this.heading, this.total, this.empty]) {
+      text.style.fontSize = Math.round(HEADING_SIZE * textScale);
+    }
 
     this.heading.position.set(left, top);
     this.total.position.set(left, top);
-    this.empty.position.set(left, top + HEADER_HEIGHT + 4);
+    this.empty.position.set(left, top + header + 4);
 
-    const fit = fitRows(width, height - HEADER_HEIGHT);
+    // Rows as tall as their larger text needs; fewer of them on a short bar.
+    const fit = fitRows(width, height - header, Math.round(28 * textScale));
     this.shown = fit.shown;
 
     this.rows.forEach((row, i) => {
@@ -168,9 +186,10 @@ export class DamagePanel extends Container {
       const index = i % fit.perColumn;
       row.layout(
         left + column * (fit.columnWidth + fit.gap),
-        top + HEADER_HEIGHT + index * (fit.rowHeight + fit.gap),
+        top + header + index * (fit.rowHeight + fit.gap),
         fit.columnWidth,
         fit.rowHeight,
+        textScale,
       );
     });
   }

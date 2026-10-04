@@ -38,15 +38,16 @@ export interface RowFit {
  * Height decides the count and width decides the columns, so a tall phone
  * shows a longer list and a narrow one shows a single column rather than two
  * unreadable ones. Two rows is the floor: a panel that could not show a
- * comparison would not be worth a tab.
+ * comparison would not be worth a tab. `minRowHeight` is for larger text on a
+ * larger screen (damagePanel.ts); a row is never shorter than 26 pixels.
  */
-export function fitRows(width: number, height: number): RowFit {
+export function fitRows(width: number, height: number, minRowHeight = MIN_ROW_HEIGHT): RowFit {
   const columns = width >= TWO_COLUMN_WIDTH ? 2 : 1;
   const perColumn = Math.max(
     2,
     Math.min(
       Math.floor(MAX_DAMAGE_ROWS / columns),
-      Math.floor((height + ROW_GAP) / (MIN_ROW_HEIGHT + ROW_GAP)),
+      Math.floor((height + ROW_GAP) / (Math.max(MIN_ROW_HEIGHT, minRowHeight) + ROW_GAP)),
     ),
   );
   return {

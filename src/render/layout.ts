@@ -172,6 +172,34 @@ export interface LaneLayout extends Camera {
   /** The build bar: the bottom band in portrait, the right column in landscape. */
   buildBar: Rect;
   grid: { width: number; depth: number };
+  /**
+   * How much larger than its size on a typical phone the interface's text is
+   * drawn on this screen. See `textScaleFor`.
+   */
+  textScale: number;
+}
+
+/** The short side of the phone the text sizes are written for, in CSS pixels. */
+const TEXT_REFERENCE_SIDE = 390;
+
+/**
+ * How much larger than its written size text is drawn on a screen this size.
+ *
+ * Read off the SHORT side, because that is what says what the screen is: a
+ * phone is about 360 to 430 across whichever way it is held, and a tablet or
+ * a desktop window is twice that. So a phone gets its text at about the size
+ * it was written for - a little smaller on the smallest phones, whose panels
+ * have the least room, and a little larger on the big ones - and a big screen
+ * gets it up to two-fifths larger, where the panels are many times the size
+ * and text at phone size was lost in them.
+ *
+ * One number for the whole interface rather than one per panel, so a name is
+ * the same size on every tab. A button that cannot fit its lines at this size
+ * shrinks them to fit (gridButton.ts), which is a floor, not the rule.
+ */
+export function textScaleFor(width: number, height: number): number {
+  const scale = Math.min(width, height) / TEXT_REFERENCE_SIDE;
+  return Math.round(Math.max(0.92, Math.min(1.4, scale)) * 100) / 100;
 }
 
 /**
@@ -330,6 +358,7 @@ function fitLane(width: number, height: number, lane: LaneFile, bands: Bands): L
     tileSize,
     gridOrigin,
     grid,
+    textScale: textScaleFor(width, height),
   };
 }
 

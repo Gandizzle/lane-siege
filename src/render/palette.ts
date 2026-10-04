@@ -70,6 +70,20 @@ export const UI = {
   danger: 0xd55e00,
   panel: 0x181c26,
   panelEdge: 0x2a3040,
+  /**
+   * A button that cannot be used right now. Recessed into the bar - darker
+   * than a live button - rather than faded: fading the whole button took the
+   * words down with it, and a price you cannot read is a price you cannot plan
+   * towards. Its words stay in `textMuted`, over six to one against this.
+   */
+  panelAsleep: 0x0f1218,
+  /**
+   * A price you cannot pay yet: a warm coral, over seven to one against a
+   * button, so the number reads at a glance and says why the button is out.
+   */
+  unaffordable: 0xff8e75,
+  /** A tab that is asleep (the Build tab during a wave): dimmer than an idle one, still read. */
+  textAsleep: 0x737b8d,
   /** The Final Showdown's ground, and the square where the four spokes meet. */
   arenaFloor: 0x171b26,
   arenaCentre: 0x1d2231,
