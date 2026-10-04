@@ -21,12 +21,24 @@ import type { MatchView } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
-import { centreOn, clock, label } from './text.ts';
+import { centreOn, clock, fit, label } from './text.ts';
 
 export interface GameOverHandlers {
   onRestart(): void;
   /** §13: stay and watch. The overlay closes; the match carries on. */
   onSpectate(): void;
+  /** After a tutorial practice match: on to the lesson after it. */
+  onNextLesson(): void;
+  /** After a tutorial practice match: the same match again, from the start. */
+  onRetryLesson(): void;
+}
+
+/**
+ * A tutorial practice match is ending (tutorial/lessons.ts): what comes after
+ * it, by title, or null after the last.
+ */
+export interface PracticeEnding {
+  next: string | null;
 }
 
 /** What the overlay is currently showing, so it only redraws on a change. */
@@ -66,7 +78,11 @@ export class GameOver extends Container {
    * (§3.3, solo), known once the fortress has fallen. Solo has one outcome -
    * the wall always falls in the end - and the number is the news.
    */
-  render(view: MatchView, solo: { best: number; newBest: boolean } | null = null): void {
+  render(
+    view: MatchView,
+    solo: { best: number; newBest: boolean } | null = null,
+    practice: PracticeEnding | null = null,
+  ): void {
     const outcome = classify(view);
     // §3.3, replaced: the same three outcomes, reached a different way. Nobody loses a
     // fortress in the arena - there are none - so the words have to change.
@@ -131,6 +147,40 @@ export class GameOver extends Container {
     this.addChild(centreOn(label(detail, 13, UI.textMuted), cx, l.screen.height * 0.41));
 
     let y = l.screen.height * 0.5;
+
+    // A practice match between chapters ends on the way on, not on a choice
+    // about this match: the next lesson first, and another go second. Staying
+    // to watch three bots is not what a tutorial is for.
+    if (practice) {
+      const width = Math.min(l.screen.width - 32, 280);
+      this.addChild(
+        this.button(
+          cx,
+          y,
+          fit(practice.next ? `Next: ${practice.next}` : 'Play a real match', width - 24, 14),
+          UI.accent,
+          UI.background,
+          () => {
+            this.reset();
+            this.handlers.onNextLesson();
+          },
+          width,
+        ),
+        this.button(
+          cx,
+          y + 56,
+          'Play this match again',
+          UI.panel,
+          UI.text,
+          () => {
+            this.reset();
+            this.handlers.onRetryLesson();
+          },
+          width,
+        ),
+      );
+      return;
+    }
 
     // Staying to watch only means anything while somebody else is still playing.
     const stillPlaying = view.opponents.some((o) => !o.eliminated);
@@ -206,17 +256,18 @@ export class GameOver extends Container {
     fill: number,
     textColour: number,
     onTap: () => void,
+    width = 180,
   ): Container {
     const button = new Container();
     const g = new Graphics();
-    g.roundRect(cx - 90, y, 180, 44, 10)
+    g.roundRect(cx - width / 2, y, width, 44, 10)
       .fill({ color: fill })
       .stroke({ width: 1, color: UI.panelEdge });
     button.addChild(g, centreOn(label(text, 14, textColour, '700'), cx, y + 14));
 
     button.eventMode = 'static';
     button.cursor = 'pointer';
-    button.hitArea = new Rectangle(cx - 90, y, 180, 44);
+    button.hitArea = new Rectangle(cx - width / 2, y, width, 44);
     button.on('pointertap', onTap);
     return button;
   }

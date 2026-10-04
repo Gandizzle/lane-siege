@@ -10,7 +10,7 @@
 
 import type { GameData } from '../data/schema.ts';
 import { LocalTransport } from '../net/localTransport.ts';
-import type { Chapter, Scene } from './types.ts';
+import type { Chapter, Practice, Scene } from './types.ts';
 
 /** Every tutorial match is this seed. */
 export const TUTORIAL_SEED = 1107;
@@ -54,6 +54,46 @@ export function tutorialMatch(data: GameData, chapter: Chapter, name: string): L
       if (lane.teamId !== OWN_LANE) lane.economy.gold += BOT_HEAD_START;
     }
   });
+  return transport;
+}
+
+/**
+ * A practice match between chapters (lessons.ts): a match like the one on the
+ * home screen - its own seed, bots that play their rolled styles - with the
+ * practice's own setup on top.
+ *
+ * Until sends have been taught the bots are told not to send, for the same
+ * reason as in a chapter: a monster nobody explained, arriving from a tab the
+ * player cannot see yet. And no head start, because nobody is waiting on
+ * them: this is a match, not a lesson about wave 1.
+ */
+export function practiceMatch(
+  data: GameData,
+  practice: Practice,
+  name: string,
+  seed: number,
+): LocalTransport {
+  const others = data.units.builders.map((b) => b.id).filter((id) => id !== practice.builderId);
+  const teams = LANE_IDS.map((id, index) => ({
+    id,
+    playerIds: [id === OWN_LANE ? 'you' : 'bot'],
+    // Bots that send are named by the style the transport rolls for them, as on
+    // the home screen; quiet ones all play one style, so they are numbered.
+    name: id === OWN_LANE ? name : practice.botsSend ? '' : `Bot ${index + 1}`,
+    builderId:
+      id === OWN_LANE
+        ? practice.builderId
+        : (others[(index - 1) % Math.max(1, others.length)] ?? practice.builderId),
+  }));
+  const transport = new LocalTransport(
+    data,
+    seed,
+    teams,
+    OWN_LANE,
+    LANE_IDS.filter((id) => id !== OWN_LANE),
+    { quietBots: !practice.botsSend },
+  );
+  practice.setup?.(sceneOf(data, transport));
   return transport;
 }
 

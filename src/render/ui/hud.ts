@@ -113,6 +113,17 @@ export class Hud extends Container {
     this.layout = layout;
   }
 
+  /**
+   * Whether gems are shown (features.ts). Until the tutorial has taught them
+   * there is nothing to spend them on, so the wallet is gold alone and there
+   * is no income line - passive income is what sends pay.
+   */
+  setGems(shown: boolean): void {
+    this.gems = shown;
+  }
+
+  private gems = true;
+
   /** Where a reading is on screen, or null if it was not drawn last frame. */
   locate(part: HudPart): Rect | null {
     return unionOf((this.parts.get(part) ?? []).map((text) => screenRect(text)));
@@ -225,7 +236,7 @@ export class Hud extends Container {
     // Not in the endless wave, which pays none: nothing can be bought in it,
     // so gold stops (endless.ts).
     const income = () => {
-      if (endless) return null;
+      if (endless || !this.gems) return null;
       this.income.set(`+${GOLD}${Math.floor(economy?.passiveIncome ?? 0)} / wave`);
       this.income.setColour((economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted);
       return this.income;
@@ -233,7 +244,9 @@ export class Hud extends Container {
     // What you have: gold and gems together, supply as used out of the cap.
     const purse = () => {
       this.purse.set(
-        `${GOLD}${Math.floor(economy?.gold ?? 0)}   ${GEM}${Math.floor(economy?.gems ?? 0)}`,
+        this.gems
+          ? `${GOLD}${Math.floor(economy?.gold ?? 0)}   ${GEM}${Math.floor(economy?.gems ?? 0)}`
+          : `${GOLD}${Math.floor(economy?.gold ?? 0)}`,
       );
       return this.purse;
     };

@@ -11,18 +11,73 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
+import { buildableUnits } from '../data/roster.ts';
 import type { LocalTransport } from '../net/localTransport.ts';
 import { hasMark, type MatchView } from '../sim/index.ts';
 import { MS_PER_TICK } from '../util/loop.ts';
+import type { Features } from '../render/features.ts';
 import { CHAPTERS, bestAgainstWave, stillFighting } from './chapters.ts';
-import { sceneOf, tutorialMatch } from './match.ts';
+import {
+  LESSONS,
+  RICH_START,
+  SEND_START_GEMS,
+  TIGHT_SUPPLY,
+  lessonId,
+  practiceIntro,
+} from './lessons.ts';
+import { practiceMatch, sceneOf, tutorialMatch } from './match.ts';
 import { TutorialRunner } from './runner.ts';
-import type { Target, UiProbe } from './types.ts';
+import type { Practice, Target, UiProbe } from './types.ts';
 
 const { data } = loadDataFromDisk();
 
 /** How long a `run` step may take before the chapter counts as stuck. */
 const MAX_RUN_TICKS = 20 * 60 * 3;
+
+/**
+ * Whether `target` is on screen with only `features` open (render/features.ts):
+ * a lesson that points at a tab it has not opened yet points at nothing.
+ */
+function reachable(target: Target, features: Features): boolean {
+  switch (target.kind) {
+    case 'tab':
+      return features.tabs.includes(target.tab);
+    case 'unitCard':
+      return features.tabs.includes('build');
+    case 'upgrade':
+    case 'sell':
+      return features.upgrades;
+    case 'supplyCap':
+      return features.tabs.includes('fort');
+    case 'weapon':
+      return features.tabs.includes('aura');
+    case 'tech':
+      return features.tabs.includes('tech');
+    case 'send':
+    case 'sendTargets':
+      return features.tabs.includes('send');
+    case 'hudIncome':
+      return features.gems;
+    default:
+      return true;
+  }
+}
+
+/** Everything `a` opens, `b` opens too. */
+function within(a: Features, b: Features): boolean {
+  return (
+    a.tabs.every((tab) => b.tabs.includes(tab)) &&
+    (!a.upgrades || b.upgrades) &&
+    (a.fort === 'supply' || b.fort === 'all') &&
+    (!a.gems || b.gems)
+  );
+}
+
+const practices = LESSONS.flatMap((l) => (l.kind === 'practice' ? [l.practice] : []));
+
+function practice(id: string): Practice {
+  return practices.find((p) => p.id === id)!;
+}
 
 class Player {
   readonly ui: UiProbe = {
@@ -166,6 +221,9 @@ function play(chapterIndex: number): {
     expect(text.length).toBeGreaterThan(10);
     said.set(at, text);
     if (target?.kind === 'unit') expect(player.view.lane!.units[target.index]).toBeDefined();
+    if (target) {
+      expect(reachable(target, chapter.features), `${chapter.id} ${at}: ${target.kind}`).toBe(true);
+    }
     if (target?.kind === 'monsterWith') {
       const marked = player.view.lane!.monsters.filter((m) =>
         hasMark(m.statusMarks ?? 0, target.mark),
@@ -396,4 +454,97 @@ describe('the tutorial', () => {
     expect(view.lane!.economy!.passiveIncome).toBeGreaterThan(0);
     expect(view.lane!.sendLog.length).toBeGreaterThan(0);
   });
+});
+
+describe('the lessons between chapters', () => {
+  it('opens the interface a piece at a time, and never closes a piece again', () => {
+    const features = LESSONS.map((l) => (l.kind === 'chapter' ? l.chapter : l.practice).features);
+    // The first lessons have the Build tab and nothing else.
+    expect(features[0]!.tabs).toEqual(['build']);
+    expect(features[0]!.upgrades).toBe(false);
+    expect(features[0]!.gems).toBe(false);
+    for (let i = 1; i < features.length; i++) {
+      expect(within(features[i - 1]!, features[i]!), `lesson ${i}`).toBe(true);
+    }
+    // And by the end, everything.
+    const last = features.at(-1)!;
+    expect(last.tabs.length).toBe(6);
+    expect(last.fort).toBe('all');
+    expect(last.gems).toBe(true);
+  });
+
+  it('follows each chapter with a practice match on what it opened, until the last', () => {
+    const ids = LESSONS.map(lessonId);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(LESSONS.filter((l) => l.kind === 'chapter').map((l) => l.chapter.id)).toEqual(
+      CHAPTERS.map((c) => c.id),
+    );
+    expect(LESSONS[0]!.kind).toBe('chapter');
+    expect(LESSONS.at(-1)!.kind).toBe('chapter');
+    LESSONS.forEach((lesson, i) => {
+      if (lesson.kind !== 'practice') return;
+      const before = LESSONS[i - 1]!;
+      expect(before.kind).toBe('chapter');
+      if (before.kind === 'chapter')
+        expect(lesson.practice.features).toEqual(before.chapter.features);
+      // Never two practices in a row.
+      expect(LESSONS[i + 1]?.kind).toBe('chapter');
+    });
+    expect(practices.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('introduces each practice, pointing at something it has open', () => {
+    for (const p of practices) {
+      expect(practiceIntro(data, p).length).toBeGreaterThan(40);
+      if (p.target) expect(reachable(p.target, p.features), p.id).toBe(true);
+      expect(data.units.builders.some((b) => b.id === p.builderId)).toBe(true);
+    }
+  });
+
+  it('sets each practice up so the newest piece is the one that matters', () => {
+    const start = (id: string) => practiceMatch(data, practice(id), 'Tester', 7).view()!;
+    const startingGold = data.economy.startingGold ?? 0;
+    expect(start('practice-build').lane!.economy!.gold).toBe(startingGold);
+
+    // Too little supply to build out of trouble: upgrading is how to grow.
+    expect(start('practice-upgrade').lane!.economy!.supplyCap).toBe(TIGHT_SUPPLY);
+    expect(TIGHT_SUPPLY).toBeLessThan(data.economy.supply.capBase ?? 0);
+
+    // More gold than the starting cap can hold.
+    const rich = start('practice-supply');
+    expect(rich.lane!.economy!.gold).toBe(startingGold + RICH_START);
+    // However it is spent: even the cheapest gold-per-supply unit fills the cap first.
+    const cheapest = Math.min(
+      ...buildableUnits(data, practice('practice-supply').builderId).map(
+        (u) => (u.goldCost ?? 0) / Math.max(1, u.supplyCost ?? 0),
+      ),
+    );
+    expect(rich.lane!.economy!.gold / cheapest).toBeGreaterThan(data.economy.supply.capBase ?? 0);
+
+    // A weapon to fix.
+    const counters = start('practice-counters');
+    expect(counters.lane!.fortress.weaponDamageType).not.toBe(bestAgainstWave(data, counters));
+
+    // Gems to send with from the start.
+    expect(start('practice-sends').lane!.economy!.gems).toBeGreaterThanOrEqual(SEND_START_GEMS);
+  });
+
+  it(
+    'is a whole match: one played with nothing built ends with the fortress falling',
+    { timeout: 60_000 },
+    () => {
+      const transport = practiceMatch(data, practice('practice-build'), 'Tester', 3);
+      let ticks = 0;
+      while (!transport.view()!.eliminated && ticks < 20 * 60 * 15) {
+        transport.update(MS_PER_TICK);
+        ticks++;
+      }
+      const view = transport.view()!;
+      expect(view.eliminated).toBe(true);
+      // The bots in a practice before sends were taught never sent at you.
+      expect(view.lane!.sendLog.length).toBe(0);
+      // And the other lanes are named, not blank.
+      expect(view.opponents.every((o) => o.name.length > 0)).toBe(true);
+    },
+  );
 });

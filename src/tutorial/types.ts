@@ -13,6 +13,7 @@ import type { DamageType, GameData } from '../data/schema.ts';
 import type { MatchState, MatchView, SimContext, StatusMark } from '../sim/index.ts';
 import type { Selection, Tab, View } from '../render/ui/buildBar.ts';
 import type { StatKey } from '../render/ui/unitStats.ts';
+import type { Features } from '../render/features.ts';
 
 /** Something on screen the coach can point at. */
 export type Target =
@@ -137,6 +138,11 @@ export interface Chapter {
   summary: string;
   /** The roster the chapter plays (units.json). */
   builderId: string;
+  /**
+   * What the interface shows while it plays (render/features.ts): what has
+   * been taught so far, and what this chapter teaches.
+   */
+  features: Features;
   /** Arrange the match before the first step. */
   setup?: (scene: Scene) => void;
   steps: Step[];
@@ -146,3 +152,31 @@ export interface Chapter {
 export interface Stageable {
   stage(arrange: (state: MatchState, ctx: SimContext) => void): void;
 }
+
+/**
+ * A whole match, played between chapters with only what has been taught so far
+ * (src/tutorial/lessons.ts). Reps with the basics before the next choice
+ * arrives: a player who has just learned to upgrade plays a match where
+ * upgrading is the way to win, rather than reading on about supply.
+ */
+export interface Practice {
+  id: string;
+  title: string;
+  /** One line, for the chapter list. */
+  summary: string;
+  /** The card before the match starts: what is new, and what to try with it. */
+  intro: string | ((data: GameData) => string);
+  /** What that card points at: where the new thing is. */
+  target?: Target;
+  /** The roster the match is played with. */
+  builderId: string;
+  features: Features;
+  /** The other lanes send at you, as they would in a real match. Otherwise they only build. */
+  botsSend: boolean;
+  /** Set the match up before it starts: a tighter supply cap, a fuller purse. */
+  setup?: (scene: Scene) => void;
+}
+
+/** One entry in the tutorial: a chapter that explains, or a match that practises. */
+export type Lesson =
+  { kind: 'chapter'; chapter: Chapter } | { kind: 'practice'; practice: Practice };

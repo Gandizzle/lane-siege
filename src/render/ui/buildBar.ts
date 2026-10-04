@@ -68,6 +68,7 @@ import type {
   WaveSummary,
 } from '../../sim/index.ts';
 import type { LaneLayout, Rect } from '../layout.ts';
+import { EVERYTHING, type Features } from '../features.ts';
 import type { Target } from '../../tutorial/types.ts';
 import { auraColour } from '../aura.ts';
 import { DAMAGE_COLOURS, UI } from '../palette.ts';
@@ -289,6 +290,10 @@ export class BuildBar extends Container {
   private layoutRect: Rect = { x: 0, y: 0, width: 0, height: 0 };
   /** The screen's text scale, from the last layout (layout.ts, `textScaleFor`). */
   private textScale = 1;
+  /** What this match shows (features.ts): every tab, unless the tutorial says not yet. */
+  private features: Features = EVERYTHING;
+  /** The layout last laid out, so a change of features can lay it out again. */
+  private lastLayout: LaneLayout | null = null;
   private panelArea: Rect = { x: 0, y: 0, width: 0, height: 0 };
 
   private readonly damagePanel: DamagePanel;
@@ -684,8 +689,21 @@ export class BuildBar extends Container {
   }
 
   private setTab(tab: Tab): void {
+    if (!this.features.tabs.includes(tab)) return;
     this.active = tab;
     this.handlers.onClearSelection();
+  }
+
+  /**
+   * What the bar shows (features.ts). Tabs not yet open are not drawn and the
+   * rest share the strip; Upgrade and Sell go from a unit's panel; the Fort
+   * tab can be Supply Cap alone. Lays the bar out again only on a change.
+   */
+  setFeatures(features: Features): void {
+    if (JSON.stringify(features) === JSON.stringify(this.features)) return;
+    this.features = features;
+    if (!features.tabs.includes(this.active)) this.active = features.tabs[0] ?? 'build';
+    if (this.lastLayout) this.setLayout(this.lastLayout);
   }
 
   /** Which view is up: a tab's panel, or 'unit' while a body is selected. */
@@ -706,7 +724,7 @@ export class BuildBar extends Container {
         return this.visible ? this.panelArea : null;
       case 'tab': {
         const button = this.tabButtons.find((b) => b.id === target.tab);
-        return button ? screenRect(button) : null;
+        return button?.visible ? screenRect(button) : null;
       }
       case 'unitCard': {
         const slot = this.unitSlots.findIndex((def) => def?.id === target.defId);
@@ -749,6 +767,7 @@ export class BuildBar extends Container {
     const l = layout;
     const bar = l.buildBar;
     this.layoutRect = bar;
+    this.lastLayout = layout;
     // One scale for every panel, so a name is the same size on every tab.
     const scale = l.textScale;
     this.textScale = scale;
@@ -766,12 +785,15 @@ export class BuildBar extends Container {
     // The tab strip: one row across a wide bar, two rows down a narrow one.
     // Six tabs across a 240-pixel landscape column would be forty pixels each,
     // and "Damage" does not fit in forty pixels.
+    // Only the tabs this match shows (features.ts), sharing the strip.
+    const open = this.tabButtons.filter((button) => this.features.tabs.includes(button.id));
+    for (const button of this.tabButtons) button.visible = open.includes(button);
     const tabGap = 4;
-    const tabCols = l.orientation === 'landscape' ? 3 : TABS.length;
-    const tabRows = Math.ceil(TABS.length / tabCols);
+    const tabCols = l.orientation === 'landscape' ? Math.min(3, open.length) : open.length;
+    const tabRows = Math.ceil(open.length / tabCols);
     const tabH = Math.round(Math.max(TAB_HEIGHT, TAB_HEIGHT * scale));
     const tabW = (inner - tabGap * (tabCols - 1)) / tabCols;
-    this.tabButtons.forEach((button, i) => {
+    open.forEach((button, i) => {
       button.layout(
         left + (i % tabCols) * (tabW + tabGap),
         bar.y + 3 + Math.floor(i / tabCols) * (tabH + tabGap),
@@ -801,7 +823,24 @@ export class BuildBar extends Container {
       this.techButtons.map((t) => t.button),
       3,
     );
-    across([...this.fortButtons.map((f) => f.button), this.supplyButton], 4);
+    // Supply Cap alone, until the tutorial has opened the fortress ladders -
+    // in the first cell of the grid the whole tab would have, so it is the
+    // size it will always be rather than one button the size of the panel.
+    const fortLadders = this.features.fort === 'all';
+    for (const { button } of this.fortButtons) button.visible = fortLadders;
+    const fortItems = [...this.fortButtons.map((f) => f.button), this.supplyButton];
+    const fortCols = wide ? 4 : 2;
+    grid(
+      fortLadders ? fortItems : [this.supplyButton],
+      fortCols,
+      Math.ceil(fortItems.length / fortCols),
+      6,
+      left,
+      top,
+      inner,
+      height,
+      scale,
+    );
     across(
       [...this.weaponButtons.map((w) => w.button), ...this.auraButtons.map((a) => a.button)],
       4,
@@ -1413,7 +1452,10 @@ export class BuildBar extends Container {
       ? this.data.units.units.find((u) => u.id === current.upgradesTo)
       : undefined;
 
-    if (!this.panelHasButtons) this.placePanel(true);
+    // Upgrade and Sell, unless the tutorial has not opened them yet: then the
+    // panel is all reading, as a monster's is.
+    const buttons = this.features.upgrades;
+    if (this.panelHasButtons !== buttons) this.placePanel(buttons);
 
     if (!current) {
       // Sold, or killed and not yet respawned. Nothing left to describe.
@@ -1430,15 +1472,20 @@ export class BuildBar extends Container {
     // → 2" - which spent two of the panel's lines telling a player that the
     // next Vigil is called Vigil II. The Upgrade button's pips say the mark
     // and the stat block says what the mark buys.
+    // What an upgrade would make it - the arrows in the stats, the ability it
+    // would gain - only once upgrading is open: before then it is a promise of
+    // a button that is not there.
+    const preview = buttons ? (next ?? null) : null;
     this.setHeader(current.name, typeLine(current.damageType, current.armour), unit, current.id);
-    this.showStats(current, next ?? null, mods);
+    this.showStats(current, preview, mods);
     // What it DOES, which is most of why one unit is not another (§7, §18).
     // `traits` are the older, purely descriptive lines and are usually absent;
     // the ability lines are never absent, because every unit has an ability.
-    this.renderAbilities(unitChips(this.data, current, next ?? null), current.traits ?? []);
+    this.renderAbilities(unitChips(this.data, current, preview), current.traits ?? []);
 
-    this.upgradeButton.visible = true;
-    this.sellButton.visible = true;
+    this.upgradeButton.visible = buttons;
+    this.sellButton.visible = buttons;
+    if (!buttons) return;
     this.renderUpgradeButton(economy, next, canAct);
     this.renderSellButton(lane, index, canAct);
   }

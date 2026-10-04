@@ -97,10 +97,12 @@ import { StatusLog } from './statusLog.ts';
 import { LEGEND_BUTTON_SIZE, type Rect } from './layout.ts';
 import { Hud } from './ui/hud.ts';
 import { TutorialCoach, type CoachCard } from './ui/tutorialCoach.ts';
-import { TutorialScreen } from './ui/tutorialScreen.ts';
+import { TutorialScreen, type LessonEntry } from './ui/tutorialScreen.ts';
 import { CHAPTERS } from '../tutorial/chapters.ts';
+import { LESSONS, lessonId, lessonTitle, practiceIntro } from '../tutorial/lessons.ts';
 import { TutorialRunner } from '../tutorial/runner.ts';
-import type { Chapter, Scene, Target, UiProbe } from '../tutorial/types.ts';
+import type { Chapter, Lesson, Practice, Scene, Target, UiProbe } from '../tutorial/types.ts';
+import { EVERYTHING, type Features } from './features.ts';
 import { OpponentTabs } from './ui/opponentTabs.ts';
 import { Toast } from './ui/toast.ts';
 import { WatchBanner } from './ui/watchBanner.ts';
@@ -116,6 +118,8 @@ export interface GameServices {
   createShowdown(seats: SeatSetup[]): Transport;
   /** A tutorial chapter's match, and the way the chapter sets its scene (src/tutorial). */
   createTutorial(chapter: Chapter): { transport: Transport; scene: Scene };
+  /** A practice match between chapters, already set up (tutorial/lessons.ts). */
+  createPractice(practice: Practice): Transport;
   /** The player's display name right now (identity.ts). */
   name(): string;
   /** Ask for a new name and persist it. Null if the player backed out. */
@@ -194,8 +198,18 @@ export class Game extends Container {
   /** The chapter list, and the coach over a chapter's match. */
   private readonly tutorialScreen: TutorialScreen;
   private readonly coach: TutorialCoach;
-  /** The chapter being played, while one is (src/tutorial). */
+  /** The chapter being played, while one is (src/tutorial). `index` is into LESSONS. */
   private lesson: { index: number; runner: TutorialRunner; recorded: boolean } | null = null;
+  /**
+   * The practice match being played, while one is (tutorial/lessons.ts).
+   * `intro` while its opening card is up, which holds the match.
+   */
+  private practice: {
+    index: number;
+    def: Practice;
+    intro: boolean;
+    recorded: boolean;
+  } | null = null;
   /**
    * How a solo match came out against the best on this device, worked out
    * once as the fortress falls (§3.3, solo) - null until then, and in every
@@ -287,6 +301,10 @@ export class Game extends Container {
     this.gameOver = new GameOver(this.layout, {
       onRestart: () => this.chooseAgain(),
       onSpectate: () => this.spectateFirstAvailable(),
+      onNextLesson: () => this.continueLesson(),
+      onRetryLesson: () => {
+        if (this.practice) this.startLesson(this.practice.index);
+      },
     });
     this.builderSelect = new BuilderSelect(this.layout, data, (builderId) => {
       this.chooseBuilder(builderId);
@@ -320,7 +338,9 @@ export class Game extends Container {
       onClose: () => this.setMenu(false),
       onLeaveMatch: () => {
         this.setMenu(false);
-        this.goHome();
+        // Out of a lesson is back to the list of them, where the next one is.
+        if (this.lesson || this.practice) this.leaveLesson();
+        else this.goHome();
       },
       onEditName: () => void this.editName(),
       onEffectsGuide: () => {
@@ -334,11 +354,12 @@ export class Game extends Container {
       // Over the menu rather than instead of it: closing it goes back there.
       onBattlefields: () => this.battlefieldPicker.open(),
     });
-    this.tutorialScreen = new TutorialScreen(this.layout, CHAPTERS, {
+    this.tutorialScreen = new TutorialScreen(this.layout, LESSONS.map(lessonEntry), {
       onStart: (index) => this.startLesson(index),
       onBack: () => this.showScreen('home'),
     });
     this.coach = new TutorialCoach(this.layout, {
+      onStart: () => this.playPractice(),
       onNext: () => this.lesson?.runner.next(),
       onBack: () => this.lesson?.runner.back(),
       onExit: () => this.leaveLesson(),
@@ -465,6 +486,15 @@ export class Game extends Container {
     this.menuButton.visible = !open;
   }
 
+  /**
+   * Any tap anywhere on the screen (app.ts): what puts the wave-cleared card
+   * away. Heard before the tap reaches whatever it was aimed at, which it
+   * still does.
+   */
+  screenTapped(): void {
+    this.waveCleared.dismiss();
+  }
+
   /** A short line of text over the board: what app.ts says when M mutes. */
   notify(text: string): void {
     this.toast.showText(text);
@@ -564,23 +594,37 @@ export class Game extends Container {
     this.buildBar.reset();
     this.leaveShowdown();
     this.lesson = null;
+    this.practice = null;
+    this.applyFeatures(EVERYTHING);
     this.soloResult = null;
     this.coach.hide();
+  }
+
+  /** Show only these parts of the interface (features.ts). */
+  private applyFeatures(features: Features): void {
+    this.buildBar.setFeatures(features);
+    this.hud.setGems(features.gems);
   }
 
   // ------------------------------------------------------------ the tutorial
 
   /**
-   * Play chapter `index` in a match of its own. Every chapter starts fresh -
-   * its own roster, its own board - which is what lets any one of them be
-   * played on its own as a refresher.
+   * Play lesson `index` (tutorial/lessons.ts) in a match of its own. Every
+   * lesson starts fresh - its own roster, its own board - which is what lets
+   * any one of them be played on its own as a refresher.
    */
   private startLesson(index: number): void {
-    const chapter = CHAPTERS[index];
-    if (!chapter) return;
+    const lesson = LESSONS[index];
+    if (!lesson) return;
+    if (lesson.kind === 'practice') {
+      this.startPractice(index, lesson.practice);
+      return;
+    }
+    const chapter = lesson.chapter;
     this.mode = { kind: 'tutorial' };
     const { transport, scene } = this.services.createTutorial(chapter);
     this.beginMatch(transport);
+    this.applyFeatures(chapter.features);
     // A step that shows a reference card opens it as it begins; closing it is
     // the player's, and is what moves the step on.
     const runner = new TutorialRunner(chapter, scene, (step) => {
@@ -594,15 +638,47 @@ export class Game extends Container {
     this.showScreen('match');
   }
 
-  /** The chapter-complete card's main button: the next chapter, or a real match. */
+  /**
+   * A practice match, held behind its opening card until the player taps
+   * Play: the card says what is new, and the first build phase should not
+   * tick away while they read it.
+   */
+  private startPractice(index: number, practice: Practice): void {
+    this.mode = { kind: 'tutorial' };
+    this.beginMatch(this.services.createPractice(practice));
+    this.applyFeatures(practice.features);
+    this.practice = { index, def: practice, intro: true, recorded: false };
+    // The setup has filled the purse or tightened the cap; show that.
+    this.view = this.transport?.view() ?? this.view;
+    this.showScreen('match');
+  }
+
+  /** The practice's opening card is read: the match is the player's. */
+  private playPractice(): void {
+    if (!this.practice) return;
+    this.practice.intro = false;
+    this.coach.hide();
+  }
+
+  /** On to the lesson after this one, or after the last, a real match. */
   private continueLesson(): void {
-    const next = this.lesson ? this.lesson.index + 1 : 0;
-    if (next < CHAPTERS.length) {
+    const at = this.lesson?.index ?? this.practice?.index ?? -1;
+    const next = at + 1;
+    if (next < LESSONS.length) {
       this.startLesson(next);
       return;
     }
     this.goHome();
     this.chooseMode({ kind: 'practice' });
+  }
+
+  /**
+   * Mark a lesson done, once. A chapter is done when its last step is; a
+   * practice when its match ends, however it ends - it is reps, not a test.
+   */
+  private recordLesson(id: string): void {
+    const done = this.services.preferences.settings.tutorialDone;
+    if (!done.includes(id)) this.services.preferences.configure({ tutorialDone: [...done, id] });
   }
 
   /** Out of the chapter, back to the list. */
@@ -703,27 +779,62 @@ export class Game extends Container {
     this.view = this.transport?.view() ?? this.view;
     if (lesson.runner.complete && !lesson.recorded) {
       lesson.recorded = true;
-      const done = this.services.preferences.settings.tutorialDone;
-      const id = lesson.runner.chapter.id;
-      if (!done.includes(id)) this.services.preferences.configure({ tutorialDone: [...done, id] });
+      this.recordLesson(lesson.runner.chapter.id);
     }
     return this.view ?? view;
   }
 
+  /** Once a frame during a practice match: note when it is over. */
+  private runPractice(view: MatchView): void {
+    const practice = this.practice;
+    if (!practice || practice.recorded || !(view.eliminated || view.finished)) return;
+    practice.recorded = true;
+    this.recordLesson(practice.def.id);
+  }
+
+  /** What the game-over card offers after a practice: the lesson after it. */
+  private practiceEnding(): { next: string | null } | null {
+    if (!this.practice) return null;
+    const next = LESSONS[this.practice.index + 1];
+    return { next: next ? lessonTitle(next) : null };
+  }
+
   private drawCoach(view: MatchView, deltaMs: number): void {
+    const practice = this.practice;
+    if (practice?.intro) {
+      const target = practice.def.target ? this.locate(practice.def.target) : null;
+      this.coach.render(
+        {
+          card: {
+            kind: 'intro',
+            heading: `Practice match · ${practice.def.title}`,
+            text: practiceIntro(this.data, practice.def),
+            startLabel: 'Play ▶',
+          },
+          target,
+          hidden: this.menu.isOpen || this.effectsPanel.isOpen || this.damageChart.isOpen,
+        },
+        deltaMs,
+      );
+      return;
+    }
     const lesson = this.lesson;
     if (!lesson) return;
     const runner = lesson.runner;
-    const heading = `Chapter ${lesson.index + 1} · ${runner.chapter.title}`;
-    const next = CHAPTERS[lesson.index + 1];
+    const heading = `Chapter ${CHAPTERS.indexOf(runner.chapter) + 1} · ${runner.chapter.title}`;
+    const next = LESSONS[lesson.index + 1];
     const card: CoachCard = runner.complete
       ? {
           kind: 'complete',
           heading,
           text: next
-            ? `Chapter done! Next up: ${next.title} - ${next.summary.toLowerCase()}.`
+            ? `Chapter done! ${upNext(next)}`
             : "That's the whole tutorial. You are ready for a real match.",
-          continueLabel: next ? 'Next chapter' : 'Play practice',
+          continueLabel: !next
+            ? 'Play practice'
+            : next.kind === 'practice'
+              ? 'Practice match'
+              : 'Next chapter',
         }
       : {
           kind: 'step',
@@ -781,6 +892,8 @@ export class Game extends Container {
     this.transport = null;
     this.view = null;
     this.lesson = null;
+    this.practice = null;
+    this.applyFeatures(EVERYTHING);
     this.coach.hide();
     this.closeAbility();
     this.damageChart.close();
@@ -872,7 +985,7 @@ export class Game extends Container {
     // And so does the tutorial's coach, whenever it is talking rather than
     // showing a fight: a wave that walks in while the player reads about the
     // build grid is a wave they did not see coming.
-    const coached = this.lesson?.runner.holds === true;
+    const coached = this.lesson?.runner.holds === true || this.practice?.intro === true;
     const paused = (reading || coached) && local;
     // Shown again below, by whichever board is drawn this frame.
     this.effectsButton.visible = false;
@@ -1003,6 +1116,7 @@ export class Game extends Container {
     this.dropStaleWatch(view);
     this.dropStaleSelection(view);
     view = this.runLesson(view, matchDelta);
+    this.runPractice(view);
 
     const lane = this.shownLane();
     const watching = this.watchingTeamId !== null;
@@ -1049,7 +1163,7 @@ export class Game extends Container {
     this.waveCleared.render(view, deltaMs);
     this.showEffectsButton();
     this.recordSolo(view);
-    this.gameOver.render(view, this.soloResult);
+    this.gameOver.render(view, this.soloResult, this.practiceEnding());
     // Last, so it points at where everything was drawn this frame.
     this.drawCoach(view, deltaMs);
   }
@@ -1134,7 +1248,8 @@ export class Game extends Container {
     this.toast.update(deltaMs, this.layout);
     this.showEffectsButton();
     this.recordSolo(view);
-    this.gameOver.render(view, this.soloResult);
+    this.runPractice(view);
+    this.gameOver.render(view, this.soloResult, this.practiceEnding());
   }
 
   /** The lane currently on screen: somebody else's if watching, else your own. */
@@ -1369,4 +1484,18 @@ export class Game extends Container {
 
     this.cancelSelection();
   }
+}
+
+/** A lesson as the tutorial list shows it. */
+function lessonEntry(lesson: Lesson): LessonEntry {
+  const { summary } = lesson.kind === 'chapter' ? lesson.chapter : lesson.practice;
+  return { kind: lesson.kind, id: lessonId(lesson), title: lessonTitle(lesson), summary };
+}
+
+/** What the chapter-complete card says comes next. */
+function upNext(next: Lesson): string {
+  if (next.kind === 'practice') {
+    return `Next up, a practice match with what you have learned so far: ${next.practice.title}.`;
+  }
+  return `Next up: ${next.chapter.title} - ${next.chapter.summary.toLowerCase()}.`;
 }

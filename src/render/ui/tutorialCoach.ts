@@ -72,6 +72,13 @@ export type CoachCard =
       text: string;
       /** The primary button: the next chapter, or somewhere to go after the last. */
       continueLabel: string;
+    }
+  | {
+      /** Before a practice match: what is new in it. The match waits for Play. */
+      kind: 'intro';
+      heading: string;
+      text: string;
+      startLabel: string;
     };
 
 export interface CoachFrame {
@@ -83,6 +90,8 @@ export interface CoachFrame {
 }
 
 export interface CoachHandlers {
+  /** On a practice's opening card: start the match. */
+  onStart(): void;
   onNext(): void;
   /** Look back at the step before (tutorial/runner.ts, `back`). */
   onBack(): void;
@@ -90,7 +99,7 @@ export interface CoachHandlers {
   onExit(): void;
   /** On the chapter-complete card: go on. */
   onContinue(): void;
-  /** On the chapter-complete card: back to the list. */
+  /** On the chapter-complete card, or a practice's opening one: back to the list. */
   onChapters(): void;
 }
 
@@ -258,7 +267,8 @@ export class TutorialCoach extends Container {
   private clock = 0;
   /** Counts down after a swallowed tap: the ring flashes to say "here". */
   private nudge = 0;
-  private complete = false;
+  /** Which card is up, for what its buttons mean. */
+  private shown: CoachCard['kind'] = 'step';
 
   constructor(
     private layout: LaneLayout,
@@ -281,17 +291,18 @@ export class TutorialCoach extends Container {
     this.body = wrapped('', 14, UI.text);
     this.hint = label('', 12, UI.accent, '700');
     this.nextButton = new PanelButton('Next', () => {
-      if (this.complete) this.handlers.onContinue();
+      if (this.shown === 'intro') this.handlers.onStart();
+      else if (this.shown === 'complete') this.handlers.onContinue();
       else this.handlers.onNext();
     });
     this.backButton = new PanelButton('◀', () => {
-      if (!this.complete) this.handlers.onBack();
+      if (this.shown === 'step') this.handlers.onBack();
     });
     this.exitButton = new PanelButton(
       'Exit',
       () => {
-        if (this.complete) this.handlers.onChapters();
-        else this.handlers.onExit();
+        if (this.shown === 'step') this.handlers.onExit();
+        else this.handlers.onChapters();
       },
       12,
     );
@@ -330,10 +341,10 @@ export class TutorialCoach extends Container {
     this.nudge = Math.max(0, this.nudge - deltaMs / 600);
 
     const card = frame.card;
-    this.complete = card.kind === 'complete';
+    this.shown = card.kind;
     // A `watch` step reaches here as `free` or `next` (tutorial/runner.ts);
     // were one ever passed through, it holds the screen as `free` does.
-    const given: StepMode = card.kind === 'complete' ? 'next' : card.mode;
+    const given: StepMode = card.kind === 'step' ? card.mode : 'next';
     const mode: StepMode = given === 'watch' ? 'free' : given;
     const screen = this.layout.screen;
     const hole = frame.target ? grow(frame.target, HOLE_PAD) : null;
@@ -473,7 +484,7 @@ export class TutorialCoach extends Container {
 
     // What the bottom row holds: back and Exit always, then Next for a
     // reading step, or a line saying what to do on the others.
-    const wantsNext = card.kind === 'complete' || card.mode === 'next';
+    const wantsNext = card.kind !== 'step' || card.mode === 'next';
     this.hint.text = card.kind === 'step' ? card.hint : '';
     this.nextButton.visible = wantsNext;
     this.hint.visible = !wantsNext && this.hint.text !== '';
@@ -509,17 +520,21 @@ export class TutorialCoach extends Container {
       this.backButton.set('◀', 'plain', card.canGoBack);
     }
     const exitX = CARD_PAD + (backWidth > 0 ? backWidth + 8 : 0);
-    const exitWidth = card.kind === 'complete' ? 110 : 64;
+    const exitWidth = card.kind === 'step' ? 64 : 110;
     this.exitButton.place(exitX, buttonsTop, exitWidth, BUTTON_H);
-    this.exitButton.set(card.kind === 'complete' ? 'Chapters' : 'Exit', 'plain');
+    this.exitButton.set(card.kind === 'step' ? 'Exit' : 'Chapters', 'plain');
 
     const nextWidth = Math.min(
       width - CARD_PAD - (exitX + exitWidth + 10),
-      card.kind === 'complete' ? 200 : 160,
+      card.kind === 'step' ? 160 : 200,
     );
     this.nextButton.place(width - CARD_PAD - nextWidth, buttonsTop, nextWidth, BUTTON_H);
     this.nextButton.set(
-      card.kind === 'complete' ? card.continueLabel : `${card.nextLabel} ▶`,
+      card.kind === 'complete'
+        ? card.continueLabel
+        : card.kind === 'intro'
+          ? card.startLabel
+          : `${card.nextLabel} ▶`,
       'primary',
     );
     this.hint.position.set(

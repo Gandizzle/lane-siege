@@ -23,7 +23,34 @@ import {
   summariseWave,
   type MatchView,
 } from '../sim/index.ts';
+import { EVERYTHING, type Features } from '../render/features.ts';
 import type { Chapter, Scene, StepContext, Target } from './types.ts';
+
+// ------------------------------------------------------------- what is open
+
+/**
+ * What the interface shows, a stage at a time (render/features.ts). Each
+ * chapter plays with what it teaches open, and the practice match after it
+ * plays with the same (lessons.ts), so nothing is on screen before it has
+ * been explained and nothing explained is missing from the match after.
+ */
+export const STAGES = {
+  /** Building, and nothing else: the Build tab, no upgrades, no gems. */
+  building: { tabs: ['build'], upgrades: false, fort: 'supply', gems: false },
+  /** And upgrading and selling a unit. */
+  upgrading: { tabs: ['build'], upgrades: true, fort: 'supply', gems: false },
+  /** And the supply cap, in a Fort tab that has nothing else in it yet. */
+  supply: { tabs: ['build', 'fort'], upgrades: true, fort: 'supply', gems: false },
+  /** And counters: the weapon and auras, tech, and what each unit landed. */
+  counters: {
+    tabs: ['build', 'tech', 'fort', 'aura', 'damage'],
+    upgrades: true,
+    fort: 'supply',
+    gems: false,
+  },
+  /** Everything: gems, the fortress ladders and sends. */
+  everything: EVERYTHING,
+} as const satisfies Record<string, Features>;
 
 // ------------------------------------------------------------------ helpers
 
@@ -35,7 +62,7 @@ function unitSupply(data: GameData, id: string): number {
   return data.units.units.find((u) => u.id === id)?.supplyCost ?? 0;
 }
 
-function unitName(data: GameData, id: string): string {
+export function unitName(data: GameData, id: string): string {
   return data.units.units.find((u) => u.id === id)?.name ?? id;
 }
 
@@ -218,6 +245,7 @@ const THE_LANE: Chapter = {
   title: 'The lane',
   summary: 'What you defend, and how a round works',
   builderId: 'ironvow',
+  features: STAGES.building,
   steps: [
     {
       mode: 'next',
@@ -258,9 +286,8 @@ const THE_LANE: Chapter = {
       mode: 'next',
       target: { kind: 'hudWallet' },
       text:
-        'Your resources. Gold, the coin, buys units and upgrades. Gems, the jewel, come slowly ' +
-        'from your fortress and pay for sends and fortress upgrades. Supply, the figure, is how ' +
-        'big your army can be. Prices use the same three pictures.',
+        'Your resources. Gold, the coin, buys units. Supply, the figure, is how big your army ' +
+        'can be. Prices use the same pictures. (There is a second currency, gems, for later.)',
     },
     {
       mode: 'next',
@@ -273,8 +300,9 @@ const THE_LANE: Chapter = {
       mode: 'next',
       target: { kind: 'buildBar' },
       text:
-        'Everything you spend is down here, in tabs. Build is the one you will use most, and the ' +
-        'next chapter is about it.',
+        'Everything you spend is down here. For now there is just the Build tab: the rest open ' +
+        'one at a time as you learn them, each with a practice match to try it in. The next ' +
+        'chapter is about building.',
     },
   ],
 };
@@ -284,6 +312,7 @@ const FIRST_LINE: Chapter = {
   title: 'Build your first line',
   summary: 'Place units, fight a wave, get paid',
   builderId: 'ironvow',
+  features: STAGES.building,
   steps: [
     {
       mode: 'next',
@@ -377,6 +406,7 @@ const UPGRADES: Chapter = {
   title: 'Upgrade and sell',
   summary: 'Make units stronger, and undo mistakes',
   builderId: 'ironvow',
+  features: STAGES.upgrading,
   setup: (scene) => {
     buildLine(scene, 'pledge', [2, 3, 4, 5]);
     setWallet(scene, { gold: 400 });
@@ -463,6 +493,7 @@ const SUPPLY: Chapter = {
   title: 'Supply',
   summary: 'How big your army can be, and how to grow it',
   builderId: 'ironvow',
+  features: STAGES.supply,
   setup: (scene) => {
     buildLine(scene, 'pledge', [2, 3, 4, 5]);
     setWallet(scene, { gold: 300 });
@@ -578,6 +609,7 @@ const COUNTERS: Chapter = {
   title: 'Counters',
   summary: 'Damage types, armour and the right unit',
   builderId: COUNTERS_BUILDER,
+  features: STAGES.counters,
   setup: (scene) => {
     setWallet(scene, { gold: 400 });
     // Aimed at the worst choice, so the lesson has something to fix.
@@ -709,6 +741,13 @@ const COUNTERS: Chapter = {
     },
     {
       mode: 'next',
+      target: { kind: 'tab', tab: 'damage' },
+      text:
+        'One more tab: Damage. After a fight it ranks your units by the damage each one dealt, so ' +
+        'you can see which of them were the right choice for that wave.',
+    },
+    {
+      mode: 'next',
       text:
         'So: read the wave, build what counters it, aim the fortress at it, and put tech into the ' +
         'damage your army leans on.',
@@ -721,6 +760,7 @@ const SENDS: Chapter = {
   title: 'Gems and sends',
   summary: 'Attack the other lanes, and earn from it',
   builderId: 'ironvow',
+  features: STAGES.everything,
   setup: (scene) => {
     buildLine(scene, 'pledge', [2, 3, 4, 5]);
     setWallet(scene, { gold: 200, gems: 60 });
@@ -829,6 +869,7 @@ const THE_BATTLE: Chapter = {
   title: 'Reading the battle',
   summary: 'Effects, other lanes, and winning',
   builderId: 'pyre',
+  features: STAGES.everything,
   setup: (scene) => {
     buildLine(scene, 'ember', [1, 2, 3, 4, 5, 6]);
     setWallet(scene, { gold: 100 });

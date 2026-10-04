@@ -22,8 +22,12 @@
  * finish, which pay you nothing (§11.1, amended). The tally is read every
  * frame the card is up, so a kill that lands as it opens is counted.
  *
- * Paint only: it takes no taps and covers nothing for long, because the fight
- * in the other lanes - and the shop - are still going on behind it.
+ * It stays up until the player taps somewhere - anywhere on the screen
+ * (`dismiss`, from app.ts) - so it is read rather than glimpsed, and the
+ * still-fighting list keeps itself current while it waits. It takes no taps
+ * of its own: the tap that puts it away also does whatever it was aimed at,
+ * since the shop and the other lanes are still going on behind it. A new wave
+ * starting puts it away too, its news being out of date.
  */
 
 import { Container, Graphics } from 'pixi.js';
@@ -34,10 +38,14 @@ import { DAMAGE_COLOURS, UI } from '../palette.ts';
 import { CURRENCY_COLOURS, GOLD, RichLabel } from './currency.ts';
 import { centreOn, label, overlaid } from './text.ts';
 
-/** How long the card is up, in milliseconds, and how long it takes to come and go. */
-const SHOW_MS = 3600;
+/** How long the card takes to come and to go, in milliseconds. */
 const POP_MS = 350;
-const FADE_MS = 600;
+const FADE_MS = 300;
+/**
+ * The least it is up before a tap can put it away: a tap already on its way
+ * when the lane cleared - a player mid-purchase - should not swallow it unseen.
+ */
+const MIN_MS = 700;
 /** How many bits of confetti the burst throws. */
 const CONFETTI = 34;
 
@@ -117,6 +125,8 @@ export class WaveCleared extends Container {
 
   /** Milliseconds since the card opened; negative while it is not up. */
   private age = -1;
+  /** Milliseconds since it was tapped away; negative while it is staying. */
+  private closing = -1;
   private wave = 0;
   /**
    * Whether the lane was clear at the last look. True to begin with, so a
@@ -163,17 +173,35 @@ export class WaveCleared extends Container {
   /** Put it away: a new match, or the home screen. */
   reset(): void {
     this.age = -1;
+    this.closing = -1;
     this.visible = false;
     this.wasClear = true;
+  }
+
+  /** Whether the card is up (or on its way out). */
+  get showing(): boolean {
+    return this.age >= 0;
+  }
+
+  /**
+   * A tap anywhere on the screen: the card fades out, unless it has only just
+   * opened (`MIN_MS`).
+   */
+  dismiss(): void {
+    if (this.age >= MIN_MS && this.closing < 0) this.closing = 0;
   }
 
   /** Watch for the lane going clear, and open the card when it does. */
   observe(view: MatchView): void {
     if (justCleared(this.wasClear, view)) {
       this.age = 0;
+      this.closing = -1;
       this.wave = view.wave;
     }
     this.wasClear = laneIsClear(view);
+    // The next wave walking in makes the card old news.
+    if (this.age >= 0 && this.closing < 0 && view.wave !== this.wave) this.closing = 0;
+    if (view.eliminated) this.reset();
   }
 
   /** Animate, on wall time: it is a thumb's-eye moment, not the match's. */
@@ -183,8 +211,10 @@ export class WaveCleared extends Container {
       return;
     }
     this.age += deltaMs;
-    if (this.age > SHOW_MS) {
+    if (this.closing >= 0) this.closing += deltaMs;
+    if (this.closing >= FADE_MS) {
       this.age = -1;
+      this.closing = -1;
       this.visible = false;
       return;
     }
@@ -195,10 +225,10 @@ export class WaveCleared extends Container {
     const cx = l.lane.x + l.lane.width / 2;
     const cy = l.lane.y + l.lane.height * 0.42;
 
-    // Up with a little overshoot, down with a fade.
+    // Up with a little overshoot; down with a fade once tapped away.
     const t = this.age;
     const pop = t < POP_MS ? easeOutBack(t / POP_MS) : 1;
-    const fade = t > SHOW_MS - FADE_MS ? (SHOW_MS - t) / FADE_MS : 1;
+    const fade = this.closing >= 0 ? 1 - this.closing / FADE_MS : 1;
     this.alpha = Math.max(0, Math.min(1, fade));
 
     const lines = clearedLines(view, this.wave);

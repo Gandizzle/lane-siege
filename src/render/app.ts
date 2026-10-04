@@ -46,7 +46,7 @@ import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
 import { AudioEngine } from '../audio/engine.ts';
 import { PreferenceStore } from './preferences.ts';
-import { sceneOf, tutorialMatch } from '../tutorial/match.ts';
+import { practiceMatch, sceneOf, tutorialMatch } from '../tutorial/match.ts';
 
 /** §2: four lanes. Fixed ids so a lane's name is stable across matches. */
 const LANE_IDS = ['lane1', 'lane2', 'lane3', 'lane4'];
@@ -265,6 +265,13 @@ export async function startApp(
         const transport = tutorialMatch(data, chapter, identity.name);
         return { transport, scene: sceneOf(data, transport) };
       },
+      createPractice: (practice) =>
+        practiceMatch(
+          data,
+          practice,
+          identity.name,
+          options.seed ?? Math.floor(Math.random() * 0x7fffffff),
+        ),
       name: () => identity.name,
       online: Boolean(options.server),
       sound,
@@ -300,6 +307,11 @@ export async function startApp(
     app.screen.height,
   );
   app.stage.addChild(game);
+
+  // A tap anywhere puts the wave-cleared card away (ui/waveCleared.ts). On the
+  // canvas rather than through Pixi, so it is heard whatever was tapped - a
+  // button, the board, or nothing at all.
+  app.canvas.addEventListener('pointerdown', () => game.screenTapped());
 
   // Esc opens and closes the menu, and M mutes and unmutes from anywhere. Not
   // while typing a name or a room code, where an M is a letter and Esc is the

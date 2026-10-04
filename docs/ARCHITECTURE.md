@@ -1330,9 +1330,10 @@ have to explain.
 Home has a **Tutorial** button, lit for anybody who has not finished a chapter
 yet. It opens a list of seven chapters (`ui/tutorialScreen.ts`): the lane, a
 first line and a first wave, upgrading and selling, supply, counters, gems and
-sends, and reading a battle. A new player takes the big button, which plays them in
-order: each chapter ends on a card whose main button starts the next one, and
-the last offers a practice match. A returning player taps any one chapter for
+sends, and reading a battle, with a practice match after five of them (below).
+A new player takes the big button, which plays them in order: each lesson ends
+on a card whose main button starts the next one, and the last offers a real
+match. A returning player taps any one chapter for
 a refresher. Finished chapters get a tick and are saved (`tutorialDone` in
 `preferences.ts`), and the big button offers to carry on from the first chapter
 without one.
@@ -1450,6 +1451,72 @@ A player's notes on the tutorial changed what several chapters say and show.
   rather than "tool", a send's cooldown said plainly, and what an incoming send
   does to the next wave said in full.
 
+### Practice matches between chapters
+
+Seven chapters back to back were a lot to read and very little to do: by the
+end a new player had been told about supply, counters, tech, gems and sends
+without having made one decision about any of them. So the tutorial is now
+twelve **lessons** (`src/tutorial/lessons.ts`, `LESSONS`): the chapters, and
+after each of chapters 2 to 6 a whole **practice match**, played until the
+fortress falls (or every bot's does), with only what has been taught so far on
+screen.
+
+**The interface opens a piece at a time.** `render/features.ts` says what a
+match shows: which build-bar tabs, whether a unit's panel has Upgrade and Sell
+(and the arrows and next-mark ability that preview them), whether the Fort tab
+has the fortress ladders or Supply Cap alone, and whether gems are in the HUD.
+`chapters.ts` names five stages and each chapter plays with one:
+
+| Stage      | Opens                           | Chapters                           |
+| ---------- | ------------------------------- | ---------------------------------- |
+| building   | the Build tab, nothing else     | The lane, Build your first line    |
+| upgrading  | + Upgrade and Sell              | Upgrade and sell                   |
+| supply     | + the Fort tab, Supply Cap only | Supply                             |
+| counters   | + Tech, Aura and Damage tabs    | Counters                           |
+| everything | + gems, fortress ladders, Send  | Gems and sends, Reading the battle |
+
+What is not open is not drawn at all, rather than drawn and refused: a tab
+that does nothing is one more thing to wonder about. It is the interface only;
+the simulation takes any command, and the player can only reach what is drawn.
+`Game.applyFeatures` sets it as a lesson starts and puts everything back for
+any other match. The Counters chapter gained a step for the Damage tab, which
+it now opens.
+
+**Each practice is set up so the newest piece matters** (`practiceMatch` in
+match.ts: an ordinary match on a fresh seed, with the practice's `setup`
+staged on it):
+
+| After                 | Practice        | Set up                                                                  |
+| --------------------- | --------------- | ----------------------------------------------------------------------- |
+| Build your first line | Hold the line   | a normal start                                                          |
+| Upgrade and sell      | Fewer, stronger | 12 supply, so upgrading is how to grow                                  |
+| Supply                | Room to grow    | 900 extra gold, more than 25 supply of anything can hold                |
+| Counters              | Read the wave   | the weapon on the worst damage type for wave 1, 250 extra gold for tech |
+| Gems and sends        | The full game   | 40 gems, and the bots send                                              |
+
+Until sends are taught the bots are quiet, as in the chapters, and numbered
+rather than named for a style. A practice opens on a card (`intro` in the
+coach) that says what is new and points at it; the match is held until Play.
+The game-over card after a practice offers the next lesson first and the same
+match again second, rather than "stay and watch". A practice counts as done
+when its match ends, however it ends. The menu's Leave match goes back to the
+tutorial list from any lesson.
+
+How long they last, for a scripted novice at 1x speed: Hold the line about 6
+minutes (falling at wave 6, its 25 supply full), Fewer, stronger about 10,
+Room to grow about 14 (where the quiet bots fall first, around wave 13), and
+the last two about 11.
+
+**The list** keeps its seven chapter rows; each practice is a pill on the row
+of the chapter before it, ticked when done, because twelve rows do not fit
+down a phone. The big button carries on from the first lesson not yet done,
+practice or chapter.
+
+`tutorial.test.ts` checks that every lesson's features include the last one's,
+that every step and every practice intro points only at what its lesson has
+open, that each practice is set up as above, and that a practice with nothing
+built ends with the fortress falling and nothing sent at it.
+
 ### Super and Ultra, not Mark II and III
 
 An upgraded unit is named for how far it has been upgraded: Pledge, Super
@@ -1471,8 +1538,12 @@ Wave 3 cleared!
 Still fighting: Rookie, Tactician
 ```
 
-It is paint only, up for about three and a half seconds, and never for a lane
-emptied by its fortress falling or in solo's endless wave. The chime moved with
+It stays up until the player taps anywhere (`Game.screenTapped`, from a
+`pointerdown` listener on the canvas in app.ts, so the tap still reaches
+whatever it was aimed at), or the next wave starts. A tap in its first 0.7
+seconds does not count, so a player mid-build does not dismiss it before they
+have seen it. It is never shown for a lane emptied by its fortress falling or
+in solo's endless wave. The chime moved with
 it: it used to sound when the whole wave ended, which was the moment that
 mattered least to the player. It sounds at the end of the wave only when the
 lane-clear was missed (a match joined mid-wave).
