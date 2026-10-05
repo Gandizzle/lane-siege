@@ -66,6 +66,18 @@ export function unitName(data: GameData, id: string): string {
   return data.units.units.find((u) => u.id === id)?.name ?? id;
 }
 
+/** The name of a unit's first ability, as its card says it. */
+function abilityName(data: GameData, unitId: string): string {
+  const ref = data.units.units.find((u) => u.id === unitId)?.abilities?.[0];
+  const id = typeof ref === 'string' ? ref : ref?.id;
+  return data.abilities.abilities.find((a) => a.id === id)?.name ?? 'its ability';
+}
+
+/** 0.5 as "50%". */
+function percent(fraction: number | null | undefined): string {
+  return `${Math.round((fraction ?? 0) * 100)}%`;
+}
+
 function ownUnits(view: MatchView) {
   return view.lane?.units ?? [];
 }
@@ -190,7 +202,7 @@ export function waveEarnings(data: GameData, view: MatchView): string {
         `${walled === 1 ? 'it' : 'them'} off: ${walled === 1 ? 'that pays' : 'those pay'} ` +
         `nothing, so they cost you ${missed} gold.`
       : ' Any your fortress has to finish off pays you nothing.';
-  return `${earned}${wall} Units that fell are back, fully healed.`;
+  return `${earned}${wall} Any of your units that died come back alive for the next wave, fully healed.`;
 }
 
 /** The armour most of the wave on the preview wears. */
@@ -276,6 +288,13 @@ const THE_LANE: Chapter = {
     },
     {
       mode: 'next',
+      target: { kind: 'opponentTabs' },
+      text:
+        'Three other players defend their own lanes against the same waves. Their tabs show how ' +
+        "their fortresses are doing. Whoever's fortress stands longest wins.",
+    },
+    {
+      mode: 'next',
       target: { kind: 'hudPhase' },
       text: (data) =>
         `Each round has two parts. First the build phase: ${data.waves.buildPhaseSeconds} seconds ` +
@@ -288,13 +307,6 @@ const THE_LANE: Chapter = {
       text:
         'Your resources. Gold, the coin, buys units. Supply, the figure, is how big your army ' +
         'can be. Prices use the same pictures. (There is a second currency, gems, for later.)',
-    },
-    {
-      mode: 'next',
-      target: { kind: 'opponentTabs' },
-      text:
-        'Three other players defend their own lanes against the same waves. Their tabs show how ' +
-        "their fortresses are doing. Whoever's fortress stands longest wins.",
     },
     {
       mode: 'next',
@@ -324,7 +336,7 @@ const FIRST_LINE: Chapter = {
       mode: 'tap',
       target: { kind: 'unitCard', defId: FIRST_UNIT },
       text: (data) =>
-        `Tap the ${unitName(data, FIRST_UNIT)}: cheap, and it shoots from a few squares back. ` +
+        `Tap the ${unitName(data, FIRST_UNIT)}. It's cheap and shoots from a few squares back. ` +
         'Each card shows the price in gold and supply, whether the unit fights up close (melee) ' +
         'or from a distance (ranged), and whether it is strong or weak against the coming wave.',
       done: (c) => c.ui.selection?.kind === 'unitDef' && c.ui.selection.unitDefId === FIRST_UNIT,
@@ -381,7 +393,7 @@ const FIRST_LINE: Chapter = {
       },
       text: (_data, view) =>
         waveOver(view)
-          ? "Your lane is clear, and so is everyone else's: a wave only ends once EVERY lane " +
+          ? "Your lane is clear, and so is everyone else's. A wave only ends once EVERY lane " +
             'has beaten it, and this one is over.'
           : 'Your lane is clear! A wave only ends once EVERY lane has beaten it, so now you wait ' +
             "for the others. Tap a player's tab to watch how their fight is going.",
@@ -429,15 +441,15 @@ const UPGRADES: Chapter = {
       mode: 'next',
       target: { kind: 'stat', key: 'hp' },
       text:
-        'This panel describes the unit: its health, damage and attack speed. Where a number has ' +
-        'an arrow, the number after it is what an upgrade would make it.',
+        'This panel describes the unit: its health, damage and attack speed. The number after ' +
+        'the arrows shows how the stat will change after the unit is upgraded.',
     },
     {
       mode: 'tap',
       target: { kind: 'abilityChips' },
-      text:
-        'Every unit has an ability, and it is what makes one unit play differently from the ' +
-        'next - these Pledges hit harder side by side. Tap the ability to read what it does.',
+      text: (data) =>
+        `Every unit has an ability. These ${unitName(data, 'pledge')}s have an ability called ` +
+        `"${abilityName(data, 'pledge')}". Tap the ability to see what it does.`,
       done: (c) => c.ui.abilityOpen,
     },
     {
@@ -462,9 +474,10 @@ const UPGRADES: Chapter = {
     {
       mode: 'tap',
       target: selectedOr({ kind: 'sell' }),
-      text:
+      text: (data) =>
         'Built something in the wrong place? Tap Sell. Selling in the same build phase you bought ' +
-        'it gives every coin back, upgrades too. After that, it returns half.',
+        `it gives a ${percent(data.economy.sell.sameBuildPhase)} refund, upgrades too. ` +
+        `Otherwise, it refunds only ${percent(data.economy.sell.later)}.`,
       done: (c) => ownUnits(c.view).length < 4,
     },
     {
@@ -504,11 +517,10 @@ const SUPPLY: Chapter = {
       target: { kind: 'hudSupply' },
       text: (data, view) => {
         const cap = view.lane?.economy?.supplyCap ?? data.economy.supply.capBase ?? 0;
-        const used = view.lane?.economy?.supplyUsed ?? 0;
         const pledge = unitName(data, 'pledge');
         return (
-          `This figure is your supply: how big your army can be. You have ${cap}, and a ` +
-          `${pledge} takes 1, so you could field up to ${cap} ${pledge}s. These four use ${used}.`
+          `This figure is your supply: how big your army can be. You have ${cap} supply, and a ` +
+          `${pledge} takes 1, so you could field up to ${cap} ${pledge}s.`
         );
       },
     },
@@ -557,9 +569,11 @@ const SUPPLY: Chapter = {
         const cap = view.lane?.economy?.supplyCap ?? data.economy.supply.capBase ?? 0;
         const tiers = bySupply(data, 'ironvow');
         const top = tiers.at(-1)!;
-        const each = listed(tiers.map((u) => `a ${u.name} ${u.supply}`));
+        const each = listed(
+          tiers.map((u, i) => `a ${u.name} takes ${u.supply}${i === 0 ? ' supply' : ''}`),
+        );
         return (
-          `The number beside the figure on each card is the supply it takes: ${each}. So ` +
+          `The number beside the figure on each card is the supply it takes. ${capitalised(each)}. So ` +
           `${cap} supply holds ${cap} ${tiers[0]!.name}s, but only ${Math.floor(cap / top.supply)} ` +
           `${top.name}s.`
         );
@@ -596,7 +610,7 @@ const SUPPLY: Chapter = {
     {
       mode: 'next',
       text:
-        'So keep an eye on the figure as you build. When it is full, raise the cap in the Fort ' +
+        'Keep an eye on your supply as you build. When it is full, raise the cap in the Fort ' +
         'tab, or upgrade the units you already have.',
     },
   ],

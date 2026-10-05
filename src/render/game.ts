@@ -98,6 +98,7 @@ import { LEGEND_BUTTON_SIZE, type Rect } from './layout.ts';
 import { Hud } from './ui/hud.ts';
 import { TutorialCoach, type CoachCard } from './ui/tutorialCoach.ts';
 import { TutorialScreen, type LessonEntry } from './ui/tutorialScreen.ts';
+import { ChapterComplete } from './ui/chapterComplete.ts';
 import { CHAPTERS } from '../tutorial/chapters.ts';
 import { LESSONS, lessonId, lessonTitle, practiceIntro } from '../tutorial/lessons.ts';
 import { TutorialRunner } from '../tutorial/runner.ts';
@@ -182,6 +183,8 @@ export class Game extends Container {
   private readonly countdown: ShowdownCountdown;
   /** The burst when your lane is clear (ui/waveCleared.ts). */
   private readonly waveCleared: WaveCleared;
+  /** "Chapter 2 Complete!", over the coach's last card (ui/chapterComplete.ts). */
+  private readonly chapterComplete: ChapterComplete;
   /** The burst on a unit just upgraded (upgradeBursts.ts). */
   private readonly upgradeBursts: UpgradeBursts;
   /** Over everything, on every screen: settings, and the way out of a match. */
@@ -333,6 +336,7 @@ export class Game extends Container {
     this.arena.visible = false;
     this.countdown = new ShowdownCountdown(this.layout);
     this.waveCleared = new WaveCleared(this.layout);
+    this.chapterComplete = new ChapterComplete(this.layout);
     this.menuButton = new MenuButton(this.layout, () => this.setMenu(true));
     this.menu = new Menu(this.layout, services.sound, services.preferences, {
       onClose: () => this.setMenu(false),
@@ -408,6 +412,8 @@ export class Game extends Container {
       // Over the board and under the menu and the legend, so neither is ever
       // out of reach while the coach is holding the rest of the screen.
       this.coach,
+      // Over the coach, so its dimming does not dim the news. Paint only.
+      this.chapterComplete,
       // Last, so they are over the front screens as well as the board.
       this.menuButton,
       this.effectsButton,
@@ -598,6 +604,7 @@ export class Game extends Container {
     this.applyFeatures(EVERYTHING);
     this.soloResult = null;
     this.coach.hide();
+    this.chapterComplete.hide();
   }
 
   /** Show only these parts of the interface (features.ts). */
@@ -780,6 +787,11 @@ export class Game extends Container {
     if (lesson.runner.complete && !lesson.recorded) {
       lesson.recorded = true;
       this.recordLesson(lesson.runner.chapter.id);
+      // The wave card, if it is still up, is yesterday's news next to this.
+      this.waveCleared.reset();
+      const chapter = lesson.runner.chapter;
+      this.chapterComplete.show(CHAPTERS.indexOf(chapter) + 1, chapter.title);
+      this.services.sound.play('match.victory');
     }
     return this.view ?? view;
   }
@@ -895,6 +907,7 @@ export class Game extends Container {
     this.practice = null;
     this.applyFeatures(EVERYTHING);
     this.coach.hide();
+    this.chapterComplete.hide();
     this.closeAbility();
     this.damageChart.close();
     this.gameOver.reset();
@@ -957,6 +970,7 @@ export class Game extends Container {
     this.arena.setLayout(this.layout.screen, this.layout.tileSize);
     this.countdown.setLayout(this.layout);
     this.waveCleared.setLayout(this.layout);
+    this.chapterComplete.setLayout(this.layout);
     this.builderSelect.setLayout(this.layout);
     this.home.setLayout(this.layout);
     this.lobbyScreen.setLayout(this.layout);
@@ -1166,6 +1180,7 @@ export class Game extends Container {
     this.gameOver.render(view, this.soloResult, this.practiceEnding());
     // Last, so it points at where everything was drawn this frame.
     this.drawCoach(view, deltaMs);
+    this.chapterComplete.render(deltaMs);
   }
 
   // ---------------------------------------------------- the Final Showdown

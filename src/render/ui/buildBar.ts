@@ -79,7 +79,7 @@ import type { EntityStyle } from '../shapes.ts';
 import { centreOn, label, wrapped } from './text.ts';
 import { AbilityChips, type Chip } from './abilityChips.ts';
 import { screenRect, unionOf } from './locate.ts';
-import { GEM, GOLD, SUPPLY } from './currency.ts';
+import { GEM, GOLD, SUPPLY, type Currency } from './currency.ts';
 import type { StatDirection } from './unitStats.ts';
 import {
   NOTHING_SPECIAL,
@@ -1245,7 +1245,7 @@ export class BuildBar extends Container {
             : UI.textMuted,
         cooldown,
         enabled: canAct && aimed && open && gems >= cost,
-        unaffordable: canAct && aimed && open && gems < cost,
+        short: canAct && aimed && open ? shortfall(economy, { gems: cost }) : [],
         // Dimmed when the gems are not there, but still able to take a HOLD:
         // arming a send you cannot yet afford is exactly the case auto-send is
         // for (gridButton.ts).
@@ -1313,7 +1313,7 @@ export class BuildBar extends Container {
         enabled: canBuild && canPay,
         // Out for want of gold or supply, and only then: during a wave every
         // unit is out, and the price is not the reason.
-        unaffordable: canBuild && !canPay,
+        short: canBuild ? shortfall(economy, { gold, supply }) : [],
         selected: selection?.kind === 'unitDef' && selection.unitDefId === def.id,
       });
     });
@@ -1335,7 +1335,7 @@ export class BuildBar extends Container {
         detail: next ? `${GOLD}${cost}` : 'maxed',
         note: `level ${level}/${track.levels.length}`,
         enabled: canAct && next !== undefined && economy.gold >= cost,
-        unaffordable: canAct && next !== undefined && economy.gold < cost,
+        short: canAct && next !== undefined ? shortfall(economy, { gold: cost }) : [],
       });
     }
   }
@@ -1354,7 +1354,10 @@ export class BuildBar extends Container {
       const gems = next?.gemCost ?? 0;
       const gold = next?.goldCost ?? 0;
       const supply = next?.supplyCost ?? 0;
-      const price = gems > 0 ? `${GEM}${gems}` : `${GOLD}${gold}`;
+      // The supply a level takes is part of its price, beside the coin or the
+      // jewel, so that "which part is short" has one line to be read from.
+      const price =
+        (gems > 0 ? `${GEM}${gems}` : `${GOLD}${gold}`) + (supply ? ` · ${SUPPLY}${supply}` : '');
 
       const gain = next?.value ?? null;
       const canPay =
@@ -1368,12 +1371,11 @@ export class BuildBar extends Container {
         detail: next ? price : 'maxed',
         // What the level buys, after the price or under it (gridButton.ts).
         detailMore: next
-          ? `→ ${unit === GEM ? `${GEM}${trim(gain)}` : `${trim(gain)}${unit}`}` +
-            (supply ? ` · ${SUPPLY}${supply}` : '')
+          ? `→ ${unit === GEM ? `${GEM}${trim(gain)}` : `${trim(gain)}${unit}`}`
           : '',
         note: `level ${level}/${ladder.length}`,
         enabled: canAct && next !== undefined && canPay,
-        unaffordable: canAct && next !== undefined && !canPay,
+        short: canAct && next !== undefined ? shortfall(economy, { gold, gems, supply }) : [],
       });
     }
 
@@ -1389,7 +1391,7 @@ export class BuildBar extends Container {
       detailMore: next ? `→ ${SUPPLY}${next.value ?? 0}` : '',
       note: `cap ${SUPPLY}${economy.supplyCap}`,
       enabled: canAct && next !== undefined && economy.gold >= (next.goldCost ?? 0),
-      unaffordable: canAct && next !== undefined && economy.gold < (next.goldCost ?? 0),
+      short: canAct && next !== undefined ? shortfall(economy, { gold: next.goldCost ?? 0 }) : [],
     });
   }
 
@@ -1702,7 +1704,7 @@ export class BuildBar extends Container {
       title: 'Upgrade',
       detail: `${GOLD}${gold}${supply ? ` · ${SUPPLY}+${supply}` : ''}`,
       enabled: canAct && canPay,
-      unaffordable: canAct && !canPay,
+      short: canAct ? shortfall(economy, { gold, supply }) : [],
     });
   }
 
@@ -1819,4 +1821,22 @@ function grid(
     const cell = gridCell(i, cols, rows, gap, left, top, width, height);
     button.layout(cell.x, cell.y, cell.width, cell.height, textScale);
   });
+}
+
+/**
+ * Which parts of a price the wallet cannot cover: what a button draws in the
+ * can't-afford colour (gridButton.ts, `short`). Supply is short when the army
+ * has no room for it, which is how the simulation refuses it too.
+ */
+export function shortfall(
+  economy: Pick<EconomyView, 'gold' | 'gems' | 'supplyUsed' | 'supplyCap'>,
+  price: { gold?: number; gems?: number; supply?: number },
+): Currency[] {
+  const short: Currency[] = [];
+  if ((price.gold ?? 0) > economy.gold) short.push('gold');
+  if ((price.gems ?? 0) > economy.gems) short.push('gem');
+  if ((price.supply ?? 0) > 0 && economy.supplyUsed + (price.supply ?? 0) > economy.supplyCap) {
+    short.push('supply');
+  }
+  return short;
 }

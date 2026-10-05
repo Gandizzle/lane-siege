@@ -21,7 +21,7 @@ import type { MatchView } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
-import { centreOn, clock, fit, label } from './text.ts';
+import { centreOn, clock, label } from './text.ts';
 
 export interface GameOverHandlers {
   onRestart(): void;
@@ -152,12 +152,12 @@ export class GameOver extends Container {
     // about this match: the next lesson first, and another go second. Staying
     // to watch three bots is not what a tutorial is for.
     if (practice) {
-      const width = Math.min(l.screen.width - 32, 280);
+      const width = Math.min(l.screen.width - 32, 360);
       this.addChild(
         this.button(
           cx,
           y,
-          fit(practice.next ? `Next: ${practice.next}` : 'Play a real match', width - 24, 14),
+          practice.next ? `Next Tutorial Chapter: ${practice.next}` : 'Play a real match',
           UI.accent,
           UI.background,
           () => {
@@ -263,7 +263,12 @@ export class GameOver extends Container {
     g.roundRect(cx - width / 2, y, width, 44, 10)
       .fill({ color: fill })
       .stroke({ width: 1, color: UI.panelEdge });
-    button.addChild(g, centreOn(label(text, 14, textColour, '700'), cx, y + 14));
+    // Smaller rather than cut short, for a long chapter title on a narrow screen.
+    const words = label(text, 14, textColour, '700');
+    const room = width - 20;
+    if (words.width > room)
+      words.style.fontSize = Math.max(10, Math.floor((14 * room) / words.width));
+    button.addChild(g, centreOn(words, cx, y + (44 - words.height) / 2));
 
     button.eventMode = 'static';
     button.cursor = 'pointer';

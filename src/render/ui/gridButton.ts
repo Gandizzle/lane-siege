@@ -10,7 +10,7 @@ import type { Text } from 'pixi.js';
 import { UI } from '../palette.ts';
 import { drawEntity } from '../shapes.ts';
 import type { EntityStyle } from '../shapes.ts';
-import { RichLabel } from './currency.ts';
+import { RichLabel, type Currency } from './currency.ts';
 import { fit, label } from './text.ts';
 
 /**
@@ -365,12 +365,13 @@ export class GridButton extends Container {
     /** Recessed and unresponsive to taps when false. */
     enabled: boolean;
     /**
-     * Out for want of money, and nothing else: the price is drawn in the
-     * can't-afford colour, so the button says WHY it is out. A button out for
-     * any other reason - the wrong phase, the top of its ladder - keeps its
-     * price in the muted text colour.
+     * The parts of the price the wallet cannot cover: those amounts, and only
+     * those, are drawn in the can't-afford colour, so the button says WHY it
+     * is out - the gold, the supply, or both. A button out for any other
+     * reason (the wrong phase, the top of its ladder) passes none, and its
+     * price stays in the muted text colour.
      */
-    unaffordable?: boolean;
+    short?: readonly Currency[];
     /**
      * Whether the button takes pointer events at all. Defaults to `enabled`.
      *
@@ -441,9 +442,7 @@ export class GridButton extends Container {
       this.title.style.fill = live ? UI.text : UI.textMuted;
       this.swatch.alpha = live ? 1 : 0.5;
     }
-    const priceColour =
-      opts.unaffordable === true ? UI.unaffordable : live ? UI.text : UI.textMuted;
-    this.detail.setColour(priceColour);
+    this.detail.setColour(live ? UI.text : UI.textMuted, opts.short ?? []);
     this.detailMore.setColour(live ? UI.text : UI.textMuted);
 
     this.ring.visible = opts.selected === true;

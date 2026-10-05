@@ -17,6 +17,11 @@
  *   2 finished by your fortress: no gold for those      (only if any were)
  *   Still fighting: Rookie, Tactician                   (live; or "Every lane is clear")
  *
+ * and once every lane is through and the build phase is on, the last line
+ * turns into the clock instead - "24 seconds remaining to build. Build now!" -
+ * because a card still up then is a player reading about the last wave while
+ * the time to prepare for the next one runs out.
+ *
  * The gold and the kills are the wave's tally (sim/types.ts, `WaveTally`):
  * what your line's kills paid you, and the monsters your fortress had to
  * finish, which pay you nothing (§11.1, amended). The tally is read every
@@ -32,9 +37,10 @@
 
 import { Container, Graphics } from 'pixi.js';
 import type { Text } from 'pixi.js';
-import type { MatchView, TeamId } from '../../sim/index.ts';
+import { ticksToSeconds, type MatchView, type TeamId } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
-import { DAMAGE_COLOURS, UI } from '../palette.ts';
+import { UI } from '../palette.ts';
+import { confetti, drawBurst, easeOutBack } from './burst.ts';
 import { CURRENCY_COLOURS, GOLD, RichLabel } from './currency.ts';
 import { centreOn, label, overlaid } from './text.ts';
 
@@ -56,7 +62,10 @@ export interface ClearedLines {
   earned: string;
   /** What the fortress's kills cost, or '' when it made none. */
   wall: string;
-  /** Who is still fighting, '' in solo, where there is nobody. */
+  /**
+   * Who is still fighting, '' in solo, where there is nobody - or, once the
+   * wave is over, how long is left to build.
+   */
   waiting: string;
 }
 
@@ -76,12 +85,20 @@ export function clearedLines(view: MatchView, wave: number): ClearedLines {
         ? `${walled} finished by your fortress: ${missed > 0 ? `${missed} gold lost` : 'no gold'}`
         : '',
     waiting:
-      others.length === 0
-        ? ''
-        : fighting.length > 0
-          ? `Still fighting: ${fighting.join(', ')}`
-          : 'Every lane is clear',
+      view.phase === 'build'
+        ? buildClock(view)
+        : others.length === 0
+          ? ''
+          : fighting.length > 0
+            ? `Still fighting: ${fighting.join(', ')}`
+            : 'Every lane is clear',
   };
+}
+
+/** "24 seconds remaining to build. Build now!" */
+function buildClock(view: MatchView): string {
+  const seconds = Math.max(0, Math.ceil(ticksToSeconds(view.phaseTicksLeft)));
+  return `${seconds} ${seconds === 1 ? 'second' : 'seconds'} remaining to build. Build now!`;
 }
 
 /**
@@ -105,14 +122,6 @@ export function laneIsClear(view: MatchView): boolean {
   );
 }
 
-interface Bit {
-  angle: number;
-  speed: number;
-  spin: number;
-  size: number;
-  colour: number;
-}
-
 export class WaveCleared extends Container {
   private readonly burst = new Graphics();
   private readonly backing = new Graphics();
@@ -121,7 +130,7 @@ export class WaveCleared extends Container {
   private readonly wall: Text;
   private readonly waiting: Text;
   private layout: LaneLayout;
-  private readonly bits: Bit[] = [];
+  private readonly bits = confetti(CONFETTI);
 
   /** Milliseconds since the card opened; negative while it is not up. */
   private age = -1;
@@ -144,26 +153,6 @@ export class WaveCleared extends Container {
     this.waiting = label('', 13, UI.accent, '700');
     this.addChild(this.burst, this.backing, this.title, this.earned, this.wall, this.waiting);
     this.visible = false;
-
-    // The same confetti every time: a celebration is not the place for a
-    // random number generator to make two of them look different.
-    const colours = [
-      CURRENCY_COLOURS.gold,
-      DAMAGE_COLOURS.impact,
-      DAMAGE_COLOURS.pierce,
-      DAMAGE_COLOURS.arcane,
-      UI.healthGood,
-    ];
-    for (let i = 0; i < CONFETTI; i++) {
-      const golden = (i * 0.61803398875) % 1;
-      this.bits.push({
-        angle: (i / CONFETTI) * Math.PI * 2 + golden * 0.4,
-        speed: 0.55 + golden * 0.6,
-        spin: (golden - 0.5) * 14,
-        size: 3 + ((i * 7) % 4),
-        colour: colours[i % colours.length]!,
-      });
-    }
   }
 
   setLayout(layout: LaneLayout): void {
@@ -280,70 +269,9 @@ export class WaveCleared extends Container {
       .fill({ color: UI.background, alpha: 0.82 })
       .stroke({ width: 2, color: CURRENCY_COLOURS.gold, alpha: 0.7 });
 
-    this.drawBurst(cx, cy, scale);
+    const reach = Math.min(l.lane.width, l.lane.height) * 0.48;
+    drawBurst(this.burst, cx, cy, reach, this.age, scale, this.bits);
   }
-
-  /** Rays and a ring off the middle, and confetti thrown out and falling. */
-  private drawBurst(cx: number, cy: number, scale: number): void {
-    const g = this.burst;
-    g.clear();
-    const t = this.age / 1000;
-    const reach = Math.min(this.layout.lane.width, this.layout.lane.height) * 0.48;
-
-    // The ring: out fast, thinning as it goes.
-    const ring = Math.min(1, t / 0.7);
-    if (ring < 1) {
-      g.circle(cx, cy, reach * easeOut(ring)).stroke({
-        width: 6 * scale * (1 - ring),
-        color: CURRENCY_COLOURS.gold,
-        alpha: 0.8 * (1 - ring),
-      });
-    }
-
-    // Rays, turning slowly, gone after a second and a half.
-    const rays = Math.max(0, 1 - t / 1.5);
-    if (rays > 0) {
-      const count = 12;
-      for (let i = 0; i < count; i++) {
-        const a = (i / count) * Math.PI * 2 + t * 0.6;
-        const inner = reach * 0.25;
-        const outer = reach * (0.45 + 0.35 * easeOut(Math.min(1, t / 0.5)));
-        g.moveTo(cx + Math.cos(a) * inner, cy + Math.sin(a) * inner).lineTo(
-          cx + Math.cos(a) * outer,
-          cy + Math.sin(a) * outer,
-        );
-      }
-      g.stroke({ width: 3 * scale, color: CURRENCY_COLOURS.gold, alpha: 0.45 * rays });
-    }
-
-    // Confetti: out along its angle, slowing, then falling, then gone.
-    const life = 2.2;
-    if (t < life) {
-      for (const bit of this.bits) {
-        const travel = reach * bit.speed * easeOut(Math.min(1, t / 0.9));
-        const fall = 60 * scale * t * t;
-        const x = cx + Math.cos(bit.angle) * travel;
-        const y = cy + Math.sin(bit.angle) * travel + fall;
-        const turn = bit.spin * t;
-        const w = bit.size * scale;
-        const h = w * 0.55 * Math.abs(Math.cos(turn));
-        g.rect(x - w / 2, y - h / 2, w, Math.max(1, h)).fill({
-          color: bit.colour,
-          alpha: Math.max(0, 1 - t / life),
-        });
-      }
-    }
-  }
-}
-
-function easeOut(x: number): number {
-  return 1 - (1 - x) * (1 - x);
-}
-
-/** Past 1 and back, for a pop. */
-function easeOutBack(x: number): number {
-  const c = 1.7;
-  return 1 + (c + 1) * (x - 1) ** 3 + c * (x - 1) ** 2;
 }
 
 /** "lane3" -> "Lane 3", as the tabs above the lane say it. */

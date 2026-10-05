@@ -1517,6 +1517,16 @@ that every step and every practice intro points only at what its lesson has
 open, that each practice is set up as above, and that a practice with nothing
 built ends with the fortress falling and nothing sent at it.
 
+### A finished chapter is celebrated
+
+When a chapter's last step is done, "Chapter 2 Complete!" bursts open in the
+upper middle of the lane with the chapter's name under it and the victory
+fanfare (`ui/chapterComplete.ts`). It is the same burst as a cleared lane's
+(`ui/burst.ts`: ring, rays and confetti, shared by both), drawn over the coach
+so its dimming does not dim it, and it stays as long as the coach's
+chapter-complete card at the bottom of the screen does. A wave-cleared card
+still up at that moment is put away.
+
 ### Super and Ultra, not Mark II and III
 
 An upgraded unit is named for how far it has been upgraded: Pledge, Super
@@ -1542,8 +1552,11 @@ It stays up until the player taps anywhere (`Game.screenTapped`, from a
 `pointerdown` listener on the canvas in app.ts, so the tap still reaches
 whatever it was aimed at), or the next wave starts. A tap in its first 0.7
 seconds does not count, so a player mid-build does not dismiss it before they
-have seen it. It is never shown for a lane emptied by its fortress falling or
-in solo's endless wave. The chime moved with
+have seen it. If it is still up when every lane is through and the build
+phase starts, its last line becomes the clock - "24 seconds remaining to build.
+Build now!" - since a player reading about the last wave is spending the time
+to prepare for the next one. It is never shown for a lane emptied by its
+fortress falling or in solo's endless wave. The chime moved with
 it: it used to sound when the whole wave ended, which was the moment that
 mattered least to the player. It sounds at the end of the wave only when the
 lane-clear was missed (a match joined mid-wave).
@@ -1653,7 +1666,9 @@ is in the wrong family for its armour, if two bodies on the field share one, or
 if a tier does not carry its base's shape up the chain (§7.3: an upgrade is the
 same unit).
 
-The wave preview (§9.3) draws them too: each incoming monster's shape sits
+The wave preview (§9.3) draws them too, during the build phase only - once the
+wave walks in, it is on the board to be looked at, and the strip was text drawn
+over the top of the fight. Each incoming monster's shape sits
 under its count and name, at the size it will be in the lane and in the same
 outline-means-monster convention. "4× Husk plate" tells you what is coming only
 if you already know what a Husk looks like; the shape below it is the thing you
@@ -1959,10 +1974,13 @@ into the next column's name.
 42% opacity, words and all, which put a price you could not yet afford at about
 2 to 1 against its ground — unreadable exactly when it is the number you are
 saving towards. Now the ground goes darker (`UI.panelAsleep`), the name goes to
-the muted text colour, and the price says whether money is the reason: in
-`UI.unaffordable`, a warm coral, when the only thing missing is gold, gems or
-supply, and muted when the button is out for any other reason (the wrong phase,
-the top of its ladder). A usable button's price is drawn in the full text
+the muted text colour, and the price says whether money is the reason: the
+amount that is short is drawn in `UI.unaffordable`, a warm coral - the gold, the
+supply, or both, and only those (`shortfall` in buildBar.ts; `RichLabel` colours
+the amount after each currency icon on its own) - and the price stays muted when
+the button is out for any other reason (the wrong phase, the top of its ladder).
+A fortress level that takes supply now says so in its price, beside the gold,
+rather than after what it buys. A usable button's price is drawn in the full text
 colour. The asleep Build tab during a wave gets its own dimmer caption colour
 rather than a fade. gridButton.test.ts holds every one of these combinations
 above 4.5 to 1.

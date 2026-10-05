@@ -88,7 +88,7 @@ export function drawCurrency(
 
 const TOKEN = /\{(gold|gem|supply)\}/g;
 
-type Run = { text: string } | { icon: Currency };
+export type Run = { text: string } | { icon: Currency };
 
 /** Split a string into runs of text and icons. */
 export function parseRich(text: string): Run[] {
@@ -103,6 +103,39 @@ export function parseRich(text: string): Run[] {
   return runs;
 }
 
+/** A run of text, and the currency it is an amount of, if it is one. */
+export type Piece = { text: string; of?: Currency } | { icon: Currency };
+
+/** The amount straight after an icon: "44" of "44 · ", "+1" of "+1". */
+const AMOUNT = /^[^\s·]+/;
+
+/**
+ * `parseRich`, with the amount after each icon split off the text that
+ * follows it and labelled with its currency - so a price can say which of its
+ * numbers is the one the wallet cannot cover, and colour that one alone.
+ */
+export function splitAmounts(runs: readonly Run[]): Piece[] {
+  const pieces: Piece[] = [];
+  let after: Currency | null = null;
+  for (const run of runs) {
+    if ('icon' in run) {
+      pieces.push(run);
+      after = run.icon;
+      continue;
+    }
+    const amount = after ? AMOUNT.exec(run.text)?.[0] : undefined;
+    if (after && amount) {
+      pieces.push({ text: amount, of: after });
+      const rest = run.text.slice(amount.length);
+      if (rest) pieces.push({ text: rest });
+    } else {
+      pieces.push({ text: run.text });
+    }
+    after = null;
+  }
+  return pieces;
+}
+
 /**
  * One line of text with currency icons in it.
  *
@@ -113,10 +146,15 @@ export function parseRich(text: string): Run[] {
  */
 export class RichLabel extends Container {
   private readonly pieces: Text[] = [];
+  /** Which currency each piece is an amount of, if any, in the same order. */
+  private pieceOf: (Currency | undefined)[] = [];
   private readonly icons = new Graphics();
   private current = '';
   private limit = Infinity;
   private colour: number;
+  /** Amounts of these currencies are drawn in `shortColour` (`setColour`). */
+  private short: readonly Currency[] = [];
+  private shortColour: number = UI.unaffordable;
 
   constructor(
     private fontSize: number,
@@ -157,15 +195,40 @@ export class RichLabel extends Container {
     this.layOut();
   }
 
-  /** The colour of the words; the icons keep their own. */
-  setColour(colour: number): void {
-    if (colour === this.colour) return;
+  /**
+   * The colour of the words; the icons keep their own. The amounts of the
+   * `short` currencies - the parts of a price the wallet cannot cover - are
+   * drawn in `shortColour` instead, and nothing else is.
+   */
+  setColour(
+    colour: number,
+    short: readonly Currency[] = [],
+    shortColour: number = UI.unaffordable,
+  ): void {
+    if (
+      colour === this.colour &&
+      shortColour === this.shortColour &&
+      short.length === this.short.length &&
+      short.every((c) => this.short.includes(c))
+    ) {
+      return;
+    }
     this.colour = colour;
-    for (const piece of this.pieces) piece.style.fill = colour;
+    this.short = [...short];
+    this.shortColour = shortColour;
+    this.paint();
+  }
+
+  private paint(): void {
+    this.pieces.forEach((piece, i) => {
+      const of = this.pieceOf[i];
+      const fill = of !== undefined && this.short.includes(of) ? this.shortColour : this.colour;
+      piece.style.fill = fill;
+    });
   }
 
   private layOut(): void {
-    const runs = parseRich(this.current);
+    const runs = splitAmounts(parseRich(this.current));
     const size = Math.round(this.fontSize * 1.1);
     // A line of this font is about 1.25 of its size tall; icons sit centred on it.
     const lineHeight = this.fontSize * 1.25;
@@ -176,6 +239,7 @@ export class RichLabel extends Container {
     for (const run of runs) {
       if ('text' in run) {
         const piece = this.pieces[used] ?? this.makePiece();
+        this.pieceOf[used] = run.of;
         used += 1;
         piece.visible = true;
         if (piece.text !== run.text) piece.text = run.text;
@@ -187,6 +251,8 @@ export class RichLabel extends Container {
       }
     }
     for (let i = used; i < this.pieces.length; i++) this.pieces[i]!.visible = false;
+    this.pieceOf.length = used;
+    this.paint();
     this.natural = x;
     const scale = x > this.limit && x > 0 ? Math.max(0.7, this.limit / x) : 1;
     this.scale.set(scale);

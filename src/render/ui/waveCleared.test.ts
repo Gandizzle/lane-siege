@@ -59,6 +59,17 @@ describe('the wave-cleared card', () => {
     expect(clearedLines(view({ opponents: [] }), 4).waiting).toBe('');
   });
 
+  it('turns into the build clock once every lane is through', () => {
+    // 20 ticks a second: 470 ticks is 23.5 seconds, said as 24.
+    const building = view({ phase: 'build', phaseTicksLeft: 470 });
+    expect(clearedLines(building, 4).waiting).toBe('24 seconds remaining to build. Build now!');
+    const last = view({ phase: 'build', phaseTicksLeft: 15 });
+    expect(clearedLines(last, 4).waiting).toBe('1 second remaining to build. Build now!');
+    // Solo too: there is nobody to wait on, but there is still a clock.
+    const solo = view({ phase: 'build', phaseTicksLeft: 200, opponents: [] });
+    expect(clearedLines(solo, 4).waiting).toBe('10 seconds remaining to build. Build now!');
+  });
+
   it('opens when the lane goes clear in combat, not before and not again', () => {
     const fighting = view({}, { monsters: [{}] } as Partial<LaneView>);
     expect(laneIsClear(fighting)).toBe(false);

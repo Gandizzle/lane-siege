@@ -257,7 +257,11 @@ export class LaneView extends Container {
     // The selected unit is ringed by the entity layer rather than boxed here:
     // it is a mark on a body, and the body is somewhere between two ticks
     // (entities.ts, `EntityMarks`).
-    this.drawWavePreview(view, summary);
+    //
+    // The preview is for deciding what to build, so it goes when the wave
+    // starts: in combat the wave is on the board to be looked at, and the strip
+    // was only text drawn over the top of it (solo's endless stream included).
+    if (view.phase === 'build') this.drawWavePreview(view, summary);
   }
 
   /**
@@ -284,16 +288,11 @@ export class LaneView extends Container {
       return;
     }
 
-    const nextWave = view.phase === 'build' ? view.wave + 1 : view.wave;
+    const nextWave = view.wave + 1;
     const entries = previewWave(this.data, view.seed, nextWave);
     if (entries.length === 0) return;
 
-    const heading = label(
-      view.phase === 'build' ? `next wave ${nextWave}` : `wave ${nextWave}`,
-      10,
-      UI.textMuted,
-      '700',
-    );
+    const heading = label(`next wave ${nextWave}`, 10, UI.textMuted, '700');
     heading.x = leftEdge;
     heading.y = rowOne;
     this.overlay.addChild(heading);
