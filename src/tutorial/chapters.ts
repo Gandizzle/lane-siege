@@ -648,7 +648,7 @@ const COUNTERS: Chapter = {
       preview: 'everyType',
       text:
         "A monster's SHAPE is its armor. Round shapes are flesh, angular ones are plate, pointed " +
-        'ones are warded, and clusters of little ones are a swarm. Up here is one of each, named.',
+        'ones are warded, and clusters of little ones are a swarm. Up here is one of each.',
     },
     {
       mode: 'next',

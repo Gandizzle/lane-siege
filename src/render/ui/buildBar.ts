@@ -1335,7 +1335,24 @@ export class BuildBar extends Container {
       const have = Math.round((track.levels.find((l) => l.level === level)?.value ?? 0) * 100);
       const effect = level === 0 ? '' : track.armorType ? ` · -${have}%` : ` · +${have}%`;
 
-      button.setSwatch(track.damageType ? DAMAGE_COLORS[track.damageType] : null);
+      // A damage track wears its color; an armor track that armor's shape, in
+      // a neutral color, as the damage chart heads its columns.
+      const armorShape = track.armorType
+        ? this.data.monsters.monsters.find((m) => m.armor === track.armorType)?.shape
+        : undefined;
+      button.setSwatch(
+        track.damageType
+          ? DAMAGE_COLORS[track.damageType]
+          : armorShape
+            ? {
+                shape: armorShape,
+                damageType: 'impact',
+                mark: 1,
+                outlined: true,
+                color: UI.textMuted,
+              }
+            : null,
+      );
       button.update({
         title: name,
         shortTitle: track.armorType ? capitalise(track.armorType) : undefined,

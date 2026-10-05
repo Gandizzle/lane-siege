@@ -352,14 +352,17 @@ export class LaneView extends Container {
     let x = leftEdge;
     for (const entry of entries) {
       const color = DAMAGE_COLORS[entry.damageType];
-      // An example (`everyTypeExample`) has no count: it is a key, not a wave.
+      // An example (`everyTypeExample`) is a key, not a wave: no count and no
+      // name, just the armor word in the damage type's color - four of them
+      // fit across a phone, where four names did not.
+      const key = entry.count === 0;
       const text = label(
-        entry.count > 0 ? `${entry.count}× ${entry.name}` : entry.name,
+        key ? capitalised(entry.armor) : `${entry.count}× ${entry.name}`,
         11,
         color,
         '700',
       );
-      const armor = label(` ${entry.armor}`, 10, UI.textMuted);
+      const armor = label(key ? '' : ` ${entry.armor}`, 10, UI.textMuted);
       const width = text.width + armor.width;
 
       if (x + width + 12 > rightEdge) {
@@ -465,4 +468,8 @@ export function everyTypeExample(data: GameData): WavePreviewEntry[] {
     out.push({ defId: def.id, name: def.name, count: 0, armor, damageType, shape: def.shape });
   });
   return out;
+}
+
+function capitalised(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

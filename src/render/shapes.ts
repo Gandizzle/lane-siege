@@ -39,6 +39,11 @@ export interface EntityStyle {
   mark: number;
   /** Monsters are outlines; defensive units are solid (§14.2). */
   outlined: boolean;
+  /**
+   * A color other than the damage type's, for a shape that stands for an
+   * ARMOR rather than a body - the armor buttons on the Tech tab.
+   */
+  color?: number;
 }
 
 /** One primitive of a silhouette, in unit-circle coordinates, y down. */
@@ -384,7 +389,7 @@ export function drawEntity(
   alpha = 1,
 ): Graphics {
   const radius = baseRadius * (1 + (style.mark - 1) * 0.15);
-  const color = DAMAGE_COLORS[style.damageType];
+  const color = style.color ?? DAMAGE_COLORS[style.damageType];
 
   for (const piece of silhouette(style.shape)) {
     if (piece.kind === 'circle') {
