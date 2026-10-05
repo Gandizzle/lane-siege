@@ -109,7 +109,7 @@ export interface DefensiveUnit {
   halfWidth: number;
   /** Always false for a unit; see `Body` in motion.ts. */
   monster: boolean;
-  /** Always false for a unit: only a boss phases, and only through monsters. */
+  /** Always false for a unit: only a boss or a send phases, and only through monsters. */
   phasesMonsters: boolean;
   /** Reach, edge to edge, in tiles. Copied from the definition on build and upgrade. */
   range: number;
@@ -152,7 +152,12 @@ export interface DefensiveUnit {
    * upgraded and on wave start - never per tick (§15.3).
    */
   techDamage: number;
-  techAttackSpeed: number;
+  /**
+   * What the armor tech leaves of a blow (§7.4, redesigned): 0.75 at the top
+   * of its track. Applied with the matrix in `dealDamage` (strike.ts), so it
+   * covers swings, abilities and the showdown alike.
+   */
+  techDamageTaken: number;
   /** Ticks until the next attack may fire. */
   cooldown: number;
   /**
@@ -243,7 +248,10 @@ export interface Monster {
   halfWidth: number;
   /** Always true. See `Body` in motion.ts. */
   monster: boolean;
-  /** §3.4: a boss passes through the swarm it arrives with, and it through it. */
+  /**
+   * §3.4: a boss passes through the other monsters, and they through it. A
+   * sent monster does too, so a send and the wave it joins never snag.
+   */
   phasesMonsters: boolean;
   /**
    * Which wave this monster belongs to. Enrage is tracked per wave, not per

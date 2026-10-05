@@ -726,8 +726,9 @@ const COUNTERS: Chapter = {
           .filter((u) => u.damageType === 'impact')
           .map((u) => u.name);
         return (
-          'There is a button for each damage type. Buying one makes EVERY unit of that type deal ' +
-          `more damage. ${listed(impact)} deal impact damage, so buy Impact: ` +
+          'There is a button for each damage type, and one for each armor type. Buying a damage ' +
+          'type makes EVERY unit of that type deal more damage. ' +
+          `${listed(impact)} deal impact damage, so buy Impact: ` +
           `${first?.goldCost ?? 0} gold for +${Math.round((first?.value ?? 0) * 100)}% damage on ` +
           'all of them.'
         );
@@ -741,15 +742,14 @@ const COUNTERS: Chapter = {
         const tracks = data.economy.tech.tracks;
         const impact = tracks.find((t) => t.id === 'dmg_impact');
         const pct = (value: number | null | undefined) => Math.round((value ?? 0) * 100);
-        const plating = tracks.find((t) => t.id === 'def_hp');
-        const cadence = tracks.find((t) => t.id === 'def_speed');
+        const armor = tracks.find((t) => t.armorType !== undefined);
         return (
           `Done. Every impact unit now deals +${pct(impact?.levels[0]?.value)}% damage: the ones ` +
           'on the board, the ones you build later, and the ones that fall and come back. Each ' +
-          `level adds more, up to +${pct(impact?.levels.at(-1)?.value)}%. ` +
-          `${plating?.name ?? 'Plating'} and ${cadence?.name ?? 'Cadence'} work the same way for ` +
-          `every unit, whatever its type: +${pct(plating?.levels[0]?.value)}% health, and ` +
-          `+${pct(cadence?.levels[0]?.value)}% attack speed.`
+          `level adds ${pct(impact?.levels[0]?.value)}% more, up to ` +
+          `+${pct(impact?.levels.at(-1)?.value)}%. The armor buttons do the same for defense: ` +
+          `each level makes every unit wearing that armor take ${pct(armor?.levels[0]?.value)}% ` +
+          `less damage, up to ${pct(armor?.levels.at(-1)?.value)}% less.`
         );
       },
     },

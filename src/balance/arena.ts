@@ -133,6 +133,19 @@ export function dominantDamageTrack(data: GameData, army: Army): string {
   return `dmg_${best}`;
 }
 
+/** The armor track for the armor the army's health is mostly in. */
+export function dominantArmorTrack(data: GameData, army: Army): string {
+  const byId = new Map(data.units.units.map((u) => [u.id, u]));
+  const weight = new Map<string, number>();
+  for (const placed of army.units) {
+    const def = byId.get(placed.defId);
+    if (!def) continue;
+    weight.set(def.armor, (weight.get(def.armor) ?? 0) + num(def.hp));
+  }
+  const best = [...weight].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'plate';
+  return `arm_${best}`;
+}
+
 /**
  * Run one fight. `armies` are seated in the order given, which is what a
  * tournament rotates.
@@ -173,9 +186,9 @@ export function runArena(data: GameData, armies: readonly Army[], seed: number):
     // The tech the budget bought. Set directly rather than purchased: the
     // purchase rules are the wave phase's business and the gold for it has
     // already been taken out of `armyGold` by the budget model.
-    lane.economy.tech.def_hp = TECH_LEVEL;
-    lane.economy.tech.def_speed = TECH_LEVEL;
+    // Its main damage type and its main armor (§7.4, redesigned).
     lane.economy.tech[dominantDamageTrack(data, army)] = TECH_LEVEL;
+    lane.economy.tech[dominantArmorTrack(data, army)] = TECH_LEVEL;
 
     for (const placed of army.units) {
       const def = byId.get(placed.defId);

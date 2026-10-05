@@ -269,7 +269,7 @@
     },
     {
       "wave": 13,
-      "armyGold": 3300,
+      "armyGold": 3250,
       "entries": [
         { "monsterId": "carapace", "count": 4 },
         { "monsterId": "husk", "count": 10 },

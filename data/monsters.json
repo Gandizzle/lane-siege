@@ -86,7 +86,7 @@
       "moveSpeed": 1.9,
       "bounty": 2,
       "bodyRadius": 0.22,
-      "_note": "THE EARLY BLAST. Blast is the only damage type Flesh armor fears (1.5), and until this carried it the only monster in the game that dealt any was the Bloater, which does not appear until wave 16. So through waves 1 to 15 Flesh was simply the best armor to wear, Pyre wore it on its cheap front line, and Pyre cleared more of every one of the first five waves than anyone - on survivability, not damage, which is why the damage-per-gold table never showed it."
+      "_note": "THE EARLY BLAST, under the first damage chart (when Blast was what Flesh feared). The chart is now one cycle and Arcane is what Flesh fears; every armor/damage pair has a wave of its own (waves.json), so no armor is safe for long."
     },
     {
       "id": "revenant",

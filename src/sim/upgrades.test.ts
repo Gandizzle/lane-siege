@@ -74,10 +74,11 @@ describe('global tech (§7.4)', () => {
     expect(lane.units[0]!.techDamage).toBeGreaterThan(1);
   });
 
-  it('raises unit maximum HP without healing the damage already taken', () => {
+  it('makes every unit wearing an armor take 5% less a level, and no other unit', () => {
     const { state, ctx } = rich();
     const lane = state.lanes.l1!;
 
+    // A Pledge wears plate; a Sanction wears flesh (units.json).
     applyCommand(ctx, state, {
       kind: 'placeUnit',
       teamId: 'l1',
@@ -85,16 +86,36 @@ describe('global tech (§7.4)', () => {
       tileX: 1,
       tileY: 1,
     });
-    const unit = lane.units[0]!;
-    unit.hp = unit.maxHp * 0.5;
+    applyCommand(ctx, state, {
+      kind: 'placeUnit',
+      teamId: 'l1',
+      unitDefId: 'sanction',
+      tileX: 3,
+      tileY: 1,
+    });
+    const [pledge, sanction] = lane.units;
+    expect(pledge!.techDamageTaken).toBe(1);
 
-    applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'def_hp' });
-
-    expect(unit.maxHp).toBeGreaterThan(stat(data.units.units.find((u) => u.id === 'pledge')!.hp));
-    expect(unit.hp / unit.maxHp).toBeCloseTo(0.5, 4);
+    applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'arm_plate' });
+    applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'arm_plate' });
+    expect(pledge!.techDamageTaken).toBeCloseTo(0.9, 6);
+    expect(sanction!.techDamageTaken).toBe(1);
+    // Health is the definition's: armor tech is not more health.
+    expect(pledge!.maxHp).toBe(stat(data.units.units.find((u) => u.id === 'pledge')!.hp));
   });
 
-  it('escalates in cost and stops at the top of the track', () => {
+  it('has eight tracks, one per damage type and one per armor, at 5% a level and 200 gold', () => {
+    const tracks = data.economy.tech.tracks;
+    expect(tracks.map((t) => t.damageType ?? t.armorType).sort()).toEqual(
+      [...data.matrix.damageTypes, ...data.matrix.armorTypes].sort(),
+    );
+    for (const track of tracks) {
+      expect(track.levels.map((l) => l.value)).toEqual([0.05, 0.1, 0.15, 0.2, 0.25]);
+      expect(track.levels.every((l) => l.goldCost === 200)).toBe(true);
+    }
+  });
+
+  it('costs the same every level and stops at the top of the track', () => {
     const { state, ctx } = rich();
     const lane = state.lanes.l1!;
     const track = data.economy.tech.tracks.find((t) => t.id === 'dmg_blast')!;
@@ -106,7 +127,7 @@ describe('global tech (§7.4)', () => {
         applyCommand(ctx, state, { kind: 'buyTech', teamId: 'l1', trackId: 'dmg_blast' }).ok,
       ).toBe(true);
       const spent = before - lane.economy.gold;
-      expect(spent).toBeGreaterThan(previous);
+      if (previous > 0) expect(spent).toBe(previous);
       previous = spent;
       expect(lane.economy.tech.dmg_blast).toBe(level.level);
     }

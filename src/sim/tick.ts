@@ -305,10 +305,7 @@ function unitsAttack(env: AbilityEnv, ctx: SimContext, lane: Lane): void {
       isAttack: true,
     });
     unit.cooldown = cooldownTicks(
-      stat(def.attackSpeed) *
-        unit.techAttackSpeed *
-        aura.attackSpeed *
-        modifiersOf(unit).attackSpeedMul,
+      stat(def.attackSpeed) * aura.attackSpeed * modifiersOf(unit).attackSpeedMul,
     );
     lane.attacks.push({ attackerId: unit.id, targetId: target.id });
 

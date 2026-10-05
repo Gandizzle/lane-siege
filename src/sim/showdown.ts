@@ -383,9 +383,7 @@ function attack(
       damageType: def.damageType,
       isAttack: true,
     });
-    unit.cooldown = cooldownTicks(
-      stat(def.attackSpeed) * unit.techAttackSpeed * modifiersOf(unit).attackSpeedMul,
-    );
+    unit.cooldown = cooldownTicks(stat(def.attackSpeed) * modifiersOf(unit).attackSpeedMul);
     showdown.attacks.push({ attackerId: unit.id, targetId: target.id });
 
     fire(env, unit, 'onAttack', { target });

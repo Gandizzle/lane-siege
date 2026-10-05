@@ -1019,3 +1019,24 @@ describe('bodies that are not the usual shape', () => {
     expect(shotFrom).toBeGreaterThan(spitter.range! * 0.8);
   });
 });
+
+describe('a send passes through the wave it joins', () => {
+  // The playtest: a send arriving into a wave snagged on it and tripped it up
+  // in turn. Sends now phase through monsters the way a boss does - and are
+  // just as solid to the defenders.
+  it('phases through monsters like a boss, where a wave monster does not', () => {
+    const d = passiveData();
+    const { state } = setup(d);
+    const defs = buildDefIndex(d);
+    const sent = createMonster(
+      state,
+      d,
+      defs,
+      { defId: 'grub', waveNumber: 1, sendId: 'grub' },
+      { x: 2, y: 1 },
+    )!;
+    const walked = createMonster(state, d, defs, { defId: 'grub', waveNumber: 1 }, { x: 4, y: 1 })!;
+    expect(sent.phasesMonsters).toBe(true);
+    expect(walked.phasesMonsters).toBe(false);
+  });
+});

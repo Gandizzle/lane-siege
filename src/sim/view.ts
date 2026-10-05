@@ -448,7 +448,7 @@ function unitMods(
       (baseDamage * unit.techDamage * aura.damage + status.damageAdd) * status.damageMul,
       baseDamage,
     ),
-    attackSpeed: unit.techAttackSpeed * aura.attackSpeed * status.attackSpeedMul,
+    attackSpeed: aura.attackSpeed * status.attackSpeedMul,
     moveSpeed: share(unit.moveSpeed * status.moveSpeedMul + status.moveSpeedAdd, unit.moveSpeed),
     maxHealth: share(unit.maxHp, def.hp ?? 0),
   };

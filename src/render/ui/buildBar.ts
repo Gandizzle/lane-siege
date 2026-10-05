@@ -820,9 +820,11 @@ export class BuildBar extends Container {
     };
 
     across(this.unitButtons, 3);
+    // Eight tracks (§7.4, redesigned): the four damage types over the four
+    // armors, so a column is a pair the chart pits against each other.
     across(
       this.techButtons.map((t) => t.button),
-      3,
+      4,
     );
     // Supply Cap alone, until the tutorial has opened the fortress ladders -
     // in the first cell of the grid the whole tab would have, so it is the
@@ -1329,12 +1331,16 @@ export class BuildBar extends Container {
       const level = economy.tech[trackId] ?? 0;
       const next = track.levels.find((l) => l.level === level + 1);
       const cost = next?.goldCost ?? 0;
+      // What it has bought so far: more damage dealt, or less taken.
+      const have = Math.round((track.levels.find((l) => l.level === level)?.value ?? 0) * 100);
+      const effect = level === 0 ? '' : track.armorType ? ` · -${have}%` : ` · +${have}%`;
 
       button.setSwatch(track.damageType ? DAMAGE_COLORS[track.damageType] : null);
       button.update({
         title: name,
+        shortTitle: track.armorType ? capitalise(track.armorType) : undefined,
         detail: next ? `${GOLD}${cost}` : 'maxed',
-        note: `level ${level}/${track.levels.length}`,
+        note: `level ${level}/${track.levels.length}${effect}`,
         enabled: canAct && next !== undefined && economy.gold >= cost,
         short: canAct && next !== undefined ? shortfall(economy, { gold: cost }) : [],
       });
@@ -1842,4 +1848,8 @@ export function shortfall(
     short.push('supply');
   }
   return short;
+}
+
+function capitalise(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }

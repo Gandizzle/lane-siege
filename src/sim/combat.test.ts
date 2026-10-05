@@ -443,6 +443,9 @@ describe('ground to stand on (§8.1, amended)', () => {
       for (let j = i + 1; j < living.length; j++) {
         const a = living[i]!;
         const b = living[j]!;
+        // A send phases through the wave it joins (spawn.ts), so only a pair
+        // that is solid to each other has to stand apart.
+        if (a.phasesMonsters || b.phasesMonsters) continue;
         const apart = Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y) - a.radius - b.radius;
         expect(apart, `${a.defId} ${a.id} and ${b.defId} ${b.id}`).toBeGreaterThanOrEqual(0);
       }

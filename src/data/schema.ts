@@ -660,8 +660,10 @@ export interface SendsFile {
 export interface TechTrack {
   id: string;
   name: string;
-  /** Offensive tracks buff one damage type; defensive tracks leave this unset. */
+  /** A damage track: every unit dealing this type deals more. */
   damageType?: DamageType;
+  /** An armor track: every unit wearing this armor takes less. */
+  armorType?: ArmorType;
   levels: UpgradeLevel[];
 }
 

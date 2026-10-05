@@ -161,6 +161,9 @@ export interface LineResult {
   damageDealt: number;
   maxHp: number;
   survived: boolean;
+  /** Its tech, as it fought: damage dealt and damage taken, as multipliers. */
+  techDamage: number;
+  techDamageTaken: number;
 }
 
 const DEFAULT_MAX_TICKS = TICKS_PER_SECOND * 60 * 6;
@@ -620,6 +623,8 @@ export function runWave(
       damageDealt: unit.damageDealt,
       maxHp: unit.maxHp,
       survived: unit.alive,
+      techDamage: unit.techDamage,
+      techDamageTaken: unit.techDamageTaken,
     });
   }
 
@@ -792,17 +797,21 @@ export function techAtWave(
 ): Record<string, number> {
   const level = techLevelAtWave(wave);
   if (level === 0) return {};
-  // The damage type the army spends most on, by what its bodies cost.
+  // The damage types and the armor the army spends most on, by what its
+  // bodies cost: two damage tracks and one armor track (§7.4, redesigned).
   const byType = new Map<string, number>();
+  const byArmor = new Map<string, number>();
   const chains = lines(data, builderId);
   for (const buy of shopping.buys) {
     const def = chains.get(buy.rung)?.[buy.mark - 1];
     if (!def) continue;
     const cost = chainCost(data, builderId, buy.rung, buy.mark).gold;
     byType.set(def.damageType, (byType.get(def.damageType) ?? 0) + cost);
+    byArmor.set(def.armor, (byArmor.get(def.armor) ?? 0) + cost);
   }
-  const main = [...byType].sort((a, b) => b[1] - a[1])[0]?.[0];
-  const tracks = ['def_hp', 'def_speed', ...(main ? [`dmg_${main}`] : [])];
+  const types = [...byType].sort((a, b) => b[1] - a[1]).map(([t]) => t);
+  const armor = [...byArmor].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const tracks = [...types.slice(0, 2).map((t) => `dmg_${t}`), ...(armor ? [`arm_${armor}`] : [])];
   const out: Record<string, number> = {};
   for (const id of tracks) {
     const track = data.economy.tech.tracks.find((t) => t.id === id);
@@ -822,8 +831,8 @@ function techLevelAtWave(wave: number): number {
 export function techGoldAtWave(data: GameData, wave: number): number {
   const level = techLevelAtWave(wave);
   let gold = 0;
-  // Any damage track: they are priced alike.
-  for (const id of ['def_hp', 'def_speed', 'dmg_impact']) {
+  // Any three tracks: they are priced alike.
+  for (const id of ['dmg_impact', 'dmg_pierce', 'arm_plate']) {
     const track = data.economy.tech.tracks.find((t) => t.id === id);
     for (const l of track?.levels ?? []) if (l.level <= level) gold += l.goldCost ?? 0;
   }

@@ -247,8 +247,10 @@ export function createMonster(
     radius: stats.radius,
     halfWidth: 0,
     monster: true,
-    // §3.4, decided: a boss and its escort pass through each other (motion.ts).
-    phasesMonsters: def.isBoss === true,
+    // §3.4, decided: a boss passes through other monsters, and they through
+    // it (motion.ts). So does every SENT body: a send arriving into a wave used
+    // to snag on it and trip it up in turn, and neither was anybody's plan.
+    phasesMonsters: def.isBoss === true || spec.sendId !== undefined,
     waveNumber: spec.waveNumber,
     pos: { x: pos.x, y: pos.y },
     hp: stats.hp,
@@ -315,7 +317,7 @@ export function createUnit(
     armor: def.armor,
     damageType: def.damageType,
     techDamage: 1,
-    techAttackSpeed: 1,
+    techDamageTaken: 1,
     cooldown: 0,
     targetId: null,
     damageDealt: 0,

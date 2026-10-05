@@ -195,7 +195,7 @@
     "later": 0.5
   },
   "tech": {
-    "_comment": "§7.4: value is a fractional bonus - 0.10 means +10%. Offensive tracks name a damageType and lift every unit of that type; defensive tracks leave it unset. def_hp raises unit maximum HP, def_speed raises unit attack speed.",
+    "_comment": "\u00a77.4, redesigned: EIGHT tracks, one per damage type and one per armor type, five levels each at a flat 200 gold a level. `value` is the cumulative fraction at that level. A damage track lifts the damage every unit of that type deals by 5% a level (+25% at the top); an armor track cuts the damage every unit wearing that armor takes by 5% a level (-25% at the top). Plating (+health for everyone) and Cadence (+attack speed for everyone) are gone: tech is now about the counter chart, the thing a single-combination wave tests.",
     "tracks": [
       {
         "id": "dmg_impact",
@@ -204,38 +204,38 @@
         "levels": [
           {
             "level": 1,
-            "goldCost": 120,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.05
+          },
+          {
+            "level": 2,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
             "value": 0.1
           },
           {
-            "level": 2,
-            "goldCost": 210,
+            "level": 3,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.15
+          },
+          {
+            "level": 4,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
             "value": 0.2
           },
           {
-            "level": 3,
-            "goldCost": 368,
-            "gemCost": null,
-            "supplyCost": 0,
-            "value": 0.3
-          },
-          {
-            "level": 4,
-            "goldCost": 643,
-            "gemCost": null,
-            "supplyCost": 0,
-            "value": 0.4
-          },
-          {
             "level": 5,
-            "goldCost": 1125,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.5
+            "value": 0.25
           }
         ]
       },
@@ -246,38 +246,38 @@
         "levels": [
           {
             "level": 1,
-            "goldCost": 120,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.05
+          },
+          {
+            "level": 2,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
             "value": 0.1
           },
           {
-            "level": 2,
-            "goldCost": 210,
+            "level": 3,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.15
+          },
+          {
+            "level": 4,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
             "value": 0.2
           },
           {
-            "level": 3,
-            "goldCost": 368,
-            "gemCost": null,
-            "supplyCost": 0,
-            "value": 0.3
-          },
-          {
-            "level": 4,
-            "goldCost": 643,
-            "gemCost": null,
-            "supplyCost": 0,
-            "value": 0.4
-          },
-          {
             "level": 5,
-            "goldCost": 1125,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.5
+            "value": 0.25
           }
         ]
       },
@@ -288,38 +288,38 @@
         "levels": [
           {
             "level": 1,
-            "goldCost": 120,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.05
+          },
+          {
+            "level": 2,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
             "value": 0.1
           },
           {
-            "level": 2,
-            "goldCost": 210,
+            "level": 3,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.15
+          },
+          {
+            "level": 4,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
             "value": 0.2
           },
           {
-            "level": 3,
-            "goldCost": 368,
-            "gemCost": null,
-            "supplyCost": 0,
-            "value": 0.3
-          },
-          {
-            "level": 4,
-            "goldCost": 643,
-            "gemCost": null,
-            "supplyCost": 0,
-            "value": 0.4
-          },
-          {
             "level": 5,
-            "goldCost": 1125,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.5
+            "value": 0.25
           }
         ]
       },
@@ -330,120 +330,206 @@
         "levels": [
           {
             "level": 1,
-            "goldCost": 120,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.05
+          },
+          {
+            "level": 2,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
             "value": 0.1
           },
           {
-            "level": 2,
-            "goldCost": 210,
+            "level": 3,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.15
+          },
+          {
+            "level": 4,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
             "value": 0.2
           },
           {
-            "level": 3,
-            "goldCost": 368,
-            "gemCost": null,
-            "supplyCost": 0,
-            "value": 0.3
-          },
-          {
-            "level": 4,
-            "goldCost": 643,
-            "gemCost": null,
-            "supplyCost": 0,
-            "value": 0.4
-          },
-          {
             "level": 5,
-            "goldCost": 1125,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.5
+            "value": 0.25
           }
         ]
       },
       {
-        "id": "def_hp",
-        "name": "Plating",
+        "id": "arm_flesh",
+        "name": "Flesh Armor",
+        "armorType": "flesh",
         "levels": [
           {
             "level": 1,
-            "goldCost": 150,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.12
+            "value": 0.05
           },
           {
             "level": 2,
-            "goldCost": 270,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.24
+            "value": 0.1
           },
           {
             "level": 3,
-            "goldCost": 486,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.36
+            "value": 0.15
           },
           {
             "level": 4,
-            "goldCost": 875,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.48
+            "value": 0.2
           },
           {
             "level": 5,
-            "goldCost": 1575,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.6
+            "value": 0.25
           }
         ]
       },
       {
-        "id": "def_speed",
-        "name": "Cadence",
+        "id": "arm_plate",
+        "name": "Plate Armor",
+        "armorType": "plate",
         "levels": [
           {
             "level": 1,
-            "goldCost": 180,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.08
+            "value": 0.05
           },
           {
             "level": 2,
-            "goldCost": 333,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.16
+            "value": 0.1
           },
           {
             "level": 3,
-            "goldCost": 616,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.24
+            "value": 0.15
           },
           {
             "level": 4,
-            "goldCost": 1140,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.32
+            "value": 0.2
           },
           {
             "level": 5,
-            "goldCost": 2108,
+            "goldCost": 200,
             "gemCost": null,
             "supplyCost": 0,
-            "value": 0.4
+            "value": 0.25
+          }
+        ]
+      },
+      {
+        "id": "arm_swarm",
+        "name": "Swarm Armor",
+        "armorType": "swarm",
+        "levels": [
+          {
+            "level": 1,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.05
+          },
+          {
+            "level": 2,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.1
+          },
+          {
+            "level": 3,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.15
+          },
+          {
+            "level": 4,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.2
+          },
+          {
+            "level": 5,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.25
+          }
+        ]
+      },
+      {
+        "id": "arm_ward",
+        "name": "Ward Armor",
+        "armorType": "ward",
+        "levels": [
+          {
+            "level": 1,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.05
+          },
+          {
+            "level": 2,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.1
+          },
+          {
+            "level": 3,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.15
+          },
+          {
+            "level": 4,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.2
+          },
+          {
+            "level": 5,
+            "goldCost": 200,
+            "gemCost": null,
+            "supplyCost": 0,
+            "value": 0.25
           }
         ]
       }

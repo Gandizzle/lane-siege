@@ -17,7 +17,7 @@
  *   4. The attacker's own modifiers: flat first, then multipliers.
  *   5. §6's matrix, unless the damage bypasses armor entirely.
  *   6. The target's `damageTaken`, which is where vulnerability and armor
- *      shred both land.
+ *      shred both land, and its armor tech (§7.4), for a unit that has any.
  *   7. Applied. Then lifesteal for the attacker and reflection for the target,
  *      both off the amount that actually landed rather than the amount rolled.
  *
@@ -44,6 +44,8 @@ export const BASE_CRIT_DAMAGE = 1.0;
 export interface Target extends Afflicted {
   armor: ArmorType;
   alive: boolean;
+  /** A unit's armor tech, as a multiplier on what lands (buffs.ts). Monsters have none. */
+  techDamageTaken?: number;
 }
 
 /** A body that can hit: afflicted, and crediting what it lands. */
@@ -113,7 +115,9 @@ export function dealDamage(
 
   const resolved = strike.bypassArmor
     ? amount
-    : resolveDamage(env.matrix, amount, strike.damageType, target.armor) * victim.damageTakenMul;
+    : resolveDamage(env.matrix, amount, strike.damageType, target.armor) *
+      victim.damageTakenMul *
+      (target.techDamageTaken ?? 1);
 
   const landed = Math.min(resolved, target.hp);
   target.hp -= resolved;

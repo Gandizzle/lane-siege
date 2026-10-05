@@ -67,7 +67,7 @@ export interface Assumptions {
    * is charged at half the price of the fourth.
    */
   techLevels: number;
-  /** Which tracks: two defensive ladders and one damage type. */
+  /** Which tracks: two damage types and one armor (all priced alike). */
   techTracks: readonly string[];
 }
 
@@ -78,7 +78,7 @@ export const ASSUMPTIONS: Assumptions = {
   wavesPerRateLevel: 5,
   supplyCapTarget: 120,
   techLevels: 3.5,
-  techTracks: ['def_hp', 'def_speed', 'dmg_impact'],
+  techTracks: ['dmg_impact', 'dmg_pierce', 'arm_plate'],
 };
 
 /** One wave of the modelled run. */

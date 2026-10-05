@@ -623,10 +623,12 @@ export class AutoBuilder {
     if (this.style.tech === 'none' || bodies.length === 0) return [];
     let total = 0;
     const byType = new Map<DamageType, number>();
+    const byArmor = new Map<ArmorType, number>();
     for (const body of bodies) {
       const s = this.strength(body.def, read);
       total += s;
       byType.set(body.def.damageType, (byType.get(body.def.damageType) ?? 0) + s);
+      byArmor.set(body.def.armor, (byArmor.get(body.def.armor) ?? 0) + s);
     }
     const options: Option[] = [];
     for (const track of this.data.economy.tech.tracks) {
@@ -636,10 +638,15 @@ export class AutoBuilder {
       const now = track.levels.find((l) => l.level === level)?.value ?? 0;
       const step = (next.value ?? 0) - now;
       // Strength is the square root of offence times defence, so a tenth more
-      // of either is about a twentieth more strength on what it lifts.
-      const damageType = track.id.startsWith('dmg_') ? (track.id.slice(4) as DamageType) : null;
-      const lifted = damageType ? (byType.get(damageType) ?? 0) : total;
-      if (this.style.tech === 'focused' && damageType && lifted < total * 0.25) continue;
+      // of either is about a twentieth more strength on what it lifts. A
+      // damage track lifts the bodies dealing its type; an armor track the
+      // bodies wearing its armor (§7.4, redesigned).
+      const lifted = track.damageType
+        ? (byType.get(track.damageType) ?? 0)
+        : track.armorType
+          ? (byArmor.get(track.armorType) ?? 0)
+          : total;
+      if (this.style.tech === 'focused' && lifted < total * 0.25) continue;
       options.push({
         gain: (lifted * step) / 2,
         gold: next.goldCost ?? 0,

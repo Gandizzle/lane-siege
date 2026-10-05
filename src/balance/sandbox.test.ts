@@ -218,11 +218,20 @@ describe('a measured wave', () => {
   });
 
   it('fights with the tech it is handed, and none unless it is', () => {
+    // Every damage track at the top: the same army kills the same wave faster.
+    const all = Object.fromEntries(
+      data.economy.tech.tracks.filter((t) => t.damageType).map((t) => [t.id, t.levels.length]),
+    );
     const plain = runWave(data, 'ironvow', army, 1, 1);
-    const tougher = runWave(data, 'ironvow', army, 1, 1, { tech: { def_hp: 1 } });
-    const bonus = data.economy.tech.tracks.find((t) => t.id === 'def_hp')!.levels[0]!.value!;
-    for (const [i, line] of plain.lines.entries()) {
-      expect(tougher.lines[i]!.maxHp).toBeCloseTo(line.maxHp * (1 + bonus), 5);
+    const sharper = runWave(data, 'ironvow', army, 1, 1, { tech: { ...all, arm_plate: 5 } });
+    const armorOf = (id: string) => data.units.units.find((u) => u.id === id)!.armor;
+    for (const line of plain.lines) {
+      expect(line.techDamage).toBe(1);
+      expect(line.techDamageTaken).toBe(1);
+    }
+    for (const line of sharper.lines) {
+      expect(line.techDamage).toBeCloseTo(1.25, 6);
+      expect(line.techDamageTaken).toBeCloseTo(armorOf(line.defId) === 'plate' ? 0.75 : 1, 6);
     }
   });
 

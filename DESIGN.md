@@ -97,29 +97,29 @@ Swarm
 Ward
 Impact
 1.0
-1.0
 0.6
+1.0
 1.5
 Pierce
-0.6
-1.5
 1.0
+1.5
+0.6
 1.0
 Blast
-1.5
 0.6
 1.0
+1.5
 1.0
 Arcane
-1.0
-1.0
 1.5
+1.0
+1.0
 0.6
-Rationale (matters for teachability):
-Impact — raw force. Shatters Ward barriers; wasted on Swarm, where one huge hit kills one tiny thing.
-Pierce — armor-piercing. Punches through Plate; passes cleanly through Flesh without doing much.
-Blast — explosive. Shreds Flesh; smothered by Plate.
-Arcane — energy. Chains through Swarm; absorbed by Ward.
+Rationale (matters for teachability). The four make ONE cycle - each type is weak against the armor the next type beats - rather than the two closed halves the first chart had:
+Arcane — energy. Burns through Flesh; absorbed by Ward.
+Blast — explosive. Scatters Swarm; soaked up by Flesh.
+Pierce — armor-piercing. Punches through Plate; slips between the bodies of a Swarm.
+Impact — raw force. Shatters Ward barriers; rings off Plate.
 Names are placeholders and may change. The 1.5 / 1.0 / 0.6 spread is a starting point: 1.4 / 0.7 flattens it, 1.75 / 0.5 sharpens it.
 Both monsters and defensive units have a damage type and an armor type. The matrix applies in both directions.
 6.1 Builder coverage rule

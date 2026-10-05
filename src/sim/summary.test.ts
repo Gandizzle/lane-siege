@@ -40,8 +40,8 @@ describe('wave summary (§9.3)', () => {
     }
   });
 
-  it('rates Blast strong and Pierce weak against an all-Flesh wave', () => {
-    // §6: Blast shreds Flesh (1.5); Pierce passes through it (0.6).
+  it('rates Arcane strong and Blast weak against an all-Flesh wave', () => {
+    // §6: Arcane burns through Flesh (1.5); Blast is soaked up by it (0.6).
     const summary = summariseWave(grubsOnly, 1, 1, 'ironvow');
 
     // BY DAMAGE TYPE, not by name. Which of Ironvow's six lines carries Blast
@@ -53,15 +53,15 @@ describe('wave summary (§9.3)', () => {
       )!;
       return summary.units.find((u) => u.unitId === def.id)!;
     };
+    const caster = lineDealing('arcane');
     const mortar = lineDealing('blast');
-    const spike = lineDealing('pierce');
     const hammer = lineDealing('impact');
 
-    expect(mortar.verdict).toBe('strong');
-    expect(mortar.effectiveness).toBeCloseTo(1.5, 6);
+    expect(caster.verdict).toBe('strong');
+    expect(caster.effectiveness).toBeCloseTo(1.5, 6);
 
-    expect(spike.verdict).toBe('weak');
-    expect(spike.effectiveness).toBeCloseTo(0.6, 6);
+    expect(mortar.verdict).toBe('weak');
+    expect(mortar.effectiveness).toBeCloseTo(0.6, 6);
 
     // Impact is neutral against Flesh.
     expect(hammer.verdict).toBe('neutral');

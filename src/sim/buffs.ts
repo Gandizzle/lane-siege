@@ -3,8 +3,9 @@
  *
  * Two kinds of buff, deliberately handled differently:
  *
- *   TECH (§7.4) is tied to damage types, not unit types - "+10% Pierce damage"
- *   lifts every Pierce unit you own. It changes only when something is bought or
+ *   TECH (§7.4) is tied to damage and armor types, not unit types - "+5% Pierce
+ *   damage" lifts every Pierce unit you own, "-5% to Plate" toughens every
+ *   unit wearing Plate. It changes only when something is bought or
  *   upgraded, so the resolved multipliers are CACHED on each unit and recomputed
  *   on those events only. That is the §15.3 rule.
  *
@@ -17,20 +18,17 @@
  *   only the strength lookup is cached.
  */
 
-import type { GameData } from '../data/schema.ts';
+import type { GameData, TechTrack } from '../data/schema.ts';
 import type { DefIndex } from './defs.ts';
 import { stat } from './defs.ts';
 import { distanceSquared } from './targeting.ts';
 import type { DefensiveUnit, Lane, Vec2 } from './types.ts';
 
 /** Total fractional bonus from a tech track at the level the lane has bought. */
-function trackBonus(data: GameData, lane: Lane, trackId: string): number {
-  const level = lane.economy.tech[trackId] ?? 0;
-  if (level <= 0) return 0;
-
-  const track = data.economy.tech.tracks.find((t) => t.id === trackId);
+function trackBonus(lane: Lane, track: TechTrack | undefined): number {
   if (!track) return 0;
-
+  const level = lane.economy.tech[track.id] ?? 0;
+  if (level <= 0) return 0;
   // `value` is the cumulative bonus at that level, not a per-level increment.
   const entry = track.levels.find((l) => l.level === level);
   return stat(entry?.value ?? null);
@@ -43,27 +41,34 @@ function trackBonus(data: GameData, lane: Lane, trackId: string): number {
  * Never per tick.
  */
 export function recomputeUnitBuffs(data: GameData, defs: DefIndex, lane: Lane): void {
-  const hpBonus = trackBonus(data, lane, 'def_hp');
-  const speedBonus = trackBonus(data, lane, 'def_speed');
+  const tracks = data.economy.tech.tracks;
 
   for (const unit of lane.units) {
     const def = defs.units.get(unit.defId);
     if (!def) continue;
 
-    const damageBonus = trackBonus(data, lane, `dmg_${def.damageType}`);
+    const damageBonus = trackBonus(
+      lane,
+      tracks.find((t) => t.damageType === def.damageType),
+    );
+    const armorBonus = trackBonus(
+      lane,
+      tracks.find((t) => t.armorType === def.armor),
+    );
 
     unit.techDamage = 1 + damageBonus;
-    unit.techAttackSpeed = 1 + speedBonus;
+    unit.techDamageTaken = Math.max(0, 1 - armorBonus);
 
-    // Raising max HP must not silently heal or harm: keep the damage taken so
-    // far proportional.
+    // A unit's ceiling is its definition's; an upgrade changes it, and must
+    // not silently heal or harm, so the damage taken so far is kept
+    // proportional.
     //
     // Written to `baseMaxHp`, which is the ceiling BEFORE any ability touches
     // it. `maxHp` is then re-derived from it each tick by whatever `maxHealth`
     // statuses the unit is carrying (abilityRuntime.ts) - two layers, because
-    // tech is a purchase that lasts the match and an aura is a status that
-    // lasts three seconds, and one field cannot be owned by both.
-    const newMax = stat(def.hp) * (1 + hpBonus);
+    // an upgrade lasts the match and an aura is a status that lasts three
+    // seconds, and one field cannot be owned by both.
+    const newMax = stat(def.hp);
     if (newMax !== unit.baseMaxHp) {
       const fraction = unit.baseMaxHp > 0 ? unit.hp / unit.baseMaxHp : 1;
       unit.baseMaxHp = newMax;
