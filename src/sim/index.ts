@@ -36,8 +36,19 @@ export {
   sendOpen,
   sendPrice,
   monsterGrowth,
+  bossGrowth,
+  combinationOf,
+  combinationWaves,
+  comboKey,
 } from './waves.ts';
-export type { SpawnSpec, WavePreviewEntry, WaveSummary, UnitRating } from './waves.ts';
+export type {
+  ComboKey,
+  LateWaves,
+  SpawnSpec,
+  WavePreviewEntry,
+  WaveSummary,
+  UnitRating,
+} from './waves.ts';
 export { inBounds, tileOccupiedByUnit } from './grid.ts';
 export { gap, slideStep } from './motion.ts';
 export type { Body, Bounds } from './motion.ts';

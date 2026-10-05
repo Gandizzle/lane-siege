@@ -1146,6 +1146,11 @@ export class Game extends Container {
     this.auraLayer.read(lane);
     if (lane) {
       this.laneLayer.setBattlefield(this.battlefield());
+      // A chapter step can put a key in the preview strip (tutorial/types.ts).
+      const runner = this.lesson?.runner;
+      this.laneLayer.setShowcase(
+        runner !== undefined && !runner.complete && runner.step?.preview === 'everyType',
+      );
       this.laneLayer.animateGround(this.groundClock);
       this.laneLayer.render(view, this.summary);
       this.auraLayer.render();

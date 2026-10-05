@@ -12,7 +12,7 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
-import type { MatchView, WaveSummary } from '../sim/index.ts';
+import type { MatchView, WavePreviewEntry, WaveSummary } from '../sim/index.ts';
 import { boardOpenIn, endlessPool, previewWave, ticksToSeconds } from '../sim/index.ts';
 import type { LaneLayout } from './layout.ts';
 import { fortressShape, screenToTilePoint } from './layout.ts';
@@ -246,6 +246,18 @@ export class LaneView extends Container {
    * Fair, because everyone faces the same thing, and it is what makes 30 seconds
    * of building a real decision rather than a shopping trip.
    */
+  /**
+   * Show a key in the preview strip instead of the wave: one monster of every
+   * armor, each dealing a different damage type (the tutorial's Counters
+   * chapter). A real wave is one kind, so it cannot show the four shapes and
+   * four colors side by side.
+   */
+  setShowcase(on: boolean): void {
+    this.showcase = on;
+  }
+
+  private showcase = false;
+
   render(view: MatchView, summary: WaveSummary | null): void {
     this.overlay.removeChildren();
 
@@ -289,10 +301,17 @@ export class LaneView extends Container {
     }
 
     const nextWave = view.wave + 1;
-    const entries = previewWave(this.data, view.seed, nextWave, view.lateWaves);
+    const entries = this.showcase
+      ? everyTypeExample(this.data)
+      : previewWave(this.data, view.seed, nextWave, view.lateWaves);
     if (entries.length === 0) return;
 
-    const heading = label(`next wave ${nextWave}`, 10, UI.textMuted, '700');
+    const heading = label(
+      this.showcase ? 'one of each' : `next wave ${nextWave}`,
+      10,
+      UI.textMuted,
+      '700',
+    );
     heading.x = leftEdge;
     heading.y = rowOne;
     this.overlay.addChild(heading);
@@ -300,7 +319,7 @@ export class LaneView extends Container {
     // §9.3: highlight which of the player's units are strong or weak against
     // this wave. Only mark 1 - higher marks are reached by upgrading, not
     // building, so naming them here would be advice you cannot act on.
-    if (summary) {
+    if (summary && !this.showcase) {
       const buildable = summary.units.filter((u) => u.mark === 1);
       const strong = buildable.filter((u) => u.verdict === 'strong').map((u) => u.name);
       const weak = buildable.filter((u) => u.verdict === 'weak').map((u) => u.name);
@@ -333,7 +352,13 @@ export class LaneView extends Container {
     let x = leftEdge;
     for (const entry of entries) {
       const color = DAMAGE_COLORS[entry.damageType];
-      const text = label(`${entry.count}× ${entry.name}`, 11, color, '700');
+      // An example (`everyTypeExample`) has no count: it is a key, not a wave.
+      const text = label(
+        entry.count > 0 ? `${entry.count}× ${entry.name}` : entry.name,
+        11,
+        color,
+        '700',
+      );
       const armor = label(` ${entry.armor}`, 10, UI.textMuted);
       const width = text.width + armor.width;
 
@@ -421,4 +446,23 @@ export class LaneView extends Container {
       x += step;
     }
   }
+}
+
+/**
+ * One monster of every armor, each dealing a different damage type: the
+ * sixteen combinations' diagonal, as preview entries with no count.
+ */
+export function everyTypeExample(data: GameData): WavePreviewEntry[] {
+  const byId = new Map(data.monsters.monsters.map((m) => [m.id, m]));
+  const out: WavePreviewEntry[] = [];
+  data.matrix.armorTypes.forEach((armor, i) => {
+    const damageType = data.matrix.damageTypes[i % data.matrix.damageTypes.length]!;
+    const combo = data.waves.combinations.find(
+      (c) => c.armor === armor && c.damageType === damageType,
+    );
+    const def = combo ? byId.get(combo.monsterId) : undefined;
+    if (!def) return;
+    out.push({ defId: def.id, name: def.name, count: 0, armor, damageType, shape: def.shape });
+  });
+  return out;
 }

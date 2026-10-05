@@ -129,6 +129,12 @@ export interface Step {
   silent?: boolean;
   /** A reference card the step opens as it begins, for the player to read and close. */
   opens?: 'damageChart';
+  /**
+   * What the wave preview shows during the step, in place of the real wave:
+   * `everyType` is one monster of every armor, each dealing a different
+   * damage type - a key to shapes and colors, where a real wave is one kind.
+   */
+  preview?: 'everyType';
 }
 
 export interface Chapter {

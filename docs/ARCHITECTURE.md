@@ -908,6 +908,12 @@ the swarm routes as though the boss were not. Defenders and the fortress wall
 are unaffected, which is the half that must not change: a boss you cannot block
 is a boss the lane cannot defend against.
 
+**So does every send.** A sent body arriving into a wave used to snag on it and
+trip it up in turn - neither side's plan - so `phasesMonsters` is set for any
+monster with a `sendId` as well as for a boss (spawn.ts). Same rule, same
+symmetry: sends and the wave pass through each other, and both are solid to the
+defenders.
+
 Contact is move-and-slide: a proposed step is pushed out of everything settled
 it would overlap, along the line between centres, so the component into an
 obstacle is cancelled and the component along it survives. Seekers move in
@@ -1607,6 +1613,14 @@ The ability card is bigger and set larger (20/15/14 at a scale of 1, from
 where a button would be, not small print.
 
 ### The damage chart
+
+**One cycle, not two halves.** The first chart split into two closed pairs that
+never touched (impact and arcane over swarm and ward, pierce and blast over
+flesh and plate). It is now one loop, each type weak against the armor the next
+type beats: arcane beats flesh and is weak to ward, blast beats swarm and is
+weak to flesh, pierce beats plate and is weak to swarm, impact beats ward and is
+weak to plate - same 1.5 / 0.6 spread (data/matrix.json; damage.test.ts walks
+the loop).
 
 The damage matrix (DESIGN.md §6) is the rule the whole game turns on, and the
 board never shows it. `ui/damageChart.ts` puts it on one card: damage types down
@@ -2526,6 +2540,68 @@ Waves are the deferred half. Putting the roster on a price ladder lifted its
 middle about 4x and its top 12–20x, so `npm run builders` now clears all 25
 waves with four fortresses untouched, where §5.5 wants a first elimination
 around wave 13–15. Monster strength is one knob and turning it is phase 3.
+
+### Waves of one kind: sixteen combinations and a table
+
+The playtest finding: with three kinds of monster in a wave, how an army was
+built hardly mattered - a general-purpose army beat any mixture, so nobody
+countered. Now a wave asks one question.
+
+**Sixteen combinations.** Every armor with every damage type is a pair, and
+each pair has the monster a wave of it is made of (`waves.combinations`). Nine
+were already on the roster; Stalker became flesh/pierce and Spitter ward/blast
+(their mechanics unchanged), and five are new, each with a silhouette of its
+own: Leech (flesh/arcane, a peanut), Kiln (plate/blast, a T), Golem
+(plate/arcane, an I-beam), Stinger (swarm/pierce, three needles) and
+Thunderling (ward/impact, a lightning bolt). Validation refuses a combination
+missing, doubled, or naming a monster that does not wear and deal what it says.
+
+**Every wave monster is one strength.** Any of them can be any wave, so they
+were stated to be equal and then measured to be: each combination fought the
+same generic armies at waves 3, 8 and 14 (`src/headless/_cal.ts`-style probes
+of the wave sandbox), and each monster's health and damage were scaled together
+until the margins agreed - within about 0.03 at wave 8, from 0.77 apart on
+paper. A Spitter's reach was worth far more than its numbers said; a Carapace's
+shell far less. Each keeps its shape of strength (a Carapace is all health, a
+Swarmling all damage) and its abilities.
+
+**Which wave is which.** Waves 1-4, 6-9, 11-14 and 16-19 are one combination
+each, every pair once a match, in an order shuffled by the seed
+(`combinationOrder`) - a pure function of the seed, so the preview of wave 9 is
+right from the first build phase. Boss waves bring one boss and nothing with
+it; the four before the council bring each boss once, in a shuffled order
+(`bossFor`). Wave 25 is the council, authored, as before.
+
+**§9.1 is a table, not a curve.** Each row says how many monsters come
+(`count`, from 20 at wave 1) and how many times their written health and damage
+they have (`scale`), with `bossScale` for a boss. Past the table (solo's endless
+stream) a column carries on at its last step, by repeated multiplication. The
+scales were fitted wave by wave so that a generic army worth the wave's
+`armyGold` clears it about half the time - harder than the old ladder's three
+quarters, on purpose: an army built to counter the wave is the one meant to
+clear it.
+
+**Waves 21 to 24: what hurt.** Every wave monster credits the damage it lands
+on units (`Monster.damageDealt`); as it dies, its lane adds that, as a share of
+the army's health at the start of the wave, to the combination's record
+(`Lane.comboHarm`). When wave 20 ends, the record is averaged over the lanes
+still standing, the eight combinations with the most are chosen, and they are
+shuffled into four pairs (`chooseLateWaves`): waves 21 to 24 are those pairs,
+half and half. The choice lives on `MatchState.lateWaves`, rides the view and
+the wire (`lw`), and goes into every preview and summary - it is the one part
+of a wave the seed alone cannot say. A match that never got there (a debugging
+start, the balance harness) draws the pairs from the seed.
+
+### Tech: four damages and four armors
+
+The Tech tab is eight tracks: one per damage type (+5% damage for every unit of
+that type, a level) and one per armor (-5% damage taken for every unit wearing
+it, a level), five levels each at a flat 200 gold. Plating (health) and Cadence
+(attack speed) are gone - tech is about the chart now, the thing a
+one-combination wave tests. The armor reduction is cached on each unit
+(`techDamageTaken`, buffs.ts) and applied in `dealDamage`, so it covers swings,
+abilities and the Final Showdown alike. The tab lays the eight out four across,
+damage over armor, and each button says what its level has bought.
 
 ### Not yet built
 

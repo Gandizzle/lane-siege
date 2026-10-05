@@ -26,6 +26,7 @@ import {
   practiceIntro,
 } from './lessons.ts';
 import { practiceMatch, sceneOf, tutorialMatch } from './match.ts';
+import { everyTypeExample } from '../render/laneView.ts';
 import { TutorialRunner } from './runner.ts';
 import type { Practice, Target, UiProbe } from './types.ts';
 
@@ -565,5 +566,28 @@ describe('the lessons between chapters', () => {
     usual.submit({ kind: 'buySupply', teamId: usual.teamId });
     const ladder = data.economy.supply.capUpgrades;
     expect(usual.view()!.lane!.economy!.supplyCap).toBe(ladder[1]?.value);
+  });
+});
+
+describe('the counters chapter', () => {
+  it('keys the preview with one monster of every armor, each a different color', () => {
+    const counters = CHAPTERS.find((c) => c.id === 'counters')!;
+    const keyed = counters.steps.filter((step) => step.preview === 'everyType');
+    // The shape step and the color step, both pointing at the preview.
+    expect(keyed).toHaveLength(2);
+    for (const step of keyed) expect(step.target).toEqual({ kind: 'wavePreview' });
+    const example = everyTypeExample(data);
+    expect(new Set(example.map((e) => e.armor)).size).toBe(data.matrix.armorTypes.length);
+    expect(new Set(example.map((e) => e.damageType)).size).toBe(data.matrix.damageTypes.length);
+  });
+
+  it('says what the arrows on a card mean as a step of its own, on the build bar', () => {
+    const counters = CHAPTERS.find((c) => c.id === 'counters')!;
+    const arrows = counters.steps.find(
+      (step) => typeof step.text === 'string' && step.text.includes('▲'),
+    )!;
+    expect(arrows.target).toEqual({ kind: 'buildBar' });
+    const chart = counters.steps.find((s) => s.nextLabel === 'Show the chart')!;
+    expect(chart.text).toContain('One chart summarizes this information.');
   });
 });

@@ -643,24 +643,32 @@ const COUNTERS: Chapter = {
     {
       mode: 'next',
       target: { kind: 'wavePreview' },
+      // One monster of every armor, each dealing a different damage type, in
+      // place of the real wave - which is one kind only (waves.ts).
+      preview: 'everyType',
       text:
         "A monster's SHAPE is its armor. Round shapes are flesh, angular ones are plate, pointed " +
-        'ones are warded, and clusters of little ones are a swarm. The preview names each.',
+        'ones are warded, and clusters of little ones are a swarm. Up here is one of each, named.',
+    },
+    {
+      mode: 'next',
+      target: { kind: 'wavePreview' },
+      preview: 'everyType',
+      text:
+        'COLOR is damage type, on units and monsters alike: amber is impact, blue is pierce, ' +
+        'orange is blast, and pink is arcane. These four deal one each.',
     },
     {
       mode: 'next',
       target: { kind: 'buildBar' },
-      text:
-        'COLOR is damage type, on units and monsters alike: amber is impact, blue is pierce, ' +
-        'orange is blast, and pink is arcane. Each card says if its damage is strong ▲ or weak ▼ ' +
-        'against the wave.',
+      text: 'Each unit card says whether its damage is strong ▲ or weak ▼ against the coming wave.',
     },
     {
       mode: 'next',
       nextLabel: 'Show the chart',
       text:
         'So which damage beats which armor? Each type lands harder on some armor and softer on ' +
-        'others, and one chart has all of it.',
+        'others. One chart summarizes this information.',
     },
     {
       mode: 'free',
@@ -698,7 +706,7 @@ const COUNTERS: Chapter = {
         const best = bestAgainstWave(data, view);
         const main = mainArmor(data, view);
         const hits = main
-          ? `This wave is mostly ${main}, and ${best} hits ${main} for ` +
+          ? `This wave is all ${main}, and ${best} hits ${main} for ` +
             `×${Number(damageMultiplier(data.matrix.multipliers, best, main).toFixed(2))}. `
           : '';
         return (
