@@ -19,7 +19,7 @@ import type { Features } from '../render/features.ts';
 import { CHAPTERS, bestAgainstWave, stillFighting } from './chapters.ts';
 import {
   LESSONS,
-  RICH_START,
+  SUPPLY_PRACTICE,
   SEND_START_GEMS,
   TIGHT_SUPPLY,
   lessonId,
@@ -510,16 +510,21 @@ describe('the lessons between chapters', () => {
     expect(start('practice-upgrade').lane!.economy!.supplyCap).toBe(TIGHT_SUPPLY);
     expect(TIGHT_SUPPLY).toBeLessThan(data.economy.supply.capBase ?? 0);
 
-    // More gold than the starting cap can hold.
+    // Far more gold than the cap can hold, and far more every wave.
     const rich = start('practice-supply');
-    expect(rich.lane!.economy!.gold).toBe(startingGold + RICH_START);
-    // However it is spent: even the cheapest gold-per-supply unit fills the cap first.
+    expect(rich.lane!.economy!.gold).toBe(SUPPLY_PRACTICE.gold);
+    expect(rich.lane!.economy!.supplyCap).toBe(SUPPLY_PRACTICE.supply);
+    expect(rich.lane!.economy!.passiveIncome + (data.economy.waveBounty ?? 0)).toBe(
+      SUPPLY_PRACTICE.perWave,
+    );
+    // However it is spent: even the cheapest gold-per-supply unit fills the cap
+    // several times over.
     const cheapest = Math.min(
       ...buildableUnits(data, practice('practice-supply').builderId).map(
         (u) => (u.goldCost ?? 0) / Math.max(1, u.supplyCost ?? 0),
       ),
     );
-    expect(rich.lane!.economy!.gold / cheapest).toBeGreaterThan(data.economy.supply.capBase ?? 0);
+    expect(rich.lane!.economy!.gold / cheapest).toBeGreaterThan(SUPPLY_PRACTICE.supply * 3);
 
     // A weapon to fix.
     const counters = start('practice-counters');
@@ -547,4 +552,18 @@ describe('the lessons between chapters', () => {
       expect(view.opponents.every((o) => o.name.length > 0)).toBe(true);
     },
   );
+
+  it('raises a cap by its step from wherever it starts: 5 to 10, and 25 to 30 as ever', () => {
+    const step =
+      (data.economy.supply.capUpgrades[0]?.value ?? 0) - (data.economy.supply.capBase ?? 0);
+    const practiceMatchOf = practiceMatch(data, practice('practice-supply'), 'Tester', 7);
+    practiceMatchOf.submit({ kind: 'buySupply', teamId: practiceMatchOf.teamId });
+    expect(practiceMatchOf.view()!.lane!.economy!.supplyCap).toBe(SUPPLY_PRACTICE.supply + step);
+
+    const usual = practiceMatch(data, practice('practice-build'), 'Tester', 7);
+    usual.submit({ kind: 'buySupply', teamId: usual.teamId });
+    usual.submit({ kind: 'buySupply', teamId: usual.teamId });
+    const ladder = data.economy.supply.capUpgrades;
+    expect(usual.view()!.lane!.economy!.supplyCap).toBe(ladder[1]?.value);
+  });
 });

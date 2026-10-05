@@ -115,8 +115,9 @@ export class Hud extends Container {
 
   /**
    * Whether gems are shown (features.ts). Until the tutorial has taught them
-   * there is nothing to spend them on, so the wallet is gold alone and there
-   * is no income line - passive income is what sends pay.
+   * there is nothing to spend them on, so the wallet is gold alone, and the
+   * income line - which sends pay into - is only shown if a practice has set
+   * some income of its own (tutorial/lessons.ts, "Room to grow").
    */
   setGems(shown: boolean): void {
     this.gems = shown;
@@ -236,7 +237,7 @@ export class Hud extends Container {
     // Not in the endless wave, which pays none: nothing can be bought in it,
     // so gold stops (endless.ts).
     const income = () => {
-      if (endless || !this.gems) return null;
+      if (endless || (!this.gems && (economy?.passiveIncome ?? 0) <= 0)) return null;
       this.income.set(`+${GOLD}${Math.floor(economy?.passiveIncome ?? 0)} / wave`);
       this.income.setColour((economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted);
       return this.income;

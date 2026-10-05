@@ -56,6 +56,7 @@ import {
   sellValue,
   sendOpen,
   sendPrice,
+  supplyStep,
   ticksToSeconds,
 } from '../../sim/index.ts';
 import type {
@@ -1388,7 +1389,9 @@ export class BuildBar extends Container {
       title: 'Supply Cap',
       shortTitle: 'Supply',
       detail: next ? `${GOLD}${next.goldCost ?? 0}` : 'maxed',
-      detailMore: next ? `→ ${SUPPLY}${next.value ?? 0}` : '',
+      // What the cap will be, from what it is: a lane need not have started
+      // where the ladder's figures assume (the tutorial's supply practice).
+      detailMore: next ? `→ ${SUPPLY}${economy.supplyCap + supplyStep(this.data, next.level)}` : '',
       note: `cap ${SUPPLY}${economy.supplyCap}`,
       enabled: canAct && next !== undefined && economy.gold >= (next.goldCost ?? 0),
       short: canAct && next !== undefined ? shortfall(economy, { gold: next.goldCost ?? 0 }) : [],

@@ -24,8 +24,15 @@ import type { Chapter, Lesson, Practice } from './types.ts';
 /** The supply a "fewer, stronger" match is played on: about half the usual. */
 export const TIGHT_SUPPLY = 12;
 
+/**
+ * "Room to grow": a purse far bigger than the army can hold, and far more
+ * gold every wave - so the supply cap is the wall the player keeps running
+ * into, and raising it is what the whole match is about. The wave's own
+ * bounty is part of `perWave`; the rest is paid as per-wave income.
+ */
+export const SUPPLY_PRACTICE = { gold: 900, supply: 5, perWave: 1000 } as const;
+
 /** Gold on top of the starting purse when the lesson is spending it. */
-export const RICH_START = 900;
 export const TECH_START = 250;
 
 /** Gems at the start of the first match with sends in it, so one can go out at once. */
@@ -66,19 +73,26 @@ const FEWER_STRONGER: Practice = {
 const ROOM_TO_GROW: Practice = {
   id: 'practice-supply',
   title: 'Room to grow',
-  summary: 'A rich start: raise the cap to spend it',
+  summary: 'Lots of gold, little supply: raise the cap',
   builderId: 'ironvow',
   features: STAGES.supply,
   botsSend: false,
   target: { kind: 'tab', tab: 'fort' },
-  intro: (data) =>
-    `You start rich this time: ${RICH_START} extra gold, more than ` +
-    `${data.economy.supply.capBase ?? 0} supply can hold. When your army fills up, raise the ` +
-    'cap in the Fort tab, and keep building.',
+  intro:
+    `You start with ${SUPPLY_PRACTICE.gold} gold but room for only ${SUPPLY_PRACTICE.supply} ` +
+    `supply, and every wave pays about ${SUPPLY_PRACTICE.perWave.toLocaleString('en-GB')} ` +
+    'gold. Your gold will outgrow your army all match: whenever it fills up, raise the cap in ' +
+    'the Fort tab, then keep building.',
   setup: (scene) =>
     scene.stage((state) => {
       const economy = state.lanes[scene.teamId]?.economy;
-      if (economy) economy.gold += RICH_START;
+      if (!economy) return;
+      economy.gold = SUPPLY_PRACTICE.gold;
+      economy.supplyCap = SUPPLY_PRACTICE.supply;
+      economy.passiveIncome = Math.max(
+        0,
+        SUPPLY_PRACTICE.perWave - (scene.data.economy.waveBounty ?? 0),
+      );
     }),
 };
 

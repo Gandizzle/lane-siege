@@ -216,8 +216,24 @@ function buySupply(
   if (rejection) return fail(rejection);
 
   lane.fortress.upgrades.supply = level.level;
-  lane.economy.supplyCap = stat(level.value);
+  // Adds the level's step rather than setting the ladder's figure: the same
+  // thing from the usual start (25, 30, 35...), and the only right thing for
+  // a lane that starts somewhere else - the tutorial's supply practice starts
+  // at 5, and its first purchase is 10, not a jump to 30 (tutorial/lessons.ts).
+  lane.economy.supplyCap += supplyStep(ctx.data, level.level);
   return OK;
+}
+
+/**
+ * How much the supply cap's level `level` adds: its figure, less the figure
+ * of the level before it (or the base cap, for the first).
+ */
+export function supplyStep(data: GameData, level: number): number {
+  const ladder = data.economy.supply.capUpgrades;
+  const at = ladder.find((l) => l.level === level);
+  if (!at) return 0;
+  const before = ladder.find((l) => l.level === level - 1);
+  return stat(at.value) - (before ? stat(before.value) : stat(data.economy.supply.capBase));
 }
 
 /**

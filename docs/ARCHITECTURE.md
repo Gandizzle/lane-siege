@@ -1490,7 +1490,7 @@ staged on it):
 | --------------------- | --------------- | ----------------------------------------------------------------------- |
 | Build your first line | Hold the line   | a normal start                                                          |
 | Upgrade and sell      | Fewer, stronger | 12 supply, so upgrading is how to grow                                  |
-| Supply                | Room to grow    | 900 extra gold, more than 25 supply of anything can hold                |
+| Supply                | Room to grow    | 900 gold, a 5 supply cap, and about 1,000 gold a wave                   |
 | Counters              | Read the wave   | the weapon on the worst damage type for wave 1, 250 extra gold for tech |
 | Gems and sends        | The full game   | 40 gems, and the bots send                                              |
 
@@ -1504,8 +1504,18 @@ tutorial list from any lesson.
 
 How long they last, for a scripted novice at 1x speed: Hold the line about 6
 minutes (falling at wave 6, its 25 supply full), Fewer, stronger about 10,
-Room to grow about 14 (where the quiet bots fall first, around wave 13), and
-the last two about 11.
+Room to grow 14 to 16 (where the quiet bots fall first, around wave 13 to 15,
+by which time the novice has raised the cap from 5 to 75 or more), and the last
+two about 11.
+
+**Room to grow** is the one practice that needed the simulation to move. The
+cap's ladder lists what the cap BECOMES at each level (30, 35, ...), and buying
+a level used to set it there, so a lane started at 5 jumped straight to 30.
+Now a purchase adds the level's step (`supplyStep` in apply.ts), which is the
+same thing from the usual start and +5 from any other; the Supply Cap button
+says the cap it will make from the one there is. Its gold a wave is the wave's
+own bounty plus per-wave income for the rest, and the HUD shows that income
+line whenever there is some, gems or no gems.
 
 **The list** keeps its seven chapter rows; each practice is a pill on the row
 of the chapter before it, ticked when done, because twelve rows do not fit

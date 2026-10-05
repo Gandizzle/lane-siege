@@ -19,7 +19,13 @@ export { createContext, step, snapshot } from './tick.ts';
 export type { SimContext } from './tick.ts';
 export { buildDefIndex } from './defs.ts';
 export type { DefIndex } from './defs.ts';
-export { applyCommand, applyCommands, sellValue, FORTRESS_UPGRADE_IDS } from './apply.ts';
+export {
+  applyCommand,
+  applyCommands,
+  sellValue,
+  supplyStep,
+  FORTRESS_UPGRADE_IDS,
+} from './apply.ts';
 export type { CommandResult } from './apply.ts';
 export {
   generateWave,
