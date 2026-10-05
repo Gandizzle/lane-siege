@@ -35,7 +35,7 @@ describe('data/', () => {
 
 /**
  * §14.2, amended: every body on the field has its own silhouette, and it is
- * in its armour type's family. The validator enforces this on load; these say
+ * in its armor type's family. The validator enforces this on load; these say
  * it out loud, and prove the validator actually bites.
  */
 describe('silhouettes', () => {
@@ -48,9 +48,9 @@ describe('silhouettes', () => {
     expect(new Set(shapes).size).toBe(shapes.length);
   });
 
-  it('keeps each in its armour family, so the counter-read survives', () => {
+  it('keeps each in its armor family, so the counter-read survives', () => {
     for (const body of [...data.units.units, ...monsters]) {
-      expect(SHAPE_FAMILY[body.shape], body.id).toBe(body.armour);
+      expect(SHAPE_FAMILY[body.shape], body.id).toBe(body.armor);
     }
   });
 

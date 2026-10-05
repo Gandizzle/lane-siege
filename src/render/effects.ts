@@ -55,19 +55,19 @@ import { stat } from '../sim/defs.ts';
 import type { Camera } from './layout.ts';
 import { attackStyle, type AttackStyle } from './attackStyle.ts';
 import { findDeaths, type DeathRule } from './deaths.ts';
-import { DAMAGE_COLOURS } from './palette.ts';
+import { DAMAGE_COLORS } from './palette.ts';
 import { drawEntity, type EntityStyle } from './shapes.ts';
 
 /**
- * Melee happens ON TOP of the bodies, and an attacker's own colour is the
- * colour of the thing it is hitting as often as not - a hammer and a grub are
+ * Melee happens ON TOP of the bodies, and an attacker's own color is the
+ * color of the thing it is hitting as often as not - a hammer and a grub are
  * both Impact, so an amber swing between two amber bodies disappears. So the
  * flash is drawn at the same hue, mixed toward white: still the damage-type
  * channel §14.2 defines, but bright enough to read against a body wearing it.
  */
-function lighten(colour: number, amount: number): number {
+function lighten(color: number, amount: number): number {
   const mix = (channel: number) => Math.round(channel + (255 - channel) * amount);
-  return (mix((colour >> 16) & 0xff) << 16) | (mix((colour >> 8) & 0xff) << 8) | mix(colour & 0xff);
+  return (mix((color >> 16) & 0xff) << 16) | (mix((color >> 8) & 0xff) << 8) | mix(color & 0xff);
 }
 
 /** How much of the way to white a melee flash sits. */
@@ -103,7 +103,7 @@ interface BaseEffect {
   /** Milliseconds lived so far, and the total it gets. */
   age: number;
   life: number;
-  colour: number;
+  color: number;
 }
 
 interface Swing extends BaseEffect {
@@ -141,7 +141,7 @@ interface Impact extends BaseEffect {
 /**
  * A body that has just died, drawn where it was last seen.
  *
- * Built from the body's own silhouette, colour, size and mark, so every unit
+ * Built from the body's own silhouette, color, size and mark, so every unit
  * and monster there is - and every one added later - dies the same way with
  * no animation of its own to author. The simulation has already removed it:
  * nothing collides with this, nothing targets it, and it is gone from the
@@ -232,7 +232,7 @@ export class EffectsLayer extends Container {
           // Long enough to cross the gap at this attacker's speed, and never
           // so long that a shot hangs in the air after its target is gone.
           life: Math.min(900, (distance / style.speed) * 1000),
-          colour: style.colour,
+          color: style.color,
           from: { x: from.x, y: from.y },
           to: { x: to.x, y: to.y },
           style,
@@ -246,7 +246,7 @@ export class EffectsLayer extends Container {
         kind: 'swing',
         age: 0,
         life: SWING_MS,
-        colour: style.colour,
+        color: style.color,
         at: { x: from.x, y: from.y },
         angle,
         radius,
@@ -259,7 +259,7 @@ export class EffectsLayer extends Container {
         kind: 'spark',
         age: 0,
         life: SPARK_MS,
-        colour: style.colour,
+        color: style.color,
         at: {
           x: to.x - Math.cos(angle) * targetRadius,
           y: to.y - Math.sin(angle) * targetRadius,
@@ -294,7 +294,7 @@ export class EffectsLayer extends Container {
       kind: 'death',
       age: 0,
       life: DEATH_MS,
-      colour: DAMAGE_COLOURS[style.damageType],
+      color: DAMAGE_COLORS[style.damageType],
       at: { x: body.x, y: body.y },
       radius: body.radius,
       style,
@@ -317,7 +317,7 @@ export class EffectsLayer extends Container {
             kind: 'impact',
             age: 0,
             life: IMPACT_MS,
-            colour: effect.colour,
+            color: effect.color,
             at: { x: effect.to.x, y: effect.to.y },
             size: effect.style.size * 2.4,
           });
@@ -370,7 +370,7 @@ export class EffectsLayer extends Container {
     const g = this.graphics;
 
     // The trail first, so the head draws over it. Dots are spaced behind the
-    // head along its own flight line; the count is the attacker's armour
+    // head along its own flight line; the count is the attacker's armor
     // family (attackStyle.ts).
     for (let i = 1; i <= effect.style.trail; i++) {
       const back = r * 1.8 * i;
@@ -378,7 +378,7 @@ export class EffectsLayer extends Container {
         head.x - Math.cos(angle) * back,
         head.y - Math.sin(angle) * back,
         r * (0.5 - i * 0.1),
-      ).fill({ color: effect.colour, alpha: 0.45 / i });
+      ).fill({ color: effect.color, alpha: 0.45 / i });
     }
 
     switch (effect.style.shape) {
@@ -395,14 +395,14 @@ export class EffectsLayer extends Container {
           head.y + nx * half - ny * r * 0.6,
           head.x + ny * half - nx * r * 0.6,
           head.y - nx * half - ny * r * 0.6,
-        ]).fill({ color: effect.colour });
+        ]).fill({ color: effect.color });
         break;
       }
       case 'slug':
-        g.circle(head.x, head.y, r).fill({ color: effect.colour });
+        g.circle(head.x, head.y, r).fill({ color: effect.color });
         break;
       case 'shell': {
-        g.circle(head.x, head.y, r).fill({ color: effect.colour });
+        g.circle(head.x, head.y, r).fill({ color: effect.color });
         // The ring is a filled annulus rather than a stroked circle, for the
         // same reason everything else here is filled.
         const ring = r * 1.75;
@@ -417,7 +417,7 @@ export class EffectsLayer extends Container {
           const a = (Math.PI * 2 * i) / steps;
           points.push(head.x + Math.cos(a) * ring, head.y + Math.sin(a) * ring);
         }
-        this.fillShape(points, effect.colour, 0.65);
+        this.fillShape(points, effect.color, 0.65);
         break;
       }
       case 'mote': {
@@ -431,8 +431,8 @@ export class EffectsLayer extends Container {
           head.y + d,
           head.x - d,
           head.y,
-        ]).fill({ color: effect.colour });
-        g.circle(head.x, head.y, d * 1.5).fill({ color: effect.colour, alpha: 0.18 });
+        ]).fill({ color: effect.color });
+        g.circle(head.x, head.y, d * 1.5).fill({ color: effect.color, alpha: 0.18 });
         break;
       }
     }
@@ -477,7 +477,7 @@ export class EffectsLayer extends Container {
       points.push(centre.x + Math.cos(a) * inner, centre.y + Math.sin(a) * inner);
     }
 
-    this.fillShape(points, lighten(effect.colour, FLASH_LIGHTEN), 0.95 * (1 - t * t));
+    this.fillShape(points, lighten(effect.color, FLASH_LIGHTEN), 0.95 * (1 - t * t));
   }
 
   /**
@@ -504,7 +504,7 @@ export class EffectsLayer extends Container {
       const ny = Math.cos(a) * width;
       this.fillShape(
         [at.x + nx, at.y + ny, tipX, tipY, at.x - nx, at.y - ny],
-        lighten(effect.colour, FLASH_LIGHTEN),
+        lighten(effect.color, FLASH_LIGHTEN),
         alpha,
       );
     }
@@ -530,12 +530,12 @@ export class EffectsLayer extends Container {
       const a = (Math.PI * 2 * i) / steps;
       points.push(at.x + Math.cos(a) * radius, at.y + Math.sin(a) * radius);
     }
-    this.fillShape(points, effect.colour, 0.75 * (1 - t));
+    this.fillShape(points, effect.color, 0.75 * (1 - t));
   }
 
   /**
    * A death: the body's own silhouette swelling and fading, a bright core
-   * blinking out at its centre, and shards of its colour flying apart.
+   * blinking out at its centre, and shards of its color flying apart.
    *
    * Everything eases out - fast at the moment of death, settling as it fades -
    * so the pop reads in the first few frames and is gone before it can be
@@ -546,7 +546,7 @@ export class EffectsLayer extends Container {
     const out = 1 - (1 - t) * (1 - t);
     const at = this.toPixel(effect.at);
     const r = effect.radius * this.layout.tileSize;
-    const bright = lighten(effect.colour, FLASH_LIGHTEN);
+    const bright = lighten(effect.color, FLASH_LIGHTEN);
 
     // The body, a touch larger each frame and nearly gone by halfway.
     const ghost = Math.max(0, 1 - t * 1.8);
@@ -562,7 +562,7 @@ export class EffectsLayer extends Container {
       this.graphics
         .moveTo(at.x + core, at.y)
         .circle(at.x, at.y, core)
-        .fill({ color: lighten(effect.colour, DEATH_FLASH_LIGHTEN), alpha: flash });
+        .fill({ color: lighten(effect.color, DEATH_FLASH_LIGHTEN), alpha: flash });
     }
 
     // The shards: slivers pointing outward, thrown to about twice the radius.
@@ -586,7 +586,7 @@ export class EffectsLayer extends Container {
           baseX - cos * length * 0.35,
           baseY - sin * length * 0.35,
         ],
-        i % 2 === 0 ? bright : effect.colour,
+        i % 2 === 0 ? bright : effect.color,
         0.95 * (1 - t),
       );
     }
@@ -600,12 +600,12 @@ export class EffectsLayer extends Container {
    * the previous draw is replaced by a point on this shape, so a connector
    * drawn from it would have zero length. See the note at the top of the file.
    */
-  private fillShape(points: readonly number[], colour: number, alpha: number): void {
+  private fillShape(points: readonly number[], color: number, alpha: number): void {
     if (alpha <= 0.01 || points.length < 6) return;
     this.graphics
       .moveTo(points[0]!, points[1]!)
       .poly(points as number[])
-      .fill({ color: colour, alpha });
+      .fill({ color: color, alpha });
   }
 
   // ----------------------------------------------------------------- lookups
@@ -634,7 +634,7 @@ export class EffectsLayer extends Container {
       const weapon = this.data.fortress.weapon;
       return attackStyle({
         damageType: incoming.fortress.weaponDamageType,
-        armour: this.data.fortress.armour,
+        armor: this.data.fortress.armor,
         range: stat(weapon.range),
         damage: stat(weapon.damage),
       });
@@ -647,7 +647,7 @@ export class EffectsLayer extends Container {
     if (unit) {
       return attackStyle({
         damageType: body.damageType,
-        armour: body.armour,
+        armor: body.armor,
         range: stat(unit.range),
         damage: stat(unit.damage),
         mark: unit.mark,
@@ -658,7 +658,7 @@ export class EffectsLayer extends Container {
     if (monster) {
       return attackStyle({
         damageType: body.damageType,
-        armour: body.armour,
+        armor: body.armor,
         range: stat(monster.range),
         damage: stat(monster.damage),
       });

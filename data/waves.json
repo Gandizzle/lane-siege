@@ -51,7 +51,7 @@
     "after": { "wave": 11, "hp": 1.15, "damage": 1.11 }
   },
   "bossScaling": {
-    "_comment": "Per BOSS WAVE, compounded: wave 5 draws the bank as authored, wave 10 gets it once over, and from wave 15 each boss grows by `after` instead - faster, because past wave 10 an army grows faster than the flat bounty and a boss that did not keep up would be one large monster. The bank is four bodies of EQUAL power in four armour types, so this is the whole of what separates a late boss from an early one.",
+    "_comment": "Per BOSS WAVE, compounded: wave 5 draws the bank as authored, wave 10 gets it once over, and from wave 15 each boss grows by `after` instead - faster, because past wave 10 an army grows faster than the flat bounty and a boss that did not keep up would be one large monster. The bank is four bodies of EQUAL power in four armor types, so this is the whole of what separates a late boss from an early one.",
     "hp": 1.6,
     "damage": 1.35,
     "after": { "wave": 15, "hp": 2.2, "damage": 1.6 }

@@ -26,7 +26,7 @@ import { overlaid } from './ui/text.ts';
 
 /** How long a burst lasts, in milliseconds. */
 export const UPGRADE_MS = 1000;
-/** Gold: the colour of what was spent on it. */
+/** Gold: the color of what was spent on it. */
 const GOLD = 0xf2c14e;
 const FLASH = 0xfff3c4;
 

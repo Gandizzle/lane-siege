@@ -204,8 +204,8 @@ export function effectLine(effect: ResolvedEffect): string {
       return `${amount} ${word}${forSeconds(effect)}${stackNote(effect)}${tag}`;
     }
     case 'damage': {
-      const armour = effect.bypassArmour ? ', ignoring armour' : '';
-      return `${damageAmount(effect)} damage${armour}${bonus}${tag}`;
+      const armor = effect.bypassArmor ? ', ignoring armor' : '';
+      return `${damageAmount(effect)} damage${armor}${bonus}${tag}`;
     }
     case 'damageOverTime': {
       const rate = effect.perSecond + effect.ofMaxHealth;

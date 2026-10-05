@@ -93,7 +93,7 @@ describe('a frame survives the round trip', () => {
       expect(Math.abs(landed.y - monster.y)).toBeLessThanOrEqual(0.005);
       // Derived from the definition rather than sent, so it must come back exact.
       expect(landed.radius).toBe(monster.radius);
-      expect(landed.armour).toBe(monster.armour);
+      expect(landed.armor).toBe(monster.armor);
       expect(landed.damageType).toBe(monster.damageType);
     }
   });
@@ -310,7 +310,7 @@ describe('a frame survives the round trip', () => {
     // The send comes from b, so b is the one who needs the gems.
     state.lanes.b!.economy.gems = 500;
     applyCommand(ctx, state, { kind: 'setWeaponType', teamId: 'a', damageType: 'arcane' });
-    applyCommand(ctx, state, { kind: 'setAura', teamId: 'a', aura: 'armour' });
+    applyCommand(ctx, state, { kind: 'setAura', teamId: 'a', aura: 'armor' });
     applyCommand(ctx, state, {
       kind: 'send',
       teamId: 'b',
@@ -320,7 +320,7 @@ describe('a frame survives the round trip', () => {
 
     const { original, decoded } = roundTrip(state, ctx, 'a');
     expect(decoded.lane!.fortress.weaponDamageType).toBe('arcane');
-    expect(decoded.lane!.fortress.activeAura).toBe('armour');
+    expect(decoded.lane!.fortress.activeAura).toBe('armor');
     expect(decoded.lane!.fortress.hp).toBe(Math.round(original.lane!.fortress.hp));
     expect(decoded.lane!.sendLog).toEqual([{ sendId: 'grub', fromTeamId: 'b' }]);
   });

@@ -273,11 +273,11 @@ describe('what a body panel says', () => {
     const vigil = def('vigil');
     // Read off the definition: which damage type a line carries is balance
     // data and has moved once already.
-    expect(typeLine(vigil.damageType, vigil.armour)).toBe(`${vigil.damageType} · ${vigil.armour}`);
+    expect(typeLine(vigil.damageType, vigil.armor)).toBe(`${vigil.damageType} · ${vigil.armor}`);
     // The thing this replaced: "Vigil → Vigil II" over "Mark 1 → 2 · arcane ·
     // ward", which spent two of the panel's lines on the next unit's suffix.
-    expect(typeLine(vigil.damageType, vigil.armour)).not.toContain('Mark');
-    expect(typeLine(vigil.damageType, vigil.armour)).not.toContain('II');
+    expect(typeLine(vigil.damageType, vigil.armor)).not.toContain('Mark');
+    expect(typeLine(vigil.damageType, vigil.armor)).not.toContain('II');
   });
 
   it('offers a NEW ability the next mark brings, and says nothing about a rank', () => {
@@ -403,10 +403,10 @@ describe('a stat cell shows what the body is actually fighting with', () => {
     expect(buffed).toBe(Math.round(base * 1.5));
   });
 
-  it('colours a rise green and a fall red, per cell', () => {
+  it('colors a rise green and a fall red, per cell', () => {
     expect(statDirection('damage', mods({ damage: 1.24 }))).toBe('up');
     expect(statDirection('moveSpeed', mods({ moveSpeed: 0.8 }))).toBe('down');
-    // A slow does not colour the damage cell.
+    // A slow does not color the damage cell.
     expect(statDirection('damage', mods({ moveSpeed: 0.8 }))).toBe('plain');
   });
 

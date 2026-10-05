@@ -53,7 +53,7 @@ function body(id: number, defId: string, x = 4, y = 5): EntityView {
     x,
     y,
     radius: 0.26,
-    armour: def?.armour ?? 'plate',
+    armor: def?.armor ?? 'plate',
     damageType: def?.damageType ?? 'impact',
     hpFraction: 1,
   };

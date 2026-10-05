@@ -6,8 +6,8 @@
  */
 
 import type { Graphics } from 'pixi.js';
-import { DAMAGE_COLOURS, UI } from '../palette.ts';
-import { CURRENCY_COLOURS } from './currency.ts';
+import { DAMAGE_COLORS, UI } from '../palette.ts';
+import { CURRENCY_COLORS } from './currency.ts';
 
 /** One bit of confetti. */
 export interface Bit {
@@ -15,7 +15,7 @@ export interface Bit {
   speed: number;
   spin: number;
   size: number;
-  colour: number;
+  color: number;
 }
 
 /**
@@ -23,11 +23,11 @@ export interface Bit {
  * place for a random number generator to make two of them look different.
  */
 export function confetti(count: number): Bit[] {
-  const colours = [
-    CURRENCY_COLOURS.gold,
-    DAMAGE_COLOURS.impact,
-    DAMAGE_COLOURS.pierce,
-    DAMAGE_COLOURS.arcane,
+  const colors = [
+    CURRENCY_COLORS.gold,
+    DAMAGE_COLORS.impact,
+    DAMAGE_COLORS.pierce,
+    DAMAGE_COLORS.arcane,
     UI.healthGood,
   ];
   const bits: Bit[] = [];
@@ -38,7 +38,7 @@ export function confetti(count: number): Bit[] {
       speed: 0.55 + golden * 0.6,
       spin: (golden - 0.5) * 14,
       size: 3 + ((i * 7) % 4),
-      colour: colours[i % colours.length]!,
+      color: colors[i % colors.length]!,
     });
   }
   return bits;
@@ -66,7 +66,7 @@ export function drawBurst(
   if (ring < 1) {
     g.circle(cx, cy, reach * easeOut(ring)).stroke({
       width: 6 * scale * (1 - ring),
-      color: CURRENCY_COLOURS.gold,
+      color: CURRENCY_COLORS.gold,
       alpha: 0.8 * (1 - ring),
     });
   }
@@ -84,7 +84,7 @@ export function drawBurst(
         cy + Math.sin(a) * outer,
       );
     }
-    g.stroke({ width: 3 * scale, color: CURRENCY_COLOURS.gold, alpha: 0.45 * rays });
+    g.stroke({ width: 3 * scale, color: CURRENCY_COLORS.gold, alpha: 0.45 * rays });
   }
 
   // Confetti: out along its angle, slowing, then falling, then gone.
@@ -99,7 +99,7 @@ export function drawBurst(
       const w = bit.size * scale;
       const h = w * 0.55 * Math.abs(Math.cos(turn));
       g.rect(x - w / 2, y - h / 2, w, Math.max(1, h)).fill({
-        color: bit.colour,
+        color: bit.color,
         alpha: Math.max(0, 1 - t / life),
       });
     }

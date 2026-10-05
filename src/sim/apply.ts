@@ -466,7 +466,7 @@ function upgradeUnit(
   // body, and buying an upgrade should not be a way to shrug one off.
   unit.clocks = {};
   unit.latched = [];
-  unit.armour = next.armour;
+  unit.armor = next.armor;
   unit.damageType = next.damageType;
   unit.moveSpeed = stat(next.moveSpeed);
   unit.radius = stat(next.bodyRadius);

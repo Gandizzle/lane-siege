@@ -22,7 +22,7 @@ import type { MatchView, WaveSummary } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout, Rect } from '../layout.ts';
 import { fortressShape } from '../layout.ts';
-import { DAMAGE_COLOURS, UI } from '../palette.ts';
+import { DAMAGE_COLORS, UI } from '../palette.ts';
 import { screenRect, unionOf } from './locate.ts';
 import { GEM, GOLD, RichLabel, SUPPLY } from './currency.ts';
 import { centreOn, clock, label, overlaid } from './text.ts';
@@ -188,16 +188,16 @@ export class Hud extends Container {
         return label(endless ? 'Endless wave' : 'Endless next', px(15), UI.danger, '700');
       }
       const boss = isBoss ? ' · BOSS' : '';
-      const colour = isBoss ? UI.danger : UI.text;
+      const color = isBoss ? UI.danger : UI.text;
       const full = label(
         `Wave ${shownWave}${incoming ? ' incoming' : ''}${boss}`,
         px(15),
-        colour,
+        color,
         '700',
       );
       if (!incoming || full.width <= room) return full;
       full.destroy();
-      return label(`Wave ${shownWave}${boss}`, px(15), colour, '700');
+      return label(`Wave ${shownWave}${boss}`, px(15), color, '700');
     };
     // §3.3, solo: the score, all match long - it is the one number a solo
     // match is played for.
@@ -239,7 +239,7 @@ export class Hud extends Container {
     const income = () => {
       if (endless || (!this.gems && (economy?.passiveIncome ?? 0) <= 0)) return null;
       this.income.set(`+${GOLD}${Math.floor(economy?.passiveIncome ?? 0)} / wave`);
-      this.income.setColour((economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted);
+      this.income.setColor((economy?.passiveIncome ?? 0) > 0 ? UI.text : UI.textMuted);
       return this.income;
     };
     // What you have: gold and gems together, supply as used out of the cap.
@@ -262,7 +262,7 @@ export class Hud extends Container {
             `incoming: ${Math.round(summary.dominantDamageShare * 100)}% ` +
               `${summary.dominantDamageType}`,
             px(11),
-            DAMAGE_COLOURS[summary.dominantDamageType],
+            DAMAGE_COLORS[summary.dominantDamageType],
             '600',
           )
         : null;
@@ -403,8 +403,8 @@ export class Hud extends Container {
         .fill({ color: fraction > 0.35 ? UI.healthGood : UI.healthLow });
     }
 
-    // Outlined rather than drawn in the background colour: the bar drains, and
-    // a reading painted the colour of the background disappears exactly when
+    // Outlined rather than drawn in the background color: the bar drains, and
+    // a reading painted the color of the background disappears exactly when
     // the number matters most (text.ts, `overlaid`).
     const text = overlaid(
       `${Math.max(0, Math.round(hp))} / ${Math.round(maxHp)}`,

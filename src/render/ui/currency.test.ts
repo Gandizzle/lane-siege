@@ -29,7 +29,7 @@ describe('prices with pictures', () => {
     expect(parseRich('{silver}3')).toEqual([{ text: '{silver}3' }]);
   });
 
-  it('labels the amount after each icon, so only the short one need be coloured', () => {
+  it('labels the amount after each icon, so only the short one need be colored', () => {
     // The playtest: a unit short of supply alone showed its gold in red too.
     expect(splitAmounts(parseRich(`${GOLD}45 · ${SUPPLY}1`))).toEqual([
       { icon: 'gold' },

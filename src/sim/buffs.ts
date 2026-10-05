@@ -111,7 +111,7 @@ export function auraFor(
       return { damage: 1 + strength, attackSpeed: 1, damageTaken: 1, regenPerSecond: 0 };
     case 'attackSpeed':
       return { damage: 1, attackSpeed: 1 + strength, damageTaken: 1, regenPerSecond: 0 };
-    case 'armour':
+    case 'armor':
       // Diminishing rather than linear, so stacking strength never reaches immunity.
       return { damage: 1, attackSpeed: 1, damageTaken: 1 / (1 + strength), regenPerSecond: 0 };
     case 'regeneration':

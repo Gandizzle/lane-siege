@@ -11,7 +11,7 @@
  *     than from a host, so the build that goes in here must be made with
  *     `VITE_BASE=./` - an absolute base resolves to the device's filesystem
  *     root and every asset 404s. `npm run build:android` does both.
- *   - The background colour matches `UI.background` in src/render/palette.ts,
+ *   - The background color matches `UI.background` in src/render/palette.ts,
  *     so the WebView does not flash white before the first frame.
  *
  * The multiplayer server is NOT bundled. An installed app still reaches a room

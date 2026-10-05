@@ -13,7 +13,7 @@ import { summariseWave } from './waves.ts';
 
 const { data } = loadDataFromDisk();
 
-/** A wave of Grubs and nothing else, for the single-armour readings. */
+/** A wave of Grubs and nothing else, for the single-armor readings. */
 const grubsOnly = trivialWaves(data, 'grub');
 
 describe('wave summary (§9.3)', () => {
@@ -32,11 +32,11 @@ describe('wave summary (§9.3)', () => {
     expect(summary.dominantDamageShare).toBeLessThanOrEqual(1);
   });
 
-  it('reports the armour spread, commonest first', () => {
+  it('reports the armor spread, commonest first', () => {
     const summary = summariseWave(data, 1, 3);
-    expect(summary.armourMix.length).toBeGreaterThan(1);
-    for (let i = 1; i < summary.armourMix.length; i++) {
-      expect(summary.armourMix[i - 1]!.count).toBeGreaterThanOrEqual(summary.armourMix[i]!.count);
+    expect(summary.armorMix.length).toBeGreaterThan(1);
+    for (let i = 1; i < summary.armorMix.length; i++) {
+      expect(summary.armorMix[i - 1]!.count).toBeGreaterThanOrEqual(summary.armorMix[i]!.count);
     }
   });
 
@@ -68,9 +68,9 @@ describe('wave summary (§9.3)', () => {
     expect(hammer.effectiveness).toBeCloseTo(1.0, 6);
   });
 
-  it('weights effectiveness by how much of each armour is actually coming', () => {
+  it('weights effectiveness by how much of each armor is actually coming', () => {
     // Wave 3 mixes flesh, plate and swarm, so nothing should read as a pure
-    // 1.5 or 0.6 - the average has to move off the single-armour values.
+    // 1.5 or 0.6 - the average has to move off the single-armor values.
     const summary = summariseWave(data, 1, 3, 'ironvow');
     const mortar = summary.units.find((u) => u.unitId === 'sanction')!;
     expect(mortar.effectiveness).toBeGreaterThan(0.6);

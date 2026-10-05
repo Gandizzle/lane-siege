@@ -15,8 +15,8 @@
  *   2. A ward     - only an attack is eaten. Same reason.
  *   3. Critical   - rolled per attack, and never on a burn.
  *   4. The attacker's own modifiers: flat first, then multipliers.
- *   5. §6's matrix, unless the damage bypasses armour entirely.
- *   6. The target's `damageTaken`, which is where vulnerability and armour
+ *   5. §6's matrix, unless the damage bypasses armor entirely.
+ *   6. The target's `damageTaken`, which is where vulnerability and armor
  *      shred both land.
  *   7. Applied. Then lifesteal for the attacker and reflection for the target,
  *      both off the amount that actually landed rather than the amount rolled.
@@ -35,14 +35,14 @@ import { resolveDamage } from './damage.ts';
 import { healBy } from './dampening.ts';
 import type { Rng } from './rng.ts';
 import { consumeShield, modifiersOf, type Afflicted } from './status.ts';
-import type { ArmourType } from '../data/schema.ts';
+import type { ArmorType } from '../data/schema.ts';
 
 /** How much a critical hit is worth when no ability has said otherwise. */
 export const BASE_CRIT_DAMAGE = 1.0;
 
-/** A body that can be hit: afflicted, alive, and wearing an armour type. */
+/** A body that can be hit: afflicted, alive, and wearing an armor type. */
 export interface Target extends Afflicted {
-  armour: ArmourType;
+  armor: ArmorType;
   alive: boolean;
 }
 
@@ -67,7 +67,7 @@ export interface Strike {
   amount: number;
   damageType: DamageType;
   /** Skip the matrix and the target's mitigation: true damage. */
-  bypassArmour?: boolean;
+  bypassArmor?: boolean;
   /**
    * Whether this is a blow rather than a consequence of one. Attacks can be
    * evaded, warded and critical; the damage they cause downstream cannot.
@@ -111,9 +111,9 @@ export function dealDamage(
   }
   if (amount <= 0) return 0;
 
-  const resolved = strike.bypassArmour
+  const resolved = strike.bypassArmor
     ? amount
-    : resolveDamage(env.matrix, amount, strike.damageType, target.armour) * victim.damageTakenMul;
+    : resolveDamage(env.matrix, amount, strike.damageType, target.armor) * victim.damageTakenMul;
 
   const landed = Math.min(resolved, target.hp);
   target.hp -= resolved;
@@ -133,7 +133,7 @@ export function dealDamage(
       dealDamage(env, null, attacker as unknown as Target, {
         amount: landed * victim.reflect,
         damageType: strike.damageType,
-        bypassArmour: true,
+        bypassArmor: true,
         noFeedback: true,
       });
     }

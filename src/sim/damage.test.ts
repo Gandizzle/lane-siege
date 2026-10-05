@@ -8,7 +8,7 @@ const matrix = data.matrix.multipliers;
 describe('damage matrix (DESIGN.md §6)', () => {
   it('gives every damage type exactly one favourable and one unfavourable matchup', () => {
     for (const dmg of data.matrix.damageTypes) {
-      const values = data.matrix.armourTypes.map((arm) => damageMultiplier(matrix, dmg, arm));
+      const values = data.matrix.armorTypes.map((arm) => damageMultiplier(matrix, dmg, arm));
       expect(values.filter((v) => v > 1)).toHaveLength(1);
       expect(values.filter((v) => v < 1)).toHaveLength(1);
     }

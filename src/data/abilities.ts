@@ -4,7 +4,7 @@
  *
  * THE PROBLEM
  *
- * Thirty-seven bodies that differ only in HP, damage, armour type and damage
+ * Thirty-seven bodies that differ only in HP, damage, armor type and damage
  * type is a spreadsheet, not a roster. An ability is what makes a unit worth
  * recognising - and because every ability is a balance decision, not one of
  * them may live in code. So this file is the SHAPE of an ability and
@@ -69,7 +69,7 @@ export type Tunable = Unfilled<number> | NumberRef;
  * these it touches, and because the aggregation in `status.ts` is one loop.
  *
  * `damageDealt` and `damageTaken` are the two that carry most of the game:
- * "deals less damage", "takes more damage", "armour shred" and "vulnerable"
+ * "deals less damage", "takes more damage", "armor shred" and "vulnerable"
  * are all one of those two pointed in a direction.
  */
 export const STAT_KEYS = [
@@ -353,7 +353,7 @@ export interface AbilityEffect {
   /** Overrides the source's own damage type. */
   damageType?: DamageType;
   /** Skip the §6 matrix and every mitigation: true damage. */
-  bypassArmour?: boolean;
+  bypassArmor?: boolean;
 
   // ---- damageOverTime, regen
   perSecond?: Tunable;
@@ -518,7 +518,7 @@ export interface ResolvedEffect {
   ofMissingHealth: number;
   ofAttack: number;
   damageType: DamageType | null;
-  bypassArmour: boolean;
+  bypassArmor: boolean;
   perSecond: number;
   durationSeconds: number;
   stacks: { max: number; from: StackRule['from']; refresh: boolean };
@@ -613,7 +613,7 @@ function resolveEffect(e: AbilityEffect, n: Record<string, number>): ResolvedEff
     ofMissingHealth: num(e.ofMissingHealth, n),
     ofAttack: num(e.ofAttack, n),
     damageType: e.damageType ?? null,
-    bypassArmour: e.bypassArmour === true,
+    bypassArmor: e.bypassArmor === true,
     perSecond: num(e.perSecond, n),
     durationSeconds: num(e.durationSeconds, n),
     stacks: {

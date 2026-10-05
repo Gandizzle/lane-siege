@@ -123,14 +123,14 @@ the causes were structural:
   worse, not a trade. One supply came off each of its units.
 - **Thornweald's tank took 1.5× from Impact**, which is what most early waves
   deal. A tank countered by the commonest damage type is not a tank; it is now
-  flesh-armoured, one supply class down, with HP cut to match.
+  flesh-armored, one supply class down, with HP cut to match.
 
 The third cause was the measuring instrument. The scripted player built one
 fixed line whatever the wave, so each roster's result was really a statement
 about the wave order — and it never built a tank at all, because a 700 HP wall
 loses a damage contest to everything. It now picks each row against the incoming
 wave using the same §9.3 preview a human gets, and scores the front row on how
-much of that wave its armour turns away (§4.1: front line to absorb). All four
+much of that wave its armor turns away (§4.1: front line to absorb). All four
 rosters then survive; Gloomtide is the most fragile, which is its identity.
 
 **The curve is still soft for everyone** — nothing leaks before wave 25, where
@@ -266,7 +266,7 @@ cost field is the only thing that would change.
 ### 9. Full monster and boss bank (§18) [M3]
 
 Five monsters exist (four normal, one boss) — the M1 slice. Note that the boss
-is single-armour, where §3.4 wants bosses to carry a **mix** of armour types
+is single-armor, where §3.4 wants bosses to carry a **mix** of armor types
 across their parts or spawns so no single damage type hard-counters them. That
 needs a multi-part boss model that does not exist yet.
 
@@ -566,8 +566,8 @@ Decisions that override the document rather than filling a gap in it:
     silhouette now count UPGRADES BOUGHT rather than tiers owned - a unit as
     built wears none, one upgrade is one dot - which is what §14.2's "tier pips"
     reads as when the thing being counted is what you paid for.
-- **§14.2 — every body has its own silhouette; the armour type is its
-  family.** The document gave one shape per armour type, which is four shapes
+- **§14.2 — every body has its own silhouette; the armor type is its
+  family.** The document gave one shape per armor type, which is four shapes
   for thirty-seven bodies. Each unit and monster now has a distinct shape, and
   the information §14.2 put in the silhouette moves up a level: round shapes
   are Flesh, angular are Plate, pointed and stellar are Ward, clusters are
@@ -625,7 +625,7 @@ Decisions that override the document rather than filling a gap in it:
 
 - **§7, §18 — every unit has an ability, and the rosters are named for what
   they do.** §7 gives a builder six units and differentiates them by damage
-  type, armour type and price; §18 lists ability mechanics as a later concern.
+  type, armor type and price; §18 lists ability mechanics as a later concern.
   Six units that differ only in those three things are a spreadsheet, so the
   ability system is built now and the numbers are tuned later, like every other
   number in `data/`. Every unit has a signature ability from tier 1 whose
@@ -673,10 +673,10 @@ Decisions that override the document rather than filling a gap in it:
 
 Two things the simulation needed that DESIGN.md does not cover at all:
 
-- **Fortress armour type** (`fortress.armour: "plate"`). The matrix applies in
+- **Fortress armor type** (`fortress.armor: "plate"`). The matrix applies in
   both directions (§6), so a monster besieging the fortress needs something to
   resolve its damage type against. The doc gives the fortress HP, a weapon and an
-  aura, but never an armour type.
+  aura, but never an armor type.
 - **Wave scaling factors** (`waves.scaling`). §9.1 says monster stats and count
   scale with wave number but gives no curve. These apply only past the last
   authored wave, so they are inert across waves 1–5.

@@ -14,7 +14,7 @@
  * after it.
  */
 
-import type { ArmourType, DamageType, GameData } from '../data/schema.ts';
+import type { ArmorType, DamageType, GameData } from '../data/schema.ts';
 import { buildableUnits } from '../data/roster.ts';
 import {
   applyCommand,
@@ -130,7 +130,7 @@ function startWave(scene: Scene): void {
 }
 
 /**
- * Every damage type, best first, by what it would do to the armour of the wave
+ * Every damage type, best first, by what it would do to the armor of the wave
  * the preview is showing - the wave after this build phase, or the one being
  * fought (game.ts, `refreshSummary`, picks it the same way).
  */
@@ -140,11 +140,11 @@ export function rankAgainstWave(
   builderId: string,
 ): DamageType[] {
   const wave = at.phase === 'build' ? at.wave + 1 : at.wave;
-  const { armourMix } = summariseWave(data, at.seed, wave, builderId);
+  const { armorMix } = summariseWave(data, at.seed, wave, builderId);
   const score = (type: DamageType) =>
-    armourMix.reduce(
-      (sum, { armour, count }) =>
-        sum + count * damageMultiplier(data.matrix.multipliers, type, armour),
+    armorMix.reduce(
+      (sum, { armor, count }) =>
+        sum + count * damageMultiplier(data.matrix.multipliers, type, armor),
       0,
     );
   return [...data.matrix.damageTypes].sort((a, b) => score(b) - score(a));
@@ -205,11 +205,11 @@ export function waveEarnings(data: GameData, view: MatchView): string {
   return `${earned}${wall} Any of your units that died come back alive for the next wave, fully healed.`;
 }
 
-/** The armour most of the wave on the preview wears. */
-function mainArmour(data: GameData, view: MatchView): ArmourType | null {
+/** The armor most of the wave on the preview wears. */
+function mainArmor(data: GameData, view: MatchView): ArmorType | null {
   const wave = view.phase === 'build' ? view.wave + 1 : view.wave;
-  const { armourMix } = summariseWave(data, view.seed, wave, view.lane?.builderId ?? '');
-  return [...armourMix].sort((a, b) => b.count - a.count)[0]?.armour ?? null;
+  const { armorMix } = summariseWave(data, view.seed, wave, view.lane?.builderId ?? '');
+  return [...armorMix].sort((a, b) => b.count - a.count)[0]?.armor ?? null;
 }
 
 /** Which Fort tab ladders cost gems and which cost gold, by what their first level asks. */
@@ -621,7 +621,7 @@ const COUNTERS_BUILDER = 'ironvow';
 const COUNTERS: Chapter = {
   id: 'counters',
   title: 'Counters',
-  summary: 'Damage types, armour and the right unit',
+  summary: 'Damage types, armor and the right unit',
   builderId: COUNTERS_BUILDER,
   features: STAGES.counters,
   setup: (scene) => {
@@ -644,14 +644,14 @@ const COUNTERS: Chapter = {
       mode: 'next',
       target: { kind: 'wavePreview' },
       text:
-        "A monster's SHAPE is its armour. Round shapes are flesh, angular ones are plate, pointed " +
+        "A monster's SHAPE is its armor. Round shapes are flesh, angular ones are plate, pointed " +
         'ones are warded, and clusters of little ones are a swarm. The preview names each.',
     },
     {
       mode: 'next',
       target: { kind: 'buildBar' },
       text:
-        'COLOUR is damage type, on units and monsters alike: amber is impact, blue is pierce, ' +
+        'COLOR is damage type, on units and monsters alike: amber is impact, blue is pierce, ' +
         'orange is blast, and pink is arcane. Each card says if its damage is strong ▲ or weak ▼ ' +
         'against the wave.',
     },
@@ -659,7 +659,7 @@ const COUNTERS: Chapter = {
       mode: 'next',
       nextLabel: 'Show the chart',
       text:
-        'So which damage beats which armour? Each type lands harder on some armour and softer on ' +
+        'So which damage beats which armor? Each type lands harder on some armor and softer on ' +
         'others, and one chart has all of it.',
     },
     {
@@ -673,7 +673,7 @@ const COUNTERS: Chapter = {
       mode: 'next',
       target: { kind: 'menuButton' },
       text:
-        'That chart is always in the menu, under "Damage vs armour", whenever you need a ' +
+        'That chart is always in the menu, under "Damage vs armor", whenever you need a ' +
         'reminder mid-match.',
     },
     {
@@ -681,7 +681,7 @@ const COUNTERS: Chapter = {
       target: { kind: 'hudIncoming' },
       text:
         'Monsters hit back with a damage type of their own, shown here, and the chart works both ' +
-        'ways: your units have armour too, and it decides how hard those hits land.',
+        'ways: your units have armor too, and it decides how hard those hits land.',
     },
     {
       mode: 'tap',
@@ -696,7 +696,7 @@ const COUNTERS: Chapter = {
       target: (c) => ({ kind: 'weapon', damageType: bestAgainstWave(c.data, c.view) }),
       text: (data, view) => {
         const best = bestAgainstWave(data, view);
-        const main = mainArmour(data, view);
+        const main = mainArmor(data, view);
         const hits = main
           ? `This wave is mostly ${main}, and ${best} hits ${main} for ` +
             `×${Number(damageMultiplier(data.matrix.multipliers, best, main).toFixed(2))}. `

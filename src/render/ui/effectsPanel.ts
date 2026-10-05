@@ -106,7 +106,7 @@ class EffectRow extends Container {
   ) {
     super();
     const info = MARK_INFO[mark];
-    this.title = label(info.name, 13, info.colour, '700');
+    this.title = label(info.name, 13, info.color, '700');
     this.line = label('', 11, UI.textMuted, '500');
     this.arrow = label('›', 18, UI.textMuted, '700');
     this.addChild(this.bg, this.preview, this.title, this.line, this.arrow);
@@ -434,7 +434,7 @@ export class EffectsPanel extends Container {
       .stroke({ width: 1, color: UI.panelEdge });
     this.box.hitArea = new Rectangle(px, py, panelW, panelH);
 
-    this.title.style.fill = this.view === 'detail' ? MARK_INFO[this.detailMark].colour : UI.text;
+    this.title.style.fill = this.view === 'detail' ? MARK_INFO[this.detailMark].color : UI.text;
     this.title.position.set(px + pad, py + 14);
     this.subtitle.position.set(px + pad, py + 42);
     this.closeX.place(px + panelW - pad - 34, py + 10, 34, 34);

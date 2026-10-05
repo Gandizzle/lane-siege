@@ -123,7 +123,7 @@ class Card extends Container {
     this.previewH = previewH;
     this.hitArea = new Rectangle(0, 0, width, previewH + CAPTION_H);
 
-    // The plain ground is the flat build-zone colour; a painted one covers it.
+    // The plain ground is the flat build-zone color; a painted one covers it.
     this.base.clear();
     this.base.rect(0, 0, width, previewH).fill({ color: UI.buildZone });
 
@@ -317,7 +317,7 @@ export class BattlefieldPicker extends Container {
 
 /**
  * Who stands on the previews: two units and two monsters of four different
- * damage types, taken from the game's own data, so the colours a player has
+ * damage types, taken from the game's own data, so the colors a player has
  * to read on the board are the ones tested against each ground.
  */
 function sampleBodies(data: GameData): Body[] {

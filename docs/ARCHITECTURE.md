@@ -104,7 +104,7 @@ M1 (headless sim): `npm run sim` plays a single lane through five waves with a
 scripted builder and prints the result.
 
 M2 (renderer): `npm run dev` is a playable single-player game in portrait — tap
-a unit, tap a tile, watch the wave arrive. Pixi, fixed portrait layout, coloured
+a unit, tap a tile, watch the wave arrive. Pixi, fixed portrait layout, colored
 shapes, touch build UI, one builder, as §17 specifies.
 
 M3 (full single lane): all six units of builder A with tiers, global tech,
@@ -156,17 +156,17 @@ four damage types, because every lane faces the same wave. So builders cannot be
 differentiated by what they can answer — only by _distribution and quality_.
 Four rosters, each excelling at a different **pair** of damage types:
 
-| builder    | strongest       | armour lean | costs               | shape                                              | and what it does                                      |
-| ---------- | --------------- | ----------- | ------------------- | -------------------------------------------------- | ----------------------------------------------------- |
-| Ironvow    | Impact + Pierce | plate       | 40–95g, 2–3 supply  | the reference: a melee wall with snipers behind it | oaths: taunts, wards, answered blows, judgements      |
-| Pyre       | Blast + Impact  | flesh       | 48–98g, 2–3 supply  | hits hardest, dies fastest, charges most           | heat: `burning`, escalation, and dying loudly         |
-| Thornweald | Arcane + Pierce | ward        | 34–84g, 1–2 supply  | cheap, quick, numerous; folds to an Impact wave    | growth: roots, `blighted` rot, and a line that mends  |
-| Gloomtide  | Blast + Arcane  | swarm       | 62–105g, 2–3 supply | longest reach, fewest bodies, thinnest line        | pressure: `soaked`, chill, and chains through the wet |
+| builder    | strongest       | armor lean | costs               | shape                                              | and what it does                                      |
+| ---------- | --------------- | ---------- | ------------------- | -------------------------------------------------- | ----------------------------------------------------- |
+| Ironvow    | Impact + Pierce | plate      | 40–95g, 2–3 supply  | the reference: a melee wall with snipers behind it | oaths: taunts, wards, answered blows, judgements      |
+| Pyre       | Blast + Impact  | flesh      | 48–98g, 2–3 supply  | hits hardest, dies fastest, charges most           | heat: `burning`, escalation, and dying loudly         |
+| Thornweald | Arcane + Pierce | ward       | 34–84g, 1–2 supply  | cheap, quick, numerous; folds to an Impact wave    | growth: roots, `blighted` rot, and a line that mends  |
+| Gloomtide  | Blast + Arcane  | swarm      | 62–105g, 2–3 supply | longest reach, fewest bodies, thinnest line        | pressure: `soaked`, chill, and chains through the wet |
 
 Three axes do the work, and all three are consequences of rules that already
 existed:
 
-- **Armour lean decides which wave punishes you.** The matrix runs in both
+- **Armor lean decides which wave punishes you.** The matrix runs in both
   directions (§6), so a roster built on ward bodies takes 1.5× from Impact —
   and Impact is what the early waves mostly deal. Verdance is therefore
   genuinely harder early and stronger later, without a single special case.
@@ -210,7 +210,7 @@ player is a poor one.
 
 ### Abilities: a trigger, a target, some effects and a price
 
-Thirty-seven bodies that differ only in HP, damage, armour type and damage type
+Thirty-seven bodies that differ only in HP, damage, armor type and damage type
 is a spreadsheet. So every unit in the game has an ability — the signature one
 from tier 1, its numbers rising with the tier, and a second one unlocked at the
 top of its ladder — and every boss and five of the nine monsters have one too.
@@ -252,7 +252,7 @@ definition index is built — so a tick never resolves anything (§15.3).
 effect kinds the simulation honours: `modify` (any of twelve stats, as a
 multiplier or a flat amount), `damage` (flat, a share of max, current or
 missing HP, or a multiple of the attacker's own swing, optionally bypassing
-armour entirely), `damageOverTime`, `heal`, `regen`, `shield`, `control`
+armor entirely), `damageOverTime`, `heal`, `regen`, `shield`, `control`
 (stun, root, disarm, silence, taunt), `execute`, `immunity` and `energy`.
 `EFFECT_KINDS` is longer: summons, resurrection, knockback, pull, teleport,
 transformation, spirit link, amplify-and-detonate, path blocking, cost
@@ -559,7 +559,7 @@ later cannot quietly become public.
 for a player and 537 KiB/s at the §15.3 load for a spectator, which no phone
 should be asked to carry. `src/net/protocol.ts` sends definition indices rather
 than strings, positions quantised to a hundredth of a tile, HP as a byte, and
-derives armour, damage type and body radius from the definition instead of
+derives armor, damage type and body radius from the definition instead of
 transmitting them. Same load: **32.7 KiB/s and 117.9 KiB/s** as JSON, and
 Colyseus puts messages through msgpack, so those are upper bounds. `npm run
 wire` measures it. With sends' own pool on the field (§8.1, amended) the worst
@@ -766,11 +766,11 @@ aura, HUD, opponent tabs, build bar — is hidden outright, because none of it
 means anything any more: nothing to build, nothing to send, no fortress to
 upgrade and no other lane to watch.
 
-**Ownership needed a channel.** §14.2 spends silhouette on armour, fill on
+**Ownership needed a channel.** §14.2 spends silhouette on armor, fill on
 damage type, and size and pips on tier; a lane never needs a fifth because
 everything solid in it is yours. Four armies in one arena do, so each spoke's
-floor is tinted with its seat's colour and each body wears a ring in the same
-colour — two readings of one fact, and the spoke tint survives a crowded
+floor is tinted with its seat's color and each body wears a ring in the same
+color — two readings of one fact, and the spoke tint survives a crowded
 centre.
 
 Measured: **7.6 ms per tick** with four armies of forty (15% of the 50 ms
@@ -965,10 +965,10 @@ attacker's own definition so there is nothing to author:
 | channel    | comes from  | so that                                        |
 | ---------- | ----------- | ---------------------------------------------- |
 | head shape | damage type | a dart, a slug, a shell or a mote              |
-| colour     | damage type | the same fill §14.2 draws the body in          |
+| color      | damage type | the same fill §14.2 draws the body in          |
 | size       | damage      | a Sanction shell is not a Thornling's dart     |
 | speed      | range       | time in the air stays about 0.16s at any reach |
-| trail      | armour      | two guns of one damage type still differ       |
+| trail      | armor       | two guns of one damage type still differ       |
 
 Tier scales the head exactly as §14.2 scales a body, so an upgraded unit's shot
 is recognisably the same shot.
@@ -984,9 +984,9 @@ again, with slivers thrown off the point of contact. Nothing in the effects
 layer reads or writes a body. A test asserts that literally, by comparing the
 attacker and target before and after a frame.
 
-The flash is drawn at the attacker's damage-type colour mixed halfway to white.
+The flash is drawn at the attacker's damage-type color mixed halfway to white.
 A Pledge and a grub are both Impact, and an amber swing between two amber
-bodies is invisible; lightening keeps §14.2's colour channel while making the
+bodies is invisible; lightening keeps §14.2's color channel while making the
 blow readable against a body wearing the same hue.
 
 **Every effect is a filled shape; nothing strokes a path.** Pixi v8 carries path
@@ -1007,8 +1007,8 @@ on the tick it dies, and nothing about that changes: it is gone from collision,
 targeting and the view at once. The renderer notices a body that was in the
 last view and is not in this one and leaves a 320ms pop where it stood — its
 own silhouette swelling and fading, a near-white flash at its heart, and seven
-shards of its colour thrown to about twice its radius. Every channel is read
-off the body (shape, damage-type colour, radius, mark, outlined or filled), so
+shards of its color thrown to about twice its radius. Every channel is read
+off the body (shape, damage-type color, radius, mark, outlined or filled), so
 a new unit or monster dies correctly with nothing to author.
 
 The view only says what is there, so which disappearances count as deaths is
@@ -1164,8 +1164,8 @@ The view sends KINDS, not statuses: one bitmask per affected body
 few bodies that have any, lanes and arena alike. Whose burn it is and how long
 it has left are the panel's business.
 
-Every kind has its own shape as well as its colour, which is the rule the bodies
-follow (§14.2), so the greens can be told apart without the colour: rising
+Every kind has its own shape as well as its color, which is the rule the bodies
+follow (§14.2), so the greens can be told apart without the color: rising
 pluses are healing, rising bubbles are blight, spikes in the ground are roots.
 Markers are anchored to the body's edge and sized from its radius with a floor
 and a ceiling, so a Mite's are legible and a boss's do not swamp it. They
@@ -1224,7 +1224,7 @@ phone turned sideways.
 **Seen, but never the point.** The first version of the three calm grounds was
 so quiet it could hardly be seen on a phone; they are now a good deal stronger,
 but they keep the rules. Every channel on a body already means something —
-silhouette is armour, fill is damage type, outline means monster (§14.2) — so
+silhouette is armor, fill is damage type, outline means monster (§14.2) — so
 nothing in a calm ground is the size or brightness of a body, and nothing is
 laid out on the tile grid: cobbles are a staggered lattice smaller than a
 tile, ripples run at a slant and in pieces, and tufts are scattered.
@@ -1599,36 +1599,36 @@ Each Build card now says whether the unit is **melee** or **ranged** on its
 third line, ahead of the counter verdict ("ranged · ▲ strong"), by the same
 rule the stat panel uses (`isMelee`, the attack-style threshold). Where it
 stands follows from that, and the silhouette does not say. The unit's own
-silhouette in the corner is drawn larger than a colour chip (`bodySize` in
+silhouette in the corner is drawn larger than a color chip (`bodySize` in
 gridButton.ts): it is a shape the player has to learn to pick out of a crowd.
 
 The ability card is bigger and set larger (20/15/14 at a scale of 1, from
-16/11/11), and "Tap anywhere to close" is a full-width bar in the accent colour
+16/11/11), and "Tap anywhere to close" is a full-width bar in the accent color
 where a button would be, not small print.
 
 ### The damage chart
 
 The damage matrix (DESIGN.md §6) is the rule the whole game turns on, and the
 board never shows it. `ui/damageChart.ts` puts it on one card: damage types down
-the side in their colours, armour across the top with a real monster's
+the side in their colors, armor across the top with a real monster's
 silhouette and the word for its family of shapes (round, angular, clusters,
 pointed), and the multiplier in each cell, green and "strong" above 1, orange
 and "weak" below. A line under the grid says that the chart works both ways,
 because the simulation applies the same matrix to a monster hitting a unit
 (`sim/damage.ts`).
 
-It is opened from the menu ("Damage vs armour"), and the tutorial's Counters
+It is opened from the menu ("Damage vs armor"), and the tutorial's Counters
 chapter opens it too. Like the effects panel it pauses a practice match, and
 Esc closes it. Everything on it comes from `data.matrix`. The one sentence
-that generalises ("every damage type is strong against one armour and weak
-against another") is only shown while the matrix makes it true. A new armour
+that generalises ("every damage type is strong against one armor and weak
+against another") is only shown while the matrix makes it true. A new armor
 type would not compile until it had a word for its shapes.
 
 ### The fortress aura, drawn
 
 §10.1 sells two upgrades and offers one choice — Aura Power, Aura Radius, and
 which of four auras is running — and until now all three were invisible. The
-weapon's damage type at least recoloured the shots it fired; an aura changed
+weapon's damage type at least recolored the shots it fired; an aura changed
 numbers behind the scenes and nothing on screen, which makes the whole tab a
 guess.
 
@@ -1643,15 +1643,15 @@ Three channels, one per thing the player bought:
 The motifs say what the aura does rather than merely differing: **damage** puts
 chevrons on the rim pointing out of the fortress, because that is the direction
 the buff acts in; **attack speed** runs rings outward, because speed is the one
-channel that reads as motion rather than as shape; **armour** is a still lattice
-of scales, because armour does nothing until something hits you; and
+channel that reads as motion rather than as shape; **armor** is a still lattice
+of scales, because armor does nothing until something hits you; and
 **regeneration** drifts motes up the lane, because a thing being given back
 should look like it is travelling.
 
 The rim is drawn at the radius `auraFor` actually measures, centred where it
 measures from, so a unit inside the line is buffed and a unit outside it is not
 — the drawing is the rule rather than an illustration of it. The aura tab's
-chips carry the same four colours and now print the radius and the strength, so
+chips carry the same four colors and now print the radius and the strength, so
 buying Aura Power changes a number there and the ground in the lane at the same
 time. It sits under the bodies so it never obscures a fight, runs on wall time
 like the effects layer, and the simulation neither reads it nor knows it exists
@@ -1660,7 +1660,7 @@ thing it stands for is bought.
 
 ### Every body has its own silhouette
 
-§14.2 gave one shape per armour type - circle, hexagon, diamond, triangle
+§14.2 gave one shape per armor type - circle, hexagon, diamond, triangle
 cluster. That is four shapes for thirty-seven bodies, and a crowd of identical
 hexagons tells you nothing about which of your units is which. Every unit and
 monster now has its own silhouette, thirty-seven in all, assigned in the data
@@ -1669,10 +1669,10 @@ monster now has its own silhouette, thirty-seven in all, assigned in the data
 What §14.2 was protecting is kept as a rule about **families**: round things
 are Flesh, angular things are Plate, pointed and stellar things are Ward, and
 clusters of small things are Swarm. The counter-read still works at a glance and
-without colour - a wall of angular shapes is a wall of Plate whether or not you
+without color - a wall of angular shapes is a wall of Plate whether or not you
 can name each one - and within a family every member is distinct. `SHAPE_FAMILY`
 in `schema.ts` is the assignment; `validate.ts` refuses data on load if a shape
-is in the wrong family for its armour, if two bodies on the field share one, or
+is in the wrong family for its armor, if two bodies on the field share one, or
 if a tier does not carry its base's shape up the chain (§7.3: an upgrade is the
 same unit).
 
@@ -1777,7 +1777,7 @@ string marks where one goes with a token (`{gold}45 · {supply}1`), and a
 `RichLabel` lays the words and icons out on one line, shrinking a line that
 would run past its button rather than cutting a price short. They are drawn
 rather than emoji because an emoji coin is recent enough that older phones show
-an empty box, it looks different on every system, and it cannot be coloured to
+an empty box, it looks different on every system, and it cannot be colored to
 the palette. Sentences keep their words ("not enough gems"); the tutorial names
 the three pictures when it tours the wallet.
 
@@ -1849,7 +1849,7 @@ no height on a short phone. Every page stands in the same five places.
 So a button is a name, a price, and **what the send is for** — "Carapace /
 (gem)120 → +(coin)7/wave / Siegework" over a slab, or "economy" for the three that pay
 the best rate. The icon is the monster because a send _is_ that monster: the
-same shape, armour family and damage-type fill that §14.2 draws in the lane, in
+same shape, armor family and damage-type fill that §14.2 draws in the lane, in
 the wave preview and on a unit button. All fifteen draw a different picture,
 and a test in `src/render/ui/sends.test.ts` keeps it that way.
 
@@ -1919,14 +1919,14 @@ over a fight is one more thing for the eye to pick through. So the lines come
 up at full strength when they are what you are working with, and vanish when
 they are not.
 
-**A unit button carries the unit's own silhouette, not a coloured square.**
-The same armour shape, the same damage-type fill, the same tier pips that
+**A unit button carries the unit's own silhouette, not a colored square.**
+The same armor shape, the same damage-type fill, the same tier pips that
 §14.2 draws on the board, from the same `drawEntity` the entity layer uses - so
 the thing you tap and the thing that appears on the tile are drawn by one
 function and cannot disagree. Choosing what to build is choosing a shape you
 will have to pick out of a crowd three seconds later, and a row of identical
 squares teaches you nothing about which shape that is. The chips that really
-are just a colour - a damage type on the Aura tab, a tech track - stay squares,
+are just a color - a damage type on the Aura tab, a tech track - stay squares,
 because that is what they are.
 
 **You tap the body, not the tile it is standing in.** A tap is read as a point
@@ -1984,14 +1984,14 @@ into the next column's name.
 42% opacity, words and all, which put a price you could not yet afford at about
 2 to 1 against its ground — unreadable exactly when it is the number you are
 saving towards. Now the ground goes darker (`UI.panelAsleep`), the name goes to
-the muted text colour, and the price says whether money is the reason: the
+the muted text color, and the price says whether money is the reason: the
 amount that is short is drawn in `UI.unaffordable`, a warm coral - the gold, the
-supply, or both, and only those (`shortfall` in buildBar.ts; `RichLabel` colours
+supply, or both, and only those (`shortfall` in buildBar.ts; `RichLabel` colors
 the amount after each currency icon on its own) - and the price stays muted when
 the button is out for any other reason (the wrong phase, the top of its ladder).
 A fortress level that takes supply now says so in its price, beside the gold,
 rather than after what it buys. A usable button's price is drawn in the full text
-colour. The asleep Build tab during a wave gets its own dimmer caption colour
+color. The asleep Build tab during a wave gets its own dimmer caption color
 rather than a fade. gridButton.test.ts holds every one of these combinations
 above 4.5 to 1.
 
@@ -2075,7 +2075,7 @@ fortress aura (§10.1) and every ability status on it are folded in, and a cell
 is drawn **green where something has raised it and red where something has
 lowered it** — a slowed monster's Move goes red while you watch, a Pledge
 standing beside two others shows its Damage in green. Higher is better in every
-cell the panel shows, which is why one comparison colours all six.
+cell the panel shows, which is why one comparison colors all six.
 
 The same multiplier is applied to the tier being compared with, so the arrow
 still compares two TIERS rather than a buffed body against an unbuffed
@@ -2422,7 +2422,7 @@ Implemented and tested (388 tests):
   and goes back to the fortress when it dies (§5.1)
 - The silhouette catalogue: every shape inside its collision circle and filling
   a fair share of it, no two alike, drawable filled and stroked; and the data
-  giving every body on the field its own, in its armour family, carried up each
+  giving every body on the field its own, in its armor family, carried up each
   upgrade chain - with the validator shown to refuse a duplicate and a
   wrong-family shape (§14.2, amended)
 - The tier pips as a count of upgrades BOUGHT rather than of tiers owned: one
@@ -2529,9 +2529,9 @@ around wave 13–15. Monster strength is one knob and turning it is phase 3.
 
 ### Not yet built
 
-- **Multi-part bosses** (§3.4) — a boss should carry a mix of armour types across
+- **Multi-part bosses** (§3.4) — a boss should carry a mix of armor types across
   its parts or spawns so no single damage type hard-counters it. The bank spreads
-  four armour types across four bosses as a stopgap; real parts need a model that
+  four armor types across four bosses as a stopgap; real parts need a model that
   does not exist yet.
 - **Hosting** (§15.2) — the last piece of M6, and the only one that is money
   rather than code. A four-player match needs someone to run `npm run server`,

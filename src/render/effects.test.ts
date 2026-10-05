@@ -14,7 +14,7 @@ import { buildDefIndex, FORTRESS_ID, type LaneView } from '../sim/index.ts';
 import { computeLayout } from './layout.ts';
 import { DEATH_MS, EffectsLayer } from './effects.ts';
 import { attackStyle, RANGED_MIN_TILES } from './attackStyle.ts';
-import { DAMAGE_COLOURS } from './palette.ts';
+import { DAMAGE_COLORS } from './palette.ts';
 
 const { data } = loadDataFromDisk();
 const defs = buildDefIndex(data);
@@ -36,7 +36,7 @@ function body(id: number, defId: string, x: number, y: number) {
     x,
     y,
     radius: 0.26,
-    armour: def?.armour ?? ('plate' as const),
+    armor: def?.armor ?? ('plate' as const),
     damageType: def?.damageType ?? ('impact' as const),
     hpFraction: 1,
   };
@@ -85,31 +85,31 @@ describe('a shot looks like the thing that fired it', () => {
     }
   });
 
-  it('uses the same colour the body is drawn in (§14.2)', () => {
+  it('uses the same color the body is drawn in (§14.2)', () => {
     const style = attackStyle({
       damageType: 'arcane',
-      armour: 'ward',
+      armor: 'ward',
       range: 3,
       damage: 20,
     });
-    expect(style.colour).toBe(DAMAGE_COLOURS.arcane);
+    expect(style.color).toBe(DAMAGE_COLORS.arcane);
   });
 
   it('gives each damage type its own head', () => {
     const shapes = (['impact', 'pierce', 'blast', 'arcane'] as const).map(
-      (damageType) => attackStyle({ damageType, armour: 'flesh', range: 3, damage: 20 }).shape,
+      (damageType) => attackStyle({ damageType, armor: 'flesh', range: 3, damage: 20 }).shape,
     );
     expect(new Set(shapes).size).toBe(4);
   });
 
   it('sizes the head by damage and scales it by mark, like a body', () => {
-    const small = attackStyle({ damageType: 'impact', armour: 'flesh', range: 3, damage: 5 });
-    const big = attackStyle({ damageType: 'impact', armour: 'flesh', range: 3, damage: 70 });
+    const small = attackStyle({ damageType: 'impact', armor: 'flesh', range: 3, damage: 5 });
+    const big = attackStyle({ damageType: 'impact', armor: 'flesh', range: 3, damage: 70 });
     expect(big.size).toBeGreaterThan(small.size);
 
     const tier3 = attackStyle({
       damageType: 'impact',
-      armour: 'flesh',
+      armor: 'flesh',
       range: 3,
       damage: 5,
       mark: 3,
@@ -118,29 +118,29 @@ describe('a shot looks like the thing that fired it', () => {
   });
 
   it('flies faster the further it has to go, so time in the air stays similar', () => {
-    const near = attackStyle({ damageType: 'pierce', armour: 'flesh', range: 1, damage: 10 });
-    const far = attackStyle({ damageType: 'pierce', armour: 'flesh', range: 5, damage: 10 });
+    const near = attackStyle({ damageType: 'pierce', armor: 'flesh', range: 1, damage: 10 });
+    const far = attackStyle({ damageType: 'pierce', armor: 'flesh', range: 5, damage: 10 });
     expect(far.speed).toBeGreaterThan(near.speed);
     expect(5 / far.speed).toBeLessThan(2 * (1 / near.speed));
   });
 
-  it('trails by armour family, so two guns of one damage type still differ', () => {
-    const flesh = attackStyle({ damageType: 'blast', armour: 'flesh', range: 3, damage: 30 });
-    const swarm = attackStyle({ damageType: 'blast', armour: 'swarm', range: 3, damage: 30 });
+  it('trails by armor family, so two guns of one damage type still differ', () => {
+    const flesh = attackStyle({ damageType: 'blast', armor: 'flesh', range: 3, damage: 30 });
+    const swarm = attackStyle({ damageType: 'blast', armor: 'swarm', range: 3, damage: 30 });
     expect(flesh.trail).not.toBe(swarm.trail);
   });
 });
 
 function styleInput(def: {
   damageType: 'impact' | 'pierce' | 'blast' | 'arcane';
-  armour: 'flesh' | 'plate' | 'swarm' | 'ward';
+  armor: 'flesh' | 'plate' | 'swarm' | 'ward';
   range: number | null;
   damage: number | null;
   mark?: number;
 }) {
   return {
     damageType: def.damageType,
-    armour: def.armour,
+    armor: def.armor,
     range: def.range ?? 0,
     damage: def.damage ?? 0,
     ...(def.mark !== undefined && { mark: def.mark }),

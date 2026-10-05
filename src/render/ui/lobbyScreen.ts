@@ -256,7 +256,7 @@ export class LobbyScreen extends Container {
     width: number,
     text: string,
     fill: number,
-    textColour: number,
+    textColor: number,
     onTap: () => void,
   ): Container {
     const button = new Container();
@@ -265,7 +265,7 @@ export class LobbyScreen extends Container {
       .roundRect(x, y, width, 44, 10)
       .fill({ color: fill })
       .stroke({ width: 1, color: UI.panelEdge });
-    const caption: Text = label(text, 13, textColour, '700');
+    const caption: Text = label(text, 13, textColor, '700');
     button.addChild(background, centreOn(caption, x + width / 2, y + 15));
     button.eventMode = 'static';
     button.cursor = 'pointer';

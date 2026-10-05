@@ -92,7 +92,7 @@ export class GridButton extends Container {
   /** The lines' sizes and the inset, from the last layout (`lineSizes`). */
   private sizes = { title: TITLE_SIZE, detail: DETAIL_SIZE, note: NOTE_SIZE, pad: 6 };
   private swatchSize = 14;
-  /** A body in the corner is drawn larger than a colour chip: it is a shape to learn. */
+  /** A body in the corner is drawn larger than a color chip: it is a shape to learn. */
   private bodySize = 22;
   /** The size of whatever is in the corner now, 0 for nothing. */
   private cornerSize = 0;
@@ -301,15 +301,15 @@ export class GridButton extends Container {
   }
 
   /**
-   * The mark in the top-right corner: a plain chip for a colour, or the body
+   * The mark in the top-right corner: a plain chip for a color, or the body
    * itself for a unit.
    *
-   * A unit button gets the real silhouette - the same armour shape, the same
+   * A unit button gets the real silhouette - the same armor shape, the same
    * damage-type fill, the same mark pips that §14.2 draws on the board. A
    * player choosing what to build is choosing a shape they will have to read in
    * a crowd three seconds later, and a row of identical squares teaches them
    * nothing about which shape that is. Everything else here is genuinely a
-   * colour and nothing more - a damage type, an aura - and stays a chip.
+   * color and nothing more - a damage type, an aura - and stays a chip.
    */
   setSwatch(mark: number | EntityStyle | null): void {
     this.swatch.clear();
@@ -357,7 +357,7 @@ export class GridButton extends Container {
      */
     detailMore?: string;
     note?: string;
-    noteColour?: number;
+    noteColor?: number;
     /** Cooldown still to run, as a fraction of the whole: 0 or absent is ready. */
     cooldown?: number;
     /** The title alone, in the middle of the button: an arrow, a glyph. */
@@ -366,10 +366,10 @@ export class GridButton extends Container {
     enabled: boolean;
     /**
      * The parts of the price the wallet cannot cover: those amounts, and only
-     * those, are drawn in the can't-afford colour, so the button says WHY it
+     * those, are drawn in the can't-afford color, so the button says WHY it
      * is out - the gold, the supply, or both. A button out for any other
      * reason (the wrong phase, the top of its ladder) passes none, and its
-     * price stays in the muted text colour.
+     * price stays in the muted text color.
      */
     short?: readonly Currency[];
     /**
@@ -382,8 +382,8 @@ export class GridButton extends Container {
      */
     interactive?: boolean;
     selected?: boolean;
-    /** Ring colour, for a selection that means something other than "chosen". */
-    selectedColour?: number;
+    /** Ring color, for a selection that means something other than "chosen". */
+    selectedColor?: number;
   }): void {
     // Every line is cut to the button it is in. A button knows its own width
     // and the strings it is handed do not - "Revenant · Raider's Haste" fits a
@@ -431,10 +431,10 @@ export class GridButton extends Container {
     const note = opts.note ?? '';
     this.note.set(note, room);
     this.note.visible = note.length > 0 && this.noteFits;
-    if (note.length > 0) this.note.setColour(opts.noteColour ?? UI.textMuted);
+    if (note.length > 0) this.note.setColor(opts.noteColor ?? UI.textMuted);
 
     // Usable or not, every word stays readable: the ground recesses, the name
-    // goes to the muted colour, and the price says whether money is the reason.
+    // goes to the muted color, and the price says whether money is the reason.
     const live = opts.enabled;
     if (live !== this.live) {
       this.live = live;
@@ -442,15 +442,15 @@ export class GridButton extends Container {
       this.title.style.fill = live ? UI.text : UI.textMuted;
       this.swatch.alpha = live ? 1 : 0.5;
     }
-    this.detail.setColour(live ? UI.text : UI.textMuted, opts.short ?? []);
-    this.detailMore.setColour(live ? UI.text : UI.textMuted);
+    this.detail.setColor(live ? UI.text : UI.textMuted, opts.short ?? []);
+    this.detailMore.setColor(live ? UI.text : UI.textMuted);
 
     this.ring.visible = opts.selected === true;
     if (opts.selected === true) {
       this.ring.clear();
       this.ring
         .roundRect(0, 0, this.w, this.h, 8)
-        .stroke({ width: 2, color: opts.selectedColour ?? UI.selected });
+        .stroke({ width: 2, color: opts.selectedColor ?? UI.selected });
     }
 
     // Redrawn in hundredths: a smooth sweep, and nothing at all on the frames

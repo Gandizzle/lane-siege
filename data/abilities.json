@@ -1218,7 +1218,7 @@
     {
       "id": "heartpiercer",
       "name": "Heartpiercer",
-      "text": "One shot straight through the armour, worth a slice of what it hit.",
+      "text": "One shot straight through the armor, worth a slice of what it hit.",
       "role": "offence",
       "numbers": {
         "period": 7.0,
@@ -1236,7 +1236,7 @@
         {
           "kind": "damage",
           "ofMaxHealth": "@share",
-          "bypassArmour": true,
+          "bypassArmor": true,
           "bonusIfTag": {
             "tag": "blighted",
             "multiplier": "@bonus"
@@ -2146,7 +2146,7 @@
     {
       "id": "corrode",
       "name": "Corrode",
-      "text": "Its spit eats armour: what it hits takes more from everything.",
+      "text": "Its spit eats armor: what it hits takes more from everything.",
       "role": "offence",
       "numbers": {
         "vulnerable": 0.15,

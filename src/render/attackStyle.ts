@@ -1,8 +1,8 @@
 /**
  * What a given attacker's attack LOOKS like. DESIGN.md §14.2.
  *
- * §14.2 gives the visual language for bodies: silhouette is armour type, fill
- * colour is damage type, size and pips are mark. An attack is made by a body, so
+ * §14.2 gives the visual language for bodies: silhouette is armor type, fill
+ * color is damage type, size and pips are mark. An attack is made by a body, so
  * it is drawn in that same language rather than in a new one - a shot should be
  * recognisable as having come from the thing that fired it, without a legend.
  *
@@ -11,12 +11,12 @@
  * balance change:
  *
  *   head shape   damage type   what it does on arrival
- *   colour       damage type   the same fill the body is drawn in
+ *   color       damage type   the same fill the body is drawn in
  *   size         damage        a mortar shell against a thornling's dart
  *   speed        range         so a long shot and a short one take about as
  *                              long to land, which is what reads as "fired at"
  *                              rather than "drifted toward"
- *   trail        armour        the body's own silhouette family, in miniature
+ *   trail        armor        the body's own silhouette family, in miniature
  *
  * So two units of the same damage type are still told apart by size and trail,
  * and a mark 3 shot is visibly the same shot as its mark 1 - scaled, like the
@@ -31,8 +31,8 @@
  * sits near the boundary and flickers between the two.
  */
 
-import type { ArmourType, DamageType } from '../data/schema.ts';
-import { DAMAGE_COLOURS } from './palette.ts';
+import type { ArmorType, DamageType } from '../data/schema.ts';
+import { DAMAGE_COLORS } from './palette.ts';
 
 /** Reach at or above which an attack is drawn as a projectile, in tiles. */
 export const RANGED_MIN_TILES = 0.6;
@@ -41,7 +41,7 @@ export const RANGED_MIN_TILES = 0.6;
 export type ProjectileShape = 'dart' | 'slug' | 'shell' | 'mote';
 
 const SHAPE_BY_DAMAGE: Record<DamageType, ProjectileShape> = {
-  // A thin spike, pointed along its flight. Armour-piercing.
+  // A thin spike, pointed along its flight. Armor-piercing.
   pierce: 'dart',
   // A blunt round thing with a streak behind it. Raw force.
   impact: 'slug',
@@ -51,8 +51,8 @@ const SHAPE_BY_DAMAGE: Record<DamageType, ProjectileShape> = {
   arcane: 'mote',
 };
 
-/** Trailing dots behind the head, by the attacker's armour family (§14.2). */
-const TRAIL_BY_ARMOUR: Record<ArmourType, number> = {
+/** Trailing dots behind the head, by the attacker's armor family (§14.2). */
+const TRAIL_BY_ARMOR: Record<ArmorType, number> = {
   flesh: 1,
   plate: 2,
   ward: 2,
@@ -62,7 +62,7 @@ const TRAIL_BY_ARMOUR: Record<ArmourType, number> = {
 export interface AttackStyle {
   /** False means a melee swing rather than a shot. */
   ranged: boolean;
-  colour: number;
+  color: number;
   shape: ProjectileShape;
   /** Head radius in TILES, so it survives a resize like everything else. */
   size: number;
@@ -99,7 +99,7 @@ function clamp01(value: number): number {
  */
 export function attackStyle(input: {
   damageType: DamageType;
-  armour: ArmourType;
+  armor: ArmorType;
   /** Reach, edge to edge, in tiles. Decides melee or ranged, and the speed. */
   range: number;
   /** Damage per hit. Decides the size. */
@@ -115,10 +115,10 @@ export function attackStyle(input: {
 
   return {
     ranged: input.range >= RANGED_MIN_TILES,
-    colour: DAMAGE_COLOURS[input.damageType],
+    color: DAMAGE_COLORS[input.damageType],
     shape: SHAPE_BY_DAMAGE[input.damageType],
     size,
     speed: Math.max(MIN_SPEED, input.range / TIME_IN_AIR),
-    trail: TRAIL_BY_ARMOUR[input.armour],
+    trail: TRAIL_BY_ARMOR[input.armor],
   };
 }

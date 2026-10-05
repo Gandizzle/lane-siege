@@ -15,7 +15,7 @@
  *   - **Quantised positions.** Tile coordinates to the nearest hundredth, which
  *     is a fortieth of a body radius and far finer than a pixel at any phone
  *     size. HP as a byte of fraction, which is all a health bar reads.
- *   - **Derivation over transmission.** Armour, damage type and body radius are
+ *   - **Derivation over transmission.** Armor, damage type and body radius are
  *     properties of the definition, so sending the definition sends them too.
  *
  * Result at the same load: 42.8 KiB/s for a player, a sixth of what the same
@@ -39,7 +39,7 @@
  */
 
 import type { GameData } from '../data/schema.ts';
-import type { ArmourType, DamageType } from '../data/schema.ts';
+import type { ArmorType, DamageType } from '../data/schema.ts';
 import { FORTRESS_UPGRADE_IDS } from '../sim/index.ts';
 import type {
   AttackView,
@@ -258,7 +258,7 @@ export interface WireTables {
   sendIds: string[];
   builderIds: string[];
   damageTypes: DamageType[];
-  armourTypes: ArmourType[];
+  armorTypes: ArmorType[];
   auraIds: string[];
   techTrackIds: string[];
   fortressUpgradeIds: string[];
@@ -266,8 +266,8 @@ export interface WireTables {
   unitIndex: Map<string, number>;
   monsterIndex: Map<string, number>;
   /** Everything derivable from a definition, so it never goes on the wire. */
-  unitTraits: { armour: ArmourType; damageType: DamageType; radius: number }[];
-  monsterTraits: { armour: ArmourType; damageType: DamageType; radius: number }[];
+  unitTraits: { armor: ArmorType; damageType: DamageType; radius: number }[];
+  monsterTraits: { armor: ArmorType; damageType: DamageType; radius: number }[];
 }
 
 function num(value: number | null, fallback: number): number {
@@ -287,12 +287,12 @@ export function buildTables(
   ];
 
   const unitTraits = data.units.units.map((u) => ({
-    armour: u.armour,
+    armor: u.armor,
     damageType: u.damageType,
     radius: num(u.bodyRadius, 0.34),
   }));
   const monsterTraits = [...data.monsters.monsters, ...data.monsters.bosses].map((m) => ({
-    armour: m.armour,
+    armor: m.armor,
     damageType: m.damageType,
     radius: num(m.bodyRadius, 0.3),
   }));
@@ -306,7 +306,7 @@ export function buildTables(
     sendIds: data.sends.sends.map((s) => s.id),
     builderIds: data.units.builders.map((b) => b.id),
     damageTypes: [...data.matrix.damageTypes],
-    armourTypes: [...data.matrix.armourTypes],
+    armorTypes: [...data.matrix.armorTypes],
     auraIds: [...data.fortress.auras.types],
     techTrackIds: data.economy.tech.tracks.map((t) => t.id),
     fortressUpgradeIds: [...FORTRESS_UPGRADE_IDS],
@@ -426,7 +426,7 @@ function encodeEntity(entity: EntityView, index: Map<string, number>): WireEntit
 function decodeEntity(
   row: WireEntity,
   ids: string[],
-  traits: { armour: ArmourType; damageType: DamageType; radius: number }[],
+  traits: { armor: ArmorType; damageType: DamageType; radius: number }[],
 ): EntityView {
   const [id, defIndex, x, y, hp] = row;
   const trait = traits[defIndex];
@@ -436,7 +436,7 @@ function decodeEntity(
     x: x / POSITION_SCALE,
     y: y / POSITION_SCALE,
     radius: trait ? trait.radius : 0.3,
-    armour: trait ? trait.armour : ('flesh' as ArmourType),
+    armor: trait ? trait.armor : ('flesh' as ArmorType),
     damageType: trait ? trait.damageType : ('impact' as DamageType),
     hpFraction: hp / HEALTH_SCALE,
     // All three filled in from the lane's sparse rows, for the few bodies

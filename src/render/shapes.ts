@@ -1,18 +1,18 @@
 /**
  * The silhouettes and the mark pips. DESIGN.md §14.2, amended.
  *
- * §14.2 gave one shape per armour type. That is four shapes for thirty-seven
+ * §14.2 gave one shape per armor type. That is four shapes for thirty-seven
  * bodies, and a crowd of identical hexagons tells you nothing about which of
  * your units is which. Every body now has its own silhouette, and the thing
  * §14.2 was protecting is kept as a rule about FAMILIES: round things are
  * Flesh, angular things are Plate, pointed and stellar things are Ward, and
- * clusters of small things are Swarm. The armour read survives at a glance and
- * without colour; within a family, every member is distinct. `SHAPE_FAMILY` in
+ * clusters of small things are Swarm. The armor read survives at a glance and
+ * without color; within a family, every member is distinct. `SHAPE_FAMILY` in
  * schema.ts is the assignment and validate.ts enforces it on load.
  *
  * Drawn with Pixi Graphics primitives only. A monster is an outline, a
  * defensive unit is a solid fill - so at a glance you can tell what is yours
- * and what is coming for you, independent of colour or shape.
+ * and what is coming for you, independent of color or shape.
  *
  * GEOMETRY FIRST, PIXELS SECOND
  *
@@ -30,7 +30,7 @@
 
 import { Graphics } from 'pixi.js';
 import type { DamageType, ShapeId } from '../data/schema.ts';
-import { DAMAGE_COLOURS } from './palette.ts';
+import { DAMAGE_COLORS } from './palette.ts';
 
 export interface EntityStyle {
   shape: ShapeId;
@@ -353,7 +353,7 @@ export function drawEntity(
   alpha = 1,
 ): Graphics {
   const radius = baseRadius * (1 + (style.mark - 1) * 0.15);
-  const colour = DAMAGE_COLOURS[style.damageType];
+  const color = DAMAGE_COLORS[style.damageType];
 
   for (const piece of silhouette(style.shape)) {
     if (piece.kind === 'circle') {
@@ -370,20 +370,12 @@ export function drawEntity(
   }
 
   if (style.outlined) {
-    g.stroke({ width: Math.max(1.5, radius * 0.16), color: colour, alignment: 0.5, alpha });
+    g.stroke({ width: Math.max(1.5, radius * 0.16), color: color, alignment: 0.5, alpha });
   } else {
-    g.fill({ color: colour, alpha });
+    g.fill({ color: color, alpha });
   }
 
-  drawMarkPips(
-    g,
-    style.mark,
-    cx,
-    cy + radius + baseRadius * 0.38,
-    baseRadius * 0.13,
-    colour,
-    alpha,
-  );
+  drawMarkPips(g, style.mark, cx, cy + radius + baseRadius * 0.38, baseRadius * 0.13, color, alpha);
   return g;
 }
 
@@ -405,7 +397,7 @@ export function drawMarkPips(
   cx: number,
   cy: number,
   pipRadius: number,
-  colour: number,
+  color: number,
   alpha = 1,
 ): void {
   const pips = markPipCount(mark);
@@ -413,7 +405,7 @@ export function drawMarkPips(
   const spacing = pipRadius * 3;
   const start = cx - (spacing * (pips - 1)) / 2;
   for (let i = 0; i < pips; i++) {
-    g.circle(start + i * spacing, cy, pipRadius).fill({ color: colour, alpha });
+    g.circle(start + i * spacing, cy, pipRadius).fill({ color: color, alpha });
   }
 }
 

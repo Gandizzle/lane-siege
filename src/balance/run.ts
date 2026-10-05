@@ -457,7 +457,7 @@ class Player {
       for (const type of this.data.matrix.damageTypes) {
         worth.set(
           type,
-          (worth.get(type) ?? 0) + hp * this.data.matrix.multipliers[type][def.armour],
+          (worth.get(type) ?? 0) + hp * this.data.matrix.multipliers[type][def.armor],
         );
       }
     }

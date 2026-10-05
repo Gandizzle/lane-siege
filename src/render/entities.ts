@@ -30,7 +30,7 @@ interface PreviousPosition {
  * Only the Final Showdown uses it (§3.3, replaced): a lane has exactly one side on each
  * team, so solid-fill-means-defender already says whose a body is. Four armies
  * in one arena do not have that, and §14.2's channels are all spoken for -
- * silhouette is armour, fill is damage type, size and pips are mark - so
+ * silhouette is armor, fill is damage type, size and pips are mark - so
  * ownership gets a channel of its own rather than taking one of those over.
  */
 export type RingOf = (unit: EntityView) => number | null;

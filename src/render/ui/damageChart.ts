@@ -1,5 +1,5 @@
 /**
- * The damage chart: every damage type against every armour, as the multiplier
+ * The damage chart: every damage type against every armor, as the multiplier
  * the simulation applies (DESIGN.md §6, `damageMultiplier`).
  *
  * The matrix is the one rule the whole game turns on and the one a player
@@ -9,26 +9,26 @@
  *
  * Read from `data.matrix` and nothing else, so a balance change to the matrix
  * is a change to the chart. The rows and columns are the matrix's own lists; a
- * fifth armour would get a fifth column, and would fail to compile until it
+ * fifth armor would get a fifth column, and would fail to compile until it
  * had a word below its shape (`LOOKS`).
  *
  * The columns are drawn with a real monster's silhouette, because the shape is
- * how a player tells armour on the board (shapes.ts: round is flesh, angular is
+ * how a player tells armor on the board (shapes.ts: round is flesh, angular is
  * plate, pointed is ward, clusters are swarm).
  */
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
-import type { ArmourType, DamageType, GameData, ShapeId } from '../../data/schema.ts';
+import type { ArmorType, DamageType, GameData, ShapeId } from '../../data/schema.ts';
 import { damageMultiplier } from '../../sim/index.ts';
 import type { LaneLayout } from '../layout.ts';
-import { DAMAGE_COLOURS, UI } from '../palette.ts';
+import { DAMAGE_COLORS, UI } from '../palette.ts';
 import { silhouette } from '../shapes.ts';
 import { PanelButton } from './menu.ts';
 import { centreOn, label, wrapped } from './text.ts';
 
-/** How each armour's family of shapes reads on the board (shapes.ts). */
-const LOOKS: Record<ArmourType, string> = {
+/** How each armor's family of shapes reads on the board (shapes.ts). */
+const LOOKS: Record<ArmorType, string> = {
   flesh: 'round',
   plate: 'angular',
   swarm: 'clusters',
@@ -47,7 +47,7 @@ export function formatMultiplier(multiplier: number): string {
 
 interface Cell {
   damageType: DamageType;
-  armour: ArmourType;
+  armor: ArmorType;
   multiplier: number;
   background: Graphics;
   value: Text;
@@ -63,7 +63,7 @@ export class DamageChart extends Container {
   private readonly doneButton: PanelButton;
   private readonly footnote: Text;
   private readonly shapes = new Graphics();
-  private readonly columnHeads: { armour: ArmourType; shape: ShapeId; name: Text; looks: Text }[];
+  private readonly columnHeads: { armor: ArmorType; shape: ShapeId; name: Text; looks: Text }[];
   private readonly rowHeads: { damageType: DamageType; swatch: Graphics; name: Text }[];
   private readonly cells: Cell[] = [];
   private layout: LaneLayout;
@@ -77,23 +77,23 @@ export class DamageChart extends Container {
     this.layout = layout;
     this.visible = false;
 
-    const { damageTypes, armourTypes, multipliers } = data.matrix;
+    const { damageTypes, armorTypes, multipliers } = data.matrix;
     // Said only while the matrix makes it true.
     const oneEachWay = damageTypes.every((type) => {
-      const row = armourTypes.map((armour) => damageMultiplier(multipliers, type, armour));
+      const row = armorTypes.map((armor) => damageMultiplier(multipliers, type, armor));
       return row.filter((m) => m > 1).length === 1 && row.filter((m) => m < 1).length === 1;
     });
-    this.title = label('Damage vs armour', 18, UI.text, '700');
+    this.title = label('Damage vs armor', 18, UI.text, '700');
     this.subtitle = wrapped(
-      'Colour is damage type, shape is armour.' +
+      'Color is damage type, shape is armor.' +
         (oneEachWay
-          ? ' Every damage type is strong against one armour and weak against another.'
+          ? ' Every damage type is strong against one armor and weak against another.'
           : ' Green lands harder, orange lands softer.'),
       11,
       UI.textMuted,
     );
     this.footnote = wrapped(
-      'It works both ways: a monster hits your units by the same chart, so armour matters ' +
+      'It works both ways: a monster hits your units by the same chart, so armor matters ' +
         'for your line too.',
       11,
       UI.textMuted,
@@ -101,32 +101,32 @@ export class DamageChart extends Container {
     this.closeX = new PanelButton('✕', () => this.onClose());
     this.doneButton = new PanelButton('Close', () => this.onClose());
 
-    this.columnHeads = armourTypes.map((armour) => ({
-      armour,
-      // The first monster in that armour: a shape the player will actually meet.
+    this.columnHeads = armorTypes.map((armor) => ({
+      armor,
+      // The first monster in that armor: a shape the player will actually meet.
       shape:
-        data.monsters.monsters.find((m) => m.armour === armour)?.shape ??
+        data.monsters.monsters.find((m) => m.armor === armor)?.shape ??
         data.monsters.monsters[0]!.shape,
-      name: label(armour, 12, UI.text, '700'),
-      looks: label(LOOKS[armour], 9, UI.textMuted, '600'),
+      name: label(armor, 12, UI.text, '700'),
+      looks: label(LOOKS[armor], 9, UI.textMuted, '600'),
     }));
     this.rowHeads = damageTypes.map((damageType) => ({
       damageType,
       swatch: new Graphics(),
-      name: label(damageType, 13, DAMAGE_COLOURS[damageType], '700'),
+      name: label(damageType, 13, DAMAGE_COLORS[damageType], '700'),
     }));
     for (const damageType of damageTypes) {
-      for (const armour of armourTypes) {
-        const multiplier = damageMultiplier(multipliers, damageType, armour);
+      for (const armor of armorTypes) {
+        const multiplier = damageMultiplier(multipliers, damageType, armor);
         const word = verdict(multiplier);
-        const colour = word === 'strong' ? UI.healthGood : word === 'weak' ? UI.danger : UI.text;
+        const color = word === 'strong' ? UI.healthGood : word === 'weak' ? UI.danger : UI.text;
         this.cells.push({
           damageType,
-          armour,
+          armor,
           multiplier,
           background: new Graphics(),
-          value: label(formatMultiplier(multiplier), 14, colour, '700'),
-          word: label(word, 9, colour, '600'),
+          value: label(formatMultiplier(multiplier), 14, color, '700'),
+          word: label(word, 9, color, '600'),
         });
       }
     }
@@ -206,7 +206,7 @@ export class DamageChart extends Container {
     this.subtitle.position.set(px + pad, py + 42);
     this.closeX.place(px + panelW - pad - 34, py + 10, 34, 34);
 
-    // The grid: damage types down the side, armour across the top.
+    // The grid: damage types down the side, armor across the top.
     const headW = Math.min(90, innerW * 0.24);
     const columns = this.columnHeads.length;
     const cellGap = 4;
@@ -219,7 +219,7 @@ export class DamageChart extends Container {
     this.columnHeads.forEach((head, column) => {
       const cx = left + headW + column * (cellW + cellGap) + cellW / 2;
       const cy = gridTop + glyph + 2;
-      // Outlined, like a monster on the board: a shape, not a colour.
+      // Outlined, like a monster on the board: a shape, not a color.
       for (const piece of silhouette(head.shape)) {
         if (piece.kind === 'circle') {
           this.shapes.circle(cx + piece.x * glyph, cy + piece.y * glyph, piece.r * glyph);
@@ -236,15 +236,13 @@ export class DamageChart extends Container {
     this.rowHeads.forEach((head, row) => {
       const y = rowsTop + row * (rowH + 4);
       head.swatch.clear();
-      head.swatch
-        .circle(left + 7, y + rowH / 2, 6)
-        .fill({ color: DAMAGE_COLOURS[head.damageType] });
+      head.swatch.circle(left + 7, y + rowH / 2, 6).fill({ color: DAMAGE_COLORS[head.damageType] });
       head.name.position.set(left + 19, y + rowH / 2 - 9);
     });
 
     for (const cell of this.cells) {
       const row = this.rowHeads.findIndex((r) => r.damageType === cell.damageType);
-      const column = this.columnHeads.findIndex((c) => c.armour === cell.armour);
+      const column = this.columnHeads.findIndex((c) => c.armor === cell.armor);
       const x = left + headW + column * (cellW + cellGap);
       const y = rowsTop + row * (rowH + 4);
       const word = verdict(cell.multiplier);

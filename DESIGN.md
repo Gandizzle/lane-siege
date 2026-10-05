@@ -88,9 +88,9 @@ Death-spiral warning: a sieging monster means the lane never clears, which means
 A fortress weapon strong enough to reliably kill one or two current-wave monsters unaided. Small leaks then self-repair; large leaks are correctly fatal.
 Fortress HP regeneration each time the lane goes fully clear, so chip damage is not permanent.
 These two levers are also the primary control over when the first player is eliminated. Target roughly wave 13–15, not wave 8.
-6. Damage and armour types
-Four damage types, four armour types, rock-paper-scissors. Every row and every column sums to 4.1, so no type is globally stronger — each has exactly one favourable and one unfavourable matchup.
-Damage ↓ / Armour →
+6. Damage and armor types
+Four damage types, four armor types, rock-paper-scissors. Every row and every column sums to 4.1, so no type is globally stronger — each has exactly one favourable and one unfavourable matchup.
+Damage ↓ / Armor →
 Flesh
 Plate
 Swarm
@@ -117,11 +117,11 @@ Arcane
 0.6
 Rationale (matters for teachability):
 Impact — raw force. Shatters Ward barriers; wasted on Swarm, where one huge hit kills one tiny thing.
-Pierce — armour-piercing. Punches through Plate; passes cleanly through Flesh without doing much.
+Pierce — armor-piercing. Punches through Plate; passes cleanly through Flesh without doing much.
 Blast — explosive. Shreds Flesh; smothered by Plate.
 Arcane — energy. Chains through Swarm; absorbed by Ward.
 Names are placeholders and may change. The 1.5 / 1.0 / 0.6 spread is a starting point: 1.4 / 0.7 flattens it, 1.75 / 0.5 sharpens it.
-Both monsters and defensive units have a damage type and an armour type. The matrix applies in both directions.
+Both monsters and defensive units have a damage type and an armor type. The matrix applies in both directions.
 6.1 Builder coverage rule
 Because every lane faces the same wave, every builder must have access to all four damage types across its six units. A builder missing Pierce simply loses on the Plate wave.
 Builders are differentiated by distribution and quality, not coverage — one builder has two excellent Blast units and a mediocre Arcane one, another is the reverse.
@@ -131,7 +131,7 @@ Builders are differentiated by distribution and quality, not coverage — one bu
 Build one builder completely first. Get the systems right against a single roster. Builders 2–4 are then largely data entry against a proven framework — roughly a fifth of the effort each.
 4 builders × 6 units × ~2.2 average tiers ≈ 53 unit definitions, ~10 stats each ≈ 500 numbers to balance. Plan accordingly.
 7.2 Unit stats
-Every unit needs: gold cost, supply cost, HP, armour type, damage per attack, damage type, attack speed, range, tier.
+Every unit needs: gold cost, supply cost, HP, armor type, damage per attack, damage type, attack speed, range, tier.
 7.3 Tier upgrades
 Upgrade happens in place — the unit keeps its tile and its identity, gains stats and possibly an ability.
 All units have at least a tier 2. Some have tier 3.
@@ -158,7 +158,7 @@ Reserves spawn into their own wave's current enrage state.
 9. Monsters
 9.1 Design approach
 No special abilities in v1. Variety comes entirely from the stat space, which is large enough:
-armour type × damage type × move speed × HP × attack speed × damage per attack × range
+armor type × damage type × move speed × HP × attack speed × damage per attack × range
 4 × 4 × (several tiers of each stat) gives plenty of distinct-feeling monsters. Abilities and traits are a later addition.
 9.2 Wave generation
 Wave composition is a pure function of (matchSeed, waveNumber).
@@ -167,7 +167,7 @@ Monster stats and monster count both scale with wave number.
 Lane divergence comes exclusively from sends (§11.5).
 This gives, for free: deterministic replays, trivial desync detection, and the ability to run thousands of headless simulated matches to check balance curves.
 9.3 Next-wave preview
-During the build phase, players see the composition of the incoming wave — monster types, counts, armour types. Fair, because everyone faces the same thing, and it is what makes 30 seconds of building a real decision rather than a shopping trip.
+During the build phase, players see the composition of the incoming wave — monster types, counts, armor types. Fair, because everyone faces the same thing, and it is what makes 30 seconds of building a real decision rather than a shopping trip.
 The preview should also summarise the wave's offence ("this wave deals mostly Pierce") and highlight which of the player's buildable units are strong or weak against it. Without this, the matrix is invisible complexity and new players lose without knowing why.
 10. Fortress and resource building
 10.1 Fortress
@@ -176,7 +176,7 @@ HP — reaching zero eliminates the player. Regenerates on full lane clear (§5.
 Weapon — the last line of defence. Should reliably kill one or two current-wave monsters unaided.
 Its damage type is player-selectable during each build phase, free and instant. A small per-wave decision that keeps every player engaging with the matrix.
 Aura — buffs friendly units within a radius.
-Only one aura active at a time, chosen by the player from: damage, attack speed, armour, regeneration.
+Only one aura active at a time, chosen by the player from: damage, attack speed, armor, regeneration.
 Strength and radius are separate upgrades. Early on the radius cannot cover the whole build zone, forcing a real choice: a tight buffed core near the fortress, or a spread-out line that intercepts sooner but fights unbuffed.
 All fortress ranges — weapon range and aura radius — must be freely adjustable in data. An explicit design goal is to experiment with a fortress that actively participates in the battle versus one that sits back.
 10.2 Resource building
@@ -242,19 +242,19 @@ Match ends when one player (or team) remains, or when the wave-25 attrition endg
 14. Presentation
 14.1 Orientation and camera
 Portrait. Fixed camera. Whole lane visible at all times. See §4.1.
-14.2 Visual language — coloured shapes
+14.2 Visual language — colored shapes
 Placeholder art is the permanent plan, and the shapes carry real information:
 Channel
 Encodes
 Silhouette
-Armour type — circle = Flesh, hexagon = Plate, small triangle cluster = Swarm, diamond = Ward
-Fill colour
+Armor type — circle = Flesh, hexagon = Plate, small triangle cluster = Swarm, diamond = Ward
+Fill color
 Damage type — Impact, Pierce, Blast, Arcane
 Size + pips
 Tier
 Outline vs solid fill
 Monster vs defensive unit
-Shape is the primary channel for the information you must read instantly on an incoming monster, which keeps the game colourblind-safe. This is drawn entirely with Pixi Graphics calls — no sprites, no texture atlas, no asset pipeline, and it scales to any screen density.
+Shape is the primary channel for the information you must read instantly on an incoming monster, which keeps the game colorblind-safe. This is drawn entirely with Pixi Graphics calls — no sprites, no texture atlas, no asset pipeline, and it scales to any screen density.
 15. Technical architecture
 15.1 The core rule
 The simulation is a pure module with no rendering, no DOM, and no engine dependency.
@@ -305,7 +305,7 @@ Contents
 M1 — Headless sim
 One lane, one builder, 3 units, 5 waves. Text output only. No graphics. Proves the tick loop, targeting, steering, damage matrix, and gold flow.
 M2 — Renderer
-Pixi, portrait layout, coloured shapes, touch build UI. Single player, still one builder.
+Pixi, portrait layout, colored shapes, touch build UI. Single player, still one builder.
 M3 — Full single lane
 All 6 units of builder A, tiers, tech, fortress, gems, supply, 25 waves, bosses, attrition endgame. This is the point at which the game is balanceable.
 M4 — Multiplayer

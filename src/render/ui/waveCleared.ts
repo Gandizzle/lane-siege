@@ -41,7 +41,7 @@ import { ticksToSeconds, type MatchView, type TeamId } from '../../sim/index.ts'
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { confetti, drawBurst, easeOutBack } from './burst.ts';
-import { CURRENCY_COLOURS, GOLD, RichLabel } from './currency.ts';
+import { CURRENCY_COLORS, GOLD, RichLabel } from './currency.ts';
 import { centreOn, label, overlaid } from './text.ts';
 
 /** How long the card takes to come and to go, in milliseconds. */
@@ -147,7 +147,7 @@ export class WaveCleared extends Container {
     super();
     this.layout = layout;
     this.eventMode = 'none';
-    this.title = overlaid('', 30, CURRENCY_COLOURS.gold, '700');
+    this.title = overlaid('', 30, CURRENCY_COLORS.gold, '700');
     this.earned = new RichLabel(16, UI.text, '700');
     this.wall = label('', 13, UI.textMuted, '600');
     this.waiting = label('', 13, UI.accent, '700');
@@ -267,7 +267,7 @@ export class WaveCleared extends Container {
     this.backing
       .roundRect(cx - width / 2, top, width, y - top + 12 * scale, 14)
       .fill({ color: UI.background, alpha: 0.82 })
-      .stroke({ width: 2, color: CURRENCY_COLOURS.gold, alpha: 0.7 });
+      .stroke({ width: 2, color: CURRENCY_COLORS.gold, alpha: 0.7 });
 
     const reach = Math.min(l.lane.width, l.lane.height) * 0.48;
     drawBurst(this.burst, cx, cy, reach, this.age, scale, this.bits);

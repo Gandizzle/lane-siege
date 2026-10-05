@@ -83,7 +83,7 @@ describe('wave generation (DESIGN.md §9.2)', () => {
     for (const entry of preview) {
       expect(entry.count).toBeGreaterThan(0);
       expect(entry.name).toBeTruthy();
-      expect(entry.armour).toBeTruthy();
+      expect(entry.armor).toBeTruthy();
     }
     const total = preview.reduce((sum, e) => sum + e.count, 0);
     expect(total).toBe(generateWave(data, 1, 3).length);

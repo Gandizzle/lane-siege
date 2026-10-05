@@ -10,7 +10,7 @@ import type {
   AbilityDef,
   AbilityEffect,
   AbilityRef,
-  ArmourType,
+  ArmorType,
   GameData,
   Tunable,
 } from './schema.ts';
@@ -50,7 +50,7 @@ const IGNORED_KEYS = new Set([
   '_open',
   '_clockNote',
   '_decided',
-  '_armourNote',
+  '_armorNote',
   '_roster',
   '_todo',
   '_note',
@@ -81,7 +81,7 @@ function collectNulls(value: unknown, path: string, out: string[]): void {
  * hand-editing JSON on a phone.
  */
 function checkMatrix(data: GameData, errors: string[]): void {
-  const { damageTypes, armourTypes, multipliers } = data.matrix;
+  const { damageTypes, armorTypes, multipliers } = data.matrix;
   const EXPECTED = 4.1;
   const EPSILON = 1e-9;
 
@@ -91,13 +91,13 @@ function checkMatrix(data: GameData, errors: string[]): void {
       errors.push(`matrix.multipliers.${dmg} is missing`);
       continue;
     }
-    const sum = armourTypes.reduce((acc, arm) => acc + (row[arm] ?? 0), 0);
+    const sum = armorTypes.reduce((acc, arm) => acc + (row[arm] ?? 0), 0);
     if (Math.abs(sum - EXPECTED) > EPSILON) {
       errors.push(`matrix row '${dmg}' sums to ${sum}, expected ${EXPECTED} (§6)`);
     }
   }
 
-  for (const arm of armourTypes) {
+  for (const arm of armorTypes) {
     const sum = damageTypes.reduce((acc, dmg) => acc + (multipliers[dmg]?.[arm] ?? 0), 0);
     if (Math.abs(sum - EXPECTED) > EPSILON) {
       errors.push(`matrix column '${arm}' sums to ${sum}, expected ${EXPECTED} (§6)`);
@@ -233,7 +233,7 @@ function checkUpgradeChain(data: GameData, errors: string[]): void {
 }
 
 /**
- * Every body on the field has its own silhouette, and it is in its armour's
+ * Every body on the field has its own silhouette, and it is in its armor's
  * family. §14.2, amended - see `ShapeId` in schema.ts.
  *
  * Checked on load for the same reason the matrix is: it is an invariant that
@@ -242,7 +242,7 @@ function checkUpgradeChain(data: GameData, errors: string[]): void {
  * wrong; they just stop telling you which is which.
  */
 function checkShapes(data: GameData, errors: string[]): void {
-  const families = SHAPE_FAMILY as Record<string, ArmourType | undefined>;
+  const families = SHAPE_FAMILY as Record<string, ArmorType | undefined>;
   const monsters = [...data.monsters.monsters, ...data.monsters.bosses];
   const byId = new Map(data.units.units.map((u) => [u.id, u]));
 
@@ -251,9 +251,9 @@ function checkShapes(data: GameData, errors: string[]): void {
     const family = families[body.shape];
     if (family === undefined) {
       errors.push(`'${body.id}' has unknown shape '${body.shape}'`);
-    } else if (family !== body.armour) {
+    } else if (family !== body.armor) {
       errors.push(
-        `'${body.id}' is ${body.armour} but its shape '${body.shape}' is a ${family} silhouette (§14.2)`,
+        `'${body.id}' is ${body.armor} but its shape '${body.shape}' is a ${family} silhouette (§14.2)`,
       );
     }
   }
@@ -500,7 +500,7 @@ function checkAbilities(data: GameData, errors: string[], notes: string[]): void
   for (const unit of data.units.units) {
     check(unit.abilities, `unit ${unit.id}`);
     // The roster's whole premise (units.json): a unit that differs from the
-    // next one only in armour type and damage type is not a unit anybody
+    // next one only in armor type and damage type is not a unit anybody
     // remembers. Enforced rather than intended.
     if (!unit.abilities || unit.abilities.length === 0) {
       errors.push(`unit ${unit.id} has no ability`);

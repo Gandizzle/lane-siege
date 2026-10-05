@@ -15,7 +15,7 @@ import { MARK_INFO } from './statusMarks.ts';
 const { data } = loadDataFromDisk();
 
 describe('every kind of marker can be shown', () => {
-  it('has a name, a summary, a description and a colour', () => {
+  it('has a name, a summary, a description and a color', () => {
     const names = new Set<string>();
     for (const mark of STATUS_MARKS) {
       const info = MARK_INFO[mark];

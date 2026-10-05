@@ -10,7 +10,7 @@
  *
  * A send IS a pack of monsters (§11.5) - `grub_pack` puts five grubs in
  * somebody's next wave - so the honest icon for it is the grub. That is also
- * the useful one: it is the same silhouette, in the same armour family, in the
+ * the useful one: it is the same silhouette, in the same armor family, in the
  * same damage-type fill that §14.2 draws in the lane, in the wave preview and
  * on a unit button. A player who learns "hexagon means plate, and that one is
  * a Husk" learns it once and reads it everywhere. A send-only shape vocabulary

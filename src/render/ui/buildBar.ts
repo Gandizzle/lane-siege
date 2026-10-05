@@ -71,8 +71,8 @@ import type {
 import type { LaneLayout, Rect } from '../layout.ts';
 import { EVERYTHING, type Features } from '../features.ts';
 import type { Target } from '../../tutorial/types.ts';
-import { auraColour } from '../aura.ts';
-import { DAMAGE_COLOURS, UI } from '../palette.ts';
+import { auraColor } from '../aura.ts';
+import { DAMAGE_COLORS, UI } from '../palette.ts';
 import { DamagePanel } from './damagePanel.ts';
 import { GridButton } from './gridButton.ts';
 import { SENDS_PER_PAGE, pickSendTarget, sendIcon } from './sends.ts';
@@ -186,7 +186,7 @@ const FORT_UPGRADES: { id: string; name: string; short?: string; unit: string }[
 const AURAS: { id: AuraType; name: string; short?: string }[] = [
   { id: 'damage', name: 'Damage' },
   { id: 'attackSpeed', name: 'Atk Spd', short: 'Speed' },
-  { id: 'armour', name: 'Armour' },
+  { id: 'armor', name: 'Armor' },
   { id: 'regeneration', name: 'Regen' },
 ];
 
@@ -209,16 +209,16 @@ const TAB_HEIGHT = 26;
 const PAGE_TEXT = 12;
 
 /**
- * What colour a stat cell is drawn in: green when something is making the
+ * What color a stat cell is drawn in: green when something is making the
  * number better, red when something is making it worse, and the ordinary
- * text colour when the body is fighting with exactly what its definition says.
+ * text color when the body is fighting with exactly what its definition says.
  *
  * "Better" is higher for every cell the panel shows - more health, more
  * damage, a faster swing, a faster walk - which is why one comparison covers
  * all six. A stat where lower is better would need its own sense, and none of
  * these is one.
  */
-const STAT_COLOURS: Record<StatDirection, number> = {
+const STAT_COLORS: Record<StatDirection, number> = {
   plain: UI.text,
   up: UI.healthGood,
   down: UI.danger,
@@ -1100,7 +1100,7 @@ export class BuildBar extends Container {
       title: 'Yourself',
       detail: view.solo?.endless ? 'arrives at once' : 'joins your next wave',
       note: '',
-      noteColour: UI.accent,
+      noteColor: UI.accent,
       enabled: canAct,
       selected: true,
     });
@@ -1149,7 +1149,7 @@ export class BuildBar extends Container {
             ? `visible ${Math.ceil(ticksToSeconds(target.visionTicksLeft))}s`
             : 'visible'
           : '',
-        noteColour: UI.accent,
+        noteColor: UI.accent,
         enabled: canAct,
         selected: !this.sendAtRandom && this.sendTarget === target.teamId,
       });
@@ -1165,7 +1165,7 @@ export class BuildBar extends Container {
       title: 'Random',
       detail: targets.length > 1 ? `of ${targets.length}` : 'any lane',
       note: this.sendAtRandom ? 'spreading' : '',
-      noteColour: UI.accent,
+      noteColor: UI.accent,
       enabled: canAct && targets.length > 0,
       selected: this.sendAtRandom,
     });
@@ -1240,7 +1240,7 @@ export class BuildBar extends Container {
               ]
                 .filter((part) => part !== null)
                 .join(' · '),
-        noteColour:
+        noteColor:
           open && (armed || (def.economic === true && !view.solo?.endless))
             ? UI.accent
             : UI.textMuted,
@@ -1252,7 +1252,7 @@ export class BuildBar extends Container {
         // for (gridButton.ts).
         interactive: canAct && aimed,
         selected: armed,
-        selectedColour: UI.accent,
+        selectedColor: UI.accent,
       });
     });
 
@@ -1309,7 +1309,7 @@ export class BuildBar extends Container {
             : verdict === 'weak'
               ? `${reach} · ▼ weak`
               : reach,
-        noteColour:
+        noteColor:
           verdict === 'strong' ? UI.healthGood : verdict === 'weak' ? UI.danger : UI.textMuted,
         enabled: canBuild && canPay,
         // Out for want of gold or supply, and only then: during a wave every
@@ -1330,7 +1330,7 @@ export class BuildBar extends Container {
       const next = track.levels.find((l) => l.level === level + 1);
       const cost = next?.goldCost ?? 0;
 
-      button.setSwatch(track.damageType ? DAMAGE_COLOURS[track.damageType] : null);
+      button.setSwatch(track.damageType ? DAMAGE_COLORS[track.damageType] : null);
       button.update({
         title: name,
         detail: next ? `${GOLD}${cost}` : 'maxed',
@@ -1404,7 +1404,7 @@ export class BuildBar extends Container {
    */
   private renderAura(lane: LaneView, canAct: boolean): void {
     for (const { type, button } of this.weaponButtons) {
-      button.setSwatch(DAMAGE_COLOURS[type]);
+      button.setSwatch(DAMAGE_COLORS[type]);
       button.update({
         title: type,
         detail: 'weapon',
@@ -1414,9 +1414,9 @@ export class BuildBar extends Container {
     }
     for (const { id, button } of this.auraButtons) {
       const meta = AURAS.find((a) => a.id === id);
-      // The same colour the ground is drawn in when this aura is running
+      // The same color the ground is drawn in when this aura is running
       // (aura.ts), so the chip and the lane say the same thing.
-      button.setSwatch(auraColour(id));
+      button.setSwatch(auraColor(id));
       // §10.1 sells strength and radius separately, so the chip says both:
       // otherwise Aura Power is a purchase with no visible consequence here.
       const strength = Math.round(lane.fortress.auraStrength * 100);
@@ -1429,7 +1429,7 @@ export class BuildBar extends Container {
         shortTitle: meta?.short,
         detail: lane.fortress.auraRadius > 0 ? `r ${lane.fortress.auraRadius.toFixed(1)}` : 'aura',
         note: id === 'regeneration' ? `+${Number(regen.toFixed(2))}%/s` : `+${strength}%`,
-        noteColour: auraColour(id),
+        noteColor: auraColor(id),
         enabled: canAct,
         selected: lane.fortress.activeAura === id,
       });
@@ -1481,7 +1481,7 @@ export class BuildBar extends Container {
     // would gain - only once upgrading is open: before then it is a promise of
     // a button that is not there.
     const preview = buttons ? (next ?? null) : null;
-    this.setHeader(current.name, typeLine(current.damageType, current.armour), unit, current.id);
+    this.setHeader(current.name, typeLine(current.damageType, current.armor), unit, current.id);
     this.showStats(current, preview, mods);
     // What it DOES, which is most of why one unit is not another (§7, §18).
     // `traits` are the older, purely descriptive lines and are usually absent;
@@ -1529,7 +1529,7 @@ export class BuildBar extends Container {
       return;
     }
 
-    this.setHeader(def.name, typeLine(def.damageType, def.armour), body, def.id);
+    this.setHeader(def.name, typeLine(def.damageType, def.armor), body, def.id);
     this.showMonsterStats(def, wave, body?.mods ?? null);
     // A monster with nothing special says so in the trait line rather than
     // showing an empty row of chips: a blank block reads as a panel that
@@ -1656,7 +1656,7 @@ export class BuildBar extends Container {
       }
       cell.name.text = meta.name;
       cell.value.text = monsterStatText(meta.key, stats, mods);
-      cell.value.style.fill = STAT_COLOURS[statDirection(meta.key, mods)];
+      cell.value.style.fill = STAT_COLORS[statDirection(meta.key, mods)];
     });
   }
 
@@ -1665,7 +1665,7 @@ export class BuildBar extends Container {
    *
    * `mods` is what is currently on the body (`EntityView.mods`), so a cell
    * shows the number the body is fighting with rather than the number its
-   * definition was written with - and is coloured by which way that moved it.
+   * definition was written with - and is colored by which way that moved it.
    */
   private showStats(current: UnitDef | null, next: UnitDef | null, mods: StatMods | null): void {
     this.statCells.forEach((cell, i) => {
@@ -1677,7 +1677,7 @@ export class BuildBar extends Container {
       }
       cell.name.text = meta.name;
       cell.value.text = statText(meta.key, current, next, mods);
-      cell.value.style.fill = STAT_COLOURS[statDirection(meta.key, mods)];
+      cell.value.style.fill = STAT_COLORS[statDirection(meta.key, mods)];
     });
   }
 
@@ -1699,7 +1699,7 @@ export class BuildBar extends Container {
 
     const gold = next.goldCost ?? 0;
     const supply = next.supplyCost ?? 0;
-    // The body it becomes, not just its colour: the mark pips are the clearest
+    // The body it becomes, not just its color: the mark pips are the clearest
     // statement of what the button buys.
     this.upgradeButton.setSwatch(glyphOf(next));
     const canPay = economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap;
@@ -1732,7 +1732,7 @@ export class BuildBar extends Container {
       // Which rate applied, so a half refund never looks like a bug. "undo"
       // rather than "100%" because that is what the full rate is FOR.
       note: paid === 0 ? '' : spend.earlier === 0 ? 'undo · full' : `of ${GOLD}${paid}`,
-      noteColour: spend.earlier === 0 ? UI.healthGood : UI.textMuted,
+      noteColor: spend.earlier === 0 ? UI.healthGood : UI.textMuted,
       enabled: canAct,
     });
   }
@@ -1763,7 +1763,7 @@ function trim(value: number | null): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
 }
 
-/** A unit as §14.2 draws it: armour shape, damage colour, mark size and pips. */
+/** A unit as §14.2 draws it: armor shape, damage color, mark size and pips. */
 function glyphOf(def: UnitDef): EntityStyle {
   return {
     shape: def.shape,
@@ -1828,7 +1828,7 @@ function grid(
 
 /**
  * Which parts of a price the wallet cannot cover: what a button draws in the
- * can't-afford colour (gridButton.ts, `short`). Supply is short when the army
+ * can't-afford color (gridButton.ts, `short`). Supply is short when the army
  * has no room for it, which is how the simulation refuses it too.
  */
 export function shortfall(

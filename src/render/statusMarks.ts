@@ -2,8 +2,8 @@
  * Small animated markers for what is happening to a body: burning, slowed,
  * shielded and the rest (src/sim/statusMarks.ts decides which).
  *
- * Every kind has its own SHAPE as well as its own colour, which is the rule
- * §14.2 set for the bodies themselves: colour is the second channel, so a
+ * Every kind has its own SHAPE as well as its own color, which is the rule
+ * §14.2 set for the bodies themselves: color is the second channel, so a
  * player who cannot tell the greens apart can still tell rising pluses
  * (healing) from rising bubbles (blight) from spikes in the ground (roots).
  *
@@ -32,7 +32,7 @@
 
 import type { Graphics } from 'pixi.js';
 import { STATUS_MARKS, hasMark, type StatusMark } from '../sim/index.ts';
-import { DAMAGE_COLOURS } from './palette.ts';
+import { DAMAGE_COLORS } from './palette.ts';
 
 export interface MarkedBody {
   /** Centre, in screen pixels. */
@@ -46,8 +46,8 @@ export interface MarkedBody {
   seed: number;
 }
 
-const COLOURS = {
-  flame: DAMAGE_COLOURS.blast,
+const COLORS = {
+  flame: DAMAGE_COLORS.blast,
   flameCore: 0xffd24a,
   blight: 0xb5d33d,
   ice: 0xa8e0ff,
@@ -79,8 +79,8 @@ export interface MarkInfo {
   layer: 'under' | 'over';
   /** Drawing order within its layer; lower first, so a bubble sits behind a flame. */
   order: number;
-  /** The text colour the guide uses for its name. */
-  colour: number;
+  /** The text color the guide uses for its name. */
+  color: number;
   draw(g: Graphics, body: MarkedBody, time: number): void;
 }
 
@@ -93,7 +93,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'few burns can stack on one body. Some Pyre units hit harder against anything already burning.',
     layer: 'over',
     order: 3,
-    colour: COLOURS.flame,
+    color: COLORS.flame,
     draw: drawFlames,
   },
   blighted: {
@@ -104,7 +104,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'arrives with other debuffs, such as taking extra damage or being healed less.',
     layer: 'over',
     order: 4,
-    colour: COLOURS.blight,
+    color: COLORS.blight,
     draw: drawBubbles,
   },
   slowed: {
@@ -115,7 +115,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'so several add up, but no number of them stops a body completely - that takes a root or a stun.',
     layer: 'over',
     order: 2,
-    colour: COLOURS.ice,
+    color: COLORS.ice,
     draw: drawIce,
   },
   rooted: {
@@ -126,7 +126,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'control has diminishing returns, so the same body cannot be held down forever.',
     layer: 'under',
     order: 0,
-    colour: COLOURS.root,
+    color: COLORS.root,
     draw: drawRoots,
   },
   stunned: {
@@ -138,7 +138,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'returns, so nothing stays stunned for long.',
     layer: 'over',
     order: 8,
-    colour: COLOURS.stun,
+    color: COLORS.stun,
     draw: drawStars,
   },
   taunted: {
@@ -149,7 +149,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'pull enemies onto themselves and off the softer units behind them.',
     layer: 'over',
     order: 9,
-    colour: COLOURS.taunt,
+    color: COLORS.taunt,
     draw: drawTaunt,
   },
   shielded: {
@@ -160,7 +160,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'the last blocked hit is spent or the ward runs out.',
     layer: 'over',
     order: 0,
-    colour: COLOURS.shield,
+    color: COLORS.shield,
     draw: drawShield,
   },
   regenerating: {
@@ -171,7 +171,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'usual. Anything that cuts healing received (see Weakened) cuts this too.',
     layer: 'over',
     order: 5,
-    colour: COLOURS.regen,
+    color: COLORS.regen,
     draw: drawPluses,
   },
   empowered: {
@@ -182,7 +182,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       "ally's aura, so it also shows which bodies are standing close enough to share one.",
     layer: 'over',
     order: 6,
-    colour: COLOURS.empowered,
+    color: COLORS.empowered,
     draw: (g, body, time) => drawChevrons(g, body, time, 1),
   },
   weakened: {
@@ -193,7 +193,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'good one to focus: many of these make every hit on it count for more.',
     layer: 'over',
     order: 7,
-    colour: COLOURS.weakened,
+    color: COLORS.weakened,
     draw: (g, body, time) => drawChevrons(g, body, time, -1),
   },
   fortified: {
@@ -205,7 +205,7 @@ export const MARK_INFO: Readonly<Record<StatusMark, MarkInfo>> = {
       'given, or has just triggered.',
     layer: 'over',
     order: 1,
-    colour: COLOURS.fortified,
+    color: COLORS.fortified,
     draw: drawBrackets,
   },
 };
@@ -248,16 +248,16 @@ function phase(body: MarkedBody): number {
   return ((body.seed * 0.6180339887) % 1) * TAU;
 }
 
-function fill(g: Graphics, points: number[], colour: number, alpha: number): void {
+function fill(g: Graphics, points: number[], color: number, alpha: number): void {
   if (alpha <= 0.01 || points.length < 6) return;
-  g.moveTo(points[0]!, points[1]!).poly(points).fill({ color: colour, alpha });
+  g.moveTo(points[0]!, points[1]!).poly(points).fill({ color: color, alpha });
 }
 
-function dot(g: Graphics, x: number, y: number, r: number, colour: number, alpha: number): void {
+function dot(g: Graphics, x: number, y: number, r: number, color: number, alpha: number): void {
   if (alpha <= 0.01 || r <= 0) return;
   g.moveTo(x + r, y)
     .circle(x, y, r)
-    .fill({ color: colour, alpha });
+    .fill({ color: color, alpha });
 }
 
 /** The fractional part: where a repeating cycle is, 0 to 1. */
@@ -282,9 +282,9 @@ function drawFlames(g: Graphics, body: MarkedBody, time: number): void {
     dy /= len;
     const flicker = Math.sin(time * 12 + i * 2.1 + p) * 0.5 + Math.sin(time * 19 + i) * 0.5;
     const height = s * (0.6 + 0.2 * flicker) * (i === 1 ? 1.15 : 0.9);
-    for (const [scale, colour] of [
-      [1, COLOURS.flame],
-      [0.55, COLOURS.flameCore],
+    for (const [scale, color] of [
+      [1, COLORS.flame],
+      [0.55, COLORS.flameCore],
     ] as const) {
       const h = height * scale;
       const w = s * 0.22 * scale;
@@ -300,7 +300,7 @@ function drawFlames(g: Graphics, body: MarkedBody, time: number): void {
           bx - dx * w * 0.7,
           by - dy * w * 0.7,
         ],
-        colour,
+        color,
         0.95,
       );
     }
@@ -315,7 +315,7 @@ function drawBubbles(g: Graphics, body: MarkedBody, time: number): void {
     const x = body.cx + (i - 1) * body.radius * 0.6 + Math.sin(time * 3 + i + p) * s * 0.08;
     const y = body.cy - body.radius * 0.3 - t * s * 1.3;
     const alpha = 0.95 * (1 - t * 0.8) * Math.min(1, t * 5);
-    dot(g, x, y, s * (0.14 + 0.08 * (1 - t)), COLOURS.blight, alpha);
+    dot(g, x, y, s * (0.14 + 0.08 * (1 - t)), COLORS.blight, alpha);
   }
 }
 
@@ -328,7 +328,7 @@ function drawIce(g: Graphics, body: MarkedBody, time: number): void {
     const angle = time * 0.9 + (i * TAU) / 3 + p;
     const x = body.cx + Math.cos(angle) * orbit;
     const y = body.cy + Math.sin(angle) * orbit;
-    fill(g, [x, y - d * 1.3, x + d * 0.8, y, x, y + d * 1.3, x - d * 0.8, y], COLOURS.ice, 0.95);
+    fill(g, [x, y - d * 1.3, x + d * 0.8, y, x, y + d * 1.3, x - d * 0.8, y], COLORS.ice, 0.95);
   }
 }
 
@@ -351,7 +351,7 @@ function drawRoots(g: Graphics, body: MarkedBody, time: number): void {
         body.cx + cos * inner + sin * w,
         body.cy + sin * inner - cos * w,
       ],
-      COLOURS.root,
+      COLORS.root,
       0.95,
     );
   }
@@ -375,7 +375,7 @@ function drawStars(g: Graphics, body: MarkedBody, time: number): void {
       const r = k % 2 === 0 ? q : q * 0.4;
       points.push(x + Math.cos(a) * r, y + Math.sin(a) * r);
     }
-    fill(g, points, COLOURS.stun, 0.95);
+    fill(g, points, COLORS.stun, 0.95);
   }
 }
 
@@ -390,7 +390,7 @@ function drawTaunt(g: Graphics, body: MarkedBody, time: number): void {
   fill(
     g,
     [x - w, y - h, x - w + k, y - h, x, y + h - k * 1.6, x + w - k, y - h, x + w, y - h, x, y + h],
-    COLOURS.taunt,
+    COLORS.taunt,
     0.95,
   );
 }
@@ -401,10 +401,10 @@ function drawShield(g: Graphics, body: MarkedBody, time: number): void {
   const shimmer = 0.5 + 0.5 * Math.sin(time * 3 + phase(body));
   g.moveTo(body.cx + r, body.cy)
     .circle(body.cx, body.cy, r)
-    .fill({ color: COLOURS.shield, alpha: 0.1 + 0.06 * shimmer });
+    .fill({ color: COLORS.shield, alpha: 0.1 + 0.06 * shimmer });
   g.moveTo(body.cx + r, body.cy)
     .circle(body.cx, body.cy, r)
-    .stroke({ width: Math.max(1.5, s * 0.1), color: COLOURS.shield, alpha: 0.5 + 0.3 * shimmer });
+    .stroke({ width: Math.max(1.5, s * 0.1), color: COLORS.shield, alpha: 0.5 + 0.3 * shimmer });
 }
 
 function drawPluses(g: Graphics, body: MarkedBody, time: number): void {
@@ -418,8 +418,8 @@ function drawPluses(g: Graphics, body: MarkedBody, time: number): void {
     const th = Math.max(1, s * 0.09);
     const alpha = 0.95 * (1 - t) * Math.min(1, t * 6);
     if (alpha <= 0.01) continue;
-    g.rect(x - a, y - th, a * 2, th * 2).fill({ color: COLOURS.regen, alpha });
-    g.rect(x - th, y - a, th * 2, a * 2).fill({ color: COLOURS.regen, alpha });
+    g.rect(x - a, y - th, a * 2, th * 2).fill({ color: COLORS.regen, alpha });
+    g.rect(x - th, y - a, th * 2, a * 2).fill({ color: COLORS.regen, alpha });
   }
 }
 
@@ -451,7 +451,7 @@ function drawChevrons(g: Graphics, body: MarkedBody, time: number, dir: 1 | -1):
         x - w + k,
         y + h,
       ],
-      dir === 1 ? COLOURS.empowered : COLOURS.weakened,
+      dir === 1 ? COLORS.empowered : COLORS.weakened,
       alpha,
     );
   }
@@ -469,11 +469,11 @@ function drawBrackets(g: Graphics, body: MarkedBody, time: number): void {
       const y = body.cy + sy * b;
       // The corner's two arms, each running back toward the body's middle.
       g.rect(sx > 0 ? x - len : x, sy > 0 ? y - th : y, len, th).fill({
-        color: COLOURS.fortified,
+        color: COLORS.fortified,
         alpha,
       });
       g.rect(sx > 0 ? x - th : x, sy > 0 ? y - len : y, th, len).fill({
-        color: COLOURS.fortified,
+        color: COLORS.fortified,
         alpha,
       });
     }

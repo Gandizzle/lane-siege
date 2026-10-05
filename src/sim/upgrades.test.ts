@@ -421,8 +421,8 @@ describe('auras (§10.1)', () => {
 
     applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'damage' });
     expect(lane.fortress.activeAura).toBe('damage');
-    applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armour' });
-    expect(lane.fortress.activeAura).toBe('armour');
+    applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armor' });
+    expect(lane.fortress.activeAura).toBe('armor');
   });
 });
 
@@ -464,10 +464,10 @@ describe('the shop stays open in combat; the board does not (§3.1, amended)', (
     expect(
       applyCommand(ctx, state, { kind: 'setWeaponType', teamId: 'l1', damageType: 'arcane' }).ok,
     ).toBe(true);
-    expect(applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armour' }).ok).toBe(
+    expect(applyCommand(ctx, state, { kind: 'setAura', teamId: 'l1', aura: 'armor' }).ok).toBe(
       true,
     );
-    expect(state.lanes.l1!.fortress.activeAura).toBe('armour');
+    expect(state.lanes.l1!.fortress.activeAura).toBe('armor');
   });
 
   it('still refuses to place, upgrade or sell a unit', () => {

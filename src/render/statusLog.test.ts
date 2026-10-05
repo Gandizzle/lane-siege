@@ -14,7 +14,7 @@ function body(id: number, statusMarks: number): EntityView {
     x: 0,
     y: 0,
     radius: 0.2,
-    armour: 'flesh',
+    armor: 'flesh',
     damageType: 'impact',
     hpFraction: 1,
     statusMarks,

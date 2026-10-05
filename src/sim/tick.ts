@@ -334,7 +334,7 @@ function monstersAttack(env: AbilityEnv, ctx: SimContext, lane: Lane, state: Mat
     if (monster.targetId !== FORTRESS_ID) {
       const target = lane.units.find((u) => u.id === monster.targetId && u.alive);
       if (!target) continue;
-      // §10.1's armour aura is a property of where the unit is standing and
+      // §10.1's armor aura is a property of where the unit is standing and
       // not of any ability, so it multiplies the swing on the way in; every
       // other mitigation is inside `dealDamage` (strike.ts).
       dealDamage(env.strike, monster, target, {
@@ -351,7 +351,7 @@ function monstersAttack(env: AbilityEnv, ctx: SimContext, lane: Lane, state: Mat
         ctx.data.matrix.multipliers,
         damage,
         monster.damageType,
-        ctx.data.fortress.armour,
+        ctx.data.fortress.armor,
       );
       lane.attacks.push({ attackerId: monster.id, targetId: FORTRESS_ID });
     }
@@ -476,7 +476,7 @@ function fortressActs(ctx: SimContext, lane: Lane): void {
     ctx.data.matrix.multipliers,
     weapon.weaponDamage,
     lane.fortress.weaponDamageType,
-    target.armour,
+    target.armor,
   );
   // Whoever lands the killing blow owns the kill, and the wall's kills pay
   // differently (§11.1, amended). `alive` guards the case where something else

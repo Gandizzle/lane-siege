@@ -10,7 +10,7 @@
  * All lanes face identical waves (§9.2). Lane divergence comes only from sends.
  */
 
-import type { ArmourType, DamageType, GameData, MonsterDef, ShapeId } from '../data/schema.ts';
+import type { ArmorType, DamageType, GameData, MonsterDef, ShapeId } from '../data/schema.ts';
 import { waveRng } from './rng.ts';
 
 /** One monster to spawn: its definition, and the wave it belongs to (§8). */
@@ -118,7 +118,7 @@ function intPow(base: number, exponent: number): number {
  * How many boss waves past the first this one is. Wave 5 is 0, wave 25 is 4.
  *
  * Bosses are drawn at random from a bank (§3.4), so the bank has to be four
- * bodies of the SAME power wearing four different armour types - otherwise
+ * bodies of the SAME power wearing four different armor types - otherwise
  * "wave 5" means a 1,400 HP fight or a 3,100 HP fight depending on a die roll,
  * and no amount of tuning the escort makes that one wave. What separates wave
  * 5's boss from wave 25's is this exponent, not which body came up.
@@ -337,7 +337,7 @@ export function sendPrice(data: GameData, sendId: string): { gems: number; incom
 
 /**
  * §9.3: during the build phase players see the incoming wave - types, counts,
- * armour types - and a summary of what it deals. Fair, because everyone faces
+ * armor types - and a summary of what it deals. Fair, because everyone faces
  * the same thing, and it is what makes 30 seconds of building a real decision
  * rather than a shopping trip.
  */
@@ -345,11 +345,11 @@ export interface WavePreviewEntry {
   defId: string;
   name: string;
   count: number;
-  armour: ArmourType;
+  armor: ArmorType;
   damageType: DamageType;
   /**
    * The monster's silhouette (§14.2, amended), so the preview can show the
-   * thing rather than only name it. Carried here beside `armour` and
+   * thing rather than only name it. Carried here beside `armor` and
    * `damageType` for the same reason those are: it is a property of the
    * definition that the preview needs, and looking it up again in the renderer
    * would be a second place for the answer to come from.
@@ -375,7 +375,7 @@ export function previewWave(data: GameData, seed: number, waveNumber: number): W
       defId,
       name: def.name,
       count,
-      armour: def.armour,
+      armor: def.armor,
       damageType: def.damageType,
       shape: def.shape,
     });
@@ -408,9 +408,9 @@ export interface WaveSummary {
   dominantDamageType: DamageType | null;
   /** Share of the wave, by count, dealing that type. */
   dominantDamageShare: number;
-  /** Armour spread of the wave, by count. */
-  armourMix: { armour: ArmourType; count: number }[];
-  /** How each buildable unit fares against this wave's armour. */
+  /** Armor spread of the wave, by count. */
+  armorMix: { armor: ArmorType; count: number }[];
+  /** How each buildable unit fares against this wave's armor. */
   units: UnitRating[];
 }
 
@@ -429,7 +429,7 @@ export function summariseWave(
 
   const specs = generateWave(data, seed, waveNumber);
   const damageCounts = new Map<DamageType, number>();
-  const armourCounts = new Map<ArmourType, number>();
+  const armorCounts = new Map<ArmorType, number>();
   let total = 0;
 
   for (const spec of specs) {
@@ -437,7 +437,7 @@ export function summariseWave(
     if (!def) continue;
     total++;
     damageCounts.set(def.damageType, (damageCounts.get(def.damageType) ?? 0) + 1);
-    armourCounts.set(def.armour, (armourCounts.get(def.armour) ?? 0) + 1);
+    armorCounts.set(def.armor, (armorCounts.get(def.armor) ?? 0) + 1);
   }
 
   let dominantDamageType: DamageType | null = null;
@@ -449,19 +449,19 @@ export function summariseWave(
     }
   }
 
-  const armourMix = [...armourCounts.entries()]
-    .map(([armour, count]) => ({ armour, count }))
+  const armorMix = [...armorCounts.entries()]
+    .map(([armor, count]) => ({ armor, count }))
     .sort((a, b) => b.count - a.count);
 
-  // A unit's usefulness is its damage type averaged over the armour it will
-  // actually meet, weighted by how much of that armour is coming.
+  // A unit's usefulness is its damage type averaged over the armor it will
+  // actually meet, weighted by how much of that armor is coming.
   const units: UnitRating[] = [];
   for (const unit of data.units.units) {
     if (builderId && unit.builderId !== builderId) continue;
 
     let weighted = 0;
-    for (const { armour, count } of armourMix) {
-      weighted += (data.matrix.multipliers[unit.damageType]?.[armour] ?? 1) * count;
+    for (const { armor, count } of armorMix) {
+      weighted += (data.matrix.multipliers[unit.damageType]?.[armor] ?? 1) * count;
     }
     const effectiveness = total > 0 ? weighted / total : 1;
 
@@ -482,7 +482,7 @@ export function summariseWave(
   return {
     dominantDamageType,
     dominantDamageShare: total > 0 ? dominantCount / total : 0,
-    armourMix,
+    armorMix,
     units,
   };
 }

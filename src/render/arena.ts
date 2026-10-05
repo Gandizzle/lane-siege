@@ -20,7 +20,7 @@
  * Ownership. A lane has one side and everything solid in it is yours; four
  * armies in one arena do not, and §14.2's channels are all spent on what a
  * body is rather than whose it is. So each spoke's floor is tinted with its
- * seat's colour and each body wears a ring in the same colour - two readings
+ * seat's color and each body wears a ring in the same color - two readings
  * of the same fact, one of which survives at a glance across a crowded centre.
  */
 
@@ -32,10 +32,10 @@ import { LEGS } from '../sim/index.ts';
 import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
 import { arenaCamera, centredOn, type Camera, type Rect } from './layout.ts';
-import { SEAT_COLOURS, UI } from './palette.ts';
+import { SEAT_COLORS, UI } from './palette.ts';
 import { GroundView, isTextured, type BattlefieldId } from './battlefield.ts';
 
-/** How strongly a spoke's floor carries its owner's colour. A tint, not a fill. */
+/** How strongly a spoke's floor carries its owner's color. A tint, not a fill. */
 const SPOKE_TINT_ALPHA = 0.1;
 /**
  * How strongly a held centre is tinted. Well above the spoke tint, because the
@@ -96,9 +96,9 @@ export function seatsById(view: MatchView): Map<number, number> {
   return out;
 }
 
-/** The seat's colour, wrapped so a fifth seat could never throw. */
-export function seatColour(seat: number): number {
-  return SEAT_COLOURS[((seat % SEAT_COLOURS.length) + SEAT_COLOURS.length) % SEAT_COLOURS.length]!;
+/** The seat's color, wrapped so a fifth seat could never throw. */
+export function seatColor(seat: number): number {
+  return SEAT_COLORS[((seat % SEAT_COLORS.length) + SEAT_COLORS.length) % SEAT_COLORS.length]!;
 }
 
 export class ArenaStage extends Container {
@@ -212,7 +212,7 @@ export class ArenaStage extends Container {
     this.entities.render(lane, alpha, {
       ringOf: (unit) => {
         const seat = this.seats.get(unit.id);
-        return seat === undefined ? null : seatColour(seat);
+        return seat === undefined ? null : seatColor(seat);
       },
       statusTime,
     });
@@ -282,7 +282,7 @@ export class ArenaStage extends Container {
     };
     LEGS.forEach((leg, seat) => {
       const [x, y, w, h] = spokes[leg];
-      at(m, x, y, w, h).fill({ color: seatColour(seat), alpha: SPOKE_TINT_ALPHA });
+      at(m, x, y, w, h).fill({ color: seatColor(seat), alpha: SPOKE_TINT_ALPHA });
     });
 
     at(m, spokeLength, spokeLength, spokeWidth, spokeWidth).fill({
@@ -334,7 +334,7 @@ export class ArenaStage extends Container {
    *
    * A prize nobody can see is a prize nobody plays for, and the whole point of
    * the centre buff is to pull armies into the middle - so the middle has to
-   * say who is winning it. The square takes the holder's seat colour, and a
+   * say who is winning it. The square takes the holder's seat color, and a
    * TIE splits it into a band each, which reads as contested rather than as
    * somebody having quietly taken it.
    *
@@ -365,15 +365,15 @@ export class ArenaStage extends Container {
       const seat = seatOf.get(teamId);
       if (seat === undefined) return;
       g.rect(x + index * band, y, band, side).fill({
-        color: seatColour(seat),
+        color: seatColor(seat),
         alpha: HELD_TINT_ALPHA,
       });
     });
 
-    // One outline in the leader's colour when it is held outright, and in the
-    // neutral edge colour when it is shared - a contested hill should not look
+    // One outline in the leader's color when it is held outright, and in the
+    // neutral edge color when it is shared - a contested hill should not look
     // like a won one.
-    const outline = holders.length === 1 ? seatColour(seatOf.get(holders[0]!) ?? 0) : UI.outline;
+    const outline = holders.length === 1 ? seatColor(seatOf.get(holders[0]!) ?? 0) : UI.outline;
     g.rect(x, y, side, side).stroke({ width: 2, color: outline, alpha: 0.9 });
   }
 

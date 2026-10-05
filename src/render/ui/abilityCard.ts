@@ -34,7 +34,7 @@ const PAD = 18;
 /**
  * The card's type sizes at a text scale of 1 (layout.ts, `textScaleFor`).
  * They were 16, 11, 11 and 10, with "tap anywhere to close" at 9 in the muted
- * colour - a card a player opened in order to READ, set in small print, and
+ * color - a card a player opened in order to READ, set in small print, and
  * closed by an instruction they could barely see.
  */
 const TITLE_SIZE = 20;

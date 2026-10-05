@@ -3,7 +3,7 @@
  *
  * §10.1 gives the player two separate purchases - Aura Power and Aura Radius -
  * and one choice of which of four auras is running. All three were invisible:
- * the weapon's damage type at least recoloured the shots it fired, but an aura
+ * the weapon's damage type at least recolored the shots it fired, but an aura
  * changed numbers behind the scenes and nothing on screen. A player could not
  * see which aura was on, how far it reached, or whether the last upgrade had
  * bought anything, which makes the whole tab a guess.
@@ -44,14 +44,14 @@ import type { LaneLayout } from './layout.ts';
 import { fortressShape } from './layout.ts';
 
 /**
- * A colour per aura, chosen away from `DAMAGE_COLOURS` on purpose: an aura is
+ * A color per aura, chosen away from `DAMAGE_COLORS` on purpose: an aura is
  * not a damage type, and borrowing amber for the damage aura would say that a
  * ring of it was somehow Impact.
  */
-const AURA_COLOURS: Record<AuraType, number> = {
+const AURA_COLORS: Record<AuraType, number> = {
   damage: 0xff6b6b, // a hot red: something hits harder in here
   attackSpeed: 0xffd166, // a quick yellow: something hits oftener
-  armour: 0x8ecae6, // a cold blue: something is being shielded
+  armor: 0x8ecae6, // a cold blue: something is being shielded
   regeneration: 0x90d48a, // a living green: something is mending
 };
 
@@ -132,33 +132,33 @@ export class AuraLayer extends Container {
 
     const { cx, cy } = fortressShape(this.layout, this.lane);
     const radius = this.radiusTiles * this.layout.tileSize;
-    const colour = AURA_COLOURS[this.aura];
+    const color = AURA_COLORS[this.aura];
     const intensity = clamp01(this.strength / STRENGTH_FOR_FULL);
     const phase = this.clock / PERIOD_SECONDS;
 
     // The ground it holds, and the rim that says where that stops.
-    this.fillDisc(cx, cy, radius, colour, 0.05 + 0.09 * intensity);
+    this.fillDisc(cx, cy, radius, color, 0.05 + 0.09 * intensity);
     this.fillAnnulus(
       cx,
       cy,
       radius - Math.max(1.5, radius * 0.012),
       radius,
-      colour,
+      color,
       0.35 + 0.45 * intensity,
     );
 
     switch (this.aura) {
       case 'damage':
-        this.drawSpikes(cx, cy, radius, colour, intensity, phase);
+        this.drawSpikes(cx, cy, radius, color, intensity, phase);
         break;
       case 'attackSpeed':
-        this.drawPulses(cx, cy, radius, colour, intensity, phase);
+        this.drawPulses(cx, cy, radius, color, intensity, phase);
         break;
-      case 'armour':
-        this.drawScales(cx, cy, radius, colour, intensity);
+      case 'armor':
+        this.drawScales(cx, cy, radius, color, intensity);
         break;
       case 'regeneration':
-        this.drawMotes(cx, cy, radius, colour, intensity, phase);
+        this.drawMotes(cx, cy, radius, color, intensity, phase);
         break;
     }
   }
@@ -174,7 +174,7 @@ export class AuraLayer extends Container {
     cx: number,
     cy: number,
     radius: number,
-    colour: number,
+    color: number,
     intensity: number,
     phase: number,
   ): void {
@@ -198,7 +198,7 @@ export class AuraLayer extends Container {
           cx + Math.cos(a + halfWidth) * radius,
           cy + Math.sin(a + halfWidth) * radius,
         ],
-        colour,
+        color,
         0.4 + 0.45 * intensity,
       );
     }
@@ -215,7 +215,7 @@ export class AuraLayer extends Container {
     cx: number,
     cy: number,
     radius: number,
-    colour: number,
+    color: number,
     intensity: number,
     phase: number,
   ): void {
@@ -226,21 +226,21 @@ export class AuraLayer extends Container {
       // Fades as it goes, so the rim is where a pulse ends rather than where it
       // is cut off.
       const alpha = (0.18 + 0.4 * intensity) * (1 - t);
-      this.fillAnnulus(cx, cy, r - Math.max(1, radius * 0.008), r, colour, alpha);
+      this.fillAnnulus(cx, cy, r - Math.max(1, radius * 0.008), r, color, alpha);
     }
   }
 
   /**
-   * ARMOUR: a lattice of scales, still.
+   * ARMOR: a lattice of scales, still.
    *
-   * Armour is the one aura that does nothing until something hits you, so its
+   * Armor is the one aura that does nothing until something hits you, so its
    * motif does not move either. A stronger aura closes the lattice up.
    */
   private drawScales(
     cx: number,
     cy: number,
     radius: number,
-    colour: number,
+    color: number,
     intensity: number,
   ): void {
     const rows = 3;
@@ -253,7 +253,7 @@ export class AuraLayer extends Container {
       for (let i = 0; i < count; i++) {
         const a = (Math.PI * 2 * i) / count + (row % 2 ? span : 0);
         if (Math.sin(a) > 0.35) continue;
-        this.fillArc(cx, cy, r - thickness, r, a - span, a + span, colour, alpha);
+        this.fillArc(cx, cy, r - thickness, r, a - span, a + span, color, alpha);
       }
     }
   }
@@ -269,7 +269,7 @@ export class AuraLayer extends Container {
     cx: number,
     cy: number,
     radius: number,
-    colour: number,
+    color: number,
     intensity: number,
     phase: number,
   ): void {
@@ -290,13 +290,13 @@ export class AuraLayer extends Container {
       if (dx * dx + dy * dy > radius * radius) continue;
       // Brightest in the middle of the climb, so they fade in and out.
       const alpha = (0.35 + 0.45 * intensity) * Math.sin(t * Math.PI);
-      this.fillDisc(x, y, size, colour, alpha);
+      this.fillDisc(x, y, size, color, alpha);
     }
   }
 
   // ------------------------------------------------------------------ shapes
 
-  private fillDisc(x: number, y: number, r: number, colour: number, alpha: number): void {
+  private fillDisc(x: number, y: number, r: number, color: number, alpha: number): void {
     if (alpha <= 0.01 || r <= 0) return;
     const points: number[] = [];
     const steps = r > 12 ? 24 : 10;
@@ -304,7 +304,7 @@ export class AuraLayer extends Container {
       const a = (Math.PI * 2 * i) / steps;
       points.push(x + Math.cos(a) * r, y + Math.sin(a) * r);
     }
-    this.fillShape(points, colour, alpha);
+    this.fillShape(points, color, alpha);
   }
 
   private fillAnnulus(
@@ -312,10 +312,10 @@ export class AuraLayer extends Container {
     y: number,
     inner: number,
     outer: number,
-    colour: number,
+    color: number,
     alpha: number,
   ): void {
-    this.fillArc(x, y, inner, outer, 0, Math.PI * 2, colour, alpha);
+    this.fillArc(x, y, inner, outer, 0, Math.PI * 2, color, alpha);
   }
 
   private fillArc(
@@ -325,7 +325,7 @@ export class AuraLayer extends Container {
     outer: number,
     from: number,
     to: number,
-    colour: number,
+    color: number,
     alpha: number,
   ): void {
     if (alpha <= 0.01 || outer <= 0 || outer <= inner) return;
@@ -339,30 +339,30 @@ export class AuraLayer extends Container {
       const a = from + ((to - from) * i) / steps;
       points.push(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
     }
-    this.fillShape(points, colour, alpha);
+    this.fillShape(points, color, alpha);
   }
 
   /** One filled polygon, with the path seed pinned to its own first vertex. */
-  private fillShape(points: readonly number[], colour: number, alpha: number): void {
+  private fillShape(points: readonly number[], color: number, alpha: number): void {
     if (alpha <= 0.01 || points.length < 6) return;
     this.shapes += 1;
     this.drawnInk += alpha;
     this.graphics
       .moveTo(points[0]!, points[1]!)
       .poly(points as number[])
-      .fill({ color: colour, alpha });
+      .fill({ color: color, alpha });
   }
 }
 
 function isAuraType(value: string | null): value is AuraType {
   return (
-    value === 'damage' || value === 'attackSpeed' || value === 'armour' || value === 'regeneration'
+    value === 'damage' || value === 'attackSpeed' || value === 'armor' || value === 'regeneration'
   );
 }
 
-/** The colour an aura is drawn in, so the build bar can show the same one. */
-export function auraColour(aura: AuraType): number {
-  return AURA_COLOURS[aura];
+/** The color an aura is drawn in, so the build bar can show the same one. */
+export function auraColor(aura: AuraType): number {
+  return AURA_COLORS[aura];
 }
 
 export { STRENGTH_FOR_FULL };

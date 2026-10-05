@@ -126,7 +126,7 @@ function main(): number {
         // because every lane faces the same thing.
         const preview = previewWave(data, state.seed, state.wave);
         const summary = preview
-          .map((e) => `${e.count}x ${e.name} (${e.armour}/${e.damageType})`)
+          .map((e) => `${e.count}x ${e.name} (${e.armor}/${e.damageType})`)
           .join(', ');
         console.log(
           `\n── wave ${state.wave} ` +

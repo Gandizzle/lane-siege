@@ -13,10 +13,10 @@ export * from './abilities.ts';
 import type { AbilityRef, AbilitiesFile } from './abilities.ts';
 
 export const DAMAGE_TYPES = ['impact', 'pierce', 'blast', 'arcane'] as const;
-export const ARMOUR_TYPES = ['flesh', 'plate', 'swarm', 'ward'] as const;
+export const ARMOR_TYPES = ['flesh', 'plate', 'swarm', 'ward'] as const;
 
 export type DamageType = (typeof DAMAGE_TYPES)[number];
-export type ArmourType = (typeof ARMOUR_TYPES)[number];
+export type ArmorType = (typeof ARMOR_TYPES)[number];
 
 /** A value still awaiting a playtested number. */
 export type Unfilled<T> = T | null;
@@ -41,11 +41,11 @@ export interface UpgradableStat {
 
 // ---------------------------------------------------------------- matrix.json
 
-export type DamageMatrix = Record<DamageType, Record<ArmourType, number>>;
+export type DamageMatrix = Record<DamageType, Record<ArmorType, number>>;
 
 export interface MatrixFile {
   damageTypes: readonly DamageType[];
-  armourTypes: readonly ArmourType[];
+  armorTypes: readonly ArmorType[];
   multipliers: DamageMatrix;
 }
 
@@ -112,16 +112,16 @@ export interface BuilderDef {
 
 /**
  * Every body on the field has its own silhouette. DESIGN CHANGE from §14.2,
- * which gave one shape per armour type: with 24 units and 13 monsters that is
+ * which gave one shape per armor type: with 24 units and 13 monsters that is
  * four shapes doing the work of thirty-seven, and a crowd of identical
  * hexagons tells you nothing about which of your units is which.
  *
- * What §14.2 was protecting is kept: the shape's FAMILY still says the armour
- * type, so the counter-read survives at a glance and without colour. Round
+ * What §14.2 was protecting is kept: the shape's FAMILY still says the armor
+ * type, so the counter-read survives at a glance and without color. Round
  * things are Flesh, angular things are Plate, pointed and stellar things are
  * Ward, clusters of small things are Swarm. Within a family every member is
  * distinct, and `validate.ts` refuses data in which two bodies share one, or in
- * which a shape sits in the wrong family for its armour.
+ * which a shape sits in the wrong family for its armor.
  *
  * The names describe the geometry, not the unit, so a shape can be reassigned
  * without being renamed. The drawing is in render/shapes.ts.
@@ -175,8 +175,8 @@ export type ShapeId =
   | 'flock'
   | 'hive';
 
-/** Which armour type each silhouette belongs to. The counter-read lives here. */
-export const SHAPE_FAMILY: Record<ShapeId, ArmourType> = {
+/** Which armor type each silhouette belongs to. The counter-read lives here. */
+export const SHAPE_FAMILY: Record<ShapeId, ArmorType> = {
   orb: 'flesh',
   egg: 'flesh',
   bean: 'flesh',
@@ -268,8 +268,8 @@ export interface UnitDef {
    */
   valueWeight?: Unfilled<number>;
   hp: Unfilled<number>;
-  armour: ArmourType;
-  /** Its own silhouette, in `armour`'s family. Shared along the upgrade chain. */
+  armor: ArmorType;
+  /** Its own silhouette, in `armor`'s family. Shared along the upgrade chain. */
   shape: ShapeId;
   /** Damage per attack, before the matrix multiplier. */
   damage: Unfilled<number>;
@@ -298,7 +298,7 @@ export interface UnitDef {
    * What this unit DOES beyond its stats, by id into `abilities.json`.
    *
    * The theory the roster is built on: a unit that differs from the next one
-   * only in armour type and damage type is not a unit anybody remembers, so
+   * only in armor type and damage type is not a unit anybody remembers, so
    * every unit has an ability - some from Mark I, some earned by upgrading.
    * `"thorn_bite"` is rank 1; `{ "id": "thorn_bite", "rank": 2 }` is the same
    * ability with the mark's numbers (abilities.ts).
@@ -326,8 +326,8 @@ export interface MonsterDef {
   id: string;
   name: string;
   hp: Unfilled<number>;
-  armour: ArmourType;
-  /** Its own silhouette, in `armour`'s family. */
+  armor: ArmorType;
+  /** Its own silhouette, in `armor`'s family. */
   shape: ShapeId;
   damage: Unfilled<number>;
   damageType: DamageType;
@@ -530,7 +530,7 @@ export interface WavesFile {
    * authored; wave 10's is this once over, and so on.
    *
    * It is also what lets the bank be four bodies of equal power in four
-   * armour types. Without it the bank had to carry the difficulty curve in its
+   * armor types. Without it the bank had to carry the difficulty curve in its
    * own HP numbers, which made wave 5 a 1,400 HP fight or a 3,100 HP fight
    * depending on which one the draw picked.
    */
@@ -546,7 +546,7 @@ export interface WavesFile {
 
 // -------------------------------------------------------------- fortress.json
 
-export type AuraType = 'damage' | 'attackSpeed' | 'armour' | 'regeneration';
+export type AuraType = 'damage' | 'attackSpeed' | 'armor' | 'regeneration';
 
 export interface FortressFile {
   /**
@@ -554,7 +554,7 @@ export interface FortressFile {
    * fortress need something to resolve their damage type against. Not stated
    * in DESIGN.md.
    */
-  armour: ArmourType;
+  armor: ArmorType;
   hp: UpgradableStat;
   /** HP per second, applied every tick (§5.5, amended). */
   regen: UpgradableStat;

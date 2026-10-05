@@ -16,7 +16,7 @@ import type { MatchView, WaveSummary } from '../sim/index.ts';
 import { boardOpenIn, endlessPool, previewWave, ticksToSeconds } from '../sim/index.ts';
 import type { LaneLayout } from './layout.ts';
 import { fortressShape, screenToTilePoint } from './layout.ts';
-import { DAMAGE_COLOURS, UI } from './palette.ts';
+import { DAMAGE_COLORS, UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
 import { GroundView, gridAlpha, isTextured, type BattlefieldId } from './battlefield.ts';
 import { clock, label } from './ui/text.ts';
@@ -121,7 +121,7 @@ export class LaneView extends Container {
 
   /**
    * The ground and the three zones on it. On the plain ground the zones are
-   * flat colours; on a painted one they are tints over it, so the spawn zone
+   * flat colors; on a painted one they are tints over it, so the spawn zone
    * still reads as the attacker's ground and the fortress zone as the wall's,
    * whatever the ground is made of.
    */
@@ -320,7 +320,7 @@ export class LaneView extends Container {
       }
     }
 
-    // One chip per monster type: count and name, the armour word as its legend,
+    // One chip per monster type: count and name, the armor word as its legend,
     // and the monster's own silhouette centred underneath (§14.2, amended).
     //
     // The silhouette is the part worth having. "4× Husk plate" tells you what
@@ -332,10 +332,10 @@ export class LaneView extends Container {
     // as noise rather than as information. The HUD already says BOSS in red.
     let x = leftEdge;
     for (const entry of entries) {
-      const colour = DAMAGE_COLOURS[entry.damageType];
-      const text = label(`${entry.count}× ${entry.name}`, 11, colour, '700');
-      const armour = label(` ${entry.armour}`, 10, UI.textMuted);
-      const width = text.width + armour.width;
+      const color = DAMAGE_COLORS[entry.damageType];
+      const text = label(`${entry.count}× ${entry.name}`, 11, color, '700');
+      const armor = label(` ${entry.armor}`, 10, UI.textMuted);
+      const width = text.width + armor.width;
 
       if (x + width + 12 > rightEdge) {
         const more = label('…', 11, UI.textMuted, '700');
@@ -347,9 +347,9 @@ export class LaneView extends Container {
 
       text.x = x;
       text.y = rowTwo;
-      armour.x = x + text.width;
-      armour.y = rowTwo + 1;
-      this.overlay.addChild(text, armour);
+      armor.x = x + text.width;
+      armor.y = rowTwo + 1;
+      this.overlay.addChild(text, armor);
 
       const glyph = new Graphics();
       drawEntity(
@@ -367,7 +367,7 @@ export class LaneView extends Container {
 
   /**
    * §3.3, solo: the endless wave, previewed as what it draws from - one of
-   * every monster the waves used, in its own silhouette and colour - with the
+   * every monster the waves used, in its own silhouette and color - with the
    * clock on the next boss once it is running.
    */
   private drawEndlessPreview(

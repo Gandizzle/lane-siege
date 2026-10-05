@@ -18,7 +18,7 @@ import type { Text } from 'pixi.js';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { confetti, drawBurst, easeOutBack } from './burst.ts';
-import { CURRENCY_COLOURS } from './currency.ts';
+import { CURRENCY_COLORS } from './currency.ts';
 import { label, overlaid } from './text.ts';
 
 const POP_MS = 400;
@@ -36,7 +36,7 @@ export class ChapterComplete extends Container {
   constructor(private layout: LaneLayout) {
     super();
     this.eventMode = 'none';
-    this.title = overlaid('', 34, CURRENCY_COLOURS.gold, '700');
+    this.title = overlaid('', 34, CURRENCY_COLORS.gold, '700');
     this.subtitle = label('', 15, UI.text, '700');
     this.addChild(this.burst, this.backing, this.title, this.subtitle);
     this.visible = false;
@@ -100,7 +100,7 @@ export class ChapterComplete extends Container {
     this.backing
       .roundRect(cx - width / 2, top, width, bottom - top, 16)
       .fill({ color: UI.background, alpha: 0.86 })
-      .stroke({ width: 2, color: CURRENCY_COLOURS.gold, alpha: 0.8 });
+      .stroke({ width: 2, color: CURRENCY_COLORS.gold, alpha: 0.8 });
 
     const reach = Math.min(l.lane.width, l.lane.height) * 0.55;
     drawBurst(this.burst, cx, cy, reach, this.age, scale, this.bits);

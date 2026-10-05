@@ -9,7 +9,7 @@
  *
  * SEEN, BUT NEVER THE POINT
  *
- * Every channel on a body is spoken for - silhouette is armour, fill is damage
+ * Every channel on a body is spoken for - silhouette is armor, fill is damage
  * type, outline means monster (§14.2) - so a ground must never draw a shape a
  * body could be mistaken for. The three calm grounds keep to that: textured
  * enough to see at a glance on a phone, but nothing in them is the size or the
@@ -75,7 +75,7 @@ export function battlefieldInUse(chosen: BattlefieldId): BattlefieldId {
   return unlockedBattlefields().includes(chosen) ? chosen : 'plain';
 }
 
-/** Whether this battlefield is painted at all, or is the flat colours alone. */
+/** Whether this battlefield is painted at all, or is the flat colors alone. */
 export function isTextured(id: BattlefieldId): boolean {
   return id !== 'plain';
 }
@@ -231,7 +231,7 @@ function paintMeadow(g: Graphics, a: Rect, s: number, rng: () => number): void {
   }
 
   const reach = 0.18 * s;
-  const tuft = (colour: number, alpha: number, count: number) => {
+  const tuft = (color: number, alpha: number, count: number) => {
     for (let i = 0; i < count; i++) {
       const x = a.x + reach + rng() * Math.max(0, a.width - 2 * reach);
       const y = a.y + reach + rng() * Math.max(0, a.height - 2 * reach);
@@ -241,7 +241,7 @@ function paintMeadow(g: Graphics, a: Rect, s: number, rng: () => number): void {
         g.moveTo(x, y).lineTo(x + Math.cos(angle) * length, y + Math.sin(angle) * length);
       }
     }
-    g.stroke({ width: Math.max(1, s * 0.03), color: colour, alpha });
+    g.stroke({ width: Math.max(1, s * 0.03), color: color, alpha });
   };
   tuft(0x2c4428, 0.9, tiles * 2.2);
   tuft(0x3d5c33, 0.85, tiles * 1.1);

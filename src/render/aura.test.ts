@@ -13,13 +13,13 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import type { AuraType } from '../data/schema.ts';
 import type { LaneView } from '../sim/index.ts';
-import { AuraLayer, auraColour, STRENGTH_FOR_FULL } from './aura.ts';
+import { AuraLayer, auraColor, STRENGTH_FOR_FULL } from './aura.ts';
 import { computeLayout } from './layout.ts';
 
 const { data } = loadDataFromDisk();
 const layout = computeLayout(412, 915, data.lane);
 
-const ALL_AURAS: AuraType[] = ['damage', 'attackSpeed', 'armour', 'regeneration'];
+const ALL_AURAS: AuraType[] = ['damage', 'attackSpeed', 'armor', 'regeneration'];
 
 function lane(aura: string | null, radius: number, strength: number): LaneView {
   return {
@@ -102,11 +102,11 @@ describe('the three channels are all visible', () => {
     expect(new Set(looks).size).toBe(ALL_AURAS.length);
   });
 
-  it('gives each aura its own colour, and none of them a damage type colour', () => {
-    const colours = ALL_AURAS.map((aura) => auraColour(aura));
-    expect(new Set(colours).size).toBe(ALL_AURAS.length);
-    for (const colour of colours) {
-      expect(Object.values(DAMAGE).includes(colour)).toBe(false);
+  it('gives each aura its own color, and none of them a damage type color', () => {
+    const colors = ALL_AURAS.map((aura) => auraColor(aura));
+    expect(new Set(colors).size).toBe(ALL_AURAS.length);
+    for (const color of colors) {
+      expect(Object.values(DAMAGE).includes(color)).toBe(false);
     }
   });
 
@@ -121,8 +121,8 @@ describe('the three channels are all visible', () => {
   });
 
   it('reaches further the bigger the radius is', () => {
-    const near = draw(lane('armour', 2, 0.3)).getBounds().height;
-    const far = draw(lane('armour', 5, 0.3)).getBounds().height;
+    const near = draw(lane('armor', 2, 0.3)).getBounds().height;
+    const far = draw(lane('armor', 5, 0.3)).getBounds().height;
     expect(far).toBeGreaterThan(near * 2);
   });
 

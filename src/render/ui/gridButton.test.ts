@@ -9,25 +9,25 @@ import { textScaleFor } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { DETAIL_SIZE, lineSizes, NOTE_SIZE, TITLE_SIZE } from './gridButton.ts';
 
-/** WCAG relative luminance of a 0xRRGGBB colour. */
-function luminance(colour: number): number {
+/** WCAG relative luminance of a 0xRRGGBB color. */
+function luminance(color: number): number {
   const channel = (shift: number) => {
-    const c = ((colour >> shift) & 0xff) / 255;
+    const c = ((color >> shift) & 0xff) / 255;
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   };
   return 0.2126 * channel(16) + 0.7152 * channel(8) + 0.0722 * channel(0);
 }
 
-/** WCAG contrast ratio between two colours, 1 to 21. */
+/** WCAG contrast ratio between two colors, 1 to 21. */
 function contrast(a: number, b: number): number {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** `colour` drawn at `alpha` over `ground`, as the old faded button drew its words. */
-function faded(colour: number, alpha: number, ground: number): number {
+/** `color` drawn at `alpha` over `ground`, as the old faded button drew its words. */
+function faded(color: number, alpha: number, ground: number): number {
   const mix = (shift: number) =>
-    Math.round(((colour >> shift) & 0xff) * alpha + ((ground >> shift) & 0xff) * (1 - alpha));
+    Math.round(((color >> shift) & 0xff) * alpha + ((ground >> shift) & 0xff) * (1 - alpha));
   return (mix(16) << 16) | (mix(8) << 8) | mix(0);
 }
 
@@ -104,9 +104,9 @@ describe('a button that cannot be used', () => {
     expect(contrast(UI.textMuted, UI.panelAsleep)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('shows a price it cannot pay in a colour that reads and says why', () => {
+  it('shows a price it cannot pay in a color that reads and says why', () => {
     expect(contrast(UI.unaffordable, UI.panelAsleep)).toBeGreaterThanOrEqual(4.5);
-    // Not the text colour and not the muted one: the colour is the reason.
+    // Not the text color and not the muted one: the color is the reason.
     expect(UI.unaffordable).not.toBe(UI.text);
     expect(UI.unaffordable).not.toBe(UI.textMuted);
   });

@@ -37,7 +37,7 @@ import type { Text } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
 import type { LaneView, Phase } from '../../sim/index.ts';
 import type { Rect } from '../layout.ts';
-import { DAMAGE_COLOURS, UI } from '../palette.ts';
+import { DAMAGE_COLORS, UI } from '../palette.ts';
 import { drawEntity } from '../shapes.ts';
 import {
   damageTable,
@@ -91,7 +91,7 @@ class DamageRowView extends Container {
 
   update(row: DamageRow, selected: boolean, alive: boolean): void {
     this.unitId = row.unitId;
-    const colour = DAMAGE_COLOURS[row.def.damageType];
+    const color = DAMAGE_COLORS[row.def.damageType];
 
     // Ground, then the share bar over it, then the ring. The bar is the panel
     // doing the comparison for you: the numbers say how much and the bar says
@@ -100,7 +100,7 @@ class DamageRowView extends Container {
     this.bar.roundRect(0, 0, this.w, this.h, 5).fill({ color: UI.panel });
     if (row.share > 0) {
       const width = Math.max(4, this.w * row.share);
-      this.bar.roundRect(0, 0, width, this.h, 5).fill({ color: colour, alpha: 0.22 });
+      this.bar.roundRect(0, 0, width, this.h, 5).fill({ color: color, alpha: 0.22 });
     }
     if (selected) {
       this.bar.roundRect(0, 0, this.w, this.h, 5).stroke({ width: 2, color: UI.selected });

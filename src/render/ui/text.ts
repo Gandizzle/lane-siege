@@ -8,12 +8,12 @@ const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 export function label(
   text: string,
   size: number,
-  colour: number = UI.textMuted,
+  color: number = UI.textMuted,
   weight: '400' | '500' | '600' | '700' = '500',
 ): Text {
   return new Text({
     text,
-    style: { fill: colour, fontSize: size, fontFamily: FONT, fontWeight: weight },
+    style: { fill: color, fontSize: size, fontFamily: FONT, fontWeight: weight },
   });
 }
 
@@ -21,22 +21,22 @@ export function label(
  * A label that stays readable over whatever is behind it: light text with a
  * thin dark outline round every glyph.
  *
- * For numbers drawn ON something whose colour changes underneath them. The
+ * For numbers drawn ON something whose color changes underneath them. The
  * fortress gauge is the case that needed it (hud.ts): the reading was drawn in
- * the background colour, which is exactly right against a full green bar and
+ * the background color, which is exactly right against a full green bar and
  * invisible the moment the bar drains past the text and leaves the background
  * behind it.
  */
 export function overlaid(
   text: string,
   size: number,
-  colour: number = UI.text,
+  color: number = UI.text,
   weight: '600' | '700' = '700',
 ): Text {
   return new Text({
     text,
     style: {
-      fill: colour,
+      fill: color,
       fontSize: size,
       fontFamily: FONT,
       fontWeight: weight,
@@ -50,11 +50,11 @@ export function overlaid(
  * numbers. The caller sets `style.wordWrapWidth` on resize, because how wide
  * the column is is a layout decision, not a text one.
  */
-export function wrapped(text: string, size: number, colour: number = UI.textMuted): Text {
+export function wrapped(text: string, size: number, color: number = UI.textMuted): Text {
   return new Text({
     text,
     style: {
-      fill: colour,
+      fill: color,
       fontSize: size,
       fontFamily: FONT,
       fontWeight: '500',

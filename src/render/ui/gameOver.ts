@@ -254,7 +254,7 @@ export class GameOver extends Container {
     y: number,
     text: string,
     fill: number,
-    textColour: number,
+    textColor: number,
     onTap: () => void,
     width = 180,
   ): Container {
@@ -264,7 +264,7 @@ export class GameOver extends Container {
       .fill({ color: fill })
       .stroke({ width: 1, color: UI.panelEdge });
     // Smaller rather than cut short, for a long chapter title on a narrow screen.
-    const words = label(text, 14, textColour, '700');
+    const words = label(text, 14, textColor, '700');
     const room = width - 20;
     if (words.width > room)
       words.style.fontSize = Math.max(10, Math.floor((14 * room) / words.width));

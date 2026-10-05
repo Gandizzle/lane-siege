@@ -210,7 +210,7 @@ factor, so "twice the value" is "twice the damage and twice the hit points",
 which is what makes two armies of equal gold have equal totals of both.
 
 Restatting scales damage and hit points **together**, which holds each unit's
-role. Attack speed, range, move speed, armour, damage type and abilities are
+role. Attack speed, range, move speed, armor, damage type and abilities are
 never touched by the ladder.
 
 **Abilities are not priced by the formula.** A taunt, a shield, a slow and an
@@ -321,7 +321,7 @@ gold, buy economy, take a risk, or cover a bad build.
 |    5 | boss       |     26+boss |   6,461 |        920 |          1,050 |            | all four, and a boss         |
 |    6 | Volley     |          32 |   4,676 |      1,400 |          1,450 |            | Ward: all ranged             |
 |    7 | Skitter    |          45 |   4,155 |      1,500 |          1,650 |            | Swarm: tiny and fast         |
-|    8 | Bulwark    |          27 |  15,093 |      1,750 |          1,850 |            | Plate: slow and armoured     |
+|    8 | Bulwark    |          27 |  15,093 |      1,750 |          1,850 |            | Plate: slow and armored      |
 |    9 | Rush       |          27 |  11,867 |      1,925 |          2,050 |            | Flesh: divers and bursters   |
 |   10 | boss       |     22+boss |  14,581 |      2,175 |          2,250 |            | all four, and a bigger boss  |
 |   11 | Hollow     |          28 |  14,749 |      2,550 |          2,650 |      2,684 | Ward: immune to abilities    |
@@ -381,7 +381,7 @@ the count is what the game is made of.
 
 ### Every wave asks for something, and it is not the same thing
 
-The first attempt spread each wave's armour around so nobody was wrong-footed.
+The first attempt spread each wave's armor around so nobody was wrong-footed.
 That was backwards, and the reasoning that corrected it is worth writing down:
 
 > If the wave has some of everything, then there is nothing for me to build
@@ -392,7 +392,7 @@ That was backwards, and the reasoning that corrected it is worth writing down:
 > balance to survive.
 
 A balanced wave is a wave with no answer, and a wave with no answer is a wave
-you brute-force. So each of the five is about 80% one armour type and the type
+you brute-force. So each of the five is about 80% one armor type and the type
 rotates: Swarm, Flesh, Plate, Ward, then a boss wave carrying all four plus
 whatever the boss came up as.
 
@@ -403,17 +403,17 @@ and cleared 5% of its armies at the Flesh wave; swapping which of its rungs
 carries Blast and which carries Arcane took that to 23% without giving it
 anything it did not already own.
 
-**The damage a wave DEALS matters as much as the armour it wears**, and that is
-easier to miss. Blast is the only damage type Flesh armour fears, and the only
+**The damage a wave DEALS matters as much as the armor it wears**, and that is
+easier to miss. Blast is the only damage type Flesh armor fears, and the only
 monster in the game that dealt any was the Bloater, which does not appear until
-wave 16. So through the whole early game Flesh was simply the best armour to
+wave 16. So through the whole early game Flesh was simply the best armor to
 wear, Pyre wore it on its cheap front line, and Pyre cleared more of every one
 of the first five waves than anyone — on survivability, not damage, which is
 why the damage-per-gold table never showed it. The Swarmling deals Blast now.
 
 ### The boss, and its purse
 
-The bank is **four bodies of equal power in four armour types**, not a
+The bank is **four bodies of equal power in four armor types**, not a
 difficulty ladder. A boss is drawn at random (§3.4), so a bank whose members ran
 1,400 to 3,100 health made wave 5 a different fight depending on the die, and no
 amount of tuning the escort makes that one wave. They differ in shape — the Ward
@@ -438,7 +438,7 @@ walks past the line pays nothing.
 
 ### Waves 6 to 10, and the two new monsters
 
-Each has a theme you have to answer, on top of an armour type:
+Each has a theme you have to answer, on top of an armor type:
 
 - **Volley (6)** — every monster fights from range: Spitters from two and a
   half tiles, Wardens from one. A line that does not walk forward is being shot
@@ -451,7 +451,7 @@ Each has a theme you have to answer, on top of an armour type:
 - **Bulwark (8)** — Husks and Carapaces: fifteen thousand health of slow Plate
   that shrugs off a fifth of every hit. Sustained Pierce, and time.
 - **Rush (9)** — Stalkers sprint in on Ambush and go for the back line;
-  Bloaters burst when they die. Flesh armour, Blast damage.
+  Bloaters burst when they die. Flesh armor, Blast damage.
 - **Boss (10)** — the bank once over (`bossScaling`), with an escort that
   borrows from the four before it.
 
@@ -466,12 +466,12 @@ smallest body being placed now.
 **The Stalker deals Blast.** Pierce was the damage type of every heavy hitter
 in the monster set — Warden, Carapace, Stalker — while Blast belonged to the
 Swarmling and the Bloater, one tiny and one rare. So Flesh, which only Blast
-hurts, was the best armour to wear for the first half of the game. The Rush
+hurts, was the best armor to wear for the first half of the game. The Rush
 wave is where a Flesh front line pays for it.
 
 ### Waves 11 to 20: the Mender, the Revenant, and a curve that bends
 
-Each still asks one question on top of its armour:
+Each still asks one question on top of its armor:
 
 - **Hollow (11)** — the Revenant's first wave. Wardens and Motes, with Revenants
   that no ability touches: no slow, no burn, no soak, no chain. Only plain
@@ -544,7 +544,7 @@ wave's nominal, because the nominal had been measured against armies with none.
 - **Juggernaut (24)** — Bloaters, Revenants, a Grub screen and Menders: Flesh and
   Ward, one of them immune to everything clever.
 - **The Council (25)** — three of each of the four bosses, and four Menders to
-  keep them standing. They were built as one of each armour type so that no
+  keep them standing. They were built as one of each armor type so that no
   single damage type answers a boss wave, and together that is the point: the
   Hollow King stuns the line in front of it, the Brood Sire hits harder the
   more it is hurt, the Gravemother heals itself off every wound it deals, the
@@ -846,7 +846,7 @@ What it says:
 
 **The open question now is the builders, not the waves.** Thornweald and
 Gloomtide win the late game under every plan with an economy; Pyre and Ironvow
-mostly do not. Pyre dies at wave 13 in two plans of three — Siege, Plate armour,
+mostly do not. Pyre dies at wave 13 in two plans of three — Siege, Plate armor,
 and Pyre's only Pierce is its rung 6 — and Ironvow's strong player lost the
 council with 104 supply and 21,000 of army and tech, more than two of the
 players who beat it. The sweep, which buys every army fresh for the wave in
@@ -1132,7 +1132,7 @@ What it took to get the bot there, since the old one died between waves 2 and
   run with that floor died by wave 19. The floors are 50–85% of it, depending
   on the style, with the full nominal only in waves 1 to 4.
 - **Gold is scaled by fit.** An army's worth against a wave is each body's
-  chain gold times how well its damage and armour suit that wave. Counted in
+  chain gold times how well its damage and armor suit that wave. Counted in
   plain gold, an Ironvow army of impact bodies "had enough" for forty Mites and
   lost at wave 7.
 - **A body count that grows with the wave.** Strength per gold favours Mark III

@@ -38,7 +38,7 @@
 
 import type {
   AbilityRef,
-  ArmourType,
+  ArmorType,
   ControlKind,
   DamageMatrix,
   DamageType,
@@ -78,7 +78,7 @@ export const PASSIVE_TICKS = 2;
 /** What the runtime needs of a body. `DefensiveUnit` and `Monster` both fit. */
 export interface AbilityBody extends Afflicted, Combatant {
   defId: string;
-  armour: ArmourType;
+  armor: ArmorType;
   damageType: DamageType;
   pos: Vec2;
   alive: boolean;
@@ -726,7 +726,7 @@ function strikeFrom(
   return {
     amount,
     damageType: effect.damageType ?? source.damageType,
-    bypassArmour: effect.bypassArmour,
+    bypassArmor: effect.bypassArmor,
     // An ability's damage is a consequence of a hit that already happened, so
     // it cannot itself be dodged, warded or critical. See strike.ts.
     isAttack: false,

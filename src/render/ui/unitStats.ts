@@ -111,7 +111,7 @@ export function statText(
   return body + unitFor(key, current);
 }
 
-/** Which way a cell's number has moved, for the colour it is drawn in. */
+/** Which way a cell's number has moved, for the color it is drawn in. */
 export type StatDirection = 'plain' | 'up' | 'down';
 
 export function statDirection(key: StatKey, mods: StatMods | null): StatDirection {
@@ -181,7 +181,7 @@ function trim(value: number, places = 1): string {
  * subtraction at a dozen viewport sizes without a canvas to measure against.
  */
 export interface PanelRegions {
-  /** One line: the name, with its damage and armour types beside it. */
+  /** One line: the name, with its damage and armor types beside it. */
   title: Rect;
   /** The six stat cells, two across. */
   stats: Rect;
@@ -435,8 +435,8 @@ export function energyCost(data: GameData, defId: string): number {
  * need to be told the next one is called "Vigil II", and the mark number is
  * already on the Upgrade button's pips.
  */
-export function typeLine(damageType: string, armour: string): string {
-  return `${damageType} · ${armour}`;
+export function typeLine(damageType: string, armor: string): string {
+  return `${damageType} · ${armor}`;
 }
 
 /**
@@ -526,7 +526,7 @@ export function monsterNumbers(def: MonsterDef): MonsterNumbers {
  *
  * `mods` is what is on the body RIGHT NOW - statuses, and nothing else - so a
  * wave-5 grub reads as a wave-5 grub in plain type, and only a slow or a hex
- * colours a cell.
+ * colors a cell.
  */
 export function monsterStatText(
   key: StatKey,

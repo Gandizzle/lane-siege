@@ -15,8 +15,8 @@
  *     nominal plus the style's margin. What it buys is whatever adds the most
  *     strength per gold against THAT wave - a new body, an upgrade in place, or
  *     a level of tech - with strength read through the damage matrix in both
- *     directions: how hard the body hits the wave's armour, and how well its
- *     own armour takes the wave's damage. That is the information the
+ *     directions: how hard the body hits the wave's armor, and how well its
+ *     own armor takes the wave's damage. That is the information the
  *     build-phase preview hands a human (§9.3), and nothing more.
  *   - THE ECONOMY is the gem building's two ladders, bought to a pace the style
  *     sets once the army is at its floor.
@@ -34,7 +34,7 @@
  * tab at 20 Hz.
  */
 
-import type { ArmourType, AuraType, DamageType, GameData, UnitDef } from '../data/schema.ts';
+import type { ArmorType, AuraType, DamageType, GameData, UnitDef } from '../data/schema.ts';
 import { isMelee } from '../data/roster.ts';
 import {
   Rng,
@@ -86,10 +86,10 @@ const ROWS: Record<Formation, { front: number[]; back: number[] }> = {
   wall: { front: [7, 6, 8, 5], back: [9, 8, 7, 6] },
 };
 
-/** A wave every damage type and armour is neutral against, for `fit`. */
+/** A wave every damage type and armor is neutral against, for `fit`. */
 const NEUTRAL = {
   wave: 0,
-  armourHp: new Map(),
+  armorHp: new Map(),
   totalHp: 0,
   damage: new Map(),
   totalDamage: 0,
@@ -98,10 +98,10 @@ const NEUTRAL = {
 /** What the coming wave is made of, as a build decision needs it. */
 interface WaveRead {
   wave: number;
-  /** Health of the wave by armour: what damage has to get through. */
-  armourHp: Map<ArmourType, number>;
+  /** Health of the wave by armor: what damage has to get through. */
+  armorHp: Map<ArmorType, number>;
   totalHp: number;
-  /** Damage per second of the wave by type: what armour has to take. */
+  /** Damage per second of the wave by type: what armor has to take. */
   damage: Map<DamageType, number>;
   totalDamage: number;
 }
@@ -333,7 +333,7 @@ export class AutoBuilder {
     );
     const read: WaveRead = {
       wave,
-      armourHp: new Map(),
+      armorHp: new Map(),
       totalHp: 0,
       damage: new Map(),
       totalDamage: 0,
@@ -346,7 +346,7 @@ export class AutoBuilder {
       const def = monsters.get(id);
       if (!def) continue;
       const stats = resolveMonsterStats(this.data, def, wave);
-      read.armourHp.set(def.armour, (read.armourHp.get(def.armour) ?? 0) + stats.hp);
+      read.armorHp.set(def.armor, (read.armorHp.get(def.armor) ?? 0) + stats.hp);
       read.totalHp += stats.hp;
       const dps = stats.damage * stats.attackSpeed;
       read.damage.set(def.damageType, (read.damage.get(def.damageType) ?? 0) + dps);
@@ -373,18 +373,18 @@ export class AutoBuilder {
   private hitting(type: DamageType, read: WaveRead): number {
     if (read.totalHp <= 0) return 1;
     let sum = 0;
-    for (const [armour, hp] of read.armourHp) {
-      sum += hp * damageMultiplier(this.data.matrix.multipliers, type, armour);
+    for (const [armor, hp] of read.armorHp) {
+      sum += hp * damageMultiplier(this.data.matrix.multipliers, type, armor);
     }
     return sum / read.totalHp;
   }
 
-  /** How hard this wave's damage lands on `armour`, averaged over its damage. */
-  private taking(armour: ArmourType, read: WaveRead): number {
+  /** How hard this wave's damage lands on `armor`, averaged over its damage. */
+  private taking(armor: ArmorType, read: WaveRead): number {
     if (read.totalDamage <= 0) return 1;
     let sum = 0;
     for (const [type, dps] of read.damage) {
-      sum += dps * damageMultiplier(this.data.matrix.multipliers, type, armour);
+      sum += dps * damageMultiplier(this.data.matrix.multipliers, type, armor);
     }
     return sum / read.totalDamage;
   }
@@ -400,7 +400,7 @@ export class AutoBuilder {
       (def.attackSpeed ?? 0) *
       (1 + (def.range ?? 0) * RANGE_VALUE_PER_TILE) *
       this.hitting(def.damageType, read);
-    const defence = (def.hp ?? 0) / Math.max(0.3, this.taking(def.armour, read));
+    const defence = (def.hp ?? 0) / Math.max(0.3, this.taking(def.armor, read));
     return Math.sqrt(Math.max(0, offence * defence));
   }
 
@@ -408,19 +408,19 @@ export class AutoBuilder {
     const aura = this.style.aura;
     if (aura === null) return null;
     if (aura !== 'adaptive') return aura;
-    // Armour when the wave's damage lands hard on what this army wears,
+    // Armor when the wave's damage lands hard on what this army wears,
     // damage otherwise.
     const army = lane.units.map((u) => this.defs.get(u.defId)).filter((d) => d !== undefined);
     if (army.length === 0) return 'damage';
-    const taken = army.reduce((sum, d) => sum + this.taking(d.armour, read), 0) / army.length;
-    return taken > 1.05 ? 'armour' : 'damage';
+    const taken = army.reduce((sum, d) => sum + this.taking(d.armor, read), 0) / army.length;
+    return taken > 1.05 ? 'armor' : 'damage';
   }
 
   // -------------------------------------------------------------------- army
 
   /**
    * How well a body suits this wave: its strength against it over its
-   * strength against a wave its damage and armour are neutral to. Below 1 it
+   * strength against a wave its damage and armor are neutral to. Below 1 it
    * is the wrong tool - impact into a swarm - and its gold is worth that much
    * less.
    */

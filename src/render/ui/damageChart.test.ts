@@ -25,11 +25,9 @@ describe('the damage chart', () => {
 
   it('has a strong and a weak cell for every damage type in the current matrix', () => {
     // What the tutorial's Counters chapter tells the player to look for.
-    const { damageTypes, armourTypes, multipliers } = data.matrix;
+    const { damageTypes, armorTypes, multipliers } = data.matrix;
     for (const type of damageTypes) {
-      const words = armourTypes.map((armour) =>
-        verdict(damageMultiplier(multipliers, type, armour)),
-      );
+      const words = armorTypes.map((armor) => verdict(damageMultiplier(multipliers, type, armor)));
       expect(words).toContain('strong');
       expect(words).toContain('weak');
     }

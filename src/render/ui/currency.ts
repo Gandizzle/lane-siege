@@ -5,7 +5,7 @@
  *
  * Drawn rather than emoji. An emoji coin is a recent character that older
  * phones show as an empty box, it looks different on every system, and it
- * cannot be coloured to sit in this palette; three Graphics shapes look the
+ * cannot be colored to sit in this palette; three Graphics shapes look the
  * same everywhere and stay sharp at nine pixels.
  *
  * A string says where an icon goes with a token - `{gold}`, `{gem}`,
@@ -24,8 +24,8 @@ export const GOLD = '{gold}';
 export const GEM = '{gem}';
 export const SUPPLY = '{supply}';
 
-/** What each looks like. Gold is warm, gems cool, supply the colour of the text. */
-export const CURRENCY_COLOURS: Record<Currency, number> = {
+/** What each looks like. Gold is warm, gems cool, supply the color of the text. */
+export const CURRENCY_COLORS: Record<Currency, number> = {
   gold: 0xf2c14e,
   gem: 0x5ee0e6,
   supply: 0xc9d1e0,
@@ -45,7 +45,7 @@ export function drawCurrency(
   y: number,
   size: number,
 ): void {
-  const colour = CURRENCY_COLOURS[currency];
+  const color = CURRENCY_COLORS[currency];
   const edge = Math.max(0.8, size * 0.1);
   switch (currency) {
     case 'gold': {
@@ -53,7 +53,7 @@ export function drawCurrency(
       const cx = x + r;
       const cy = y + r;
       g.circle(cx, cy, r - edge / 2)
-        .fill({ color: colour })
+        .fill({ color: color })
         .stroke({ width: edge, color: 0xa87a12 });
       g.circle(cx, cy, r * 0.5).stroke({ width: Math.max(0.6, size * 0.08), color: 0xfbe29a });
       return;
@@ -65,7 +65,7 @@ export function drawCurrency(
       const girdle = y + h * 0.4;
       const tip = y + h;
       g.poly([x + w * 0.22, top, x + w * 0.78, top, x + w, girdle, x + w / 2, tip, x, girdle])
-        .fill({ color: colour })
+        .fill({ color: color })
         .stroke({ width: edge * 0.8, color: 0x1f8f99, join: 'round' });
       // The crown catches the light.
       g.poly([x + w * 0.22, top, x + w * 0.78, top, x + w, girdle, x, girdle]).fill({
@@ -76,10 +76,10 @@ export function drawCurrency(
     }
     case 'supply': {
       const cx = x + size / 2;
-      g.circle(cx, y + size * 0.27, size * 0.22).fill({ color: colour });
+      g.circle(cx, y + size * 0.27, size * 0.22).fill({ color: color });
       // Shoulders: a rounded block under the head.
       g.roundRect(x + size * 0.12, y + size * 0.55, size * 0.76, size * 0.45, size * 0.2).fill({
-        color: colour,
+        color: color,
       });
       return;
     }
@@ -112,7 +112,7 @@ const AMOUNT = /^[^\s·]+/;
 /**
  * `parseRich`, with the amount after each icon split off the text that
  * follows it and labelled with its currency - so a price can say which of its
- * numbers is the one the wallet cannot cover, and colour that one alone.
+ * numbers is the one the wallet cannot cover, and color that one alone.
  */
 export function splitAmounts(runs: readonly Run[]): Piece[] {
   const pieces: Piece[] = [];
@@ -151,18 +151,18 @@ export class RichLabel extends Container {
   private readonly icons = new Graphics();
   private current = '';
   private limit = Infinity;
-  private colour: number;
-  /** Amounts of these currencies are drawn in `shortColour` (`setColour`). */
+  private color: number;
+  /** Amounts of these currencies are drawn in `shortColor` (`setColor`). */
   private short: readonly Currency[] = [];
-  private shortColour: number = UI.unaffordable;
+  private shortColor: number = UI.unaffordable;
 
   constructor(
     private fontSize: number,
-    colour: number = UI.textMuted,
+    color: number = UI.textMuted,
     private readonly weight: '400' | '500' | '600' | '700' = '500',
   ) {
     super();
-    this.colour = colour;
+    this.color = color;
     this.addChild(this.icons);
   }
 
@@ -196,33 +196,33 @@ export class RichLabel extends Container {
   }
 
   /**
-   * The colour of the words; the icons keep their own. The amounts of the
+   * The color of the words; the icons keep their own. The amounts of the
    * `short` currencies - the parts of a price the wallet cannot cover - are
-   * drawn in `shortColour` instead, and nothing else is.
+   * drawn in `shortColor` instead, and nothing else is.
    */
-  setColour(
-    colour: number,
+  setColor(
+    color: number,
     short: readonly Currency[] = [],
-    shortColour: number = UI.unaffordable,
+    shortColor: number = UI.unaffordable,
   ): void {
     if (
-      colour === this.colour &&
-      shortColour === this.shortColour &&
+      color === this.color &&
+      shortColor === this.shortColor &&
       short.length === this.short.length &&
       short.every((c) => this.short.includes(c))
     ) {
       return;
     }
-    this.colour = colour;
+    this.color = color;
     this.short = [...short];
-    this.shortColour = shortColour;
+    this.shortColor = shortColor;
     this.paint();
   }
 
   private paint(): void {
     this.pieces.forEach((piece, i) => {
       const of = this.pieceOf[i];
-      const fill = of !== undefined && this.short.includes(of) ? this.shortColour : this.colour;
+      const fill = of !== undefined && this.short.includes(of) ? this.shortColor : this.color;
       piece.style.fill = fill;
     });
   }
@@ -259,7 +259,7 @@ export class RichLabel extends Container {
   }
 
   private makePiece(): Text {
-    const piece = label('', this.fontSize, this.colour, this.weight);
+    const piece = label('', this.fontSize, this.color, this.weight);
     this.pieces.push(piece);
     this.addChild(piece);
     return piece;

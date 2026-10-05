@@ -455,7 +455,7 @@ export class Menu extends Container {
       this.preferences.configure({ statusEffects: !this.preferences.settings.statusEffects }),
     );
     this.guide = new PanelButton('Effects guide', () => this.handlers.onEffectsGuide());
-    this.chart = new PanelButton('Damage vs armour', () => this.handlers.onDamageChart());
+    this.chart = new PanelButton('Damage vs armor', () => this.handlers.onDamageChart());
     this.speed = new Picker('Game speed', (by) =>
       this.preferences.configure({
         practiceSpeed: cycle(GAME_SPEEDS, this.preferences.settings.practiceSpeed, by),

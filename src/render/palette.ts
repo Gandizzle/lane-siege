@@ -3,16 +3,16 @@
  *
  * Placeholder art is the permanent plan, and the shapes carry real information:
  *
- *   Silhouette        one per body, in its armour type's family (shapes.ts)
- *   Fill colour       damage type
+ *   Silhouette        one per body, in its armor type's family (shapes.ts)
+ *   Fill color       damage type
  *   Size + pips       mark
  *   Outline vs solid  monster vs defensive unit
  *
- * SHAPE is the primary channel, because armour type is what you must read
+ * SHAPE is the primary channel, because armor type is what you must read
  * instantly on an incoming monster - which is what keeps the game
- * colourblind-safe. Colour is the secondary channel, and these four are drawn
+ * colorblind-safe. Color is the secondary channel, and these four are drawn
  * from the Okabe-Ito palette so they stay distinguishable under the common
- * colour vision deficiencies as well.
+ * color vision deficiencies as well.
  *
  * Everything here is drawn with Pixi Graphics calls. No sprites, no texture
  * atlas, no asset pipeline, and it scales to any screen density.
@@ -20,9 +20,9 @@
 
 import type { DamageType } from '../data/schema.ts';
 
-export const DAMAGE_COLOURS: Record<DamageType, number> = {
+export const DAMAGE_COLORS: Record<DamageType, number> = {
   impact: 0xe69f00, // amber - raw force
-  pierce: 0x56b4e9, // sky - armour-piercing
+  pierce: 0x56b4e9, // sky - armor-piercing
   blast: 0xd55e00, // vermillion - explosive
   arcane: 0xcc79a7, // orchid - energy
 };
@@ -31,19 +31,19 @@ export const DAMAGE_COLOURS: Record<DamageType, number> = {
  * Whose army is whose in the Final Showdown (§3.3, replaced), by seat.
  *
  * §14.2 spends every one of its channels on what a body IS - silhouette for
- * armour, fill for damage type, size and pips for mark - and a lane never
+ * armor, fill for damage type, size and pips for mark - and a lane never
  * needs a fifth, because everything solid in it is yours. Four armies in one
- * arena do need one, so ownership gets a colour of its own: the ground each
+ * arena do need one, so ownership gets a color of its own: the ground each
  * spoke is tinted with, and a ring behind each body standing on it.
  *
- * Deliberately NOT four of the damage-type colours. A ring in the same amber
+ * Deliberately NOT four of the damage-type colors. A ring in the same amber
  * as an impact unit's fill would read as a statement about the unit rather
  * than about its owner. These four are from the same Okabe-Ito palette, so
- * they stay apart from each other under the common colour vision deficiencies
+ * they stay apart from each other under the common color vision deficiencies
  * - and a player who cannot tell two of them apart can still read ownership
  * off which spoke an army walked out of.
  */
-export const SEAT_COLOURS = [
+export const SEAT_COLORS = [
   0x0072b2, // blue
   0xf0e442, // yellow
   0x009e73, // green

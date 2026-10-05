@@ -10,7 +10,7 @@
  * fortress. Nothing in the simulation knows the screen size.
  */
 
-import type { ArmourType, DamageType } from '../data/schema.ts';
+import type { ArmorType, DamageType } from '../data/schema.ts';
 import type { Status } from './status.ts';
 
 export type EntityId = number;
@@ -145,7 +145,7 @@ export interface DefensiveUnit {
   moveY: number;
   hp: number;
   maxHp: number;
-  armour: ArmourType;
+  armor: ArmorType;
   damageType: DamageType;
   /**
    * Cached tech multipliers (§7.4). Recomputed when something is bought or
@@ -254,7 +254,7 @@ export interface Monster {
   pos: Vec2;
   hp: number;
   maxHp: number;
-  armour: ArmourType;
+  armor: ArmorType;
   damageType: DamageType;
   cooldown: number;
   targetId: EntityId | null;

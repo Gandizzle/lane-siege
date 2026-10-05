@@ -34,7 +34,7 @@ export interface TextPromptOptions {
   confirmLabel?: string;
 }
 
-/** The colours here match palette.ts. Duplicated because that module is Pixi's. */
+/** The colors here match palette.ts. Duplicated because that module is Pixi's. */
 const STYLE = {
   background: '#11131a',
   panel: '#181c26',
@@ -153,7 +153,7 @@ export function textPrompt(mount: HTMLElement, options: TextPromptOptions): Prom
   });
 }
 
-function button(text: string, background: string, colour: string): HTMLButtonElement {
+function button(text: string, background: string, color: string): HTMLButtonElement {
   const element = document.createElement('button');
   element.type = 'button';
   element.textContent = text;
@@ -163,7 +163,7 @@ function button(text: string, background: string, colour: string): HTMLButtonEle
     `background:${background}`,
     `border:1px solid ${STYLE.edge}`,
     'border-radius:8px',
-    `color:${colour}`,
+    `color:${color}`,
     'font-size:14px',
     'font-weight:700',
     `font-family:${FONT}`,

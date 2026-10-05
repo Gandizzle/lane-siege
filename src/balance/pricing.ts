@@ -48,7 +48,7 @@
  * scalar that pretended to price them would be confidently wrong. Every unit
  * therefore carries an `abilityWeight` of 1 until the showdown harness has
  * measured what its ability is actually worth, at which point the weight is
- * where that measurement goes. Armour and damage type are left out for the same
+ * where that measurement goes. Armor and damage type are left out for the same
  * reason - their worth is the matrix against whatever they are fighting, which
  * is a wave-balance question, not a price.
  */
@@ -221,7 +221,7 @@ export function unitOffence(unit: Pick<UnitDef, 'damage' | 'attackSpeed' | 'rang
   return dps * (1 + num(unit.range) * RANGE_VALUE_PER_TILE);
 }
 
-/** What it takes to remove it. Armour is left out: that is the matrix's job. */
+/** What it takes to remove it. Armor is left out: that is the matrix's job. */
 export function unitDefence(unit: Pick<UnitDef, 'hp'>): number {
   return num(unit.hp);
 }
@@ -266,7 +266,7 @@ export interface PricedUnit {
  * Stats move by a single factor applied to BOTH damage and hit points, which
  * holds the unit's offence-to-defence ratio - and that ratio is its role. A
  * tank stays a tank and a gun stays a gun; only how much of either it is for
- * the price changes. Attack speed, range, move speed, armour, damage type and
+ * the price changes. Attack speed, range, move speed, armor, damage type and
  * abilities are never touched here: those are what make the unit itself, and a
  * price ladder has no business rewriting them.
  *

@@ -4,7 +4,7 @@
  * §7.1 says four builders of six units each, and §6.1 says every one of them
  * fields all four damage types - so a builder is a complete package and the
  * choice is about DISTRIBUTION AND QUALITY, not about coverage. Which means the
- * card has to show the distribution, or the choice is a name and a colour.
+ * card has to show the distribution, or the choice is a name and a color.
  *
  * So each card lists the roster's damage types with the strong ones marked. A
  * player who has never seen these rosters can still tell that Ashfall is the
@@ -23,7 +23,7 @@ import type { Text } from 'pixi.js';
 import type { BuilderDef, DamageType, GameData } from '../../data/schema.ts';
 import { buildableUnits } from '../../data/roster.ts';
 import type { LaneLayout } from '../layout.ts';
-import { DAMAGE_COLOURS, UI } from '../palette.ts';
+import { DAMAGE_COLORS, UI } from '../palette.ts';
 import { centreOn, label } from './text.ts';
 import { GOLD, RichLabel, SUPPLY } from './currency.ts';
 
@@ -126,7 +126,7 @@ class BuilderCard extends Container {
     this.title.x = 14;
     this.title.y = 10;
 
-    // A swatch per damage type, strong ones full height. Colour is the same
+    // A swatch per damage type, strong ones full height. Color is the same
     // channel the units themselves use (§14.2), so the card reads as a preview
     // of the line you are about to build.
     this.swatches.clear();
@@ -137,7 +137,7 @@ class BuilderCard extends Container {
       const tall = entry.strong ? 18 : 9;
       this.swatches
         .roundRect(sx, 12 + (18 - tall), swatchWidth, tall, 2)
-        .fill({ color: DAMAGE_COLOURS[entry.type] });
+        .fill({ color: DAMAGE_COLORS[entry.type] });
       sx += swatchWidth + gap;
     }
 

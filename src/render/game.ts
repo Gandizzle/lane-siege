@@ -193,7 +193,7 @@ export class Game extends Container {
   /** What the status markers mean: the legend button, and the panel it opens. */
   private readonly effectsButton: EffectsButton;
   private readonly effectsPanel: EffectsPanel;
-  /** Every damage type against every armour: from the menu, and the tutorial. */
+  /** Every damage type against every armor: from the menu, and the tutorial. */
   private readonly damageChart: DamageChart;
   private readonly battlefieldPicker: BattlefieldPicker;
   /** Which kinds of marker have been on screen, for the legend. */

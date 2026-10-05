@@ -51,7 +51,7 @@
  * simulation's own hot loop stays allocation-free.
  */
 
-import type { ArmourType, DamageType, GameData, UnitDef } from '../data/schema.ts';
+import type { ArmorType, DamageType, GameData, UnitDef } from '../data/schema.ts';
 import { energyCostOf, type AbilityIndex } from './abilityRuntime.ts';
 import { auraFor } from './buffs.ts';
 import { bossBatchSize, endlessStep } from './endless.ts';
@@ -87,8 +87,8 @@ export interface EntityView {
   y: number;
   radius: number;
   /** §14.2: silhouette. */
-  armour: ArmourType;
-  /** §14.2: fill colour. */
+  armor: ArmorType;
+  /** §14.2: fill color. */
   damageType: DamageType;
   /** 0 to 1. A fraction rather than absolute HP: it is all the bar needs. */
   hpFraction: number;
@@ -168,7 +168,7 @@ export interface FortressView {
   hp: number;
   maxHp: number;
   destroyed: boolean;
-  /** Public: the weapon visibly fires in this colour (§10.1). */
+  /** Public: the weapon visibly fires in this color (§10.1). */
   weaponDamageType: DamageType;
   /**
    * Public: an active aura is drawn as a ring around the fortress (§10.1).
@@ -413,7 +413,7 @@ function unitViews(
       x: unit.pos.x,
       y: unit.pos.y,
       radius: unit.radius,
-      armour: unit.armour,
+      armor: unit.armor,
       damageType: unit.damageType,
       hpFraction: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
       mods: def ? unitMods(lane, unit, def, fortressPos) : null,
@@ -476,7 +476,7 @@ function monsterViews(abilities: AbilityIndex, lane: Lane): EntityView[] {
       x: monster.pos.x,
       y: monster.pos.y,
       radius: monster.radius,
-      armour: monster.armour,
+      armor: monster.armor,
       damageType: monster.damageType,
       hpFraction: monster.maxHp > 0 ? monster.hp / monster.maxHp : 0,
       mods: isUnmodified(mods) ? null : mods,
@@ -554,7 +554,7 @@ function showdownView(
           x: unit.pos.x,
           y: unit.pos.y,
           radius: unit.radius,
-          armour: unit.armour,
+          armor: unit.armor,
           damageType: unit.damageType,
           hpFraction: unit.maxHp > 0 ? unit.hp / unit.maxHp : 0,
           statusMarks: statusMarks(unit, passiveIn(abilities)),
