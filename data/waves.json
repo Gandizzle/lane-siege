@@ -138,25 +138,25 @@
     {
       "wave": 1,
       "count": 20,
-      "scale": 1.0,
+      "scale": 1.07,
       "armyGold": 200
     },
     {
       "wave": 2,
       "count": 21,
-      "scale": 1.67,
+      "scale": 1.79,
       "armyGold": 350
     },
     {
       "wave": 3,
       "count": 22,
-      "scale": 2.27,
+      "scale": 2.64,
       "armyGold": 500
     },
     {
       "wave": 4,
       "count": 24,
-      "scale": 3.08,
+      "scale": 3.3,
       "armyGold": 740
     },
     {
@@ -167,25 +167,25 @@
     {
       "wave": 6,
       "count": 26,
-      "scale": 4.23,
+      "scale": 4.91,
       "armyGold": 1100
     },
     {
       "wave": 7,
       "count": 28,
-      "scale": 4.64,
+      "scale": 5.39,
       "armyGold": 1300
     },
     {
       "wave": 8,
       "count": 29,
-      "scale": 5.17,
+      "scale": 6.24,
       "armyGold": 1500
     },
     {
       "wave": 9,
       "count": 30,
-      "scale": 5.83,
+      "scale": 7.3,
       "armyGold": 1750
     },
     {
@@ -196,25 +196,25 @@
     {
       "wave": 11,
       "count": 32,
-      "scale": 7.66,
+      "scale": 9.24,
       "armyGold": 2450
     },
     {
       "wave": 12,
       "count": 34,
-      "scale": 8.09,
+      "scale": 10.92,
       "armyGold": 2750
     },
     {
       "wave": 13,
       "count": 35,
-      "scale": 8.86,
+      "scale": 11.96,
       "armyGold": 3100
     },
     {
       "wave": 14,
       "count": 36,
-      "scale": 9.72,
+      "scale": 14.07,
       "armyGold": 3500
     },
     {
@@ -225,25 +225,25 @@
     {
       "wave": 16,
       "count": 39,
-      "scale": 10.77,
+      "scale": 17.0,
       "armyGold": 4200
     },
     {
       "wave": 17,
       "count": 40,
-      "scale": 12.0,
+      "scale": 19.5,
       "armyGold": 4800
     },
     {
       "wave": 18,
       "count": 41,
-      "scale": 13.41,
+      "scale": 22.4,
       "armyGold": 5500
     },
     {
       "wave": 19,
       "count": 42,
-      "scale": 15.0,
+      "scale": 25.8,
       "armyGold": 6300
     },
     {
@@ -254,25 +254,25 @@
     {
       "wave": 21,
       "count": 45,
-      "scale": 17.78,
+      "scale": 29.0,
       "armyGold": 8000
     },
     {
       "wave": 22,
       "count": 46,
-      "scale": 19.57,
+      "scale": 33.0,
       "armyGold": 9000
     },
     {
       "wave": 23,
       "count": 48,
-      "scale": 21.67,
+      "scale": 38.0,
       "armyGold": 10400
     },
     {
       "wave": 24,
       "count": 49,
-      "scale": 24.49,
+      "scale": 44.0,
       "armyGold": 12000
     },
     {

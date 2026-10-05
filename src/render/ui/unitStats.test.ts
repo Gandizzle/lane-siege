@@ -15,7 +15,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../../data/loadNode.ts';
-import { resolveMonsterStats } from '../../sim/index.ts';
+import { monsterGrowth, resolveMonsterStats } from '../../sim/index.ts';
 import type { UnitDef } from '../../data/schema.ts';
 import { refId } from '../../data/schema.ts';
 import { computeLayout } from '../layout.ts';
@@ -334,7 +334,9 @@ describe('what a body panel says', () => {
     const def = data.monsters.monsters.find((m) => m.id === 'grub')!;
     const early = monsterStatText('hp', resolveMonsterStats(data, def, 1));
     const late = monsterStatText('hp', resolveMonsterStats(data, def, 5));
-    expect(Number(early)).toBe(Math.round(def.hp ?? 0));
+    // What the wave table makes it, not what the definition says.
+    expect(Number(early)).toBe(Math.round((def.hp ?? 0) * monsterGrowth(data, 1)));
+    expect(Number(late)).toBe(Math.round((def.hp ?? 0) * monsterGrowth(data, 5)));
     expect(Number(late)).toBeGreaterThan(Number(early) * 1.5);
   });
 });
