@@ -14,6 +14,7 @@
  */
 
 import type { GameData } from '../data/schema.ts';
+import { generateWave } from './waves.ts';
 
 /**
  * The balance data with every authored wave cut to one weak monster.
@@ -33,12 +34,16 @@ export function trivialWaves(data: GameData, monsterId = 'grub'): GameData {
 }
 
 /** The fastest a body in this wave moves, in tiles per tick. */
-export function fastestStep(data: GameData, wave: number, ticksPerSecond: number): number {
+export function fastestStep(
+  data: GameData,
+  wave: number,
+  ticksPerSecond: number,
+  seed = 1,
+): number {
   const byId = new Map([...data.monsters.monsters, ...data.monsters.bosses].map((m) => [m.id, m]));
-  const authored = data.waves.composition.find((w) => w.wave === wave);
   let fastest = 0;
-  for (const entry of authored?.entries ?? []) {
-    fastest = Math.max(fastest, byId.get(entry.monsterId)?.moveSpeed ?? 0);
+  for (const spec of generateWave(data, seed, wave)) {
+    fastest = Math.max(fastest, byId.get(spec.defId)?.moveSpeed ?? 0);
   }
   return fastest / ticksPerSecond;
 }

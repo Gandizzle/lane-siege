@@ -1352,7 +1352,7 @@ export class Game extends Container {
     this.summarisedBuilder = builderId;
     // §9.3's hints are "which of YOUR units counter this", so they are a
     // function of the roster as well as the wave.
-    this.summary = summariseWave(this.data, view.seed, wave, builderId);
+    this.summary = summariseWave(this.data, view.seed, wave, builderId, view.lateWaves);
   }
 
   // ------------------------------------------------------------------- input

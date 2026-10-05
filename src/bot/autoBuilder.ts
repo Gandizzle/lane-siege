@@ -339,7 +339,7 @@ export class AutoBuilder {
       totalDamage: 0,
     };
     const ids = [
-      ...generateWave(this.data, state.seed, wave).map((s) => s.defId),
+      ...generateWave(this.data, state.seed, wave, state.lateWaves).map((s) => s.defId),
       ...lane.incomingSends.map((s) => s.defId),
     ];
     for (const id of ids) {

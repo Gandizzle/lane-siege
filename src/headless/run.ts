@@ -124,7 +124,7 @@ function main(): number {
       if (state.phase === 'combat' && state.wave !== lastWave) {
         // §9.3: the incoming wave is public during the build phase - fair,
         // because every lane faces the same thing.
-        const preview = previewWave(data, state.seed, state.wave);
+        const preview = previewWave(data, state.seed, state.wave, state.lateWaves);
         const summary = preview
           .map((e) => `${e.count}x ${e.name} (${e.armor}/${e.damageType})`)
           .join(', ');

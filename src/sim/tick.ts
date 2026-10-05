@@ -65,7 +65,15 @@ import {
   type MatchState,
   type Monster,
 } from './types.ts';
-import { generateWave, resolveMonsterStats, sendBounty, type SpawnSpec } from './waves.ts';
+import {
+  chooseLateWaves,
+  comboKey,
+  generateWave,
+  isCombinationWave,
+  resolveMonsterStats,
+  sendBounty,
+  type SpawnSpec,
+} from './waves.ts';
 
 export { createContext } from './context.ts';
 export type { SimContext, World } from './context.ts';
@@ -549,6 +557,18 @@ function reapDead(ctx: SimContext, lane: Lane, state: MatchState, rng: Rng): voi
 
     const clock = state.waveClocks.find((c) => c.waveNumber === monster.waveNumber);
     if (clock) clock.remaining -= 1;
+
+    // What a wave's monster did to the army, for choosing waves 21 to 24.
+    // Sends are their sender's choice, not the wave's, and do not count.
+    if (
+      monster.sendId === null &&
+      monster.damageDealt > 0 &&
+      isCombinationWave(ctx.data, monster.waveNumber)
+    ) {
+      const key = comboKey(monster.armor, monster.damageType);
+      lane.comboHarm[key] =
+        (lane.comboHarm[key] ?? 0) + monster.damageDealt / Math.max(1, lane.waveArmyHp);
+    }
   }
 
   for (const unit of lane.units) {
@@ -636,7 +656,7 @@ function rollOverUnitSpend(state: MatchState): void {
 
 /** Put a wave into every living lane. All lanes face identical waves (§9.2). */
 function spawnWave(ctx: SimContext, state: MatchState): void {
-  const specs = generateWave(ctx.data, state.seed, state.wave);
+  const specs = generateWave(ctx.data, state.seed, state.wave, state.lateWaves);
   if (specs.length === 0) return;
 
   let totalSpawned = 0;
@@ -775,6 +795,8 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
       for (const unit of lane.units) unit.damageDealt = 0;
       // And so does what the wave pays (types.ts, `WaveTally`).
       lane.waveTally = emptyTally();
+      // What the wave's harm is a share of (`Lane.comboHarm`).
+      lane.waveArmyHp = lane.units.reduce((sum, u) => sum + (u.alive ? u.maxHp : 0), 0);
     }
     return;
   }
@@ -808,6 +830,33 @@ function advancePhase(ctx: SimContext, state: MatchState): void {
     // (§10.2, amended) - see `produceGems`.
     lane.economy.gold += lane.economy.passiveIncome;
   }
+
+  // The build phase before the first late wave: decide what they are, from
+  // what hurt the armies still standing (waves.ts, `chooseLateWaves`).
+  const late = ctx.data.waves.lateWaves;
+  if (late && state.lateWaves === null && state.wave + 1 === late.from) {
+    state.lateWaves = chooseLateWaves(ctx.data, state.seed, survivorsHarm(state));
+  }
+}
+
+/**
+ * Each combination's harm, averaged over the lanes still standing: the share
+ * of an army's health it took in its wave, as the surviving players felt it.
+ * A lane that fell has no say in what the survivors face next.
+ */
+function survivorsHarm(state: MatchState): Record<string, number> {
+  const living = state.teams.filter((t) => !t.eliminated).map((t) => state.lanes[t.id]);
+  const harm: Record<string, number> = {};
+  let count = 0;
+  for (const lane of living) {
+    if (!lane) continue;
+    count += 1;
+    for (const [key, share] of Object.entries(lane.comboHarm)) {
+      harm[key] = (harm[key] ?? 0) + share;
+    }
+  }
+  if (count > 1) for (const key of Object.keys(harm)) harm[key]! /= count;
+  return harm;
 }
 
 /**

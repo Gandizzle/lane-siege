@@ -289,7 +289,7 @@ export class LaneView extends Container {
     }
 
     const nextWave = view.wave + 1;
-    const entries = previewWave(this.data, view.seed, nextWave);
+    const entries = previewWave(this.data, view.seed, nextWave, view.lateWaves);
     if (entries.length === 0) return;
 
     const heading = label(`next wave ${nextWave}`, 10, UI.textMuted, '700');

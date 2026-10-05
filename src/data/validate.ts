@@ -181,9 +181,36 @@ function checkWaveReferences(data: GameData, errors: string[]): void {
     ...data.monsters.bosses.map((m) => m.id),
   ]);
   for (const wave of data.waves.composition) {
-    for (const entry of wave.entries) {
+    for (const entry of wave.entries ?? []) {
       if (!known.has(entry.monsterId)) {
         errors.push(`wave ${wave.wave} references unknown monster '${entry.monsterId}'`);
+      }
+    }
+  }
+
+  // The sixteen combinations: every armor with every damage type, once each,
+  // and each one's monster really wearing that armor and dealing that damage -
+  // a wave of "plate/pierce" that turned out to be flesh would be a lie the
+  // preview told.
+  const monsters = new Map(data.monsters.monsters.map((m) => [m.id, m]));
+  const seen = new Set<string>();
+  for (const combo of data.waves.combinations ?? []) {
+    const key = `${combo.armor}/${combo.damageType}`;
+    if (seen.has(key)) errors.push(`waves.combinations has ${key} twice`);
+    seen.add(key);
+    const def = monsters.get(combo.monsterId);
+    if (!def) {
+      errors.push(`waves.combinations ${key} names unknown monster '${combo.monsterId}'`);
+    } else if (def.armor !== combo.armor || def.damageType !== combo.damageType) {
+      errors.push(
+        `waves.combinations ${key} names '${combo.monsterId}', which is ${def.armor}/${def.damageType}`,
+      );
+    }
+  }
+  for (const armor of data.matrix.armorTypes) {
+    for (const damageType of data.matrix.damageTypes) {
+      if (!seen.has(`${armor}/${damageType}`)) {
+        errors.push(`waves.combinations has no ${armor}/${damageType}`);
       }
     }
   }

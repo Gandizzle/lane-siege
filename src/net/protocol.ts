@@ -216,6 +216,8 @@ export interface WireFrame {
    * one day arrive half-empty.
    */
   so?: [number, number, number, number, number];
+  /** Waves 21 to 24's combinations, once chosen ("plate/pierce" keys). Absent before. */
+  lw?: string[][];
 }
 
 /**
@@ -691,6 +693,7 @@ export function encodeFrame(view: MatchView, tables: WireTables): WireFrame {
     wl: Object.values(view.watching).map((lane) => encodeLane(lane, tables)),
   };
   if (view.showdown) frame.sd = encodeShowdown(view.showdown, tables);
+  if (view.lateWaves) frame.lw = view.lateWaves;
   if (view.solo) {
     const endless = view.solo.endless;
     frame.so = [
@@ -715,6 +718,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
     teamId: tables.teamIds[frame.me] ?? '',
     teamName: tables.teamNames[frame.me] ?? '',
     seed: tables.seed,
+    lateWaves: frame.lw ?? null,
     tick: frame.tk,
     wave: frame.w,
     phase: PHASE_CODES[frame.p] ?? 'build',

@@ -96,6 +96,8 @@ function createLane(data: GameData, teamId: TeamId, builderId: string, missing: 
     attacks: [],
     kills: 0,
     waveTally: emptyTally(),
+    waveArmyHp: 0,
+    comboHarm: {},
     fortress: {
       hp: maxHp,
       maxHp,
@@ -201,6 +203,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     showdown: null,
     // Solo's endless last wave opens after the last build phase (endless.ts).
     endless: null,
+    lateWaves: null,
     nextEntityId: 1,
     finished: false,
     eliminatedCount: 0,

@@ -10,7 +10,15 @@
  * All lanes face identical waves (§9.2). Lane divergence comes only from sends.
  */
 
-import type { ArmorType, DamageType, GameData, MonsterDef, ShapeId } from '../data/schema.ts';
+import type {
+  ArmorType,
+  Combination,
+  DamageType,
+  GameData,
+  MonsterDef,
+  ShapeId,
+  WaveDef,
+} from '../data/schema.ts';
 import { waveRng } from './rng.ts';
 
 /** One monster to spawn: its definition, and the wave it belongs to (§8). */
@@ -49,59 +57,188 @@ export interface ResolvedMonsterStats {
   radius: number;
 }
 
-function num(value: number | null, fallback = 0): number {
+function num(value: number | null | undefined, fallback = 0): number {
   return value ?? fallback;
 }
 
+// ------------------------------------------------------------- combinations
+
+/** An armor and a damage type, as "plate/pierce": one of the sixteen (§6). */
+export type ComboKey = string;
+
+export function comboKey(armor: ArmorType, damageType: DamageType): ComboKey {
+  return `${armor}/${damageType}`;
+}
+
 /**
- * How far past the authored composition this wave sits. Authored waves scale
- * their COUNT by 1; every wave beyond the last authored one compounds §9.2's
- * growth factor, because past the authored range there is nothing else to say
- * how many walk in.
- *
- * Counts only. What a wave is MADE OF is a decision; how strong each body in it
- * is, is a curve - see `statSteps`.
+ * What waves 21 to 24 are made of: two combinations each, in wave order
+ * (`chooseLateWaves`). Decided by the match, so it rides on the state and the
+ * view rather than coming from the seed.
  */
-function countSteps(data: GameData, waveNumber: number): number {
-  let lastAuthored = 0;
-  for (const wave of data.waves.composition) {
-    if (wave.wave > lastAuthored) lastAuthored = wave.wave;
+export type LateWaves = readonly (readonly ComboKey[])[];
+
+/** The row of the wave table for this wave, if it has one. */
+function row(data: GameData, waveNumber: number): WaveDef | undefined {
+  return data.waves.composition.find((w) => w.wave === waveNumber);
+}
+
+/** The last wave the table has a row for. */
+function lastRow(data: GameData): number {
+  let last = 0;
+  for (const wave of data.waves.composition) last = Math.max(last, wave.wave);
+  return last;
+}
+
+export function isBossWave(data: GameData, waveNumber: number): boolean {
+  const every = data.waves.bossEveryNWaves;
+  return every > 0 && waveNumber % every === 0;
+}
+
+/**
+ * The waves that are ONE combination, start to finish: every wave before the
+ * late waves that is not a boss wave and is not authored - 1 to 4, 6 to 9, 11
+ * to 14 and 16 to 19. Sixteen waves for sixteen combinations, each once.
+ *
+ * Why: a wave of three monster types asks nothing of the army, because a
+ * general-purpose army beats a mixture. A wave that is all Plate wearing
+ * all Pierce asks one question, and an army that cannot answer it loses.
+ */
+export function combinationWaves(data: GameData): number[] {
+  const out: number[] = [];
+  const before = data.waves.lateWaves?.from ?? lastRow(data) + 1;
+  for (let wave = 1; wave < before; wave++) {
+    if (isBossWave(data, wave) || row(data, wave)?.entries) continue;
+    out.push(wave);
   }
-  return waveNumber > lastAuthored ? waveNumber - lastAuthored : 0;
+  return out;
+}
+
+const combinationWaveSets = new WeakMap<GameData, Set<number>>();
+
+/** Whether `waveNumber` is one of the combination waves, cheaply (asked per death). */
+export function isCombinationWave(data: GameData, waveNumber: number): boolean {
+  let set = combinationWaveSets.get(data);
+  if (!set) {
+    set = new Set(combinationWaves(data));
+    combinationWaveSets.set(data, set);
+  }
+  return set.has(waveNumber);
+}
+
+/** Waves 21 to 24: two combinations each, chosen by what hurt the most. */
+export function isLateWave(data: GameData, waveNumber: number): boolean {
+  const late = data.waves.lateWaves;
+  return (
+    !!late && waveNumber >= late.from && waveNumber <= late.to && !row(data, waveNumber)?.entries
+  );
+}
+
+/** The match's own streams, apart from every wave's (`waveRng`). */
+const ORDER_SALT = 0x5eed_0f1d;
+const BOSS_SALT = 0x5eed_b055;
+const LATE_SALT = 0x5eed_1a7e;
+
+/** Fisher-Yates, on the match's generator: the same order on every client. */
+function shuffled<T>(items: readonly T[], rng: { int(n: number): number }): T[] {
+  const out = [...items];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = rng.int(i + 1);
+    [out[i], out[j]] = [out[j]!, out[i]!];
+  }
+  return out;
 }
 
 /**
- * How far up the strength curve a wave sits: one step per wave, from the first.
- *
- * §9.1 as written only grew a monster past the authored range, so a grub was
- * the same 30-health grub at wave 1 and at wave 20 and the whole difficulty
- * curve had to be carried by counts and by which monsters were in the mix. That
- * makes the cheap monsters dead weight the moment anything bigger exists, and
- * it means a wave cannot reuse a body without the wave getting easier.
- *
- * Scaling the bodies instead lets a wave keep a small roster on purpose - a
- * grub is a fine "it walks at you and hits things", and one asset can serve
- * twenty-five waves - while still being a real fight at wave 20. The numbers
- * it produces are what the stat panel shows, not the definition's
- * (`monsterStatText`), because a wave-5 grub really is not a wave-1 grub.
+ * Which combination each combination wave is, for this match: the sixteen,
+ * shuffled by the seed. A pure function of the seed, so the preview of wave
+ * 9 says what wave 9 will be on every client, from the first build phase.
  */
-function statSteps(waveNumber: number): number {
-  return Math.max(0, waveNumber - 1);
+export function combinationOrder(data: GameData, seed: number): Combination[] {
+  return shuffled(data.waves.combinations, waveRng(seed, ORDER_SALT));
+}
+
+/** The combination a combination wave is, or null for any other wave. */
+export function combinationOf(
+  data: GameData,
+  seed: number,
+  waveNumber: number,
+): Combination | null {
+  const index = combinationWaves(data).indexOf(waveNumber);
+  if (index < 0) return null;
+  const order = combinationOrder(data, seed);
+  return order.length > 0 ? order[index % order.length]! : null;
 }
 
 /**
- * What `steps` steps of growth multiply a stat by: the early rate for the
- * first `earlySteps` of them and the later rate, if there is one, for the rest.
+ * Which boss each boss wave brings: the bank shuffled by the seed, so the four
+ * boss waves before the last bring each boss once - equal shares, in an order
+ * nobody can learn.
  */
-function growth(
-  early: number,
-  later: number | undefined,
-  earlySteps: number,
-  steps: number,
+export function bossFor(data: GameData, seed: number, waveNumber: number): string | null {
+  const bank = data.waves.bossBank;
+  const every = data.waves.bossEveryNWaves;
+  if (bank.length === 0 || every <= 0) return null;
+  const order = shuffled(bank, waveRng(seed, BOSS_SALT));
+  return order[(Math.floor(waveNumber / every) - 1 + order.length * 8) % order.length] ?? null;
+}
+
+/**
+ * Waves 21 to 24, decided as wave 20 ends: the `choose` combinations that took
+ * the biggest share of the surviving armies' health in waves 1 to 19 (`harm`,
+ * keyed by combination), shuffled into pairs. Ties, and a combination nobody
+ * met, are settled by the seed - so a match with no record at all (a test, a
+ * debugging start at wave 21) still gets a fair draw.
+ */
+export function chooseLateWaves(
+  data: GameData,
+  seed: number,
+  harm: Readonly<Record<ComboKey, number>>,
+): ComboKey[][] {
+  const late = data.waves.lateWaves;
+  if (!late) return [];
+  const rng = waveRng(seed, LATE_SALT);
+  const all = shuffled(
+    data.waves.combinations.map((c) => comboKey(c.armor, c.damageType)),
+    rng,
+  );
+  // Stable: an equal share keeps the shuffled order, which is the tie-break.
+  const chosen = [...all].sort((a, b) => (harm[b] ?? 0) - (harm[a] ?? 0)).slice(0, late.choose);
+  const order = shuffled(chosen, rng);
+  const waves: ComboKey[][] = [];
+  for (let i = 0; i < order.length; i += late.perWave) waves.push(order.slice(i, i + late.perWave));
+  return waves;
+}
+
+// ------------------------------------------------------------------ scaling
+
+/**
+ * A value of the wave table at `waveNumber`: the row's own if it has one;
+ * otherwise carried on from the last rows that do, at the rate between them -
+ * which is how solo's endless stream, past the last row, keeps growing.
+ */
+function tableValue(
+  data: GameData,
+  waveNumber: number,
+  pick: (w: WaveDef) => number | undefined,
 ): number {
-  if (later === undefined) return intPow(early, steps);
-  const first = Math.min(steps, Math.max(0, earlySteps));
-  return intPow(early, first) * intPow(later, steps - first);
+  const rows = data.waves.composition
+    .filter((w) => pick(w) !== undefined)
+    .sort((a, b) => a.wave - b.wave);
+  if (rows.length === 0) return 1;
+  const exact = rows.find((w) => w.wave === waveNumber);
+  if (exact) return pick(exact)!;
+  const before = rows.filter((w) => w.wave < waveNumber);
+  const last = before.at(-1);
+  if (!last) return pick(rows[0]!)!;
+  const prev = before.at(-2);
+  // Inside the table, between two rows: the earlier one holds.
+  if (rows.some((w) => w.wave > waveNumber) || !prev) return pick(last)!;
+  // Past it: the last step between rows, repeated - every wave for a column
+  // with a row a wave, every five for the bosses'. Repeated multiplication,
+  // not a fractional power, which is not bit-identical across engines.
+  const gap = last.wave - prev.wave;
+  const step = pick(last)! / pick(prev)!;
+  return pick(last)! * intPow(step, Math.floor((waveNumber - last.wave) / gap));
 }
 
 /**
@@ -114,62 +251,40 @@ function intPow(base: number, exponent: number): number {
   return result;
 }
 
-/**
- * How many boss waves past the first this one is. Wave 5 is 0, wave 25 is 4.
- *
- * Bosses are drawn at random from a bank (§3.4), so the bank has to be four
- * bodies of the SAME power wearing four different armor types - otherwise
- * "wave 5" means a 1,400 HP fight or a 3,100 HP fight depending on a die roll,
- * and no amount of tuning the escort makes that one wave. What separates wave
- * 5's boss from wave 25's is this exponent, not which body came up.
- */
-function bossStep(data: GameData, waveNumber: number): number {
-  const every = data.waves.bossEveryNWaves;
-  if (every <= 0) return 0;
-  return Math.max(0, Math.floor(waveNumber / every) - 1);
+/** How many times its written health and damage a monster has at this wave. */
+export function monsterGrowth(data: GameData, wave: number): number {
+  return tableValue(data, wave, (w) => w.scale);
+}
+
+/** The same for a boss, which has a column of its own. */
+export function bossGrowth(data: GameData, wave: number): number {
+  return tableValue(data, wave, (w) => w.bossScale);
+}
+
+/** How many monsters a generated wave brings. */
+export function waveCount(data: GameData, wave: number): number {
+  return Math.max(1, Math.round(tableValue(data, wave, (w) => w.count)));
 }
 
 /**
- * §9.1, amended: monster HP and DAMAGE grow one step a wave, from wave 1.
+ * §9.1, replaced: a monster's HP and DAMAGE are its definition's times the
+ * wave's `scale` - a table, one row a wave (waves.json), not a curve. A boss
+ * takes the row's `bossScale` instead.
  *
- * Move and attack speed deliberately do not - that is enrage's job (§8), and
- * stacking the two would make late waves unreadable. Nor does bounty any more:
- * §11.1 made it a WEIGHT within a fixed pool rather than an amount, and every
- * body in one wave scales by the same factor, so scaling it moved no share of
- * anything and only made the number on the definition harder to read.
- *
- * A boss scales on its own ladder (`bossScaling`) and not on this one, because
- * it appears once every five waves and would otherwise take both.
+ * Move and attack speed deliberately do not grow - that is enrage's job (§8),
+ * and stacking the two would make late waves unreadable. Nor does bounty: it
+ * is a WEIGHT within a fixed pool (§11.1).
  */
 export function resolveMonsterStats(
   data: GameData,
   def: MonsterDef,
   waveNumber: number,
 ): ResolvedMonsterStats {
-  const { scaling } = data.waves;
-  const after = scaling.after;
-  // A boss scales on its own ladder and NOT on the per-wave one, or it would
-  // take both: it appears once every five waves, so five waves of ordinary
-  // growth are already priced into `bossScaling`.
-  const isBoss = def.isBoss === true;
-  const steps = isBoss ? 0 : statSteps(waveNumber);
-  // Steps are counted from wave 1, so the wave before `after.wave` is the last
-  // one reached at the early rate.
-  const earlySteps = after ? statSteps(after.wave - 1) : steps;
-
-  const bossCurve = data.waves.bossScaling;
-  const bossAfter = bossCurve?.after;
-  const boss = isBoss ? bossStep(data, waveNumber) : 0;
-  const bossEarly = bossAfter ? bossStep(data, bossAfter.wave) - 1 : boss;
-  const bossHp = growth(num(bossCurve?.hp ?? null, 1), bossAfter?.hp, bossEarly, boss);
-  const bossDamage = growth(num(bossCurve?.damage ?? null, 1), bossAfter?.damage, bossEarly, boss);
-
+  const growth =
+    def.isBoss === true ? bossGrowth(data, waveNumber) : monsterGrowth(data, waveNumber);
   return {
-    hp: num(def.hp) * growth(num(scaling.hp, 1), after?.hp, earlySteps, steps) * bossHp,
-    damage:
-      num(def.damage) *
-      growth(num(scaling.damage, 1), after?.damage, earlySteps, steps) *
-      bossDamage,
+    hp: num(def.hp) * growth,
+    damage: num(def.damage) * growth,
     attackSpeed: num(def.attackSpeed),
     moveSpeed: num(def.moveSpeed),
     range: num(def.range),
@@ -178,52 +293,59 @@ export function resolveMonsterStats(
   };
 }
 
-export function isBossWave(data: GameData, waveNumber: number): boolean {
-  const every = data.waves.bossEveryNWaves;
-  return every > 0 && waveNumber % every === 0;
-}
+// ------------------------------------------------------------------ a wave
 
 /**
  * The full monster list for a wave, in spawn order.
  *
- * Uses `waveRng(seed, waveNumber)`, which DERIVES a generator rather than
- * advancing one - so wave 7 is identical whatever happened in waves 1 to 6.
+ *   An authored row (`entries`)  exactly those: wave 25's council, and tests.
+ *   A boss wave                  its boss, alone (`bossFor`).
+ *   A combination wave           `count` of one combination's monster.
+ *   A late wave (21-24)          `count`, half each of two combinations,
+ *                                from `late` (the match's own record) - or,
+ *                                with no record, a draw from the seed.
+ *
+ * Pure in (data, seed, wave, late). Everything but the late waves is a
+ * function of the seed alone, so it can be previewed from the start.
  */
-export function generateWave(data: GameData, seed: number, waveNumber: number): SpawnSpec[] {
-  const rng = waveRng(seed, waveNumber);
+export function generateWave(
+  data: GameData,
+  seed: number,
+  waveNumber: number,
+  late?: LateWaves | null,
+): SpawnSpec[] {
   const specs: SpawnSpec[] = [];
+  const authored = row(data, waveNumber);
 
-  const authored = data.waves.composition.find((w) => w.wave === waveNumber);
-  const steps = countSteps(data, waveNumber);
-
-  let template = authored;
-  if (!template && data.waves.composition.length > 0) {
-    // Past the authored range: reuse the last authored shape, scaled up.
-    template = data.waves.composition.reduce((a, b) => (a.wave > b.wave ? a : b));
-  }
-
-  // A reused template brings its monsters and not its bosses: a boss comes
-  // from the bank on a boss wave, and the last authored wave is a council of
-  // them that a wave 26 has no business repeating.
-  const bank = new Set(data.waves.bossBank);
-  if (template) {
-    for (const entry of template.entries) {
-      if (template !== authored && bank.has(entry.monsterId)) continue;
-      const scaled = Math.round(num(entry.count) * intPow(num(data.waves.scaling.count, 1), steps));
-      for (let i = 0; i < scaled; i++) {
-        specs.push({ defId: entry.monsterId, waveNumber });
-      }
+  if (authored?.entries) {
+    for (const entry of authored.entries) {
+      for (let i = 0; i < num(entry.count); i++) specs.push({ defId: entry.monsterId, waveNumber });
     }
-  }
-
-  // §3.4: every fifth wave is a boss wave, drawn at random from the bank. An
-  // authored wave that already names a boss does not get a second one.
-  if (isBossWave(data, waveNumber) && data.waves.bossBank.length > 0) {
-    const bossIds = new Set(data.waves.bossBank);
-    const alreadyHasBoss = specs.some((s) => bossIds.has(s.defId));
-    if (!alreadyHasBoss) {
-      const chosen = rng.pick(data.waves.bossBank);
-      if (chosen) specs.unshift({ defId: chosen, waveNumber });
+  } else if (isBossWave(data, waveNumber)) {
+    const boss = bossFor(data, seed, waveNumber);
+    if (boss) specs.push({ defId: boss, waveNumber });
+  } else if (isLateWave(data, waveNumber)) {
+    const from = data.waves.lateWaves!.from;
+    const pairs = late && late.length > 0 ? late : chooseLateWaves(data, seed, {});
+    const keys = pairs[waveNumber - from] ?? pairs[0] ?? [];
+    const monsters = keys
+      .map((key) => data.waves.combinations.find((c) => comboKey(c.armor, c.damageType) === key))
+      .filter((c): c is Combination => c !== undefined)
+      .map((c) => c.monsterId);
+    const count = waveCount(data, waveNumber);
+    // Alternating, so the two halves arrive mixed rather than one behind the other.
+    for (let i = 0; i < count && monsters.length > 0; i++) {
+      specs.push({ defId: monsters[i % monsters.length]!, waveNumber });
+    }
+  } else {
+    const combo =
+      combinationOf(data, seed, waveNumber) ??
+      // Past the table (or a table with no combination waves): any one.
+      waveRng(seed, waveNumber).pick(data.waves.combinations) ??
+      null;
+    if (combo) {
+      const count = waveCount(data, waveNumber);
+      for (let i = 0; i < count; i++) specs.push({ defId: combo.monsterId, waveNumber });
     }
   }
 
@@ -303,18 +425,6 @@ export function sendBounty(data: GameData, sendId: string): number {
 }
 
 /**
- * How many times its written health a monster has at this wave: the whole of
- * the per-wave curve (`scaling`), which every monster that is not a boss shares.
- */
-export function monsterGrowth(data: GameData, wave: number): number {
-  const { scaling } = data.waves;
-  const after = scaling.after;
-  const steps = statSteps(wave);
-  const earlySteps = after ? statSteps(after.wave - 1) : steps;
-  return growth(num(scaling.hp, 1), after?.hp, earlySteps, steps);
-}
-
-/**
  * What a send costs, and the income it grants: the price as written.
  *
  * It USED to climb with the monster curve, because the body it delivered did -
@@ -357,13 +467,18 @@ export interface WavePreviewEntry {
   shape: ShapeId;
 }
 
-export function previewWave(data: GameData, seed: number, waveNumber: number): WavePreviewEntry[] {
+export function previewWave(
+  data: GameData,
+  seed: number,
+  waveNumber: number,
+  late?: LateWaves | null,
+): WavePreviewEntry[] {
   const byId = new Map<string, MonsterDef>();
   for (const m of data.monsters.monsters) byId.set(m.id, m);
   for (const b of data.monsters.bosses) byId.set(b.id, b);
 
   const counts = new Map<string, number>();
-  for (const spec of generateWave(data, seed, waveNumber)) {
+  for (const spec of generateWave(data, seed, waveNumber, late)) {
     counts.set(spec.defId, (counts.get(spec.defId) ?? 0) + 1);
   }
 
@@ -422,12 +537,13 @@ export function summariseWave(
   seed: number,
   waveNumber: number,
   builderId?: string,
+  late?: LateWaves | null,
 ): WaveSummary {
   const byId = new Map<string, MonsterDef>();
   for (const m of data.monsters.monsters) byId.set(m.id, m);
   for (const b of data.monsters.bosses) byId.set(b.id, b);
 
-  const specs = generateWave(data, seed, waveNumber);
+  const specs = generateWave(data, seed, waveNumber, late);
   const damageCounts = new Map<DamageType, number>();
   const armorCounts = new Map<ArmorType, number>();
   let total = 0;

@@ -266,6 +266,7 @@ export function createMonster(
     moveX: 0,
     moveY: 0,
     sendId: spec.sendId ?? null,
+    damageDealt: 0,
     ...freshAbilityState(stat(data.abilities.energy.max)),
     baseMaxHp: stats.hp,
     alive: true,

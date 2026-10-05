@@ -103,6 +103,7 @@ function match(
     teamId: 'lane1',
     teamName: '',
     seed: 1,
+    lateWaves: null,
     tick: 0,
     wave: 1,
     phase: 'build',

@@ -39,6 +39,14 @@ const { data } = loadDataFromDisk();
  */
 function passiveData(): GameData {
   const d = structuredClone(data);
+  // Wave 1 as a fixed crowd of three sizes of body, whatever the seed draws:
+  // these tests are about movement, and a single-combination wave is a
+  // different crowd every match (waves.ts).
+  d.waves.composition.find((w) => w.wave === 1)!.entries = [
+    { monsterId: 'mote', count: 18 },
+    { monsterId: 'swarmling', count: 8 },
+    { monsterId: 'grub', count: 4 },
+  ];
   d.fortress.weapon.damage = 0;
   for (const u of d.units.units) u.damage = 0;
   for (const m of [...d.monsters.monsters, ...d.monsters.bosses]) m.damage = 0;

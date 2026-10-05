@@ -42,356 +42,267 @@
     "ratePerSecond": 0.03,
     "cap": 6.0
   },
-  "scaling": {
-    "_comment": "hp and damage compound EVERY wave from wave 1 (§9.1, amended) - steeply to wave 10, because that is where the economy compounds fastest and a player who invests early must not be able to outgrow the waves; then by `after` from wave 11, because past that an army grows by about what a wave pays and the early rate would outrun every army there is (docs/BALANCE.md §4). count and bounty apply only past the last authored wave.",
-    "count": 1.12,
-    "hp": 1.22,
-    "damage": 1.17,
-    "bounty": 1.1,
-    "after": { "wave": 11, "hp": 1.15, "damage": 1.11 }
+  "_combinationsNote": "THE SIXTEEN. Every armor with every damage type, and the monster a wave of that pair is made of. Waves 1-4, 6-9, 11-14 and 16-19 are each ONE of these, all of it, every pair once a match, in an order shuffled by the seed (waves.ts `combinationOrder`). A wave of three kinds asked nothing of an army - a general-purpose army beat any mixture - so players stopped countering; a wave that is all Plate dealing all Pierce asks one question, and the preview tells everyone what it is thirty seconds early.",
+  "combinations": [
+    {
+      "armor": "flesh",
+      "damageType": "impact",
+      "monsterId": "grub"
+    },
+    {
+      "armor": "flesh",
+      "damageType": "pierce",
+      "monsterId": "stalker"
+    },
+    {
+      "armor": "flesh",
+      "damageType": "blast",
+      "monsterId": "bloater"
+    },
+    {
+      "armor": "flesh",
+      "damageType": "arcane",
+      "monsterId": "leech"
+    },
+    {
+      "armor": "plate",
+      "damageType": "impact",
+      "monsterId": "husk"
+    },
+    {
+      "armor": "plate",
+      "damageType": "pierce",
+      "monsterId": "carapace"
+    },
+    {
+      "armor": "plate",
+      "damageType": "blast",
+      "monsterId": "kiln"
+    },
+    {
+      "armor": "plate",
+      "damageType": "arcane",
+      "monsterId": "golem"
+    },
+    {
+      "armor": "swarm",
+      "damageType": "impact",
+      "monsterId": "mite"
+    },
+    {
+      "armor": "swarm",
+      "damageType": "pierce",
+      "monsterId": "stinger"
+    },
+    {
+      "armor": "swarm",
+      "damageType": "blast",
+      "monsterId": "swarmling"
+    },
+    {
+      "armor": "swarm",
+      "damageType": "arcane",
+      "monsterId": "mote"
+    },
+    {
+      "armor": "ward",
+      "damageType": "impact",
+      "monsterId": "thunderling"
+    },
+    {
+      "armor": "ward",
+      "damageType": "pierce",
+      "monsterId": "warden"
+    },
+    {
+      "armor": "ward",
+      "damageType": "blast",
+      "monsterId": "spitter"
+    },
+    {
+      "armor": "ward",
+      "damageType": "arcane",
+      "monsterId": "revenant"
+    }
+  ],
+  "_lateWavesNote": "Waves 21 to 24 are two of the sixteen each, half and half: the eight that took the biggest share of the surviving armies' health in the combination waves, shuffled into four pairs, decided as wave 20 ends (waves.ts `chooseLateWaves`, tick.ts). The table's `count` is the whole wave, both halves.",
+  "lateWaves": {
+    "from": 21,
+    "to": 24,
+    "choose": 8,
+    "perWave": 2
   },
-  "bossScaling": {
-    "_comment": "Per BOSS WAVE, compounded: wave 5 draws the bank as authored, wave 10 gets it once over, and from wave 15 each boss grows by `after` instead - faster, because past wave 10 an army grows faster than the flat bounty and a boss that did not keep up would be one large monster. The bank is four bodies of EQUAL power in four armor types, so this is the whole of what separates a late boss from an early one.",
-    "hp": 1.6,
-    "damage": 1.35,
-    "after": { "wave": 15, "hp": 2.2, "damage": 1.6 }
-  },
+  "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one.",
+  "_compositionNote": "§9.1, REPLACED: a table, not a curve. One row a wave: `count` monsters at `scale` times their written health and damage, or on a boss wave one boss at `bossScale` - alone, no escort. A boss is drawn from the bank so that the four boss waves before the last bring each boss once (waves.ts `bossFor`). Wave 25 is authored: the council of bosses, as before. `armyGold` is what the wave is tuned to be beaten by (docs/BALANCE.md).",
   "composition": [
     {
       "wave": 1,
-      "armyGold": 200,
-      "entries": [
-        {
-          "monsterId": "mote",
-          "count": 18
-        },
-        {
-          "monsterId": "swarmling",
-          "count": 8
-        },
-        {
-          "monsterId": "grub",
-          "count": 4
-        }
-      ]
+      "count": 20,
+      "scale": 1.0,
+      "armyGold": 200
     },
     {
       "wave": 2,
-      "armyGold": 350,
-      "entries": [
-        {
-          "monsterId": "grub",
-          "count": 20
-        },
-        {
-          "monsterId": "mote",
-          "count": 8
-        },
-        {
-          "monsterId": "swarmling",
-          "count": 6
-        },
-        {
-          "monsterId": "stalker",
-          "count": 4
-        }
-      ]
+      "count": 21,
+      "scale": 1.67,
+      "armyGold": 350
     },
     {
       "wave": 3,
-      "armyGold": 500,
-      "entries": [
-        {
-          "monsterId": "husk",
-          "count": 18
-        },
-        {
-          "monsterId": "swarmling",
-          "count": 8
-        },
-        {
-          "monsterId": "mote",
-          "count": 8
-        }
-      ]
+      "count": 22,
+      "scale": 2.27,
+      "armyGold": 500
     },
     {
       "wave": 4,
-      "armyGold": 740,
-      "entries": [
-        {
-          "monsterId": "warden",
-          "count": 10
-        },
-        {
-          "monsterId": "mote",
-          "count": 10
-        },
-        {
-          "monsterId": "swarmling",
-          "count": 8
-        },
-        {
-          "monsterId": "grub",
-          "count": 8
-        }
-      ]
+      "count": 24,
+      "scale": 3.08,
+      "armyGold": 740
     },
     {
       "wave": 5,
-      "armyGold": 920,
-      "entries": [
-        {
-          "monsterId": "grub",
-          "count": 8
-        },
-        {
-          "monsterId": "mote",
-          "count": 6
-        },
-        {
-          "monsterId": "husk",
-          "count": 5
-        },
-        {
-          "monsterId": "warden",
-          "count": 3
-        },
-        {
-          "monsterId": "swarmling",
-          "count": 4
-        }
-      ]
+      "bossScale": 1.3,
+      "armyGold": 920
     },
     {
       "wave": 6,
-      "armyGold": 1400,
-      "entries": [
-        {
-          "monsterId": "spitter",
-          "count": 22
-        },
-        {
-          "monsterId": "warden",
-          "count": 10
-        }
-      ]
+      "count": 26,
+      "scale": 4.23,
+      "armyGold": 1100
     },
     {
       "wave": 7,
-      "armyGold": 1500,
-      "entries": [
-        {
-          "monsterId": "mite",
-          "count": 40
-        },
-        {
-          "monsterId": "swarmling",
-          "count": 5
-        }
-      ]
+      "count": 28,
+      "scale": 4.64,
+      "armyGold": 1300
     },
     {
       "wave": 8,
-      "armyGold": 1750,
-      "entries": [
-        {
-          "monsterId": "husk",
-          "count": 18
-        },
-        {
-          "monsterId": "carapace",
-          "count": 5
-        },
-        {
-          "monsterId": "mote",
-          "count": 4
-        }
-      ]
+      "count": 29,
+      "scale": 5.17,
+      "armyGold": 1500
     },
     {
       "wave": 9,
-      "armyGold": 1925,
-      "entries": [
-        {
-          "monsterId": "stalker",
-          "count": 15
-        },
-        {
-          "monsterId": "bloater",
-          "count": 3
-        },
-        {
-          "monsterId": "swarmling",
-          "count": 9
-        }
-      ]
+      "count": 30,
+      "scale": 5.83,
+      "armyGold": 1750
     },
     {
       "wave": 10,
-      "armyGold": 2175,
-      "entries": [
-        {
-          "monsterId": "spitter",
-          "count": 6
-        },
-        {
-          "monsterId": "mite",
-          "count": 10
-        },
-        {
-          "monsterId": "carapace",
-          "count": 2
-        },
-        {
-          "monsterId": "stalker",
-          "count": 4
-        }
-      ]
+      "bossScale": 2.2,
+      "armyGold": 2175
     },
     {
       "wave": 11,
-      "armyGold": 2550,
-      "entries": [
-        { "monsterId": "revenant", "count": 4 },
-        { "monsterId": "warden", "count": 10 },
-        { "monsterId": "mote", "count": 14 }
-      ]
+      "count": 32,
+      "scale": 7.66,
+      "armyGold": 2450
     },
     {
       "wave": 12,
-      "armyGold": 3000,
-      "entries": [
-        { "monsterId": "grub", "count": 22 },
-        { "monsterId": "mender", "count": 6 },
-        { "monsterId": "bloater", "count": 5 }
-      ]
+      "count": 34,
+      "scale": 8.09,
+      "armyGold": 2750
     },
     {
       "wave": 13,
-      "armyGold": 3250,
-      "entries": [
-        { "monsterId": "carapace", "count": 4 },
-        { "monsterId": "husk", "count": 10 },
-        { "monsterId": "spitter", "count": 14 }
-      ]
+      "count": 35,
+      "scale": 8.86,
+      "armyGold": 3100
     },
     {
       "wave": 14,
-      "armyGold": 3850,
-      "entries": [
-        { "monsterId": "mite", "count": 22 },
-        { "monsterId": "stalker", "count": 12 }
-      ]
+      "count": 36,
+      "scale": 9.72,
+      "armyGold": 3500
     },
     {
       "wave": 15,
-      "armyGold": 4500,
-      "entries": [
-        { "monsterId": "mender", "count": 4 },
-        { "monsterId": "revenant", "count": 2 },
-        { "monsterId": "carapace", "count": 1 },
-        { "monsterId": "mite", "count": 18 },
-        { "monsterId": "bloater", "count": 1 }
-      ]
+      "bossScale": 3.8,
+      "armyGold": 4500
     },
     {
       "wave": 16,
-      "armyGold": 4290,
-      "entries": [
-        { "monsterId": "bloater", "count": 7 },
-        { "monsterId": "grub", "count": 26 },
-        { "monsterId": "stalker", "count": 4 }
-      ]
+      "count": 39,
+      "scale": 10.77,
+      "armyGold": 4200
     },
     {
       "wave": 17,
-      "armyGold": 5280,
-      "entries": [
-        { "monsterId": "mite", "count": 23 },
-        { "monsterId": "stalker", "count": 13 }
-      ]
+      "count": 40,
+      "scale": 12.0,
+      "armyGold": 4800
     },
     {
       "wave": 18,
-      "armyGold": 6390,
-      "entries": [
-        { "monsterId": "revenant", "count": 5 },
-        { "monsterId": "warden", "count": 9 },
-        { "monsterId": "spitter", "count": 12 },
-        { "monsterId": "mender", "count": 5 }
-      ]
+      "count": 41,
+      "scale": 13.41,
+      "armyGold": 5500
     },
     {
       "wave": 19,
-      "armyGold": 6400,
-      "entries": [
-        { "monsterId": "carapace", "count": 11 },
-        { "monsterId": "husk", "count": 13 },
-        { "monsterId": "warden", "count": 4 }
-      ]
+      "count": 42,
+      "scale": 15.0,
+      "armyGold": 6300
     },
     {
       "wave": 20,
-      "armyGold": 7710,
-      "entries": [
-        { "monsterId": "bloater", "count": 3 },
-        { "monsterId": "revenant", "count": 3 },
-        { "monsterId": "carapace", "count": 3 },
-        { "monsterId": "mender", "count": 4 },
-        { "monsterId": "mite", "count": 8 }
-      ]
+      "bossScale": 6.0,
+      "armyGold": 7710
     },
     {
       "wave": 21,
-      "armyGold": 8400,
-      "entries": [
-        { "monsterId": "spitter", "count": 18 },
-        { "monsterId": "warden", "count": 11 },
-        { "monsterId": "revenant", "count": 6 }
-      ]
+      "count": 45,
+      "scale": 17.78,
+      "armyGold": 8000
     },
     {
       "wave": 22,
-      "armyGold": 8500,
-      "entries": [
-        { "monsterId": "carapace", "count": 10 },
-        { "monsterId": "husk", "count": 11 },
-        { "monsterId": "mender", "count": 7 }
-      ]
+      "count": 46,
+      "scale": 19.57,
+      "armyGold": 9000
     },
     {
       "wave": 23,
-      "armyGold": 10400,
-      "entries": [
-        { "monsterId": "stalker", "count": 19 },
-        { "monsterId": "mite", "count": 13 },
-        { "monsterId": "bloater", "count": 7 }
-      ]
+      "count": 48,
+      "scale": 21.67,
+      "armyGold": 10400
     },
     {
       "wave": 24,
-      "armyGold": 12600,
-      "entries": [
-        { "monsterId": "bloater", "count": 6 },
-        { "monsterId": "revenant", "count": 7 },
-        { "monsterId": "mender", "count": 6 },
-        { "monsterId": "grub", "count": 15 }
-      ]
+      "count": 49,
+      "scale": 24.49,
+      "armyGold": 12000
     },
     {
       "wave": 25,
-      "armyGold": 21000,
       "entries": [
-        { "monsterId": "hollow_king", "count": 3 },
-        { "monsterId": "brood_sire", "count": 3 },
-        { "monsterId": "gravemother", "count": 3 },
-        { "monsterId": "chitin_lord", "count": 3 },
-        { "monsterId": "mender", "count": 4 }
-      ]
+        {
+          "monsterId": "hollow_king",
+          "count": 3
+        },
+        {
+          "monsterId": "brood_sire",
+          "count": 3
+        },
+        {
+          "monsterId": "gravemother",
+          "count": 3
+        },
+        {
+          "monsterId": "chitin_lord",
+          "count": 3
+        },
+        {
+          "monsterId": "mender",
+          "count": 4
+        }
+      ],
+      "scale": 52.5,
+      "bossScale": 9.0,
+      "armyGold": 21000
     }
   ],
-  "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"],
-  "_clockNote": "DESIGN CHANGE to §3.2: there is no global wave-spawn clock. The only global timers are this 30s build phase and the enrage clock (§8). Combat runs until every living lane is empty, so a second wave can never land on an unfinished one.",
-  "_ladderNote": "ALL TWENTY-FIVE WAVES ARE TUNED and carry `armyGold`: each was measured with `npm run waves` until an average army worth that much gold beat it with nothing leaking, three quarters of that mostly could not, and half could not at all; then the ladder was played whole with `npm run runs` on five economy plans (docs/BALANCE.md §4 and §4a). Waves 1 to 10 are set under what a player with no economy has; 11 to 24 under what the budget model's steady player has after its gem building and tech, and from wave 13 the sweep fights with that tech. Past wave 15 the nominal clears about two thirds of armies rather than half, because a run's army is carried from wave to wave rather than bought fresh. Wave 25 is the council - three of each boss and four Menders - set above the steady line on purpose: it is the check that a player built an army at or near the supply cap."
+  "bossBank": ["brood_sire", "hollow_king", "gravemother", "chitin_lord"]
 }

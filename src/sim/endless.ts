@@ -69,8 +69,9 @@ export function endlessPool(data: GameData): { monsters: string[]; bosses: strin
   const bossIds = new Set(data.monsters.bosses.map((b) => b.id));
   const monsters = new Set<string>();
   const bosses = new Set<string>(data.waves.bossBank);
+  for (const combo of data.waves.combinations) monsters.add(combo.monsterId);
   for (const wave of data.waves.composition) {
-    for (const entry of wave.entries) {
+    for (const entry of wave.entries ?? []) {
       if (bossIds.has(entry.monsterId)) bosses.add(entry.monsterId);
       else monsters.add(entry.monsterId);
     }

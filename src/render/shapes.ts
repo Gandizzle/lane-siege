@@ -317,6 +317,37 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
   // Seven tiny things packed tight, one in the middle: smaller and denser than
   // any other swarm, which is what the body underneath it is.
   hive: () => [dot(0, 0, 0.2), ...stamp(regularOffsets(6, 0.6), (x, y) => dot(x, y, 0.2))],
+
+  // ---- The five that complete the sixteen combinations (waves.json), one
+  // per family that was a monster short. Same rules as their families above.
+  // Flesh: two soft lobes side by side, the only round body wider than tall.
+  peanut: () => [dot(-0.42, 0, 0.56), dot(0.42, 0, 0.56)],
+  // Plate: a T - a slab of a head on a square stem.
+  tee: () => [
+    poly([
+      -0.72, -0.66, 0.72, -0.66, 0.72, -0.2, 0.26, -0.2, 0.26, 0.9, -0.26, 0.9, -0.26, -0.2, -0.72,
+      -0.2,
+    ]),
+  ],
+  // Plate: an I-beam, flanges top and bottom on a narrow web.
+  girder: () => [
+    poly([
+      -0.68, -0.7, 0.68, -0.7, 0.68, -0.38, 0.22, -0.38, 0.22, 0.38, 0.68, 0.38, 0.68, 0.7, -0.68,
+      0.7, -0.68, 0.38, -0.22, 0.38, -0.22, -0.38, -0.68, -0.38,
+    ]),
+  ],
+  // Ward: a lightning bolt, pointed at both ends.
+  bolt: () => [poly([0.2, -0.97, -0.45, 0.08, -0.02, 0.08, -0.22, 0.96, 0.48, -0.12, 0.05, -0.12])],
+  // Swarm: three thin slivers side by side - the only swarm of lines, not lumps.
+  needles3: () =>
+    stamp(
+      [
+        [-0.48, 0],
+        [0, 0],
+        [0.48, 0],
+      ],
+      (x, y) => poly([x + 0.1, y - 0.72, x + 0.17, y + 0.6, x - 0.1, y + 0.72, x - 0.17, y - 0.6]),
+    ),
 };
 
 /** The centres of `n` things evenly around a ring of radius `r`. */

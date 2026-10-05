@@ -370,6 +370,12 @@ export interface MatchView {
   teamName: string;
   /** Public and identical for everyone: every lane faces the same wave (§9.2). */
   seed: number;
+  /**
+   * What waves 21 to 24 are, once wave 20 has decided it (MatchState,
+   * `lateWaves`): the one part of a wave the seed alone cannot say, so the
+   * preview needs it from here. Null before.
+   */
+  lateWaves: string[][] | null;
   tick: number;
   wave: number;
   phase: Phase;
@@ -654,6 +660,7 @@ export function viewFor(
     teamId,
     teamName: self?.name ?? '',
     seed: state.seed,
+    lateWaves: state.lateWaves,
     tick: state.tick,
     wave: state.wave,
     phase: state.phase,

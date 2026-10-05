@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import {
+  chooseLateWaves,
+  combinationWaves,
+  comboKey,
   generateWave,
   isBossWave,
   previewWave,
@@ -8,9 +11,25 @@ import {
   sendBounty,
   sendPrice,
 } from './waves.ts';
-import { createContext, createMatch, createMonster, step } from './index.ts';
+import { applyCommand, createContext, createMatch, createMonster, step, viewFor } from './index.ts';
 
 const { data } = loadDataFromDisk();
+
+const ALL_SIXTEEN = data.matrix.armorTypes.flatMap((a) =>
+  data.matrix.damageTypes.map((t) => comboKey(a, t)),
+);
+
+/** The one combination a generated wave is made of, or null if it is mixed. */
+function onlyCombination(seed: number, wave: number): string | null {
+  const byId = new Map(data.monsters.monsters.map((m) => [m.id, m]));
+  const keys = new Set(
+    generateWave(data, seed, wave).map((s) => {
+      const def = byId.get(s.defId)!;
+      return comboKey(def.armor, def.damageType);
+    }),
+  );
+  return keys.size === 1 ? [...keys][0]! : null;
+}
 
 describe('wave generation (DESIGN.md §9.2)', () => {
   it('is a pure function of (matchSeed, waveNumber)', () => {
@@ -20,121 +39,149 @@ describe('wave generation (DESIGN.md §9.2)', () => {
     expect(a).toEqual(b);
   });
 
-  it('uses the authored composition where one exists', () => {
-    // Read off the file rather than written down here. The counts are balance
-    // data and move whenever a wave is tuned; a test that names them fails on
-    // every tuning pass and says nothing about generation either way.
-    const authored = data.waves.composition.find((w) => w.wave === 1)!;
-    const wave1 = generateWave(data, 1, 1);
-    expect(wave1).toHaveLength(authored.entries.reduce((n, e) => n + (e.count ?? 0), 0));
-    for (const entry of authored.entries) {
-      expect(
-        wave1.filter((s) => s.defId === entry.monsterId),
-        entry.monsterId,
-      ).toHaveLength(entry.count ?? 0);
-    }
-  });
-
   it('stamps each monster with its own wave number (§8)', () => {
     expect(generateWave(data, 1, 3).every((s) => s.waveNumber === 3)).toBe(true);
   });
 
-  it('puts a boss on every fifth wave (§3.4)', () => {
+  it('makes waves 1-4, 6-9, 11-14 and 16-19 one combination each, every combination once', () => {
+    // The playtest: a wave of three kinds asked nothing of an army. One kind a
+    // wave, and all sixteen pairs of the chart over the match.
+    expect(combinationWaves(data)).toEqual([
+      1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19,
+    ]);
+    for (const seed of [1, 2, 99, 1107]) {
+      const seen = combinationWaves(data).map((wave) => onlyCombination(seed, wave));
+      expect(
+        seen.every((key) => key !== null),
+        `seed ${seed}`,
+      ).toBe(true);
+      expect([...seen].sort(), `seed ${seed}`).toEqual([...ALL_SIXTEEN].sort());
+    }
+    // In an order the seed decides, so two matches do not run the same way.
+    const order = (seed: number) => combinationWaves(data).map((w) => onlyCombination(seed, w));
+    expect(order(1)).not.toEqual(order(2));
+  });
+
+  it('brings as many monsters as the table says, at its scale', () => {
+    for (const wave of combinationWaves(data)) {
+      const row = data.waves.composition.find((w) => w.wave === wave)!;
+      expect(generateWave(data, 3, wave), `wave ${wave}`).toHaveLength(row.count!);
+    }
+  });
+
+  it('every combination is a real monster wearing that armor and dealing that damage', () => {
+    const byId = new Map(data.monsters.monsters.map((m) => [m.id, m]));
+    expect(data.waves.combinations.map((c) => comboKey(c.armor, c.damageType)).sort()).toEqual(
+      [...ALL_SIXTEEN].sort(),
+    );
+    for (const combo of data.waves.combinations) {
+      const def = byId.get(combo.monsterId)!;
+      expect(def.armor, combo.monsterId).toBe(combo.armor);
+      expect(def.damageType, combo.monsterId).toBe(combo.damageType);
+    }
+  });
+
+  it('puts one boss, alone, on every fifth wave - each boss once before the council (§3.4)', () => {
     expect(isBossWave(data, 5)).toBe(true);
     expect(isBossWave(data, 10)).toBe(true);
     expect(isBossWave(data, 4)).toBe(false);
-
-    const bossIds = new Set(data.waves.bossBank);
-    expect(generateWave(data, 1, 5).some((s) => bossIds.has(s.defId))).toBe(true);
-    expect(generateWave(data, 1, 10).some((s) => bossIds.has(s.defId))).toBe(true);
-  });
-
-  it('does not hand an authored boss wave a second boss', () => {
-    const bossIds = new Set(data.waves.bossBank);
-    const bosses = generateWave(data, 1, 5).filter((s) => bossIds.has(s.defId));
-    expect(bosses).toHaveLength(1);
-  });
-
-  it('scales count and stats past the authored range (§9.1)', () => {
-    // Waves 1-25 are authored; 26 onward reuse the last shape, scaled up -
-    // its monsters, that is. Its bosses do not come along: a boss comes from
-    // the bank on a boss wave, one of them.
     const bank = new Set(data.waves.bossBank);
-    const escort = (wave: number) =>
-      generateWave(data, 1, wave).filter((s) => !bank.has(s.defId)).length;
-    expect(escort(30)).toBeGreaterThan(escort(25));
-    expect(generateWave(data, 1, 31).some((s) => bank.has(s.defId))).toBe(false);
-    expect(generateWave(data, 1, 30).filter((s) => bank.has(s.defId))).toHaveLength(1);
+    for (const seed of [1, 2, 3]) {
+      const bosses = [5, 10, 15, 20].map((wave) => {
+        const specs = generateWave(data, seed, wave);
+        expect(specs, `seed ${seed} wave ${wave}`).toHaveLength(1);
+        expect(bank.has(specs[0]!.defId)).toBe(true);
+        return specs[0]!.defId;
+      });
+      expect(new Set(bosses).size, `seed ${seed}`).toBe(data.waves.bossBank.length);
+    }
+  });
 
-    const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
-    const early = resolveMonsterStats(data, grub, 1);
-    const late = resolveMonsterStats(data, grub, 32);
-    expect(late.hp).toBeGreaterThan(early.hp);
-    expect(late.damage).toBeGreaterThan(early.damage);
-    // Speed is enrage's job (§8), not the wave curve's - stacking both would
-    // make late waves unreadable.
-    expect(late.moveSpeed).toBe(early.moveSpeed);
-    expect(late.attackSpeed).toBe(early.attackSpeed);
+  it('keeps wave 25 the council of bosses, as authored', () => {
+    const last = data.waves.composition.find((w) => w.wave === 25)!;
+    const council = generateWave(data, 1, 25);
+    expect(council).toHaveLength(last.entries!.reduce((n, e) => n + (e.count ?? 0), 0));
+    expect(council.filter((s) => data.waves.bossBank.includes(s.defId)).length).toBeGreaterThan(4);
+  });
+
+  it('makes waves 21-24 two combinations each, half and half, from the late choice', () => {
+    const late = [
+      ['plate/pierce', 'ward/impact'],
+      ['flesh/arcane', 'swarm/blast'],
+      ['plate/impact', 'ward/arcane'],
+      ['flesh/blast', 'swarm/pierce'],
+    ];
+    const byId = new Map(data.monsters.monsters.map((m) => [m.id, m]));
+    late.forEach((pair, i) => {
+      const wave = 21 + i;
+      const specs = generateWave(data, 1, wave, late);
+      const count = (key: string) =>
+        specs.filter((s) => {
+          const def = byId.get(s.defId)!;
+          return comboKey(def.armor, def.damageType) === key;
+        }).length;
+      expect(count(pair[0]!) + count(pair[1]!), `wave ${wave}`).toBe(specs.length);
+      expect(Math.abs(count(pair[0]!) - count(pair[1]!)), `wave ${wave}`).toBeLessThanOrEqual(1);
+    });
+    // With no record (a debugging start, the balance harness), the seed draws
+    // them - still two kinds a wave.
+    const drawn = new Set(generateWave(data, 1, 22).map((s) => s.defId));
+    expect(drawn.size).toBe(2);
+  });
+
+  it('chooses the eight that hurt most, and pairs them', () => {
+    const harm = Object.fromEntries(ALL_SIXTEEN.map((key, i) => [key, i]));
+    const late = chooseLateWaves(data, 7, harm);
+    expect(late).toHaveLength(4);
+    for (const pair of late) expect(pair).toHaveLength(2);
+    expect(late.flat().sort()).toEqual(ALL_SIXTEEN.slice(8).sort());
+    // The same record and seed choose the same waves on every client.
+    expect(chooseLateWaves(data, 7, harm)).toEqual(late);
   });
 
   it('previews the incoming wave for the build phase (§9.3)', () => {
     const preview = previewWave(data, 1, 3);
-    expect(preview.length).toBeGreaterThan(0);
-    for (const entry of preview) {
-      expect(entry.count).toBeGreaterThan(0);
-      expect(entry.name).toBeTruthy();
-      expect(entry.armor).toBeTruthy();
-    }
-    const total = preview.reduce((sum, e) => sum + e.count, 0);
-    expect(total).toBe(generateWave(data, 1, 3).length);
+    expect(preview).toHaveLength(1);
+    expect(preview[0]!.count).toBe(generateWave(data, 1, 3).length);
+    expect(preview[0]!.name).toBeTruthy();
+    expect(preview[0]!.armor).toBeTruthy();
   });
 });
 
-/**
- * §9.1, amended: a monster grows one step a wave, and the panel that shows it
- * resolves against the wave on screen rather than being told per body.
- */
-describe('monsters grow with the wave', () => {
+/** §9.1, replaced: a table, one row a wave, rather than a curve. */
+describe('monsters grow with the wave table', () => {
   const grub = data.monsters.monsters.find((m) => m.id === 'grub')!;
+  const boss = data.monsters.bosses[0]!;
+  const row = (wave: number) => data.waves.composition.find((w) => w.wave === wave)!;
 
-  it('scales health and damage from wave 1 up', () => {
-    const one = resolveMonsterStats(data, grub, 1);
-    const five = resolveMonsterStats(data, grub, 5);
-    expect(one.hp).toBe(grub.hp);
-    expect(one.damage).toBe(grub.damage);
-    expect(five.hp).toBeGreaterThan(one.hp * 1.5);
-    expect(five.damage).toBeGreaterThan(one.damage * 1.4);
-  });
-
-  it('grows by the early rate up to its wave and the later rate after', () => {
-    const { hp, damage, after } = data.waves.scaling;
-    expect(after, 'the data has a later rate').toBeDefined();
-    const at = (wave: number) => resolveMonsterStats(data, grub, wave);
-    const last = after!.wave - 1;
-    // Up to the wave before, nothing has changed: the early curve.
-    expect(at(last).hp / at(last - 1).hp).toBeCloseTo(hp!, 9);
-    expect(at(last).damage / at(last - 1).damage).toBeCloseTo(damage!, 9);
-    // From it on, every step is the later rate.
-    for (const wave of [after!.wave, after!.wave + 1, after!.wave + 6]) {
-      expect(at(wave).hp / at(wave - 1).hp, `wave ${wave}`).toBeCloseTo(after!.hp, 9);
-      expect(at(wave).damage / at(wave - 1).damage, `wave ${wave}`).toBeCloseTo(after!.damage, 9);
+  it("scales health and damage by the row's scale", () => {
+    for (const wave of [1, 2, 9, 19, 24]) {
+      const stats = resolveMonsterStats(data, grub, wave);
+      expect(stats.hp, `wave ${wave}`).toBeCloseTo(grub.hp! * row(wave).scale!, 9);
+      expect(stats.damage, `wave ${wave}`).toBeCloseTo(grub.damage! * row(wave).scale!, 9);
     }
   });
 
-  it('grows a boss once a boss wave, faster from its later wave', () => {
-    const boss = data.monsters.bosses[0]!;
-    const { hp, damage, after } = data.waves.bossScaling!;
-    const every = data.waves.bossEveryNWaves;
-    const at = (wave: number) => resolveMonsterStats(data, boss, wave);
-    expect(at(2 * every).hp / at(every).hp).toBeCloseTo(hp!, 9);
-    expect(at(2 * every).damage / at(every).damage).toBeCloseTo(damage!, 9);
-    for (const wave of [after!.wave, after!.wave + every]) {
-      expect(at(wave).hp / at(wave - every).hp, `wave ${wave}`).toBeCloseTo(after!.hp, 9);
-      expect(at(wave).damage / at(wave - every).damage, `wave ${wave}`).toBeCloseTo(
-        after!.damage,
-        9,
-      );
+  it('scales a boss by its own column, and never by both', () => {
+    for (const wave of [5, 10, 15, 20, 25]) {
+      const stats = resolveMonsterStats(data, boss, wave);
+      expect(stats.hp, `wave ${wave}`).toBeCloseTo(boss.hp! * row(wave).bossScale!, 9);
     }
+  });
+
+  it('grows every wave, and keeps growing past the table', () => {
+    let last = 0;
+    for (const wave of combinationWaves(data)) {
+      const hp = resolveMonsterStats(data, grub, wave).hp;
+      expect(hp, `wave ${wave}`).toBeGreaterThan(last);
+      last = hp;
+    }
+    expect(resolveMonsterStats(data, grub, 30).hp).toBeGreaterThan(
+      resolveMonsterStats(data, grub, 25).hp,
+    );
+    expect(resolveMonsterStats(data, boss, 35).hp).toBeGreaterThan(
+      resolveMonsterStats(data, boss, 25).hp,
+    );
   });
 
   it("leaves speed and reach alone, which is enrage's job (§8)", () => {
@@ -143,15 +190,6 @@ describe('monsters grow with the wave', () => {
     expect(twenty.moveSpeed).toBe(one.moveSpeed);
     expect(twenty.attackSpeed).toBe(one.attackSpeed);
     expect(twenty.range).toBe(one.range);
-  });
-
-  it('does not scale a boss twice', () => {
-    // A boss has its own ladder, per BOSS wave. Taking the per-wave one too
-    // would have wave 25's boss at the product of both.
-    const boss = data.monsters.bosses[0]!;
-    const first = resolveMonsterStats(data, boss, 5);
-    expect(first.hp).toBe(boss.hp);
-    expect(first.damage).toBe(boss.damage);
   });
 
   it('puts every living monster in a lane in the wave on screen', () => {
@@ -175,6 +213,58 @@ describe('monsters grow with the wave', () => {
       }
     }
     expect(seen).toBeGreaterThan(0);
+  });
+});
+
+describe('what hurt, and what comes back (waves 21-24)', () => {
+  it("records each combination's harm as a share of the army it hit", () => {
+    const state = createMatch(data, { seed: 3, teams: [{ id: 'l1', playerIds: ['p'] }] });
+    const ctx = createContext(data);
+    const lane = state.lanes.l1!;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    lane.fortress.hp = lane.fortress.maxHp;
+    lane.economy.gold = 1000;
+    for (let x = 0; x < 6; x++) {
+      applyCommand(ctx, state, {
+        kind: 'placeUnit',
+        teamId: 'l1',
+        unitDefId: 'pledge',
+        tileX: x,
+        tileY: 6,
+      });
+    }
+    const key = onlyCombination(3, 1)!;
+    for (let t = 0; t < 20 * 120 && !(state.phase === 'build' && state.wave === 1); t++)
+      step(ctx, state);
+    expect(state.wave).toBe(1);
+    expect(lane.comboHarm[key]).toBeGreaterThan(0);
+    // Nothing else was fought, so nothing else is on the record.
+    expect(Object.keys(lane.comboHarm)).toEqual([key]);
+  });
+
+  it('decides waves 21-24 as wave 20 ends, from the lanes still standing', () => {
+    const state = createMatch(data, {
+      seed: 4,
+      teams: [
+        { id: 'a', playerIds: ['a'] },
+        { id: 'b', playerIds: ['b'] },
+      ],
+    });
+    const ctx = createContext(data);
+    ALL_SIXTEEN.forEach((key, i) => {
+      state.lanes.a!.comboHarm[key] = i;
+      // The fallen lane's record is the opposite, and must not count.
+      state.lanes.b!.comboHarm[key] = 100 - i;
+    });
+    state.teams.find((t) => t.id === 'b')!.eliminated = true;
+    state.phase = 'combat';
+    state.wave = 20;
+    expect(state.lateWaves).toBeNull();
+    step(ctx, state);
+    expect(state.phase).toBe('build');
+    expect(state.lateWaves!.flat().sort()).toEqual(ALL_SIXTEEN.slice(8).sort());
+    // And the view carries it, so the preview of wave 21 is right.
+    expect(viewFor(ctx, state, 'a').lateWaves).toEqual(state.lateWaves);
   });
 });
 
@@ -210,44 +300,37 @@ describe('the wave bounty pool (§11.1, replaced)', () => {
   it('pays a boss its purse on top, and only a boss', () => {
     expect(purse).toBeGreaterThan(0);
     const bossIds = new Set(data.waves.bossBank);
+    // A boss wave is the boss alone now: it takes the whole pool and the purse.
     const wave = generateWave(data, 99, 5);
     const boss = wave.find((s) => bossIds.has(s.defId))!;
-    const escort = wave.filter((s) => !bossIds.has(s.defId));
-
-    // The escort still shares the plain pool between them; the difference
-    // between what the boss takes and its share of that pool is the purse.
-    const escortPaid = escort.reduce((sum, s) => sum + (s.bounty ?? 0), 0);
-    expect(boss.bounty! - purse).toBeCloseTo(pool - escortPaid, 6);
-    expect(boss.bounty!).toBeGreaterThan(escortPaid);
-    for (const s of escort) expect(s.bounty!).toBeLessThan(purse);
+    expect(wave).toHaveLength(1);
+    expect(boss.bounty!).toBeCloseTo(pool + purse, 6);
+    for (const s of generateWave(data, 99, 4)) expect(s.bounty!).toBeLessThan(purse);
   });
 
   it('splits it by the weight on each definition, not evenly', () => {
     // A monster worth twice another takes twice the share: the relative worth
-    // survives, the total does not float. The pair is taken from whatever wave
-    // 2 actually holds, because which monsters are in it is balance data.
-    const byId = new Map(data.monsters.monsters.map((m) => [m.id, m]));
-    const wave = generateWave(data, 1, 2);
-    const kinds = [...new Set(wave.map((s) => s.defId))]
-      .map((id) => ({ id, weight: byId.get(id)?.bounty ?? 0 }))
-      .sort((a, b) => a.weight - b.weight);
-    const light = wave.find((s) => s.defId === kinds[0]!.id)!;
-    const heavy = wave.find((s) => s.defId === kinds[kinds.length - 1]!.id)!;
-    expect(kinds[kinds.length - 1]!.weight).toBeGreaterThan(kinds[0]!.weight);
-
-    const ratio = kinds[kinds.length - 1]!.weight / kinds[0]!.weight;
-    expect(heavy.bounty! / light.bounty!).toBeCloseTo(ratio, 6);
-    expect(heavy.bounty).not.toBeCloseTo(light.bounty!, 6);
+    // survives, the total does not float. A mixed wave, written down - every
+    // wave the game generates is one kind, or two of equal weight.
+    const mixed = structuredClone(data);
+    mixed.monsters.monsters.find((m) => m.id === 'grub')!.bounty = 2;
+    mixed.monsters.monsters.find((m) => m.id === 'husk')!.bounty = 6;
+    mixed.waves.composition.find((w) => w.wave === 2)!.entries = [
+      { monsterId: 'grub', count: 10 },
+      { monsterId: 'husk', count: 5 },
+    ];
+    const wave = generateWave(mixed, 1, 2);
+    const light = wave.find((s) => s.defId === 'grub')!;
+    const heavy = wave.find((s) => s.defId === 'husk')!;
+    expect(heavy.bounty! / light.bounty!).toBeCloseTo(3, 6);
+    expect(wave.reduce((sum, s) => sum + (s.bounty ?? 0), 0)).toBeCloseTo(pool, 6);
   });
 
   it('does not pay more for a wave with more monsters in it', () => {
     // The old per-monster bounties made the biggest wave worth nineteen times
-    // the smallest. Both waves are picked off the file by size and both are
-    // non-boss, since a boss carries a purse on top of the pool and comparing
-    // one against a plain wave would be comparing two different rules.
-    const sizes = data.waves.composition
-      .filter((w) => !isBossWave(data, w.wave))
-      .map((w) => ({ wave: w.wave, n: w.entries.reduce((sum, e) => sum + (e.count ?? 0), 0) }))
+    // the smallest. Both are non-boss waves: a boss carries a purse on top.
+    const sizes = combinationWaves(data)
+      .map((wave) => ({ wave, n: generateWave(data, 7, wave).length }))
       .sort((a, b) => a.n - b.n);
     const smallest = sizes[0]!;
     const biggest = sizes[sizes.length - 1]!;

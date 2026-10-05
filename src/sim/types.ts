@@ -285,6 +285,8 @@ export interface Monster {
    * than on a second husk definition.
    */
   sendId: string | null;
+  /** What it has landed on units, for `Lane.comboHarm` (credited by strike.ts). */
+  damageDealt: number;
   /**
    * Abilities, running (§7, §18, extended). One block of fields on both kinds
    * of body, because a burn on a monster and a ward on a unit are the same
@@ -472,6 +474,15 @@ export interface Lane {
   kills: number;
   /** What the wave being fought has paid this lane so far (`WaveTally`). */
   waveTally: WaveTally;
+  /** The army's health as the wave being fought began: what `comboHarm` is a share of. */
+  waveArmyHp: number;
+  /**
+   * How much of this lane's army each armor/damage combination took, as a
+   * share of the army's health, summed over the combination waves (keyed
+   * "plate/pierce"). Read once, as wave 20 ends, to choose waves 21 to 24
+   * (waves.ts, `chooseLateWaves`).
+   */
+  comboHarm: Record<string, number>;
 }
 
 /**
@@ -607,6 +618,13 @@ export interface MatchState {
    * `combat` and never changes again.
    */
   endless: EndlessState | null;
+  /**
+   * What waves 21 to 24 are: two combinations each, chosen as wave 20 ends by
+   * what hurt the surviving armies most (waves.ts, `chooseLateWaves`). Null
+   * until then - and in a match that never got there, which draws them from
+   * the seed instead.
+   */
+  lateWaves: string[][] | null;
   nextEntityId: EntityId;
   /** Set when one team (or none) remains (§13). */
   finished: boolean;

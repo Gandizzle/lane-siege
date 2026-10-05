@@ -72,7 +72,7 @@ function run(ctx: SimContext, state: MatchState, ticks: number): void {
 
 describe('a monster that reaches the fortress can hit it (§5.5)', () => {
   it('engages it and takes its HP down', () => {
-    const { state, ctx } = undefended(14);
+    const { state, ctx } = undefended(14, [{ monsterId: 'grub', count: 12 }]);
     const lane = state.lanes.l1!;
 
     run(ctx, state, 400);
@@ -83,7 +83,7 @@ describe('a monster that reaches the fortress can hit it (§5.5)', () => {
   it('keeps hitting it rather than stalling once the front row is full', () => {
     // The failure this guards against is silent: monsters stand at the wall
     // looking correct while the fortress takes no damage at all.
-    const { state, ctx } = undefended(14);
+    const { state, ctx } = undefended(14, [{ monsterId: 'grub', count: 12 }]);
     const lane = state.lanes.l1!;
 
     run(ctx, state, 400);

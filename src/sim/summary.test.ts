@@ -33,7 +33,14 @@ describe('wave summary (§9.3)', () => {
   });
 
   it('reports the armor spread, commonest first', () => {
-    const summary = summariseWave(data, 1, 3);
+    // A mixture, written down: a combination wave is one armor by design.
+    const mixed = structuredClone(data);
+    mixed.waves.composition.find((w) => w.wave === 3)!.entries = [
+      { monsterId: 'husk', count: 18 },
+      { monsterId: 'swarmling', count: 8 },
+      { monsterId: 'mote', count: 6 },
+    ];
+    const summary = summariseWave(mixed, 1, 3);
     expect(summary.armorMix.length).toBeGreaterThan(1);
     for (let i = 1; i < summary.armorMix.length; i++) {
       expect(summary.armorMix[i - 1]!.count).toBeGreaterThanOrEqual(summary.armorMix[i]!.count);

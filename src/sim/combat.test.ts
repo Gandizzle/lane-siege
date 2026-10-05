@@ -6,10 +6,18 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { trivialWaves } from './fixtures.ts';
 import { applyCommand } from './apply.ts';
-import { countLiving, createContext, createMatch, step, TICKS_PER_SECOND } from './index.ts';
+import {
+  countLiving,
+  createContext,
+  createMatch,
+  generateWave,
+  step,
+  TICKS_PER_SECOND,
+} from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
 
 const { data } = loadDataFromDisk();
+const base = data;
 
 /**
  * A match whose waves are one grub each (`fixtures.ts`).
@@ -333,7 +341,7 @@ describe('the reserve queue (§8.1)', () => {
     // there is rather than naming one, so tuning a wave cannot silently turn
     // this into a test of nothing.
     const biggest = data.waves.composition
-      .map((w) => ({ wave: w.wave, n: w.entries.reduce((sum, e) => sum + (e.count ?? 0), 0) }))
+      .map((w) => ({ wave: w.wave, n: generateWave(data, 1, w.wave).length }))
       .reduce((a, b) => (b.n > a.n ? b : a));
     expect(biggest.n).toBeGreaterThan(cap);
     state.wave = biggest.wave - 1;
@@ -355,6 +363,10 @@ describe('the reserve queue (§8.1)', () => {
 
 describe('two pools on the field (§8.1, amended)', () => {
   it('holds waves and sends to caps of their own, each refilled from its own queue', () => {
+    // A wave of small bodies, written down, so that a full pool of each fits
+    // the spawn zone at once and both caps are what stops them.
+    const data = structuredClone(base);
+    data.waves.composition.find((w) => w.wave === 7)!.entries = [{ monsterId: 'mite', count: 40 }];
     const state = createMatch(data, {
       seed: 1,
       teams: [
@@ -369,13 +381,10 @@ describe('two pools on the field (§8.1, amended)', () => {
     lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
     lane.fortress.hp = lane.fortress.maxHp;
 
-    // The biggest authored wave, which overflows its own pool, and more sends
-    // than theirs holds: both pools full at once, and both queues waiting.
-    const biggest = data.waves.composition
-      .map((w) => ({ wave: w.wave, n: w.entries.reduce((sum, e) => sum + (e.count ?? 0), 0) }))
-      .reduce((a, b) => (b.n > a.n ? b : a));
-    expect(biggest.n).toBeGreaterThan(waveCap);
-    state.wave = biggest.wave - 1;
+    // A wave that overflows its own pool, and more sends than theirs holds:
+    // both pools full at once, and both queues waiting.
+    expect(generateWave(data, 1, 7).length).toBeGreaterThan(waveCap);
+    state.wave = 6;
     for (let i = 0; i < sendCap + 5; i++) {
       lane.incomingSends.push({ defId: 'grub', fromTeamId: 'lane2', sendId: 'grub' });
     }
@@ -425,7 +434,7 @@ describe('ground to stand on (§8.1, amended)', () => {
     lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
     lane.fortress.hp = lane.fortress.maxHp;
     const biggest = data.waves.composition
-      .map((w) => ({ wave: w.wave, n: w.entries.reduce((sum, e) => sum + (e.count ?? 0), 0) }))
+      .map((w) => ({ wave: w.wave, n: generateWave(data, 1, w.wave).length }))
       .reduce((a, b) => (b.n > a.n ? b : a));
     state.wave = biggest.wave - 1;
     const behemoth = data.sends.sends.find((x) => x.id === 'behemoth')!;

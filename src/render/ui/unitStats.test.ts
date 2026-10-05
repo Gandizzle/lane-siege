@@ -334,7 +334,7 @@ describe('what a body panel says', () => {
     const def = data.monsters.monsters.find((m) => m.id === 'grub')!;
     const early = monsterStatText('hp', resolveMonsterStats(data, def, 1));
     const late = monsterStatText('hp', resolveMonsterStats(data, def, 5));
-    expect(Number(early)).toBe(def.hp);
+    expect(Number(early)).toBe(Math.round(def.hp ?? 0));
     expect(Number(late)).toBeGreaterThan(Number(early) * 1.5);
   });
 });

@@ -141,6 +141,7 @@ export type ShapeId =
   | 'cloud'
   | 'spindle'
   | 'loaf'
+  | 'peanut'
   // Plate: angular.
   | 'hexagon'
   | 'pentagon'
@@ -151,6 +152,8 @@ export type ShapeId =
   | 'chevron'
   | 'keep'
   | 'octagon'
+  | 'tee'
+  | 'girder'
   // Ward: pointed.
   | 'diamond'
   | 'kite'
@@ -163,6 +166,7 @@ export type ShapeId =
   | 'dart'
   | 'crown'
   | 'pennant'
+  | 'bolt'
   // Swarm: many small things.
   | 'cluster3'
   | 'dots3'
@@ -173,7 +177,8 @@ export type ShapeId =
   | 'diamonds3'
   | 'squares4'
   | 'flock'
-  | 'hive';
+  | 'hive'
+  | 'needles3';
 
 /** Which armor type each silhouette belongs to. The counter-read lives here. */
 export const SHAPE_FAMILY: Record<ShapeId, ArmorType> = {
@@ -190,6 +195,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmorType> = {
   cloud: 'flesh',
   spindle: 'flesh',
   loaf: 'flesh',
+  peanut: 'flesh',
   hexagon: 'plate',
   pentagon: 'plate',
   slab: 'plate',
@@ -199,6 +205,8 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmorType> = {
   chevron: 'plate',
   keep: 'plate',
   octagon: 'plate',
+  tee: 'plate',
+  girder: 'plate',
   diamond: 'ward',
   kite: 'ward',
   star4: 'ward',
@@ -210,6 +218,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmorType> = {
   dart: 'ward',
   crown: 'ward',
   pennant: 'ward',
+  bolt: 'ward',
   cluster3: 'swarm',
   dots3: 'swarm',
   dots4: 'swarm',
@@ -220,6 +229,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmorType> = {
   squares4: 'swarm',
   flock: 'swarm',
   hive: 'swarm',
+  needles3: 'swarm',
 };
 
 export interface UnitDef {
@@ -374,7 +384,18 @@ export interface WaveEntry {
 
 export interface WaveDef {
   wave: number;
-  entries: WaveEntry[];
+  /**
+   * An AUTHORED wave: exactly these monsters, and nothing generated. Wave 25's
+   * council of bosses, and tests that want one particular fight. Every other
+   * wave is generated from `combinations` (waves.ts, `generateWave`).
+   */
+  entries?: WaveEntry[];
+  /** How many monsters a generated wave brings (§9.1, replaced: a table, not a curve). */
+  count?: number;
+  /** HP and damage multiplier on every monster that is not a boss, this wave. */
+  scale?: number;
+  /** HP and damage multiplier on a boss, this wave. */
+  bossScale?: number;
   /**
    * The gold of army this wave is TUNED to be beaten by, and the number the
    * sandbox (`src/balance/sandbox.ts`) measures against.
@@ -384,11 +405,15 @@ export interface WaveDef {
    * wave a player must spend every coin to survive has taken that room away
    * and is too hard whatever its clear rate says; a wave beaten at half this
    * is not asking anything.
-   *
-   * Optional, because waves past the authored ladder are generated rather than
-   * designed and have nothing to be tuned against.
    */
   armyGold?: number;
+}
+
+/** One of the sixteen armor/damage pairs, and the monster that is it in a wave. */
+export interface Combination {
+  armor: ArmorType;
+  damageType: DamageType;
+  monsterId: string;
 }
 
 /**
@@ -507,39 +532,19 @@ export interface WavesFile {
    */
   maxConcurrentSends: number;
   enrage: EnrageConfig;
-  scaling: {
-    count: Unfilled<number>;
-    hp: Unfilled<number>;
-    damage: Unfilled<number>;
-    bounty: Unfilled<number>;
-    /**
-     * From `wave` on, each further wave grows by these instead of `hp` and
-     * `damage`. The early curve is steep because the economy compounds
-     * fastest early; past that an army grows by roughly what a wave pays, and
-     * a curve that kept compounding at the early rate would outrun every army
-     * there is.
-     */
-    after?: { wave: number; hp: number; damage: number };
-  };
   /**
-   * §3.4, added: how a BOSS grows from one boss wave to the next.
-   *
-   * Compounded per boss wave rather than per wave - a boss appears on
-   * multiples of `bossEveryNWaves` and nowhere else, so a per-wave factor
-   * applied to it is a curve nobody chose. Wave 5's boss is the bank as
-   * authored; wave 10's is this once over, and so on.
-   *
-   * It is also what lets the bank be four bodies of equal power in four
-   * armor types. Without it the bank had to carry the difficulty curve in its
-   * own HP numbers, which made wave 5 a 1,400 HP fight or a 3,100 HP fight
-   * depending on which one the draw picked.
+   * The sixteen armor/damage pairs, each with the monster a wave of it is made
+   * of. Every combination wave (1-4, 6-9, 11-14, 16-19) is one of these, each
+   * once a match, in an order shuffled by the seed (waves.ts).
    */
-  bossScaling?: {
-    hp: Unfilled<number>;
-    damage: Unfilled<number>;
-    /** From the boss wave `wave` on, each boss grows by these instead. */
-    after?: { wave: number; hp: number; damage: number };
-  };
+  combinations: Combination[];
+  /**
+   * Waves `from` to `to`: `perWave` combinations each, half and half, drawn
+   * from the `choose` that took the biggest share of the surviving armies'
+   * health in the combination waves.
+   */
+  lateWaves?: { from: number; to: number; choose: number; perWave: number };
+  /** One row a wave: count, scale, boss scale and tuned army gold (§9.1, replaced). */
   composition: WaveDef[];
   bossBank: string[];
 }
