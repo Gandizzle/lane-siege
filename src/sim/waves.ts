@@ -230,14 +230,20 @@ function tableValue(
   const before = rows.filter((w) => w.wave < waveNumber);
   const last = before.at(-1);
   if (!last) return pick(rows[0]!)!;
-  const prev = before.at(-2);
   // Inside the table, between two rows: the earlier one holds.
-  if (rows.some((w) => w.wave > waveNumber) || !prev) return pick(last)!;
-  // Past it: the last step between rows, repeated - every wave for a column
-  // with a row a wave, every five for the bosses'. Repeated multiplication,
-  // not a fractional power, which is not bit-identical across engines.
-  const gap = last.wave - prev.wave;
-  const step = pick(last)! / pick(prev)!;
+  if (rows.some((w) => w.wave > waveNumber)) return pick(last)!;
+  // Past it: from the last row, at the last step between two GENERATED rows,
+  // repeated - every wave for the monsters' column, every five for the
+  // bosses'. Not the step into an authored row: the council is twelve bosses
+  // at a twelfth of one boss's scale, and growing from that step would shrink
+  // solo's endless bosses. Repeated multiplication, not a fractional power,
+  // which is not bit-identical across engines.
+  const generated = before.filter((w) => !w.entries);
+  const prev = generated.at(-2);
+  const latest = generated.at(-1);
+  if (!prev || !latest) return pick(last)!;
+  const gap = latest.wave - prev.wave;
+  const step = pick(latest)! / pick(prev)!;
   return pick(last)! * intPow(step, Math.floor((waveNumber - last.wave) / gap));
 }
 

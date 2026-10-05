@@ -138,141 +138,141 @@
     {
       "wave": 1,
       "count": 20,
-      "scale": 1.07,
+      "scale": 1.0,
       "armyGold": 200
     },
     {
       "wave": 2,
       "count": 21,
-      "scale": 1.79,
+      "scale": 1.67,
       "armyGold": 350
     },
     {
       "wave": 3,
       "count": 22,
-      "scale": 2.64,
+      "scale": 2.47,
       "armyGold": 500
     },
     {
       "wave": 4,
       "count": 24,
-      "scale": 3.3,
+      "scale": 3.08,
       "armyGold": 740
     },
     {
       "wave": 5,
-      "bossScale": 1.3,
+      "bossScale": 1.95,
       "armyGold": 920
     },
     {
       "wave": 6,
       "count": 26,
-      "scale": 4.91,
+      "scale": 4.59,
       "armyGold": 1100
     },
     {
       "wave": 7,
       "count": 28,
-      "scale": 5.39,
+      "scale": 5.04,
       "armyGold": 1300
     },
     {
       "wave": 8,
       "count": 29,
-      "scale": 6.24,
+      "scale": 5.83,
       "armyGold": 1500
     },
     {
       "wave": 9,
       "count": 30,
-      "scale": 7.3,
+      "scale": 6.82,
       "armyGold": 1750
     },
     {
       "wave": 10,
-      "bossScale": 2.2,
+      "bossScale": 5.18,
       "armyGold": 2175
     },
     {
       "wave": 11,
       "count": 32,
-      "scale": 9.24,
+      "scale": 8.62,
       "armyGold": 2450
     },
     {
       "wave": 12,
       "count": 34,
-      "scale": 10.92,
+      "scale": 9.97,
       "armyGold": 2750
     },
     {
       "wave": 13,
       "count": 35,
-      "scale": 11.96,
+      "scale": 11.11,
       "armyGold": 3100
     },
     {
       "wave": 14,
       "count": 36,
-      "scale": 14.07,
+      "scale": 12.82,
       "armyGold": 3500
     },
     {
       "wave": 15,
-      "bossScale": 3.8,
+      "bossScale": 12.31,
       "armyGold": 4500
     },
     {
       "wave": 16,
       "count": 39,
-      "scale": 17.0,
+      "scale": 15.42,
       "armyGold": 4200
     },
     {
       "wave": 17,
       "count": 40,
-      "scale": 19.5,
+      "scale": 17.57,
       "armyGold": 4800
     },
     {
       "wave": 18,
       "count": 41,
-      "scale": 22.4,
+      "scale": 20.05,
       "armyGold": 5500
     },
     {
       "wave": 19,
       "count": 42,
-      "scale": 25.8,
+      "scale": 24.56,
       "armyGold": 6300
     },
     {
       "wave": 20,
-      "bossScale": 6.0,
+      "bossScale": 27.99,
       "armyGold": 7710
     },
     {
       "wave": 21,
       "count": 45,
-      "scale": 29.0,
+      "scale": 27.99,
       "armyGold": 8000
     },
     {
       "wave": 22,
       "count": 46,
-      "scale": 33.0,
+      "scale": 34.68,
       "armyGold": 9000
     },
     {
       "wave": 23,
       "count": 48,
-      "scale": 38.0,
+      "scale": 38.24,
       "armyGold": 10400
     },
     {
       "wave": 24,
       "count": 49,
-      "scale": 44.0,
+      "scale": 45.36,
       "armyGold": 12000
     },
     {
@@ -299,8 +299,8 @@
           "count": 4
         }
       ],
-      "scale": 52.5,
-      "bossScale": 9.0,
+      "scale": 49.9,
+      "bossScale": 8.6,
       "armyGold": 21000
     }
   ],
