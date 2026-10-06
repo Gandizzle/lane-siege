@@ -1907,6 +1907,35 @@ what is left as a dark shade over the part still waiting, with a bright edge,
 sweeping off to the right as it runs out — a timer that is read at a glance and
 never has to be read as a number.
 
+**Upgrades wait between levels too.** Every tech track, fortress ladder and the
+supply cap has its own clock: buy a level and that ladder waits before its next
+one, while every other ladder stays open. Gem Output and Gem Rate wait ten
+seconds; everything else on the Tech and Fort tabs waits two (economy.json
+`upgradeCooldowns`, a default and a table of exceptions keyed by the id the
+purchase names). The two gem ladders wait longest because they compound — a
+level bought now pays on every payout for the rest of the match — and buying a
+pile of them in one breath was the greediest move in the game. It is a pace,
+not a price: a level refused for its cooldown costs nothing, and a ladder that
+is maxed says so rather than that it is cooling.
+
+It is held the way the sends' is, for the same reasons: `lane.upgradeCooldowns`
+in the simulation, refused as `on-cooldown` in `apply.ts`, counted down in
+`tick.ts`, carried to its owner on the view and the wire (`upgradeCooldowns`,
+`uc`) and drawn as the same shade on the button. A tap on a cooling ladder does
+nothing, as on a send. The tech track ids, the fortress ladder ids and `supply`
+share one namespace for this (`upgradeLadderIds` in schema.ts), and the
+validator refuses a cooldown that names no ladder or two ladders with one id.
+Putting `supply` in the wire's fortress table fixed an older slip on the way:
+the cap's level is kept beside the fortress's but had no index there, so an
+online client never learned it.
+
+The bots plan a whole build phase on its first tick, so the plan is paced
+rather than sent whole (`AutoBuilder.pace`): one level of a ladder a tick, none
+of a ladder still cooling, and any body planned after a cap raise that is
+still waiting waits with it. The balance harness (`balance/run.ts`) buys a
+build phase in one instant on purpose; it may buy as many levels of a ladder as
+a player could fit into the thirty seconds one cooldown apart, and no more.
+
 **The grid fits its box, and the columns are chosen against it.** `grid` used
 to draw each button at least a touch target tall while spacing the rows at the
 unclamped pitch, so five sends in a column count whose rows did not fit spilled

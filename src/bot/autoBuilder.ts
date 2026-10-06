@@ -32,6 +32,13 @@
  * Cheap on purpose: the whole build phase is planned once, on its first tick,
  * and every other tick only spends gems. Three of these run inside a browser
  * tab at 20 Hz.
+ *
+ * Planned at once, but not BOUGHT at once: each tech track, fortress ladder and
+ * the supply cap waits a few seconds between levels (economy.json
+ * `upgradeCooldowns`), so a plan that wants two levels of one ladder holds the
+ * second back until the ladder is ready (`pace`), and anything that needs a
+ * cap raise still waiting waits with it. A human taps through a build phase
+ * the same way.
  */
 
 import type { ArmorType, AuraType, DamageType, GameData, UnitDef } from '../data/schema.ts';
@@ -40,6 +47,7 @@ import {
   Rng,
   damageMultiplier,
   generateWave,
+  ladderOf,
   resolveMonsterStats,
   sendOpen,
   sendPrice,
@@ -192,6 +200,12 @@ export class AutoBuilder {
   /** Who has sent how much at this lane, for a style that answers in kind. */
   private readonly grudges = new Map<TeamId, number>();
   private grudgesRead = 0;
+  /**
+   * Purchases planned but not yet made, in the order planned: a level of a
+   * ladder that is still cooling, and the bodies that wait on a cap raise
+   * still to come (`pace`).
+   */
+  private held: Command[] = [];
 
   constructor(
     private readonly data: GameData,
@@ -259,12 +273,56 @@ export class AutoBuilder {
     const commands: Command[] = [];
     if (state.phase === 'build' && this.plannedFor !== state.wave) {
       this.plannedFor = state.wave;
+      // A new plan is made from what the lane HAS, so whatever the last one
+      // never got to is the new one's to decide again, not to do twice.
+      this.held = [];
       this.buildPhase(state, lane, wallet, commands);
     }
     this.readGrudges(lane);
     this.spendGems(state, lane, wallet, commands);
     this.lastGems = wallet.gems;
-    return commands;
+    return this.pace(state, lane, [...this.held, ...commands]);
+  }
+
+  /**
+   * What can be bought on this tick, in planned order; the rest is held.
+   *
+   * One level of a ladder a tick, and none of a ladder still cooling. Any
+   * purchase planned after a cap raise that is being held may need that cap
+   * (a body, an upgrade in place, a gem level that takes supply), so it is
+   * held too. Anything planned for the board is dropped once the board has
+   * closed - a held body is not worth anything in combat.
+   */
+  private pace(state: MatchState, lane: Lane, queue: readonly Command[]): Command[] {
+    const now: Command[] = [];
+    const later: Command[] = [];
+    const bought = new Set<string>();
+    let capHeld = false;
+    for (const command of queue) {
+      const board = command.kind === 'placeUnit' || command.kind === 'upgradeUnit';
+      if (board && state.phase !== 'build') continue;
+      const ladder = ladderOf(command);
+      const needsRoom = board || (ladder !== null && command.kind !== 'buySupply');
+      const wait =
+        (needsRoom && capHeld) ||
+        (ladder !== null && ((lane.upgradeCooldowns[ladder] ?? 0) > 0 || bought.has(ladder)));
+      if (wait) {
+        later.push(command);
+        if (command.kind === 'buySupply') capHeld = true;
+        continue;
+      }
+      if (ladder !== null) bought.add(ladder);
+      now.push(command);
+    }
+    this.held = later;
+    return now;
+  }
+
+  /** Whether a ladder is cooling, or has a level held or planned on this tick. */
+  private busy(lane: Lane, ladder: string, out: readonly Command[]): boolean {
+    if ((lane.upgradeCooldowns[ladder] ?? 0) > 0) return true;
+    const mine = (c: Command) => ladderOf(c) === ladder;
+    return this.held.some(mine) || out.some(mine);
   }
 
   // ------------------------------------------------------------ build phase
@@ -856,10 +914,11 @@ export class AutoBuilder {
     for (let guard = 0; guard < 4; guard++) {
       let best: { id: string; gems: number } | null = null;
       for (const id of ids) {
+        // One level a ladder at a time: the next waits out its cooldown, and
+        // the gems wait with it rather than being counted as spent.
+        if (this.busy(lane, id, out)) continue;
         const ladder = fortressLadder(this.data, id);
-        const level =
-          (lane.fortress.upgrades[id] ?? 0) +
-          out.filter((c) => c.kind === 'buyFortressUpgrade' && c.upgradeId === id).length;
+        const level = lane.fortress.upgrades[id] ?? 0;
         const next = ladder.find((l) => l.level === level + 1);
         if (!next || (next.goldCost ?? 0) > 0) continue;
         const gems = next.gemCost ?? 0;

@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { createContext, createMatch, step, type Command } from '../sim/index.ts';
+import { applyCommand, createContext, createMatch, step, type Command } from '../sim/index.ts';
 import { AutoBuilder } from './autoBuilder.ts';
 import {
   ARCHETYPES,
@@ -126,6 +126,36 @@ describe('what a bot does with its style', SLOW, () => {
   it('invests in the economy when that is its way', () => {
     const { state } = run({ economy: 1.5, floor: 0.5 }, 20 * 60 * 6);
     expect(state.lanes.a!.fortress.upgrades.gemOutput ?? 0).toBeGreaterThan(0);
+  });
+
+  it('waits out a ladder between levels rather than buying into its cooldown', () => {
+    // economy.json `upgradeCooldowns`: a plan that wants two levels of one
+    // ladder holds the second, and the bodies behind a cap raise wait with it.
+    const { state, tick } = table();
+    const ctx = createContext(data);
+    const base = rollStyle(new Rng(3), 'tactician');
+    const bot = new AutoBuilder(data, 'a', state.lanes.a!.builderId, {
+      style: { ...base, economy: 1.5, floor: 0.5 },
+      seed: 3,
+    });
+    // A cap too small for the first army, so the bot raises it several levels
+    // in one build phase.
+    state.lanes.a!.economy.supplyCap = 6;
+    const refused: string[] = [];
+    for (let i = 0; i < 20 * 60 * 6; i++) {
+      for (const command of bot.plan(state)) {
+        const result = applyCommand(ctx, state, command);
+        if (result.rejection === 'on-cooldown') refused.push(command.kind);
+        if (result.rejection === 'insufficient-supply') refused.push(command.kind);
+      }
+      tick([]);
+    }
+    expect(refused).toEqual([]);
+    const lane = state.lanes.a!;
+    // And what it held back, it bought.
+    expect(lane.fortress.upgrades.gemOutput ?? 0).toBeGreaterThan(1);
+    expect(lane.fortress.upgrades.supply ?? 0).toBeGreaterThan(1);
+    expect(lane.units.length).toBeGreaterThan(0);
   });
 
   it('saves its gems and throws a volley of several sends at one lane', () => {

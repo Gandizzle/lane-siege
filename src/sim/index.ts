@@ -24,6 +24,8 @@ export {
   applyCommands,
   sellValue,
   supplyStep,
+  upgradeCooldownSeconds,
+  ladderOf,
   FORTRESS_UPGRADE_IDS,
 } from './apply.ts';
 export type { CommandResult } from './apply.ts';

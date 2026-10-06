@@ -29,6 +29,7 @@ import {
   resolveAbility,
   refId,
   refRank,
+  upgradeLadderIds,
 } from './schema.ts';
 
 export interface DataReport {
@@ -130,6 +131,30 @@ function checkBuilderCoverage(data: GameData, errors: string[], notes: string[])
     } else {
       notes.push(`${message} - roster incomplete, so not yet enforced`);
     }
+  }
+}
+
+/**
+ * The upgrade cooldowns (economy.json `upgradeCooldowns`): every ladder it
+ * names is a real one, every figure a few seconds at most, and no tech track
+ * shares an id with a fortress ladder - the cooldowns are kept in one map by
+ * those ids (apply.ts), and two ladders with one id would share a clock.
+ */
+function checkUpgradeCooldowns(data: GameData, errors: string[]): void {
+  const table = data.economy.upgradeCooldowns;
+  const ladders = upgradeLadderIds(data);
+  const seen = new Set<string>();
+  for (const id of ladders) {
+    if (seen.has(id)) errors.push(`upgrade ladder id '${id}' is used twice`);
+    seen.add(id);
+  }
+  const fine = (s: number) => Number.isFinite(s) && s >= 0 && s <= 30;
+  if (!fine(table.defaultSeconds)) {
+    errors.push(`upgrade cooldown default is ${table.defaultSeconds}s: 0 to 30`);
+  }
+  for (const [id, seconds] of Object.entries(table.seconds)) {
+    if (!seen.has(id)) errors.push(`upgrade cooldown names '${id}', which is no ladder`);
+    if (!fine(seconds)) errors.push(`upgrade cooldown for '${id}' is ${seconds}s: 0 to 30`);
   }
 }
 
@@ -679,6 +704,7 @@ export function validateData(raw: Record<string, unknown>): {
   checkBuilderCoverage(data, errors, notes);
   checkWaveReferences(data, errors);
   checkSends(data, errors);
+  checkUpgradeCooldowns(data, errors);
   checkUpgradeChain(data, errors);
   checkShapes(data, errors);
   checkAbilities(data, errors, notes);

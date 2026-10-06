@@ -459,6 +459,13 @@ export interface Lane {
    */
   sendCooldowns: Record<string, number>;
   /**
+   * Ticks before this lane may buy the next level of each ladder, by the id
+   * the purchase names: a tech track's, a fortress upgrade's, or `supply`
+   * (apply.ts, `upgradeCooldownSeconds`). Absent or zero is ready, and it is
+   * counted down the same way as `sendCooldowns`.
+   */
+  upgradeCooldowns: Record<string, number>;
+  /**
    * Blows landed on THIS tick, cleared at the top of the next one. Written by
    * the combat stages and read by nothing in the simulation - see `Attack`.
    */

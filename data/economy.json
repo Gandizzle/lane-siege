@@ -195,7 +195,7 @@
     "later": 0.5
   },
   "tech": {
-    "_comment": "\u00a77.4, redesigned: EIGHT tracks, one per damage type and one per armor type, five levels each at a flat 200 gold a level. `value` is the cumulative fraction at that level. A damage track lifts the damage every unit of that type deals by 5% a level (+25% at the top); an armor track cuts the damage every unit wearing that armor takes by 5% a level (-25% at the top). Plating (+health for everyone) and Cadence (+attack speed for everyone) are gone: tech is now about the counter chart, the thing a single-combination wave tests.",
+    "_comment": "§7.4, redesigned: EIGHT tracks, one per damage type and one per armor type, five levels each at a flat 200 gold a level. `value` is the cumulative fraction at that level. A damage track lifts the damage every unit of that type deals by 5% a level (+25% at the top); an armor track cuts the damage every unit wearing that armor takes by 5% a level (-25% at the top). Plating (+health for everyone) and Cadence (+attack speed for everyone) are gone: tech is now about the counter chart, the thing a single-combination wave tests.",
     "tracks": [
       {
         "id": "dmg_impact",
@@ -534,6 +534,14 @@
         ]
       }
     ]
+  },
+  "_upgradeCooldownNote": "How long a ladder waits, after one of its levels is bought, before the next level can be: every tech track, every fortress ladder and the supply cap, each on its own clock. Keyed by the id a purchase names (a tech track's id, a fortress upgrade's id, or 'supply'); anything not listed waits defaultSeconds. The two gem ladders wait longest because they compound: a level of output or rate bought now pays on every payout for the rest of the match, and a pile of them bought in one breath is the greediest thing a player can do. Enforced in the simulation (apply.ts), so a tap, a bot and a replay all wait the same time.",
+  "upgradeCooldowns": {
+    "defaultSeconds": 2,
+    "seconds": {
+      "gemOutput": 10,
+      "gemRate": 10
+    }
   },
   "_startingGoldNote": "Down from 400. Wave 1 should be a decision about what a small purse buys, not a shopping trip; 250 is a front line and one thing behind it, and the resource building has to be chosen over a body rather than bought alongside one."
 }

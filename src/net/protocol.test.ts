@@ -340,6 +340,26 @@ describe('a frame survives the round trip', () => {
     expect(theirs.lane!.economy!.sendCooldowns).toEqual({});
   });
 
+  it('carries your own upgrade cooldowns, and the supply cap level beside the fortress', () => {
+    const { state, ctx } = match();
+    state.lanes.a!.economy.gold = 99_999;
+    const trackId = data.economy.tech.tracks[0]!.id;
+    applyCommand(ctx, state, { kind: 'buyTech', teamId: 'a', trackId });
+    applyCommand(ctx, state, { kind: 'buyFortressUpgrade', teamId: 'a', upgradeId: 'gemOutput' });
+    applyCommand(ctx, state, { kind: 'buySupply', teamId: 'a' });
+    step(ctx, state);
+
+    const { original, decoded } = roundTrip(state, ctx, 'a');
+    const wallet = decoded.lane!.economy!;
+    expect(Object.keys(wallet.upgradeCooldowns).sort()).toEqual(
+      [trackId, 'gemOutput', 'supply'].sort(),
+    );
+    expect(wallet.upgradeCooldowns).toEqual(original.lane!.economy!.upgradeCooldowns);
+    // The cap's level is kept with the fortress's, and once had no index on
+    // the wire, so it never arrived.
+    expect(wallet.upgrades.supply).toBe(1);
+  });
+
   it('carries the opponents and, when you have sight, their lanes', () => {
     const { state, ctx } = match();
     state.lanes.a!.economy.gems = 500;

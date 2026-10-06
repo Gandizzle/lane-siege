@@ -8,13 +8,28 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { trivialWaves } from './fixtures.ts';
 import { applyCommand, createContext, createMatch, secondsToTicks, step } from './index.ts';
+import { upgradeCooldownSeconds } from './index.ts';
 import type { MatchState, SimContext } from './index.ts';
+import type { GameData } from '../data/schema.ts';
 
 const { data } = loadDataFromDisk();
 
+/**
+ * No wait between levels. Most of this file is about what a level BUYS, and
+ * buys several in a row to see it; the wait itself has its own tests below,
+ * against the real figures.
+ */
+function unpaced(game: GameData): GameData {
+  return {
+    ...game,
+    economy: { ...game.economy, upgradeCooldowns: { defaultSeconds: 0, seconds: {} } },
+  };
+}
+
 // One grub a wave (`fixtures.ts`), because reaching a build phase means
 // finishing the wave before it and none of this is about how hard that is.
-const easy = trivialWaves(data);
+const paced = trivialWaves(data);
+const easy = unpaced(paced);
 
 function rich(): { state: MatchState; ctx: SimContext } {
   const state = createMatch(easy, { seed: 1, teams: [{ id: 'l1', playerIds: ['p'] }] });
@@ -595,6 +610,91 @@ describe('the Final Showdown closes the shop (§3.3, replaced)', () => {
     while (state.phase !== 'build' && guard++ < 20000) step(ctx, state);
 
     expect(unit.alive).toBe(true);
+  });
+});
+
+describe('the wait between levels (economy.json upgradeCooldowns)', () => {
+  function pacedMatch(): { state: MatchState; ctx: SimContext } {
+    const state = createMatch(paced, { seed: 1, teams: [{ id: 'l1', playerIds: ['p'] }] });
+    const ctx = createContext(paced);
+    const lane = state.lanes.l1!;
+    lane.economy.gold = 99999;
+    lane.economy.gems = 99999;
+    lane.economy.supplyCap = 999;
+    return { state, ctx };
+  }
+  const tech = (trackId: string) => ({ kind: 'buyTech' as const, teamId: 'l1', trackId });
+  const fort = (upgradeId: string) => ({
+    kind: 'buyFortressUpgrade' as const,
+    teamId: 'l1',
+    upgradeId,
+  });
+  const supply = { kind: 'buySupply' as const, teamId: 'l1' };
+
+  it('is ten seconds on the two gem ladders and two on every other tech and fort ladder', () => {
+    expect(upgradeCooldownSeconds(data, 'gemOutput')).toBe(10);
+    expect(upgradeCooldownSeconds(data, 'gemRate')).toBe(10);
+    for (const id of ['hp', 'regen', 'weapon', 'auraStrength', 'auraRadius', 'supply']) {
+      expect(upgradeCooldownSeconds(data, id), id).toBe(2);
+    }
+    for (const track of data.economy.tech.tracks) {
+      expect(upgradeCooldownSeconds(data, track.id), track.id).toBe(2);
+    }
+  });
+
+  it('holds the ladder just bought, and only that one', () => {
+    const { state, ctx } = pacedMatch();
+    expect(applyCommand(ctx, state, tech('dmg_impact')).ok).toBe(true);
+    expect(applyCommand(ctx, state, tech('dmg_impact'))).toEqual({
+      ok: false,
+      rejection: 'on-cooldown',
+    });
+    // Another track, a fortress ladder and the cap are all on their own clocks.
+    expect(applyCommand(ctx, state, tech('dmg_blast')).ok).toBe(true);
+    expect(applyCommand(ctx, state, fort('weapon')).ok).toBe(true);
+    expect(applyCommand(ctx, state, supply).ok).toBe(true);
+    expect(applyCommand(ctx, state, fort('weapon')).rejection).toBe('on-cooldown');
+    expect(applyCommand(ctx, state, supply).rejection).toBe('on-cooldown');
+  });
+
+  it('charges nothing for a level it refuses', () => {
+    const { state, ctx } = pacedMatch();
+    const lane = state.lanes.l1!;
+    applyCommand(ctx, state, fort('gemOutput'));
+    const gold = lane.economy.gold;
+    const level = lane.fortress.upgrades.gemOutput;
+    expect(applyCommand(ctx, state, fort('gemOutput')).rejection).toBe('on-cooldown');
+    expect(lane.economy.gold).toBe(gold);
+    expect(lane.fortress.upgrades.gemOutput).toBe(level);
+  });
+
+  it('opens again after exactly its seconds, two for tech and ten for gem output', () => {
+    for (const [command, seconds] of [
+      [tech('arm_plate'), 2],
+      [fort('regen'), 2],
+      [supply, 2],
+      [fort('gemOutput'), 10],
+      [fort('gemRate'), 10],
+    ] as const) {
+      const { state, ctx } = pacedMatch();
+      expect(applyCommand(ctx, state, command).ok).toBe(true);
+      const ticks = secondsToTicks(seconds);
+      for (let i = 0; i < ticks - 1; i++) step(ctx, state);
+      expect(applyCommand(ctx, state, command).rejection, `${seconds}s, a tick early`).toBe(
+        'on-cooldown',
+      );
+      step(ctx, state);
+      expect(applyCommand(ctx, state, command).ok, `${seconds}s`).toBe(true);
+    }
+  });
+
+  it('says a ladder is maxed rather than cooling once it is', () => {
+    const { state, ctx } = pacedMatch();
+    const lane = state.lanes.l1!;
+    const track = data.economy.tech.tracks[0]!;
+    lane.economy.tech[track.id] = track.levels.length - 1;
+    expect(applyCommand(ctx, state, tech(track.id)).ok).toBe(true);
+    expect(applyCommand(ctx, state, tech(track.id)).rejection).toBe('max-level');
   });
 });
 

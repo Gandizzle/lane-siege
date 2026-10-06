@@ -1905,6 +1905,36 @@ crossfire, not for a straight fight. Gloomtide, the slowest roster, is lowest in
 four-ways (19%). Both are inside the same spread the other builders are, which
 is why neither was moved here.
 
+## 4i. A wait between upgrade levels
+
+Every tech track, fortress ladder and the supply cap now waits between levels:
+ten seconds for Gem Output and Gem Rate, two for everything else
+(ARCHITECTURE.md, "Upgrades wait between levels too"). It is a pace and not a
+price, so the question was only whether it costs anybody who plays at a normal
+pace anything. A build phase is thirty seconds and the shop stays open through
+the wave, so even the greedy economy plan of §4a — about two output levels a
+wave — fits inside one phase with room over.
+
+The bots plan a build phase in one tick, and now pace what they planned
+(`AutoBuilder.pace`), so they were the place it could show. `npm run bots --
+--tables 24`, the same seeds before and after:
+
+|                                    | before | after |
+| ---------------------------------- | -----: | ----: |
+| every bot                          |   18.9 |  19.1 |
+| Gloomtide                          |   19.0 |  19.8 |
+| Pyre                               |   22.2 |  21.3 |
+| Ironvow                            |   18.2 |  18.4 |
+| Thornweald                         |   16.1 |  16.8 |
+| tables where a bot reached wave 20 |  23/24 | 23/24 |
+| tables where a bot beat wave 25    |   9/24 |  8/24 |
+
+Nothing moved by more than the noise between two sets of 24 tables, which is
+what was expected: the waits only reorder purchases inside a phase that has
+room for all of them. The lookahead harness (`balance/run.ts`) buys in one
+instant on purpose and is allowed as many levels of a ladder as fit into thirty
+seconds one cooldown apart, so the wave fits of §4g stand.
+
 ## 5. The phases
 
 **Phase 0 — instrumentation.** _Done._ Vocabulary settled, the budget computed

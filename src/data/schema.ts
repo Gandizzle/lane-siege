@@ -15,6 +15,38 @@ import type { AbilityRef, AbilitiesFile } from './abilities.ts';
 export const DAMAGE_TYPES = ['impact', 'pierce', 'blast', 'arcane'] as const;
 export const ARMOR_TYPES = ['flesh', 'plate', 'swarm', 'ward'] as const;
 
+/**
+ * Every fortress upgrade ladder there is (§10.1), by the id a purchase names.
+ *
+ * Here rather than in the simulation because the wire format indexes upgrades
+ * by position and the validator checks the cooldown table against them, and
+ * lists that have to agree should be one list. The supply cap is bought with
+ * its own command and is not in it; where a ladder id is wanted for it, it is
+ * `supply` (`upgradeLadderIds`).
+ */
+export const FORTRESS_UPGRADE_IDS = [
+  'hp',
+  'regen',
+  'weapon',
+  'auraStrength',
+  'auraRadius',
+  'gemOutput',
+  'gemRate',
+] as const;
+
+/** The supply cap, as a ladder id beside the fortress's (apply.ts). */
+export const SUPPLY_LADDER_ID = 'supply';
+
+/**
+ * Every ladder that can be bought a level at a time, by the id its purchase
+ * names: the tech tracks, the fortress ladders and the supply cap. The ids
+ * share one namespace - the upgrade cooldowns are kept in one map by them -
+ * and the validator refuses a tech track whose id would collide.
+ */
+export function upgradeLadderIds(data: GameData): string[] {
+  return [...data.economy.tech.tracks.map((t) => t.id), ...FORTRESS_UPGRADE_IDS, SUPPLY_LADDER_ID];
+}
+
 export type DamageType = (typeof DAMAGE_TYPES)[number];
 export type ArmorType = (typeof ARMOR_TYPES)[number];
 
@@ -724,6 +756,14 @@ export interface EconomyFile {
     capUpgrades: UpgradeLevel[];
   };
   tech: { tracks: TechTrack[] };
+  /**
+   * Seconds a ladder waits after one of its levels is bought before the next
+   * can be: every tech track, fortress ladder and the supply cap, each on its
+   * own clock (apply.ts, `upgradeCooldownSeconds`). `seconds` is keyed by the
+   * id the purchase names - a tech track's, a fortress upgrade's, or
+   * `supply` - and anything it does not list waits `defaultSeconds`.
+   */
+  upgradeCooldowns: { defaultSeconds: number; seconds: Record<string, number> };
   /**
    * §11, decided: what selling a unit returns. A fraction of what was paid,
    * split by when it was paid - full price inside the build phase that bought

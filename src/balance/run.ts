@@ -46,10 +46,12 @@ import {
   createContext,
   createMatch,
   generateWave,
+  ladderOf,
   resolveMonsterStats,
   sendOpen,
   sendPrice,
   step,
+  upgradeCooldownSeconds,
   TICKS_PER_SECOND,
   type Command,
   type DefensiveUnit,
@@ -358,9 +360,31 @@ class Player {
   private readonly economySends: SendDef[];
   private readonly otherSends: SendDef[];
   private readonly reserve: number;
+  /** Levels bought of each ladder since the build phase began. */
+  private readonly ladderBuys = new Map<string, number>();
 
+  /**
+   * One command, as a tap.
+   *
+   * Except for one liberty, taken on purpose. This player buys a whole build
+   * phase in one instant, where a human taps through it, and every tech track,
+   * fortress ladder and the supply cap waits between levels (economy.json
+   * `upgradeCooldowns`). The human could buy as many levels of a ladder as
+   * fit into the phase one cooldown apart, so this player may too - its
+   * cooldown is cleared before each - and no more than that.
+   */
   private apply(command: Command): boolean {
-    return applyCommand(this.ctx, this.state, command).ok;
+    const ladder = ladderOf(command);
+    if (ladder === null) return applyCommand(this.ctx, this.state, command).ok;
+    const seconds = upgradeCooldownSeconds(this.data, ladder);
+    const fits =
+      seconds > 0 ? Math.floor(num(this.data.waves.buildPhaseSeconds) / seconds) + 1 : Infinity;
+    const bought = this.ladderBuys.get(ladder) ?? 0;
+    if (bought >= fits) return false;
+    delete this.lane.upgradeCooldowns[ladder];
+    const ok = applyCommand(this.ctx, this.state, command).ok;
+    if (ok) this.ladderBuys.set(ladder, bought + 1);
+    return ok;
   }
 
   /** Spend gems on income, the moment there is enough and a send is ready. */
@@ -416,6 +440,7 @@ class Player {
   }
 
   buildPhase(wave: number): void {
+    this.ladderBuys.clear();
     this.aimTheWall(wave);
     if (this.options.aura) this.apply({ kind: 'setAura', teamId: YOU, aura: this.options.aura });
     const enough = this.plan.armyFirst;

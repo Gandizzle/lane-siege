@@ -94,7 +94,10 @@ export type CommandRejection =
   | 'tile-out-of-bounds'
   | 'insufficient-gold'
   | 'insufficient-gems'
-  /** That send was bought too recently: its cooldown is still running. */
+  /**
+   * That send, or a level of that ladder, was bought too recently: its
+   * cooldown is still running.
+   */
   | 'on-cooldown'
   /** That send does not open until a later wave (`SendDef.fromWave`). */
   | 'send-locked'

@@ -23,6 +23,7 @@ import { gemPayoutTicks } from './state.ts';
 import { sendOpen, sendPrice } from './waves.ts';
 import type { UpgradeLevel } from '../data/schema.ts';
 import type { GameData } from '../data/schema.ts';
+import { FORTRESS_UPGRADE_IDS, SUPPLY_LADDER_ID } from '../data/schema.ts';
 import type { Lane, MatchState, UnitSpend } from './types.ts';
 
 export interface CommandResult {
@@ -172,6 +173,55 @@ function chargeUpgrade(lane: Lane, level: UpgradeLevel): CommandRejection | null
 }
 
 /**
+ * How long ladder `ladderId` waits after a level is bought before its next
+ * level can be (economy.json `upgradeCooldowns`).
+ *
+ * WHY THERE IS ONE. A cooldown on a purchase is not a price, it is a pace: it
+ * turns "buy five levels" from one breath into a decision made five times, and
+ * it is the same for a tap, a bot and a replay because it is held here rather
+ * than on the button (the sends work the same way). Each ladder has its own
+ * clock, so buying a level of Impact holds Impact and nothing else. The two
+ * gem ladders wait longest because they compound: a level bought now pays on
+ * every payout for the rest of the match.
+ */
+export function upgradeCooldownSeconds(data: GameData, ladderId: string): number {
+  const table = data.economy.upgradeCooldowns;
+  return table.seconds[ladderId] ?? table.defaultSeconds;
+}
+
+/**
+ * The ladder a command buys a level of, or null for one that buys none.
+ * For anything that plans purchases ahead of time (the bots) and has to know
+ * which of them will wait.
+ */
+export function ladderOf(command: Command): string | null {
+  switch (command.kind) {
+    case 'buyTech':
+      return command.trackId;
+    case 'buyFortressUpgrade':
+      return command.upgradeId;
+    case 'buySupply':
+      return SUPPLY_LADDER_ID;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Refuse a ladder still cooling, or start its clock once a level is bought.
+ * Checked after the ladder's own answers (unknown, maxed) and before the
+ * price, so a maxed ladder says it is maxed and a cooling one costs nothing.
+ */
+function ladderCooling(lane: Lane, ladderId: string): boolean {
+  return (lane.upgradeCooldowns[ladderId] ?? 0) > 0;
+}
+
+function startLadderCooldown(data: GameData, lane: Lane, ladderId: string): void {
+  const ticks = secondsToTicks(upgradeCooldownSeconds(data, ladderId));
+  if (ticks > 0) lane.upgradeCooldowns[ladderId] = ticks;
+}
+
+/**
  * §7.4: global tech, bought with gold, tied to damage types rather than unit
  * types - one purchase lifts every unit of that type you own, now and later.
  */
@@ -189,11 +239,13 @@ function buyTech(
 
   const level = nextLevel(track.levels, lane.economy.tech[trackId] ?? 0);
   if (!level) return fail('max-level');
+  if (ladderCooling(lane, trackId)) return fail('on-cooldown');
 
   const rejection = chargeUpgrade(lane, level);
   if (rejection) return fail(rejection);
 
   lane.economy.tech[trackId] = level.level;
+  startLadderCooldown(ctx.data, lane, trackId);
   recomputeUnitBuffs(ctx.data, ctx.defs, lane);
   return OK;
 }
@@ -208,14 +260,16 @@ function buySupply(
   if (closed) return fail(closed);
 
   const ladder = ctx.data.economy.supply.capUpgrades;
-  const current = lane.fortress.upgrades.supply ?? 0;
+  const current = lane.fortress.upgrades[SUPPLY_LADDER_ID] ?? 0;
   const level = nextLevel(ladder, current);
   if (!level) return fail('max-level');
+  if (ladderCooling(lane, SUPPLY_LADDER_ID)) return fail('on-cooldown');
 
   const rejection = chargeUpgrade(lane, level);
   if (rejection) return fail(rejection);
 
-  lane.fortress.upgrades.supply = level.level;
+  lane.fortress.upgrades[SUPPLY_LADDER_ID] = level.level;
+  startLadderCooldown(ctx.data, lane, SUPPLY_LADDER_ID);
   // Adds the level's step rather than setting the ladder's figure: the same
   // thing from the usual start (25, 30, 35...), and the only right thing for
   // a lane that starts somewhere else - the tutorial's supply practice starts
@@ -265,11 +319,13 @@ function buyFortressUpgrade(
 
   const level = nextLevel(ladder, lane.fortress.upgrades[upgradeId] ?? 0);
   if (!level) return fail('max-level');
+  if (ladderCooling(lane, upgradeId)) return fail('on-cooldown');
 
   const rejection = chargeUpgrade(lane, level);
   if (rejection) return fail(rejection);
 
   lane.fortress.upgrades[upgradeId] = level.level;
+  startLadderCooldown(ctx.data, lane, upgradeId);
   const value = stat(level.value);
 
   switch (upgradeId) {
@@ -312,21 +368,8 @@ function buyFortressUpgrade(
   return OK;
 }
 
-/**
- * Every fortress upgrade ladder there is (§10.1).
- *
- * Exported because the wire format indexes upgrades by position rather than
- * sending their names, and two lists that have to agree should be one list.
- */
-export const FORTRESS_UPGRADE_IDS = [
-  'hp',
-  'regen',
-  'weapon',
-  'auraStrength',
-  'auraRadius',
-  'gemOutput',
-  'gemRate',
-] as const;
+/** Every fortress upgrade ladder there is (§10.1); the list lives with the data. */
+export { FORTRESS_UPGRADE_IDS };
 
 /**
  * §11.5: add monsters to an opponent's next wave.

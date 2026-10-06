@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { buildableUnits } from '../data/roster.ts';
 import type { LocalTransport } from '../net/localTransport.ts';
-import { hasMark, type MatchView } from '../sim/index.ts';
+import { hasMark, secondsToTicks, upgradeCooldownSeconds, type MatchView } from '../sim/index.ts';
 import { MS_PER_TICK } from '../util/loop.ts';
 import type { Features } from '../render/features.ts';
 import { CHAPTERS, bestAgainstWave, stillFighting } from './chapters.ts';
@@ -563,6 +563,9 @@ describe('the lessons between chapters', () => {
 
     const usual = practiceMatch(data, practice('practice-build'), 'Tester', 7);
     usual.submit({ kind: 'buySupply', teamId: usual.teamId });
+    // The cap waits between levels (economy.json `upgradeCooldowns`).
+    const wait = secondsToTicks(upgradeCooldownSeconds(data, 'supply'));
+    for (let i = 0; i < wait; i++) usual.update(MS_PER_TICK);
     usual.submit({ kind: 'buySupply', teamId: usual.teamId });
     const ladder = data.economy.supply.capUpgrades;
     expect(usual.view()!.lane!.economy!.supplyCap).toBe(ladder[1]?.value);

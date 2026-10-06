@@ -58,6 +58,7 @@ import {
   sendPrice,
   supplyStep,
   ticksToSeconds,
+  upgradeCooldownSeconds,
 } from '../../sim/index.ts';
 import type {
   EconomyView,
@@ -337,6 +338,11 @@ export class BuildBar extends Container {
    * auto-send check before firing, and what the shade on each button draws.
    */
   private sendCooldowns: Record<string, number> = {};
+  /**
+   * Ticks left before each upgrade ladder's next level, from the last view:
+   * the shade on the Tech and Fort buttons, and what a tap checks first.
+   */
+  private upgradeCooldowns: Record<string, number> = {};
   /** The wave a send bought now would land in, from the last view. */
   private landsIn = 1;
   private readonly targetButtons: GridButton[] = [];
@@ -431,18 +437,26 @@ export class BuildBar extends Container {
       this.panels.build.addChild(button);
     }
 
+    // A tap on a ladder still cooling does nothing, as on a send: the shade
+    // over the button says why (economy.json `upgradeCooldowns`).
     for (const track of data.economy.tech.tracks) {
-      const button = new GridButton(() => this.handlers.onBuyTech(track.id));
+      const button = new GridButton(() => {
+        if (!this.ladderCooling(track.id)) this.handlers.onBuyTech(track.id);
+      });
       this.techButtons.push({ trackId: track.id, name: track.name, button });
       this.panels.tech.addChild(button);
     }
 
     for (const up of FORT_UPGRADES) {
-      const button = new GridButton(() => this.handlers.onBuyFortress(up.id));
+      const button = new GridButton(() => {
+        if (!this.ladderCooling(up.id)) this.handlers.onBuyFortress(up.id);
+      });
       this.fortButtons.push({ id: up.id, name: up.name, short: up.short, unit: up.unit, button });
       this.panels.fort.addChild(button);
     }
-    this.supplyButton = new GridButton(() => this.handlers.onBuySupply());
+    this.supplyButton = new GridButton(() => {
+      if (!this.ladderCooling('supply')) this.handlers.onBuySupply();
+    });
     this.panels.fort.addChild(this.supplyButton);
 
     for (const type of data.matrix.damageTypes) {
@@ -562,6 +576,7 @@ export class BuildBar extends Container {
     this.sendTarget = null;
     this.sendPage = 0;
     this.sendCooldowns = {};
+    this.upgradeCooldowns = {};
   }
 
   private get sendPages(): number {
@@ -576,6 +591,18 @@ export class BuildBar extends Container {
   /** Whether the simulation would refuse this send for its cooldown. */
   private cooling(sendId: string): boolean {
     return (this.sendCooldowns[sendId] ?? 0) > 0;
+  }
+
+  /** Whether the simulation would refuse a level of this ladder for its cooldown. */
+  private ladderCooling(ladderId: string): boolean {
+    return (this.upgradeCooldowns[ladderId] ?? 0) > 0;
+  }
+
+  /** How much of a ladder's cooldown is left, as a share of the whole: the shade. */
+  private ladderShade(ladderId: string): number {
+    const ticks = this.upgradeCooldowns[ladderId] ?? 0;
+    if (ticks <= 0) return 0;
+    return ticksToSeconds(ticks) / Math.max(0.001, upgradeCooldownSeconds(this.data, ladderId));
   }
 
   /** The send's own cooldown, in milliseconds. */
@@ -1324,6 +1351,7 @@ export class BuildBar extends Container {
 
   /** §7.4: tech is tied to damage types - one buy lifts every unit of that type. */
   private renderTech(economy: EconomyView, canAct: boolean): void {
+    this.upgradeCooldowns = economy.upgradeCooldowns;
     for (const { trackId, name, button } of this.techButtons) {
       const track = this.data.economy.tech.tracks.find((t) => t.id === trackId);
       if (!track) continue;
@@ -1358,6 +1386,7 @@ export class BuildBar extends Container {
         shortTitle: track.armorType ? capitalise(track.armorType) : undefined,
         detail: next ? `${GOLD}${cost}` : 'maxed',
         note: `level ${level}/${track.levels.length}${effect}`,
+        cooldown: next ? this.ladderShade(trackId) : 0,
         enabled: canAct && next !== undefined && economy.gold >= cost,
         short: canAct && next !== undefined ? shortfall(economy, { gold: cost }) : [],
       });
@@ -1366,6 +1395,7 @@ export class BuildBar extends Container {
 
   /** §10: fortress upgrades are bought with GEMS - offence and defence compete. */
   private renderFort(economy: EconomyView, canAct: boolean): void {
+    this.upgradeCooldowns = economy.upgradeCooldowns;
     const ladders = fortressLadders(this.data);
 
     for (const { id, name, short, unit, button } of this.fortButtons) {
@@ -1398,6 +1428,7 @@ export class BuildBar extends Container {
           ? `→ ${unit === GEM ? `${GEM}${trim(gain)}` : `${trim(gain)}${unit}`}`
           : '',
         note: `level ${level}/${ladder.length}`,
+        cooldown: next ? this.ladderShade(id) : 0,
         enabled: canAct && next !== undefined && canPay,
         short: canAct && next !== undefined ? shortfall(economy, { gold, gems, supply }) : [],
       });
@@ -1416,6 +1447,7 @@ export class BuildBar extends Container {
       // where the ladder's figures assume (the tutorial's supply practice).
       detailMore: next ? `→ ${SUPPLY}${economy.supplyCap + supplyStep(this.data, next.level)}` : '',
       note: `cap ${SUPPLY}${economy.supplyCap}`,
+      cooldown: next ? this.ladderShade('supply') : 0,
       enabled: canAct && next !== undefined && economy.gold >= (next.goldCost ?? 0),
       short: canAct && next !== undefined ? shortfall(economy, { gold: next.goldCost ?? 0 }) : [],
     });

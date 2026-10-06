@@ -83,6 +83,7 @@ function lane(overrides: Partial<LaneView> = {}): LaneView {
       tech: {},
       upgrades: {},
       sendCooldowns: {},
+      upgradeCooldowns: {},
       waveTally: { kills: 0, fortressKills: 0, bounty: 0, missed: 0 },
     },
     reserveCount: 0,

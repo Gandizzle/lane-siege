@@ -112,16 +112,22 @@ function advanceVision(state: MatchState): void {
 }
 
 /**
- * Every send's cooldown, one tick nearer ready. After the commands of the tick
- * are applied, so a send bought on this tick waits exactly its cooldown.
+ * Every send's and every upgrade ladder's cooldown, one tick nearer ready.
+ * After the commands of the tick are applied, so a purchase made on this tick
+ * waits exactly its cooldown.
  */
-function advanceSendCooldowns(state: MatchState): void {
+function advanceCooldowns(state: MatchState): void {
   for (const lane of Object.values(state.lanes)) {
-    for (const sendId of Object.keys(lane.sendCooldowns)) {
-      const left = (lane.sendCooldowns[sendId] ?? 0) - 1;
-      if (left > 0) lane.sendCooldowns[sendId] = left;
-      else delete lane.sendCooldowns[sendId];
-    }
+    countDown(lane.sendCooldowns);
+    countDown(lane.upgradeCooldowns);
+  }
+}
+
+function countDown(clocks: Record<string, number>): void {
+  for (const id of Object.keys(clocks)) {
+    const left = (clocks[id] ?? 0) - 1;
+    if (left > 0) clocks[id] = left;
+    else delete clocks[id];
   }
 }
 
@@ -931,7 +937,7 @@ export function step(
   state.tick += 1;
   advanceWaveClocks(state);
   advanceVision(state);
-  advanceSendCooldowns(state);
+  advanceCooldowns(state);
   advancePhase(ctx, state);
 
   // One generator for the whole tick, restored from the state and written back

@@ -212,6 +212,12 @@ export interface EconomyView {
   /** Ticks before each send can be bought again. Absent is ready (apply.ts). */
   sendCooldowns: Record<string, number>;
   /**
+   * Ticks before the next level of each upgrade ladder can be bought, by the
+   * id its purchase names (tech track, fortress upgrade, or `supply`). Absent
+   * is ready (apply.ts).
+   */
+  upgradeCooldowns: Record<string, number>;
+  /**
    * What the wave being fought - or, in a build phase, the one just fought -
    * has paid so far: kills by your line and by your fortress, and the gold
    * each side of that came to (types.ts, `WaveTally`).
@@ -518,6 +524,7 @@ function laneView(ctx: SimContext, lane: Lane, own: boolean): LaneView {
           tech: { ...lane.economy.tech },
           upgrades: { ...lane.fortress.upgrades },
           sendCooldowns: { ...lane.sendCooldowns },
+          upgradeCooldowns: { ...lane.upgradeCooldowns },
           waveTally: { ...lane.waveTally },
         }
       : null,

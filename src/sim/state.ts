@@ -93,6 +93,7 @@ function createLane(data: GameData, teamId: TeamId, builderId: string, missing: 
     incomingSends: [],
     sendLog: [],
     sendCooldowns: {},
+    upgradeCooldowns: {},
     attacks: [],
     kills: 0,
     waveTally: emptyTally(),

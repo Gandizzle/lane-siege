@@ -40,6 +40,7 @@
 
 import type { GameData } from '../data/schema.ts';
 import type { ArmorType, DamageType } from '../data/schema.ts';
+import { SUPPLY_LADDER_ID, upgradeLadderIds } from '../data/schema.ts';
 import { FORTRESS_UPGRADE_IDS } from '../sim/index.ts';
 import type {
   AttackView,
@@ -124,6 +125,11 @@ export interface WireLane {
   e?: [number, number, number, number, number];
   /** Own lane only: `[sendIndex, ticksLeft]` for every send still cooling down. */
   sc?: [number, number][];
+  /**
+   * Own lane only: `[ladderIndex, ticksLeft]` for every upgrade ladder still
+   * cooling down, indexed into `upgradeLadderIds`.
+   */
+  uc?: [number, number][];
   /**
    * Own lane only: the wave's tally, `[kills, fortressKills, bounty, missed]`,
    * gold rounded to whole coins (sim/types.ts, `WaveTally`).
@@ -263,7 +269,10 @@ export interface WireTables {
   armorTypes: ArmorType[];
   auraIds: string[];
   techTrackIds: string[];
+  /** The fortress ladders, and the supply cap last: its level is kept beside theirs. */
   fortressUpgradeIds: string[];
+  /** Every ladder with a cooldown: tech tracks, fortress ladders, supply (schema.ts). */
+  upgradeLadderIds: string[];
   /** defId -> index, and back, for each kind. */
   unitIndex: Map<string, number>;
   monsterIndex: Map<string, number>;
@@ -311,7 +320,10 @@ export function buildTables(
     armorTypes: [...data.matrix.armorTypes],
     auraIds: [...data.fortress.auras.types],
     techTrackIds: data.economy.tech.tracks.map((t) => t.id),
-    fortressUpgradeIds: [...FORTRESS_UPGRADE_IDS],
+    // The supply cap's level is kept in the same record as the fortress's
+    // (apply.ts), so it needs an index too, or it never reaches the client.
+    fortressUpgradeIds: [...FORTRESS_UPGRADE_IDS, SUPPLY_LADDER_ID],
+    upgradeLadderIds: upgradeLadderIds(data),
     unitIndex: new Map(unitIds.map((id, i) => [id, i])),
     monsterIndex: new Map(monsterIds.map((id, i) => [id, i])),
     unitTraits,
@@ -544,6 +556,12 @@ function encodeLane(lane: LaneView, tables: WireTables): WireLane {
     out.sc = Object.entries(e.sendCooldowns).map(
       ([id, ticks]) => [tables.sendIds.indexOf(id), ticks] as [number, number],
     );
+    const cooling = Object.entries(e.upgradeCooldowns);
+    if (cooling.length > 0) {
+      out.uc = cooling.map(
+        ([id, ticks]) => [tables.upgradeLadderIds.indexOf(id), ticks] as [number, number],
+      );
+    }
     const t = e.waveTally;
     out.wt = [t.kills, t.fortressKills, Math.round(t.bounty), Math.round(t.missed)];
     out.sp = flattenSpend(lane.unitSpend);
@@ -577,6 +595,11 @@ function decodeLane(wire: WireLane, tables: WireTables): LaneView {
           (wire.sc ?? [])
             .filter(([index]) => index >= 0)
             .map(([index, ticks]) => [tables.sendIds[index]!, ticks]),
+        ),
+        upgradeCooldowns: Object.fromEntries(
+          (wire.uc ?? [])
+            .filter(([index]) => index >= 0)
+            .map(([index, ticks]) => [tables.upgradeLadderIds[index]!, ticks]),
         ),
         waveTally: {
           kills: wire.wt?.[0] ?? 0,
