@@ -353,6 +353,24 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
       ],
       (x, y) => poly([x + 0.1, y - 0.72, x + 0.17, y + 0.6, x - 0.1, y + 0.72, x - 0.17, y - 0.6]),
     ),
+  // Swarm: a shield wall, three over two - Oathwall's shield, become a wall
+  // of small ones when it took swarm armor.
+  shieldwall: () =>
+    stamp(
+      [
+        [-0.55, -0.3],
+        [0, -0.3],
+        [0.55, -0.3],
+        [-0.28, 0.3],
+        [0.28, 0.3],
+      ],
+      (x, y) =>
+        poly(
+          [-0.85, -0.75, 0.85, -0.75, 0.85, 0.05, 0.45, 0.7, 0, 1, -0.45, 0.7, -0.85, 0.05].map(
+            (v, i) => v * 0.3 + (i % 2 === 0 ? x : y),
+          ),
+        ),
+    ),
 };
 
 /** The centres of `n` things evenly around a ring of radius `r`. */

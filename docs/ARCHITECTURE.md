@@ -2612,6 +2612,22 @@ one-combination wave tests. The armor reduction is cached on each unit
 abilities and the Final Showdown alike. The tab lays the eight out four across,
 damage over armor, and each button says what its level has bought.
 
+### Oathwall's shield wall, and Gloomtide's two cheap lines swapped
+
+A one-combination wave finds the one armor a front line is weak to and hits
+all of it at once. Ironvow's two melee lines, Pledge and Oathwall, were both
+plate, so a pierce wave went through the whole front - eleven of its twelve
+non-boss deaths in the practice bots' matched runs. **Oathwall is swarm armor
+now**, all three marks, so the tank and the cheap front line fear different
+damage; Pledge stays plate because chapters 2 and 3 teach it as one. A swarm
+body needs a swarm silhouette, so Oathwall's shield became a shield wall,
+three small shields over two (`shieldwall`). Ironvow now wears all four
+armors.
+
+**Kelpsnare and Murmur traded damage types**: Kelpsnare, Gloomtide's cheap
+melee, is arcane now, and Murmur, its cheap gun, is pierce. Gloomtide still
+deals all four. Neither ability names a damage type, so nothing else moved.
+
 ### Not yet built
 
 - **Multi-part bosses** (§3.4) — a boss should carry a mix of armor types across

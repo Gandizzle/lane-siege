@@ -1696,11 +1696,46 @@ Tried on the matched seeds, at the first fit, and not kept:
 - all four armors on every roster, by Hollowbark to plate, Pledge to swarm and
   Foxfire to ward (Ironvow +3.5 waves, Pyre and Thornweald −0.7).
 
-What did work, and is **not** in the game because it is a roster decision
-rather than a number: **Pledge as swarm and Thornling as plate** took Ironvow
-from 14.2 to 18.2 and Thornweald from 10.2 to 12.2 on the matched seeds,
-narrowing the four to 12.2–19.2. Each would need a new silhouette, and
-chapters 2 and 3 of the tutorial teach the Pledge.
+What did work was a roster change: **Pledge as swarm and Thornling as plate**
+took Ironvow from 14.2 to 18.2 and Thornweald from 10.2 to 12.2 on the matched
+seeds, narrowing the four to 12.2–19.2. Half of it was taken, in a form that
+leaves the tutorial alone — next.
+
+### Oathwall to swarm, Kelpsnare and Murmur swapped
+
+Pledge stays plate, because chapters 2 and 3 teach it; **Oathwall became
+swarm** instead, so Ironvow's tank and its cheap front line fear different
+damage, and Ironvow now wears all four armors. Its silhouette moved to the
+swarm family with it, a shield wall of five small shields. At the same time
+**Gloomtide's two cheap lines traded damage types**: Kelpsnare, the melee, is
+arcane, and Murmur, the gun, is pierce. Against the numbers above:
+
+|                                    | before | after |
+| ---------------------------------- | -----: | ----: |
+| practice tables, every bot         |   17.4 |  17.5 |
+| Gloomtide                          |   21.7 |  17.2 |
+| Pyre                               |   20.6 |  21.2 |
+| Ironvow                            |   15.2 |  18.6 |
+| Thornweald                         |   11.9 |  13.1 |
+| tables where a bot reached wave 20 |    96% |   88% |
+| tables where a bot beat wave 25    |    38% |   25% |
+| matched solo runs, Gloomtide       |   19.2 |  19.0 |
+| matched solo runs, Ironvow         |   14.2 |  14.0 |
+
+In the tables Ironvow gained three and a half waves and Gloomtide lost four
+and a half, and the spread from best to worst came in from 9.8 waves to 8.1.
+Alone on the matched seeds the change did what it was aimed at and no more:
+Ironvow's deaths to pierce waves halved, eleven of its non-boss deaths to six,
+and it fell on flesh-armored waves instead (six, from four), so its mean held.
+Pyre's and Thornweald's solo runs came out identical, as they should with
+their rosters untouched. Read the table rows to about a wave and a half — bots
+share a table and send at each other — and the solo rows to about one.
+
+The waves did not move: 4, 9, 13 and 18 measure 59%, 62%, 57% and 59% at
+their nominal, against 60%, 60%, 57% and 58% before. Nor did the arena, which the change
+was not aimed at: duels Ironvow 44.2 → 42.5%, Pyre 51.7 → 52.9%, Gloomtide
+47.9 → 48.3%, Thornweald 56.3% both times, and the same one matchup outside
+40/60.
 
 ### The practice matches
 
@@ -1721,7 +1756,8 @@ That is the lesson of chapter 5 arriving in practice, not a fault in it.
 
 ### What is left
 
-- **Thornweald's bot**, above, and the roster change that would mostly close it.
+- **Thornweald's bot**, above. Thornling as plate is the half of the roster
+  change not taken; it was worth two waves to Thornweald's solo runs.
 - **The Hollow King** is now the softest boss in the bots' record (5 runs
   ended of 55).
 - **The arena moved with the chart.** The new counter cycle and the armor
