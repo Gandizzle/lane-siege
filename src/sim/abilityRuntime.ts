@@ -209,7 +209,7 @@ export interface AbilityEnv {
 export interface TriggerContext {
   /** `onAttack`: what was hit. `interval` on `attackTarget`: current target. */
   target?: AbilityBody | null;
-  /** `onHurt`: who hit us. */
+  /** `onHurt`: who hit us. `onEvade`: who swung and missed. */
   attacker?: AbilityBody | null;
 }
 
@@ -953,7 +953,10 @@ export function buildLaneAbilityEnv(
       // Nothing is dampened in a lane: dampening's clock is the arena's
       // (dampening.ts).
       healing: 1,
-      onEvade: (target) => fire(env, target as AbilityBody, 'onEvade', {}),
+      onEvade: (target, attacker) =>
+        fire(env, target as AbilityBody, 'onEvade', {
+          attacker: (attacker as AbilityBody | null) ?? null,
+        }),
       onHurt: (target, attacker) =>
         fire(env, target as AbilityBody, 'onHurt', {
           attacker: (attacker as AbilityBody | null) ?? null,
@@ -1043,7 +1046,10 @@ export function buildArenaAbilityEnv(
       matrix: ctx.data.matrix.multipliers,
       rng,
       healing: healingMultiplier(dampening, showdown.age),
-      onEvade: (target) => fire(env, target as AbilityBody, 'onEvade', {}),
+      onEvade: (target, attacker) =>
+        fire(env, target as AbilityBody, 'onEvade', {
+          attacker: (attacker as AbilityBody | null) ?? null,
+        }),
       onHurt: (target, attacker) =>
         fire(env, target as AbilityBody, 'onHurt', {
           attacker: (attacker as AbilityBody | null) ?? null,

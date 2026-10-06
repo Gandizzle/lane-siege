@@ -38,6 +38,7 @@ import { Rng } from './rng.ts';
 import { createContext, createMatch, step } from './index.ts';
 import { beginShowdown } from './showdown.ts';
 import { createMonster } from './spawn.ts';
+import { dealDamage } from './strike.ts';
 import {
   ADDITIVE_STATS,
   FLAT_CAPABLE,
@@ -629,6 +630,35 @@ describe('Ironvow: support that reaches the front, and a sentence that bites', (
     boss.hp = boss.maxHp * 0.6;
     fire(env, judge, 'onAttack', { target: boss });
     expect(boss.hp).toBeGreaterThan(boss.maxHp * 0.25);
+  });
+
+  it('answers a blow it turns aside (Sentinel III: Riposte)', () => {
+    // The dodge used to fire Riposte with nobody to answer: the attacker never
+    // reached the ability, so it had no target and did nothing at all.
+    const { state, ctx } = match('ironvow');
+    place(ctx, state, 'sentinel_3', 3, 5);
+    const lane = state.lanes.lane1!;
+    const sentinel = lane.units[0]!;
+    const grub = createMonster(
+      state,
+      data,
+      ctx.defs,
+      { defId: 'grub', waveNumber: 10 },
+      { x: 3.5, y: 4.5 },
+    )!;
+    lane.monsters.push(grub);
+    const env = buildLaneAbilityEnv(ctx, lane, new Rng(1), true);
+    // Certain to dodge, so the test is about what happens after the dodge.
+    sentinel.statuses.push(status({ abilityId: 'test', stat: 'evasion', amount: 1, ticksLeft: 0 }));
+
+    const before = grub.hp;
+    const landed = dealDamage(env.strike, grub, sentinel, {
+      amount: 50,
+      damageType: 'impact',
+      isAttack: true,
+    });
+    expect(landed).toBe(0);
+    expect(grub.hp).toBeLessThan(before);
   });
 });
 

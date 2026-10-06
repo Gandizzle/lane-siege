@@ -1,29 +1,40 @@
 /**
  * Abilities, in words a player can act on. DESIGN.md §7, §18, §14.1.
  *
- * WHY THIS IS GENERATED AND NOT AUTHORED
+ * WHAT THE CARD SAYS
  *
- * An ability's `text` in `abilities.json` says what it is FOR - "sets what it
- * touches burning" - and that is worth writing by hand. What it is WORTH is a
- * dozen numbers, and a hand-written "+8% damage to three allies" is a sentence
- * that stops being true the first time somebody tunes the ability. Every
- * number here is read off the RESOLVED ability instead (abilities.ts), so the
- * panel and the data cannot disagree and a balance pass never leaves a lie
- * behind it.
+ * Three things, in order: the authored one-liner (`text`, what the ability is
+ * FOR), the authored paragraph (`description`, exactly what it does, in whole
+ * sentences), and the notes - the rules every ability of a kind shares, like
+ * how energy refills or how stuns wear thin with repetition, said once here
+ * rather than in every paragraph.
  *
- * It also answers the questions the flavour line cannot. "Three Pledges in a
- * row are three times braced" left a player asking whether they had to stay in
- * a row - so the trigger line for a passive says "always on, while in range",
- * the target line says how many and how far, and the effect line says how the
- * stacks are counted.
+ * WHY THE PARAGRAPH IS WRITTEN AND ITS NUMBERS ARE NOT
+ *
+ * A generated description is always true and reads like a form: "+8% damage
+ * · up to 3 stacks, one per unit". A written one reads like a person and
+ * stops being true the first time somebody tunes the ability. So the words
+ * are written and the numbers are placeholders (`fillDescription` in
+ * abilities.ts), filled from the RESOLVED ability at the unit's own rank: the
+ * card and the data cannot disagree, and a balance pass never leaves a lie
+ * behind it. The notes are built from the same data files the simulation
+ * reads.
+ *
+ * The generated lines below (`triggerLine`, `targetLine`, `effectLine`) are
+ * what an ability without a paragraph falls back to - in practice the
+ * `planned` designs, which nothing on the field may carry.
  */
 
 import type {
+  ControlConfig,
+  DampeningConfig,
+  EnergyConfig,
   ResolvedAbility,
   ResolvedEffect,
   ResolvedTarget,
   StatKey,
 } from '../../data/schema.ts';
+import { fillDescription } from '../../data/schema.ts';
 
 /** A number with at most one decimal, and no trailing `.0`. */
 function n(value: number, decimals = 1): string {
@@ -254,28 +265,109 @@ export function effectLine(effect: ResolvedEffect): string {
   }
 }
 
-/** The whole card: what it is for, then when, then who, then what. */
+/** The rules every ability of a kind shares, from the data files. */
+export interface AbilityRules {
+  energy: EnergyConfig;
+  control: ControlConfig;
+  dampening: DampeningConfig;
+}
+
+/** The whole card: what it is for, then exactly what it does, then the shared rules. */
 export interface AbilityCard {
   name: string;
   /** The authored line: what it is for. */
   text: string;
-  /** Generated from the numbers, and therefore always true. */
+  /** The authored paragraph, its numbers filled in at this rank. */
+  description: string;
+  /** Generated lines, for an ability with no paragraph (see the header). */
   mechanics: string[];
+  /** The shared rules this ability is subject to, one sentence or two each. */
+  notes: string[];
 }
 
-export function describeAbility(ability: ResolvedAbility): AbilityCard {
+/** "half", "a quarter", or a plain percentage, for a fraction of a duration. */
+function asLong(fraction: number): string {
+  if (fraction === 0.5) return 'half as long';
+  if (fraction === 0.25) return 'a quarter as long';
+  return `${n(fraction * 100)}% as long`;
+}
+
+/** The notes a card carries: only the ones whose rules this ability touches. */
+export function abilityNotes(ability: ResolvedAbility, rules: AbilityRules): string[] {
+  const notes: string[] = [];
+  const kinds = new Set(ability.effects.map((e) => e.kind));
+  const damages = kinds.has('damage') || kinds.has('damageOverTime');
+  const ofAttack = ability.effects.some((e) => e.ofAttack > 0);
+  const heals =
+    kinds.has('heal') ||
+    kinds.has('regen') ||
+    ability.effects.some((e) => e.kind === 'modify' && e.stat === 'lifesteal');
+  const controls = kinds.has('control');
+
+  if (damages) {
+    notes.push(
+      "Ability damage can't miss, be blocked by a ward or land a critical hit, and it " +
+        "never triggers lifesteal or reflection. The user's own damage buffs raise it, " +
+        "and unless it ignores armor it goes through the damage chart and the target's " +
+        'damage-taken changes like any other hit.' +
+        (ofAttack
+          ? " Attack damage here is the body's damage per hit before tech: a unit's " +
+            "listed damage, or a monster's damage at the current wave."
+          : ''),
+    );
+  }
+  if (ability.trigger.when === 'interval') {
+    notes.push(
+      'A timed ability goes off as soon as it has something to affect and then waits out ' +
+        "its timer. With nothing in reach it doesn't go off, and its timer doesn't start" +
+        (ability.energyCost > 0
+          ? "; if it's short of energy when the timer runs out, it goes off the moment it has enough."
+          : '.'),
+    );
+  }
+  if (ability.energyCost > 0) {
+    const max = rules.energy.max ?? 0;
+    const regen = rules.energy.regenPerSecond ?? 0;
+    notes.push(
+      `Every body starts each wave with ${n(max)} energy and regains ${n(regen)} a ` +
+        'second. Energy is only spent while a wave or the Final Showdown is being fought.',
+    );
+  }
+  if (controls) {
+    const scale = rules.control.scale;
+    const window = rules.control.windowSeconds ?? 0;
+    const immune = rules.control.immuneSeconds ?? 0;
+    const later = scale
+      .slice(1)
+      .map((f, i) => `the ${i === 0 ? 'second' : i === 1 ? 'third' : `${i + 2}th`} ${asLong(f)}`)
+      .join(' and ');
+    notes.push(
+      'Stuns, roots and taunts wear thin on a body that keeps receiving them: within ' +
+        `${n(window)} seconds of one landing, ${later}. After the ${scale.length === 3 ? 'third' : `${scale.length}th`}, ` +
+        `the body can't be controlled at all for ${n(immune)} seconds.`,
+    );
+  }
+  if (heals || controls) {
+    const what =
+      heals && controls ? 'healing and control durations' : heals ? 'healing' : 'control durations';
+    notes.push(
+      `In the Final Showdown, after the first ${n(rules.dampening.graceSeconds)} seconds, ` +
+        `${what} lose ${n(rules.dampening.perSecond * 100)}% of their full strength for ` +
+        'every second that passes.',
+    );
+  }
+  return notes;
+}
+
+export function describeAbility(ability: ResolvedAbility, rules?: AbilityRules): AbilityCard {
+  const description = ability.description ? fillDescription(ability).text : '';
   return {
     name: ability.name,
     text: ability.text,
-    mechanics: [
-      triggerLine(ability),
-      targetLine(ability.target),
-      ...ability.effects.map(effectLine),
-    ],
+    description,
+    mechanics: description
+      ? []
+      : [triggerLine(ability), targetLine(ability.target), ...ability.effects.map(effectLine)],
+    notes: rules ? abilityNotes(ability, rules) : [],
   };
 }
-
-/** Controls are shortened by repetition; say so once, where it is read. */
-export const CONTROL_NOTE =
-  'Stuns, roots and holds get shorter each time they land on the same body, ' +
-  'and stop landing for a while after that.';

@@ -288,7 +288,7 @@ the Final Showdown dampens every duration on top of that (§3.3, replaced), so a
 table of stun units cannot hold a wave — or an enemy army — still.
 
 **A tag is the synergy channel.** Three of the four rosters apply a word and
-then charge for it. Pyre's Kindle, Emberdust and Slagshot leave `burning`;
+then charge for it. Pyre's Kindle and Emberdust leave `burning`;
 Firestorm and Conflagration do more damage to anything carrying it, and
 Wildfire spreads only to what is already alight. Thornweald applies `blighted`
 and Heartpiercer collects. Gloomtide applies `soaked` and Torrential, Hailburst,
@@ -296,14 +296,25 @@ Undertow and Drownward all collect. A builder whose units want to be built
 together is the whole reason a roster is a roster and not six unrelated
 purchases.
 
+A tag lives on a STATUS and lasts as long as it does, so it only means
+something on an effect that leaves one (`modify`, `damageOverTime`, `regen`,
+`shield`, `control`, `immunity`). Slagshot and Cloudburst once put `burning`
+and `soaked` on their instant damage, where a tag has nowhere to live and was
+silently dropped: the cards said they ignited and soaked, and they did not.
+Cloudburst still soaks through the slow it applies alongside the damage;
+Slagshot no longer claims to ignite. `validate.ts` now refuses a tag on an
+effect that leaves no status, so the next one fails the build rather than the
+player.
+
 **Energy is what makes an expensive ability a rhythm rather than a cooldown.**
-Every body has the same pool, fills it passively, and tops it up on a kill, and
-the ability a three-tier unit unlocks at the top of its ladder spends it —
-Interdict's area stun, Absolution's cleanse, Conflagration, Pyroclasm,
-Blightbloom, Cloudburst. So the big ability fires on a rhythm set by the fight
-rather than by a bare timer, and a unit that is not killing anything fires it
-less often. Gloomtide's Murmur grants energy directly, which is what makes it
-worth its supply.
+Every body has the same pool and fills it passively, and the ability a
+three-tier unit unlocks at the top of its ladder spends it — Interdict's area
+stun, Absolution's cleanse, Conflagration, Pyroclasm, Blightbloom, Cloudburst.
+So the big ability fires on a rhythm its pool sets rather than a bare timer.
+Gloomtide's Murmur grants energy directly, which is what makes it worth its
+supply. The energy block also has a `perKill` figure, but nothing reads it: a
+kill does not refill a pool today, and the ability card does not claim it
+does.
 
 **Energy belongs to the fight, so nothing spends it outside one.** No ability
 that costs energy fires during a build phase (`AbilityEnv.fighting`), because
@@ -334,6 +345,13 @@ takes raises _all_ of it, and a ward eats whatever arrives next. Damage applied
 anywhere else would quietly ignore both. Only an ATTACK can be evaded, warded
 or critical; a burn is a consequence of a hit that already happened, and letting
 it miss again would make one dodge worth two.
+
+An evaded attack is the one strike that ends before any damage is dealt, so it
+is reported on its own hook (`StrikeEnv.onEvade`), and that is what an
+`onEvade` trigger listens to. For a while nothing called it — the trigger was
+typed, validated and wired into the runtime, and Sentinel III's Riposte, the
+one ability that uses it, never fired once. A test now dodges a blow and
+expects the answer.
 
 **A passive is a status that keeps being renewed.** There are no permanent
 buffs. A `passive` ability fires every tick and applies statuses lasting two
@@ -1610,7 +1628,13 @@ gridButton.ts): it is a shape the player has to learn to pick out of a crowd.
 
 The ability card is bigger and set larger (20/15/14 at a scale of 1, from
 16/11/11), and "Tap anywhere to close" is a full-width bar in the accent color
-where a button would be, not small print.
+where a button would be, not small print. A long ability on a short screen (a
+phone held sideways) is taller than the screen: the type tightens first, to no
+less than 80%, and past that the body scrolls under the fixed close bar —
+dragged or wheeled, with a thumb at its edge, and the bar says "Drag to read
+on, tap to close". A press only counts as a drag once it has moved eight
+pixels, so reading never closes the card. The legend button hides while the
+card is open, because it sat over the card's text; the menu button stays.
 
 ### The damage chart
 
@@ -2112,17 +2136,41 @@ at all, because the fitting fell all the way back to names. So the panel shows
 names, the chips wrap like words, a chip that would fall outside the box is not
 drawn, and tapping one opens a card.
 
-**The card's numbers are generated, not authored** (`abilityText.ts`). An
-ability's `text` in `abilities.json` says what it is FOR in one short sentence
-and carries no figures at all; everything else on the card is read off the
-RESOLVED ability, so the panel and the data cannot disagree and a balance pass
-never leaves a stale description behind it. It also answers what the flavour
-line could not: "three Pledges in a row are three times braced" left a player
-asking whether they had to stay in a row, and the card says `Always on, while
-they are in range` / `Up to 3 allies within 1.6 tiles` / `+8% damage · up to 3
-stacks, one per unit`. Where an ability controls, the card adds the one-line
-note about diminishing returns, because that is where somebody is deciding
-whether a stun is worth building.
+**The card's words are written; its numbers are not** (`abilityText.ts`,
+`fillDescription` in abilities.ts). An ability's `text` in `abilities.json` says
+what it is FOR in one short sentence and carries no figures at all. Under it is
+the ability's `description`: a paragraph in plain sentences, written by hand,
+that says exactly what the ability does — what sets it off, who it picks and in
+what order, what it does to them, for how long, how it stacks and what it costs
+— closely enough that someone could build it from the card alone. Every figure
+in it is a placeholder filled from the RESOLVED ability at the unit's rank:
+
+```json
+"description": "Up to {allies} allies within {radius} tiles of the Pledge, nearest first, deal {damage%} more damage for as long as they stay in range. ..."
+```
+
+`{radius}` reads the ability's named number at that rank, `{damage%}` prints it
+as a percent without its sign (a slow of `-0.15` is "slows ... by 15%" — the
+sentence says which way), `{effects.0.stacks.max}` reads any field of the
+resolved ability by path, and `{hold:second:seconds}` agrees the noun with the
+number. So a balance pass still cannot leave a stale figure on the card, and
+`validate.ts` refuses a live ability with no paragraph or with a placeholder
+that names nothing at any of its ranks.
+
+The paragraph replaced a generated list (`Every 8s · costs 60 energy` /
+`Up to 5 enemies within 1.8 tiles` / `stun 1s`). The list could not go stale
+either, but it read like a spec sheet, and it could only say what the data
+spelled out — not that a radius is centred on the unit's target rather than the
+unit, that the nearest are taken first, or that a Pledge does not buff itself.
+The generated lines are kept for a `planned` design that has no paragraph yet.
+
+Rules that apply to many abilities are not repeated in each paragraph. Under
+it, in the muted color, the card adds a short note for each one the ability is
+subject to, written from the same settings the simulation reads: what ability
+damage can and cannot do (it cannot miss, be warded or crit, never lifesteals
+or reflects, and goes through the damage chart), when a timed ability starts
+its clock, how energy fills, how stuns and roots wear thin, and how healing and
+control fade in the Final Showdown.
 
 A chip for an ability the NEXT tier unlocks is drawn dimmer and marked `+`:
 what an upgrade buys is exactly the sort of thing to read before buying it. An

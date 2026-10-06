@@ -58,8 +58,11 @@ export interface StrikeEnv {
   rng: Rng;
   /** Dampening's multiplier on any healing this strike causes (§3.3, replaced). */
   healing: number;
-  /** Called when a strike is evaded, so `onEvade` abilities can fire. */
-  onEvade?: (target: Target) => void;
+  /**
+   * Called when a strike is evaded, so `onEvade` abilities can fire - with the
+   * attacker, which is who a riposte answers.
+   */
+  onEvade?: (target: Target, attacker: Attacker | null) => void;
   /** Called when a strike lands, so `onHurt` abilities can fire. */
   onHurt?: (target: Target, attacker: Attacker | null) => void;
 }
@@ -97,7 +100,7 @@ export function dealDamage(
 
   if (attack) {
     if (victim.evasion > 0 && env.rng.next() < victim.evasion) {
-      env.onEvade?.(target);
+      env.onEvade?.(target, attacker);
       return 0;
     }
     if (consumeShield(target)) return 0;

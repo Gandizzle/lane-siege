@@ -274,7 +274,11 @@ export class Game extends Container {
       onBlocked: () => this.toast.showText('No sight of that lane'),
     });
     this.banner = new WatchBanner(this.layout, () => this.watch(null));
-    this.abilityCard = new AbilityCard(this.layout, () => this.closeAbility());
+    this.abilityCard = new AbilityCard(this.layout, () => this.closeAbility(), {
+      energy: data.abilities.energy,
+      control: data.abilities.control,
+      dampening: data.waves.showdown.dampening,
+    });
     this.buildBar = new BuildBar(this.layout, data, {
       onSelectUnitDef: (id) => this.selectUnitDef(id),
       onUpgrade: (id) => this.issue({ kind: 'upgradeUnit', teamId: this.teamId, unitId: id }),
@@ -475,7 +479,10 @@ export class Game extends Container {
   /** The legend button, over whatever board is on screen, unless something is over it. */
   private showEffectsButton(): void {
     this.effectsButton.visible =
-      !this.menu.isOpen && !this.effectsPanel.isOpen && !this.damageChart.isOpen;
+      !this.menu.isOpen &&
+      !this.effectsPanel.isOpen &&
+      !this.damageChart.isOpen &&
+      this.openAbility === null;
     if (!this.effectsButton.visible) return;
     this.placeEffectsButton();
     this.effectsButton.render(

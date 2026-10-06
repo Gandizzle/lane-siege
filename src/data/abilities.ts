@@ -412,6 +412,22 @@ export interface AbilityDef {
    * here describes a rule the simulation has.
    */
   text: string;
+  /**
+   * The ability in full, as a paragraph a player reads on its card: complete
+   * sentences saying exactly what it does, close enough to the code that
+   * someone could rebuild it from the words.
+   *
+   * Written by hand, but its NUMBERS are not: every figure is a `{placeholder}`
+   * filled from the ability at the unit's own rank (`fillDescription`), so a
+   * balance pass cannot leave a stale number behind. `{radius}` reads a name
+   * from `numbers`; `{energyCost}` or `{effects.1.durationSeconds}` read the
+   * resolved ability itself. `{slow%}` writes a fraction as a percentage
+   * (sign dropped - the sentence says which way), and `{jumps:enemy:enemies}`
+   * writes the number with the noun that agrees with it. `validate.ts`
+   * refuses a live ability without one, or with a placeholder that does not
+   * resolve at every rank.
+   */
+  description?: string;
   role: AbilityRole;
   /** Named numbers, referred to as `"@name"` anywhere a number goes. */
   numbers?: Record<string, Unfilled<number>>;
@@ -484,6 +500,10 @@ export interface ResolvedAbility {
   id: string;
   name: string;
   text: string;
+  /** The authored paragraph, placeholders and all (`fillDescription`). */
+  description: string;
+  /** The `numbers` map at this rank, which is what the placeholders read. */
+  numbers: Record<string, number>;
   role: AbilityRole;
   rank: number;
   trigger: { when: TriggerWhen; chance: number; everySeconds: number; fraction: number };
@@ -573,6 +593,8 @@ export function resolveAbility(def: AbilityDef, rank = 1): ResolvedAbility {
     id: def.id,
     name: def.name,
     text: def.text,
+    description: def.description ?? '',
+    numbers: n,
     role: def.role,
     rank,
     trigger: {
@@ -636,4 +658,52 @@ function resolveEffect(e: AbilityEffect, n: Record<string, number>): ResolvedEff
     tiles: num(e.tiles, n),
     fraction: num(e.fraction, n),
   };
+}
+
+// ---------------------------------------------------------------- descriptions
+
+/** A number as a sentence wants it: at most two decimals, none trailing. */
+function spoken(value: number): string {
+  return String(Number(value.toFixed(2)));
+}
+
+/** A `{placeholder}`'s value: a name in `numbers`, or a path into the ability. */
+function lookup(ability: ResolvedAbility, path: string): number | null {
+  const named = ability.numbers[path];
+  if (typeof named === 'number') return named;
+  let at: unknown = ability;
+  for (const key of path.split('.')) {
+    if (at === null || typeof at !== 'object') return null;
+    at = (at as Record<string, unknown>)[key];
+  }
+  return typeof at === 'number' && Number.isFinite(at) ? at : null;
+}
+
+/**
+ * The authored paragraph with its numbers filled in at this ability's rank.
+ *
+ *   {radius}                 1.6
+ *   {damage%}                8%     (a fraction, as a percentage, unsigned)
+ *   {jumps:enemy:enemies}    2 enemies
+ *   {effects.0.stacks.max}   3      (anything numeric on the resolved ability)
+ *
+ * `unresolved` lists every placeholder that named nothing, which is what the
+ * validator and the tests hold to empty.
+ */
+export function fillDescription(ability: ResolvedAbility): { text: string; unresolved: string[] } {
+  const unresolved: string[] = [];
+  const text = ability.description.replace(/\{([^{}]+)\}/g, (whole, body: string) => {
+    const [head = '', singular, plural] = body.split(':');
+    const percent = head.endsWith('%');
+    const path = percent ? head.slice(0, -1) : head;
+    const value = lookup(ability, path);
+    if (value === null) {
+      unresolved.push(whole);
+      return whole;
+    }
+    const shown = percent ? `${spoken(Math.abs(value) * 100)}%` : spoken(value);
+    if (singular === undefined) return shown;
+    return `${shown} ${value === 1 ? singular : (plural ?? singular)}`;
+  });
+  return { text, unresolved };
 }

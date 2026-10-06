@@ -1,6 +1,6 @@
 {
   "_comment": "DESIGN.md §7 and §18, extended. Every ability in the game. The shape of an entry is in src/data/abilities.ts: a trigger (WHEN), a target (WHO), effects (WHAT) and a price. Numbers are named in `numbers` and referred to as \"@name\", so `ranks` can raise one figure per tier without restating the ability - rank 1 is `numbers` as written, rank 2 is `numbers` with ranks[1] laid over it. All placeholders, like every number in data/.",
-  "_tags": "Tags are the synergy channel. `burning` is Pyre's, applied by Kindle, Emberdust and Slagshot and paid off by Firestorm and Conflagration (more damage) and Wildfire (spreads only to what already burns). `blighted` is Thornweald's, from Bloomspread and Wilt, paid off by Heartpiercer. `soaked` is Gloomtide's, from Snarekelp and Sleetfall, paid off by Torrential, Hailburst, Undertow and Drownward. A builder that applies its own tag and then exploits it is a builder whose units want to be built together, which is the point.",
+  "_tags": "Tags are the synergy channel. `burning` is Pyre's, applied by Kindle, Emberdust, Wildfire, Cinderburst, Conflagration and Pyroclasm and paid off by Firestorm and Conflagration (more damage) and Wildfire (spreads only to what already burns). `blighted` is Thornweald's, from Bloomspread and Wilt, paid off by Heartpiercer. `soaked` is Gloomtide's, from Snarekelp and Sleetfall, paid off by Torrential, Hailburst, Undertow and Drownward. A builder that applies its own tag and then exploits it is a builder whose units want to be built together, which is the point.",
   "_planned": "The `planned` list at the bottom uses effect kinds the simulation does not honour yet (IMPLEMENTED_EFFECTS in abilities.ts is the live set). They are designs kept where the thinking is, and validate.ts refuses to let a unit, monster or send reference one - so nothing the panel shows a player is a promise rather than a rule.",
   "control": {
     "_comment": "§18's diminishing returns, so a table of stun units cannot hold a wave still forever. The first control effect inside `windowSeconds` lasts its full duration, the second half of it, and so on down `scale`; once the list is spent the body cannot be controlled at all for `immuneSeconds`. Counted per body, and the showdown dampens the durations on top of this (§3.3, replaced).",
@@ -19,6 +19,7 @@
       "id": "shoulder_to_shoulder",
       "name": "Shoulder to Shoulder",
       "text": "Allies standing close hit harder, and stack with each other.",
+      "description": "Up to {allies} allies within {radius} tiles of the Pledge, nearest first, deal {damage%} more damage for as long as they stay in range. The Pledge doesn't buff itself. Each Pledge can give an ally only one stack, but an ally standing near several Pledges can carry up to {effects.0.stacks.max} stacks, and the stacks multiply together.",
       "role": "support",
       "numbers": {
         "radius": 1.6,
@@ -59,7 +60,8 @@
     {
       "id": "hold_the_line",
       "name": "Hold the Line",
-      "text": "Drags the nearest attackers onto itself, off whatever they were hitting.",
+      "text": "Drags the enemies around its target onto itself, off whatever they were hitting.",
+      "description": "Every {period} seconds, up to {targets} enemies within {radius} tiles of the Oathwall's current target, nearest to that target first, are taunted for {hold} seconds. A taunted enemy has to attack the Oathwall, and walks over to it if it can't reach it from where it stands.",
       "role": "control",
       "numbers": {
         "period": 5.0,
@@ -101,6 +103,7 @@
       "id": "unbroken",
       "name": "Unbroken",
       "text": "Badly wounded, nothing holds it and blows start glancing off.",
+      "description": "The first time the Oathwall drops below {trigger.fraction%} health, it takes {reduction%} less damage, dodges {evasion%} of the attacks aimed at it and can't be stunned, rooted or taunted, all for {duration} seconds. It can only trigger again once its health has climbed back above {trigger.fraction%}, or after it respawns for the next wave.",
       "role": "defence",
       "numbers": {
         "reduction": -0.25,
@@ -147,6 +150,7 @@
       "id": "parry",
       "name": "Parry",
       "text": "Turns a share of what is swung at it aside entirely.",
+      "description": "The Sentinel dodges {chance%} of the attacks aimed at it, and a dodged attack does no damage at all. Ability damage and burns can't be dodged.",
       "role": "defence",
       "numbers": {
         "chance": 0.18
@@ -179,6 +183,7 @@
       "id": "riposte",
       "name": "Riposte",
       "text": "A blow it turns aside is a blow it answers.",
+      "description": "Whenever the Sentinel dodges an attack, it hits the attacker straight back for {share%} of its own attack damage, in its own damage type. There's no cooldown, so every dodge gets an answer.",
       "role": "defence",
       "numbers": {
         "share": 0.9
@@ -200,6 +205,7 @@
       "id": "verdict",
       "name": "Verdict",
       "text": "Every shot takes a slice of whatever it is aimed at, however big.",
+      "description": "Each of the Judgement's attacks also deals {share%} of the target's maximum health as extra damage, so it hits big enemies as hard, in proportion, as small ones.",
       "role": "offence",
       "numbers": {
         "share": 0.02
@@ -230,6 +236,7 @@
       "id": "final_sentence",
       "name": "Final Sentence",
       "text": "Finishes anything it leaves below a quarter of its health.",
+      "description": "After each of the Judgement's attacks, once the attack and Verdict have both landed, a target left at or below {threshold%} of its maximum health is killed outright. Nothing reduces this, but an enemy that is immune to abilities can't be finished this way.",
       "role": "offence",
       "numbers": {
         "threshold": 0.25
@@ -251,6 +258,7 @@
       "id": "censure",
       "name": "Censure",
       "text": "The blast leaves everything near it hitting softer.",
+      "description": "Each attack weakens up to {targets} enemies within {radius} tiles of the target, the target included, nearest first. A weakened enemy deals {weaken%} less damage for {duration} seconds. Hitting an enemy that is already weakened resets its timer rather than stacking.",
       "role": "control",
       "numbers": {
         "radius": 1.4,
@@ -294,6 +302,7 @@
       "id": "interdict",
       "name": "Interdict",
       "text": "Everything in the circle stops where it stands.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Sanction stuns up to {targets} enemies within {radius} tiles of its current target, nearest first, for {hold:second:seconds}. A stunned enemy can't move, attack or use abilities.",
       "role": "control",
       "numbers": {
         "period": 8.0,
@@ -323,6 +332,7 @@
       "id": "warding_light",
       "name": "Warding Light",
       "text": "Wards the allies furthest forward against the next blow that lands.",
+      "description": "Every {period} seconds, the Vigil wards the {allies} allies within {radius} tiles of it that stand furthest forward, toward the enemy. Each ward absorbs {blocks:attack:attacks} completely and then breaks, or fades after {duration} seconds if nothing hits the ally. Warding an ally that still has its ward only resets the timer. Wards don't stop burns or ability damage, and the Vigil never wards itself.",
       "role": "support",
       "numbers": {
         "period": 6.0,
@@ -362,6 +372,7 @@
       "id": "absolution",
       "name": "Absolution",
       "text": "Nothing holds the allies furthest forward, and their wounds close.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Vigil picks the {allies} allies within {radius} tiles of it that stand furthest forward. Each of them heals {heal%} of its maximum health and can't be stunned, rooted or taunted for {duration} seconds. A stun that is already holding one of them isn't broken, but nothing new can land.",
       "role": "support",
       "numbers": {
         "period": 10.0,
@@ -396,6 +407,7 @@
       "id": "closing_ranks",
       "name": "Closing Ranks",
       "text": "The line beside it hits harder and takes less, for a few seconds.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Pledge rallies up to {allies} allies within {radius} tiles of it, nearest first. For {duration} seconds they deal {damage%} more damage and take {reduction%} less. The Pledge doesn't rally itself.",
       "role": "support",
       "numbers": {
         "period": 9.0,
@@ -436,6 +448,7 @@
       "id": "kindle",
       "name": "Kindle",
       "text": "Sets what it touches burning. Burns stack.",
+      "description": "Each attack sets the target burning for {burn} blast damage per second over {duration} seconds. Every attack adds another burn, up to {effects.0.stacks.max} at a time, and each one burns on its own. Once the target carries {effects.0.stacks.max}, a new attack resets the timer on the burn closest to running out instead.",
       "role": "offence",
       "numbers": {
         "burn": 4.0,
@@ -475,6 +488,7 @@
       "id": "molten_hide",
       "name": "Molten Hide",
       "text": "Its hide gives back a share of every blow that lands on it.",
+      "description": "Whenever an attack damages the Slagmaw, the attacker takes {share%} of the damage that actually landed, as damage that ignores armor. Only attacks are sent back, not burns or ability damage, and damage sent back is never reflected again.",
       "role": "defence",
       "numbers": {
         "share": 0.15
@@ -507,6 +521,7 @@
       "id": "cinderburst",
       "name": "Cinderburst",
       "text": "Goes out loudly, and takes the crowd around it with it.",
+      "description": "When the Slagmaw dies, up to {targets} enemies within {radius} tiles of it, nearest first, take {damage} blast damage and start burning for {burn} blast damage per second over {effects.1.durationSeconds} seconds.",
       "role": "offence",
       "numbers": {
         "radius": 1.6,
@@ -541,6 +556,7 @@
       "id": "firestorm",
       "name": "Firestorm",
       "text": "Its shells scatter fire, and fire falls hardest on what is already alight.",
+      "description": "Each shell splashes onto up to {targets} enemies within {radius} tiles of the target, the target included, nearest first. The first takes {share%} of the Firebrand's attack damage as blast damage, and each one after that takes {falloff%} of what the one before it took. An enemy that is already burning takes {bonus} times as much.",
       "role": "offence",
       "numbers": {
         "radius": 1.3,
@@ -586,6 +602,7 @@
       "id": "spitfire",
       "name": "Spitfire",
       "text": "One shot, two mouths to feed.",
+      "description": "Each attack jumps on from the target to the nearest other enemy within {radius} tiles of it, making up to {jumps:jump:jumps}, each from the last enemy hit to the nearest one it hasn't hit yet. The first enemy it jumps to takes {share%} of the Wickling's attack damage times {falloff} as blast damage, and each jump after that multiplies by {falloff} again. The target itself takes nothing extra.",
       "role": "offence",
       "numbers": {
         "jumps": 1,
@@ -625,6 +642,7 @@
       "id": "emberdust",
       "name": "Emberdust",
       "text": "Leaves embers in the wound often enough to matter.",
+      "description": "Each attack has a {chance%} chance to leave embers in the target, burning it for {burn} blast damage per second over {effects.0.durationSeconds} seconds. One enemy can carry up to {effects.0.stacks.max} of these burns at once.",
       "role": "offence",
       "numbers": {
         "chance": 0.35,
@@ -655,6 +673,7 @@
       "id": "stoke",
       "name": "Stoke",
       "text": "The longer it fires the faster and sharper it fires. Stop, and it cools.",
+      "description": "Every attack gives the Scoria a stack of heat that lasts {window} seconds. Each stack makes it attack {step%} faster and adds {crit%} to its chance of landing a critical hit, which deals double damage. It holds up to {max} stacks; at the cap, a new attack renews the stack closest to running out. Attack speed from the stacks multiplies together, so the heat keeps climbing while it fires and drops away once it stops.",
       "role": "offence",
       "numbers": {
         "step": 0.08,
@@ -710,6 +729,7 @@
       "id": "slagshot",
       "name": "Slagshot",
       "text": "A round of molten slag, heavy in proportion to what it hits.",
+      "description": "Each attack has a {chance%} chance to fire a round of slag as well, dealing {share%} of the target's maximum health as blast damage.",
       "role": "offence",
       "numbers": {
         "chance": 0.25,
@@ -726,8 +746,7 @@
         {
           "kind": "damage",
           "ofMaxHealth": "@share",
-          "damageType": "blast",
-          "appliesTag": "burning"
+          "damageType": "blast"
         }
       ]
     },
@@ -735,6 +754,7 @@
       "id": "wildfire",
       "name": "Wildfire",
       "text": "Carries a fire from one body to the next, but only to what already burns.",
+      "description": "Each attack spreads fire from the target to the nearest other burning enemy within {radius} tiles of it, making up to {jumps:jump:jumps}, each from the last enemy reached to the nearest burning one it hasn't reached yet. Every enemy it reaches burns for an extra {burn} blast damage per second over {duration} seconds, stacking up to {effects.0.stacks.max} times. It never reaches an enemy that isn't burning, and it doesn't add a burn to the target itself.",
       "role": "offence",
       "numbers": {
         "jumps": 1,
@@ -782,6 +802,7 @@
       "id": "emberwind",
       "name": "Emberwind",
       "text": "The heat it throws off lifts everything fighting beside it.",
+      "description": "Up to {allies} allies within {radius} tiles of the Foxfire, nearest first, deal {damage%} more damage while they stay in range. The Foxfire doesn't buff itself, and an ally near two of them only gets the bonus once.",
       "role": "support",
       "numbers": {
         "radius": 2.2,
@@ -809,6 +830,7 @@
       "id": "conflagration",
       "name": "Conflagration",
       "text": "Everything near it catches at once; what was burning catches worse.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Ember sets off a blaze around its current target. Up to {targets} enemies within {radius} tiles of that target, nearest first, take {share%} of the Ember's attack damage as blast damage, or {bonus} times that if they were already burning. All of them then burn for {burn} blast damage per second over {effects.1.durationSeconds} seconds.",
       "role": "offence",
       "numbers": {
         "period": 8.0,
@@ -851,6 +873,7 @@
       "id": "pyroclasm",
       "name": "Pyroclasm",
       "text": "Empties its throat in a cone and leaves the ground alight.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Firebrand empties a {degrees}-degree cone, {length} tiles long, toward its current target. Up to {targets} enemies inside it, nearest first, take {share%} of the Firebrand's attack damage as blast damage and burn for {burn} blast damage per second over {effects.1.durationSeconds} seconds. Each enemy after the first takes {falloff%} of what the one before it took, burn included.",
       "_note": "Share cut from 1.4 in the stat pass (BALANCE.md §4f): Firebrand III was 16% ahead of the rung 5 Mark IIIs at +22% of its ladder price, and the cone - eight bodies at 140% of the shell - is what Mark III adds.",
       "role": "offence",
       "numbers": {
@@ -893,6 +916,7 @@
       "id": "rootbite",
       "name": "Rootbite",
       "text": "Its bite leaves roots behind. Different thorns root deeper.",
+      "description": "Each attack slows the target's movement by {slow%} for {duration} seconds. Each mark of Thornling adds its own stack, up to {effects.0.stacks.max}, so a mix of Thornlings, Super Thornlings and Ultra Thornlings slows harder than a crowd of one kind. Stacks multiply together, and another bite from the same kind of Thornling only resets its stack's timer.",
       "role": "control",
       "numbers": {
         "slow": -0.15,
@@ -932,6 +956,7 @@
       "id": "heartwood",
       "name": "Heartwood",
       "text": "Closes its own wounds, slowly and without being asked.",
+      "description": "The Hollowbark heals {rate%} of its maximum health every second, all the time, including in the middle of a fight. It can't heal above its maximum.",
       "role": "defence",
       "numbers": {
         "rate": 0.006
@@ -963,6 +988,7 @@
       "id": "thicket",
       "name": "Thicket",
       "text": "Whatever is hitting it gets tangled in it.",
+      "description": "Whenever an enemy damages the Hollowbark, that enemy attacks {slow%} slower for {duration} seconds. Any damage counts, burns and ability hits included, and more damage only resets the timer.",
       "role": "control",
       "numbers": {
         "slow": -0.2,
@@ -992,6 +1018,7 @@
       "id": "bloomspread",
       "name": "Bloomspread",
       "text": "Blights the crowd around what it hits. Blighted flesh takes everything harder.",
+      "description": "Each attack blights up to {targets} enemies within {radius} tiles of the target, the target included, nearest first. A blighted enemy takes {vulnerable%} more damage from everything for {duration} seconds. Each mark of Sporecrown can add its own stack, up to {effects.0.stacks.max}, and the stacks multiply; another hit from the same kind only resets its stack's timer.",
       "role": "control",
       "numbers": {
         "radius": 1.5,
@@ -1036,6 +1063,7 @@
       "id": "underweb",
       "name": "Underweb",
       "text": "Threads the ground under the line: whoever stands on it is bigger, and mending.",
+      "description": "Up to {allies} allies within {radius} tiles of the Mycelia, nearest first, gain {bulk} maximum health and heal {rate%} of their maximum health every second while they stay in range. The extra maximum health arrives with the same amount of current health, and both go when the ally leaves. The Mycelia doesn't affect itself, and an ally near two of them only gets one Underweb.",
       "role": "support",
       "numbers": {
         "radius": 2.0,
@@ -1082,6 +1110,7 @@
       "id": "sporebloom",
       "name": "Sporebloom",
       "text": "Dying, it opens, and the line around it closes up.",
+      "description": "When the Mycelia dies, up to {allies} allies within {radius} tiles of it, nearest first, each heal {heal%} of their own maximum health.",
       "role": "support",
       "numbers": {
         "radius": 2.2,
@@ -1108,6 +1137,7 @@
       "id": "impale",
       "name": "Impale",
       "text": "Each shot drives deeper than the last, while it keeps firing.",
+      "description": "Each attack gives the Nettlespire a stack that raises its damage by {step%} for {window} seconds, up to {max} stacks, and the stacks multiply together. At the cap, a new attack renews the stack closest to running out, so the bonus holds while it keeps firing and fades once it stops.",
       "role": "offence",
       "numbers": {
         "step": 0.1,
@@ -1148,6 +1178,7 @@
       "id": "wilt",
       "name": "Wilt",
       "text": "Nothing it has touched heals properly again for a while.",
+      "description": "Each attack cuts the healing the target gets from heals and regeneration by {antiheal%} for {duration} seconds, and marks it as blighted for that time. Lifesteal isn't affected. Hitting it again resets the timer.",
       "role": "control",
       "numbers": {
         "antiheal": -0.6,
@@ -1185,6 +1216,7 @@
       "id": "burstspore",
       "name": "Burstspore",
       "text": "Bursts when killed, and the spores keep working.",
+      "description": "When the Rotgourd dies, up to {targets} enemies within {radius} tiles of it, nearest first, take {damage} arcane damage and then rot for {rot} arcane damage per second over {effects.1.durationSeconds} seconds. The rot marks them as blighted.",
       "role": "offence",
       "numbers": {
         "radius": 1.7,
@@ -1219,6 +1251,7 @@
       "id": "heartpiercer",
       "name": "Heartpiercer",
       "text": "One shot straight through the armor, worth a slice of what it hit.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Nettlespire shoots whatever it is currently aiming at, whether or not it's in range yet, for {share%} of that target's maximum health. The shot ignores armor, the damage chart and every damage reduction on the target. A blighted target takes {bonus} times as much.",
       "role": "offence",
       "numbers": {
         "period": 7.0,
@@ -1249,6 +1282,7 @@
       "id": "bindroot",
       "name": "Bindroot",
       "text": "The ground closes round their feet.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Thornling roots up to {targets} enemies within {radius} tiles of its current target, nearest first, for {hold} seconds. A rooted enemy can't move, but it can still attack and use abilities.",
       "role": "control",
       "numbers": {
         "period": 7.0,
@@ -1278,6 +1312,7 @@
       "id": "blightbloom",
       "name": "Blightbloom",
       "text": "Opens every bloom at once: the rot spreads, holds, and stops them mending.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Sporecrown opens every bloom around its current target. Up to {targets} enemies within {radius} tiles of that target, nearest first, rot for {rot} arcane damage per second, take {vulnerable%} more damage from everything and get {antiheal%} less healing from heals and regeneration, all for {duration} seconds. The rot marks them as blighted.",
       "role": "control",
       "numbers": {
         "period": 9.0,
@@ -1326,6 +1361,7 @@
       "id": "anchorline",
       "name": "Anchorline",
       "text": "Throws its chain and holds what it catches in place.",
+      "description": "Every {period} seconds, the Fathomhold roots up to {targets} enemies within {radius} tiles of its current target, nearest first, for {hold} seconds. A rooted enemy can't move, but it can still attack.",
       "role": "control",
       "numbers": {
         "period": 6.0,
@@ -1367,6 +1403,7 @@
       "id": "deadweight",
       "name": "Deadweight",
       "text": "Too heavy to shift and too cold to hurt quickly.",
+      "description": "The Fathomhold takes {reduction%} less damage and can never be stunned, rooted or taunted. Damage that ignores armor isn't reduced.",
       "role": "defence",
       "numbers": {
         "reduction": -0.15
@@ -1394,6 +1431,7 @@
       "id": "snarekelp",
       "name": "Snarekelp",
       "text": "Leaves what it hits waterlogged: slower, and easier for the tide to find.",
+      "description": "Each attack slows the target's movement by {slow%} for {duration} seconds and marks it as soaked. Each mark of Kelpsnare can add its own stack, up to {effects.0.stacks.max}, and the stacks multiply; another hit from the same kind only resets its stack's timer.",
       "role": "control",
       "numbers": {
         "slow": -0.18,
@@ -1435,6 +1473,7 @@
       "id": "weedbind",
       "name": "Weedbind",
       "text": "Now and then the kelp holds outright.",
+      "description": "Each attack has a {chance%} chance to root the target for {hold} seconds. A rooted enemy can't move, but it can still attack.",
       "role": "control",
       "numbers": {
         "chance": 0.2,
@@ -1458,7 +1497,8 @@
     {
       "id": "torrential",
       "name": "Torrential",
-      "text": "The fall lands in a line behind its mark, and soaked ground carries it.",
+      "text": "The fall runs in a line toward its mark, and soaked ground carries it.",
+      "description": "Each attack also sends a strip of water {width} tiles wide and {length} tiles long out from the Torrent, pointed at its target. Up to {targets} enemies standing in the strip, nearest the Torrent first, take {share%} of its attack damage as blast damage, each one after the first taking {falloff%} of what the one before it took. Soaked enemies take {bonus} times as much.",
       "role": "offence",
       "numbers": {
         "length": 3.0,
@@ -1505,6 +1545,7 @@
       "id": "sleetfall",
       "name": "Sleetfall",
       "text": "Cold enough to slow a swing, and it soaks everything under it.",
+      "description": "Each attack chills up to {targets} enemies within {radius} tiles of the target, the target included, nearest first. A chilled enemy attacks {chill%} slower for {duration} seconds and is marked as soaked. Each mark of Sleet can add its own stack, up to {effects.0.stacks.max}, and the stacks multiply; another hit from the same kind only resets its stack's timer.",
       "role": "control",
       "numbers": {
         "radius": 1.5,
@@ -1549,7 +1590,8 @@
     {
       "id": "hailburst",
       "name": "Hailburst",
-      "text": "Hail on a soaked body is worth twice the hail.",
+      "text": "Hail on a soaked body hits half again as hard.",
+      "description": "Each attack also drops hail on up to {targets} enemies within {radius} tiles of the target, the target included, nearest first. Each takes {share%} of the Sleet's attack damage as blast damage, or {bonus} times that if it's soaked.",
       "role": "offence",
       "numbers": {
         "radius": 1.4,
@@ -1581,6 +1623,7 @@
       "id": "undertow",
       "name": "Undertow",
       "text": "Runs from one soaked body to the next, taking a share from each.",
+      "description": "Each attack runs on from the target to the nearest other soaked enemy within {radius} tiles of it, making up to {jumps:jump:jumps}, each from the last enemy reached to the nearest soaked one it hasn't reached yet. The first enemy it reaches takes {share%} of the Maelstrom's attack damage times {falloff} as arcane damage, and each jump after that multiplies by {falloff} again. It only ever reaches soaked enemies, and it doesn't hit the target itself.",
       "role": "offence",
       "numbers": {
         "jumps": 2,
@@ -1620,6 +1663,7 @@
       "id": "drownward",
       "name": "Drownward",
       "text": "Pressure, not injury: it takes a share of whatever is left.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Maelstrom hits whatever it is currently aiming at for {share%} of the health that target has left, as arcane damage. A soaked target takes {bonus} times as much.",
       "_note": "Raised from 8% in the stat pass (BALANCE.md §4f): Maelstrom III was 13% behind its rung-mates at 18% under its ladder price, and this was the whole of what its Mark III added.",
       "role": "offence",
       "numbers": {
@@ -1651,6 +1695,7 @@
       "id": "cloudburst",
       "name": "Cloudburst",
       "text": "Opens the whole sky along one line and leaves it soaked.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Torrent opens a strip of rain {width} tiles wide and {length} tiles long, running out from it toward its current target. Up to {targets} enemies in the strip, nearest the Torrent first, take {share%} of its attack damage as blast damage, move {slow%} slower for {duration} seconds and are marked as soaked. Each enemy after the first takes {falloff%} of what the one before it took, and gets that share of the slow.",
       "_note": "Share cut from 0.85 in the stat pass (BALANCE.md §4f): Torrent III did 26% more for its gold than any other rung 6 Mark III with its price at +23%, and the jump came at Mark III, which is where this arrives - six bodies at 85% of a 5,800 shell every eight seconds.",
       "role": "offence",
       "numbers": {
@@ -1678,8 +1723,7 @@
         {
           "kind": "damage",
           "ofAttack": "@share",
-          "damageType": "blast",
-          "appliesTag": "soaked"
+          "damageType": "blast"
         },
         {
           "kind": "modify",
@@ -1696,6 +1740,7 @@
       "id": "tidesong",
       "name": "Tidesong",
       "text": "Keeps time for the line. Everything near it swings faster.",
+      "description": "Up to {allies} allies within {radius} tiles of the Murmur, nearest first, attack {haste%} faster while they stay in range. The Murmur doesn't speed up itself, and an ally near two of them only gets the bonus once.",
       "role": "support",
       "numbers": {
         "radius": 2.2,
@@ -1734,6 +1779,7 @@
       "id": "deepcall",
       "name": "Deepcall",
       "text": "Calls something up from below; the line finds its second wind sooner.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Murmur gives {energy} energy to each of the {allies} allies nearest to it within {radius} tiles. Nobody can hold more than the maximum.",
       "role": "support",
       "numbers": {
         "period": 5.0,
@@ -1762,6 +1808,7 @@
       "id": "rupture",
       "name": "Rupture",
       "text": "Bursts on death and sprays everything close.",
+      "description": "When the Bloater dies, it bursts over up to {targets} units within {radius} tiles of it, nearest first, dealing {share%} of its attack damage to each as blast damage.",
       "role": "offence",
       "numbers": {
         "radius": 1.5,
@@ -1789,6 +1836,7 @@
       "id": "mend",
       "name": "Mend",
       "text": "Stands back and closes the worst wound it can see.",
+      "description": "Every {period} seconds, the Mender heals the most wounded monster within {radius} tiles of it, judged by the share of health it has lost, for {share%} of that monster's maximum health. It never heals itself.",
       "role": "support",
       "numbers": {
         "period": 2.5,
@@ -1815,6 +1863,7 @@
       "id": "unhallowed",
       "name": "Unhallowed",
       "text": "Abilities slide off it. Only plain damage works.",
+      "description": "No ability can touch the Revenant. It can't be targeted by anything an ability does, so burns, slows, stuns, ability damage and even buffs from other monsters all pass it by. Only plain attacks hurt it.",
       "role": "defence",
       "trigger": {
         "when": "passive"
@@ -1833,6 +1882,7 @@
       "id": "plated_shell",
       "name": "Plated Shell",
       "text": "Everything lands a little softer on that shell.",
+      "description": "The Carapace takes {reduction%} less damage. Damage that ignores armor isn't reduced.",
       "role": "defence",
       "numbers": {
         "reduction": -0.2
@@ -1856,6 +1906,7 @@
       "id": "dampening_field",
       "name": "Dampening Field",
       "text": "The defence around it swings noticeably slower.",
+      "description": "Up to {targets} units within {radius} tiles of the Warden, nearest first, attack {slow%} slower while they stay in range. A unit near two Wardens is only slowed once.",
       "role": "control",
       "numbers": {
         "radius": 2.0,
@@ -1883,6 +1934,7 @@
       "id": "ambush",
       "name": "Ambush",
       "text": "Arrives at a sprint and keeps it up for a while.",
+      "description": "When it arrives on the field it moves {haste%} faster, for its first {duration} seconds.",
       "role": "offence",
       "numbers": {
         "haste": 0.5,
@@ -1908,6 +1960,7 @@
       "id": "brood_surge",
       "name": "Brood Surge",
       "text": "Wounding it makes it worse.",
+      "description": "The first time the Brood Sire drops below {trigger.fraction%} health, it attacks {haste%} faster and deals {damage%} more damage for {duration} seconds.",
       "role": "offence",
       "numbers": {
         "haste": 0.4,
@@ -1942,6 +1995,7 @@
       "id": "hollow_cry",
       "name": "Hollow Cry",
       "text": "Screams, and the line in front of it stops dead for a moment.",
+      "description": "Every {period} seconds, the Hollow King screams. Up to {targets} units within {radius} tiles of the unit it is targeting, nearest first, are stunned for {hold:second:seconds}. When it isn't targeting a unit, the scream is centred on itself.",
       "role": "control",
       "numbers": {
         "period": 9.0,
@@ -1970,6 +2024,7 @@
       "id": "grave_tithe",
       "name": "Grave Tithe",
       "text": "Takes a tithe of every wound it deals and keeps it.",
+      "description": "The Gravemother heals for {share%} of the damage its attacks deal.",
       "role": "defence",
       "numbers": {
         "share": 0.3
@@ -1993,6 +2048,7 @@
       "id": "chitin_ward",
       "name": "Chitin Ward",
       "text": "Once it is hurt badly enough, nothing holds it any more.",
+      "description": "The first time the Chitin Lord drops below {trigger.fraction%} health, it can't be stunned, rooted or taunted and takes {reduction%} less damage, both for {duration} seconds.",
       "role": "defence",
       "numbers": {
         "duration": 60.0,
@@ -2024,6 +2080,7 @@
       "id": "siegework",
       "name": "Siegework",
       "text": "Sent braced for a wall: harder to shift than one that walked in.",
+      "description": "It takes {reduction%} less damage. Damage that ignores armor isn't reduced.",
       "role": "defence",
       "numbers": {
         "reduction": -0.15
@@ -2047,6 +2104,7 @@
       "id": "raiders_haste",
       "name": "Raider's Haste",
       "text": "Paid to be somewhere quickly.",
+      "description": "When it arrives on the field it moves {haste%} faster, for its first {duration} seconds.",
       "role": "offence",
       "numbers": {
         "haste": 0.35,
@@ -2072,6 +2130,7 @@
       "id": "volatile_cargo",
       "name": "Volatile Cargo",
       "text": "Packed with whatever was cheapest. It does not land quietly.",
+      "description": "When it dies, it explodes over up to {targets} units within {radius} tiles of it, nearest first, dealing {share%} of its attack damage to each as blast damage.",
       "role": "offence",
       "numbers": {
         "radius": 2.0,
@@ -2099,6 +2158,7 @@
       "id": "flicker",
       "name": "Flicker",
       "text": "Hard to pin down: a share of the blows aimed at it find nothing.",
+      "description": "It dodges {evasion%} of the attacks aimed at it, and a dodged attack does no damage at all. Ability damage and burns can't be dodged.",
       "role": "defence",
       "numbers": {
         "evasion": 0.3
@@ -2122,6 +2182,7 @@
       "id": "hamstring",
       "name": "Hamstring",
       "text": "Whatever it bites swings slower for a while.",
+      "description": "Each of its attacks makes the unit it hits attack {slow%} slower for {duration} seconds. Another hit resets the timer rather than stacking.",
       "role": "control",
       "numbers": {
         "slow": -0.25,
@@ -2147,6 +2208,7 @@
       "id": "corrode",
       "name": "Corrode",
       "text": "Its spit eats armor: what it hits takes more from everything.",
+      "description": "Each of its attacks makes the unit it hits take {vulnerable%} more damage from everything for {duration} seconds. Another hit resets the timer rather than stacking.",
       "role": "offence",
       "numbers": {
         "vulnerable": 0.15,
@@ -2172,6 +2234,7 @@
       "id": "bulwark",
       "name": "Bulwark",
       "text": "The pack around it takes every blow a little softer.",
+      "description": "Every monster within {radius} tiles of it, itself included, takes {reduction%} less damage while it stays in range. A monster inside two of these is only protected once, and damage that ignores armor isn't reduced.",
       "role": "support",
       "numbers": {
         "radius": 2.2,
@@ -2198,6 +2261,7 @@
       "id": "rejuvenation",
       "name": "Rejuvenation",
       "text": "The pack around it closes its wounds as it walks.",
+      "description": "Every monster within {radius} tiles of it, itself included, heals {rate%} of its maximum health every second while it stays in range. A monster inside two of these only heals once.",
       "role": "support",
       "numbers": {
         "radius": 2.5,
@@ -2222,6 +2286,7 @@
       "id": "war_cry",
       "name": "War Cry",
       "text": "The pack around it marches faster and swings faster.",
+      "description": "Every monster within {radius} tiles of the Herald, the Herald included, moves {haste%} faster and attacks {fury%} faster while it stays in range. A monster near two Heralds only gets this once.",
       "role": "support",
       "numbers": {
         "radius": 2.5,
@@ -2254,7 +2319,8 @@
     {
       "id": "iron_will",
       "name": "Iron Will",
-      "text": "Nothing near it can be slowed, held or stunned.",
+      "text": "Nothing near it can be stunned, rooted or held.",
+      "description": "Every monster within {radius} tiles of the Bastion, the Bastion included, can't be stunned, rooted or taunted while it stays in range. Slows still work on them.",
       "role": "support",
       "numbers": {
         "radius": 2.5
@@ -2278,6 +2344,7 @@
       "id": "trample",
       "name": "Trample",
       "text": "Every few steps it stamps, and everything under it is hurt.",
+      "description": "Every {period} seconds, the Behemoth stamps. Up to {targets} units within {radius} tiles of the unit it is targeting, nearest first, take {share%} of its attack damage as blast damage. When it isn't targeting a unit, the stamp lands around itself.",
       "role": "offence",
       "numbers": {
         "period": 4,
@@ -2567,5 +2634,5 @@
       "energyCost": 80
     }
   ],
-  "_text": "Every `text` is ONE SHORT SENTENCE saying what the ability is for, and carries no numbers. The numbers are generated from the resolved ability instead (src/render/ui/abilityText.ts), so the panel and the data cannot disagree and a balance pass never leaves a stale figure in a description. A test caps these at 90 characters, because the panel shows them in a box."
+  "_text": "Every `text` is ONE SHORT SENTENCE saying what the ability is for, and carries no numbers; a test caps it at 90 characters. Every `description` is the ability in full, in plain sentences, exact enough to rebuild it from - and its numbers are `{placeholders}` filled from the resolved ability at the unit's rank (fillDescription in src/data/abilities.ts), so the card and the data cannot disagree and a balance pass never leaves a stale figure behind. `{radius}` reads `numbers`, `{effects.0.durationSeconds}` reads the resolved ability, `{slow%}` writes a fraction as an unsigned percentage, and `{jumps:jump:jumps}` adds the noun that agrees with the number."
 }

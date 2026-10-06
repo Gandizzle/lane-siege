@@ -24,7 +24,9 @@ import {
   STAT_KEYS,
   TARGETS,
   TRIGGERS,
+  fillDescription,
   rankNumbers,
+  resolveAbility,
   refId,
   refRank,
 } from './schema.ts';
@@ -625,8 +627,42 @@ function checkOneAbility(ability: AbilityDef, where: string, errors: string[]): 
         errors.push(`${at} has a stack rule with a maximum below one`);
       }
     }
+    // A tag lives on a status, and an instant effect leaves none behind: a tag
+    // on a hit or a heal is a word nothing ever writes on the target. Slagshot
+    // carried one for a while and set nothing alight.
+    if (effect.appliesTag !== undefined && !LASTING_EFFECTS.has(effect.kind)) {
+      errors.push(
+        `${at}'s ${effect.kind} effect applies the tag "${effect.appliesTag}", but a ` +
+          `${effect.kind} effect leaves nothing on its target to carry it`,
+      );
+    }
+  }
+
+  // The card's paragraph (abilities.ts, `description`): a live ability needs
+  // one, and every number in it has to resolve at every rank it has.
+  if (where === 'abilities.abilities') {
+    if (!ability.description || ability.description.trim() === '') {
+      errors.push(`${at} has no description for its card`);
+    } else {
+      for (let rank = 1; rank <= ranks; rank++) {
+        const { unresolved } = fillDescription(resolveAbility(ability, rank));
+        for (const hole of unresolved) {
+          errors.push(`${at}'s description has ${hole}, which names nothing at rank ${rank}`);
+        }
+      }
+    }
   }
 }
+
+/** The effect kinds that leave a status behind, and so can carry a tag. */
+const LASTING_EFFECTS = new Set<string>([
+  'modify',
+  'damageOverTime',
+  'regen',
+  'shield',
+  'control',
+  'immunity',
+]);
 
 /** Assembles the bundle and reports its gaps. Never throws. */
 export function validateData(raw: Record<string, unknown>): {
