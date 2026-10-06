@@ -2577,9 +2577,18 @@ it; the four before the council bring each boss once, in a shuffled order
 they have (`scale`), with `bossScale` for a boss. Past the table (solo's endless
 stream) a column carries on at its last step, by repeated multiplication. The
 scales were fitted wave by wave so that a generic army worth the wave's
-`armyGold` clears it about half the time - harder than the old ladder's three
-quarters, on purpose: an army built to counter the wave is the one meant to
-clear it.
+`armyGold` clears it about 60% of the time, what the old mixed waves gave the
+same armies. What changed is the spread around that: against one combination an
+army built to counter it clears nearly always and one built into it hardly ever,
+where a mixture averaged both away. A first fit at half the time measured too
+hard - every builder's lookahead run still beat all twenty-five waves, but the
+practice bots, which counter less well, fell three waves earlier than they had
+(BALANCE.md §4g). The four bosses were evened out by how often each ends a
+run, not by their numbers: the Gravemother, whose pierce goes through plate
+units and the plate fortress and whose tithe heals it there, ended more runs
+than the other three together at 4,300 health and 105 damage, and is 3,800 and
+70 now; the Hollow King, which almost never ended one, came up to 3,800 health
+from 3,500.
 
 **Waves 21 to 24: what hurt.** Every wave monster credits the damage it lands
 on units (`Monster.damageDealt`); as it dies, its lane adds that, as a share of

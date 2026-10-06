@@ -29,7 +29,7 @@
  * leaves the army comfortable shows up as gold in hand.
  *
  * Tech is bought the same way, as one more thing on the shelf: the next level
- * of a damage track its army deals, or of health or attack speed, judged by
+ * of a damage track its army deals or an armor track it wears, judged by
  * the same lookahead and bought when it gains more per gold than a body does.
  *
  * WHAT IT DOES NOT DO: fortress upgrades (its gems all go to income), selling,
@@ -685,12 +685,17 @@ class Player {
             ),
         );
       }
-      // The next level of a tech track: health and attack speed for everyone,
-      // damage for the types this army actually deals.
+      // The next level of a tech track: damage for the types this army
+      // actually deals, armor for the armors it actually wears.
       if (units.length > 0) {
-        const dealt = new Set(units.map((u) => `dmg_${this.defs.get(u.defId)!.damageType}`));
+        const own = new Set(
+          units.flatMap((u) => {
+            const def = this.defs.get(u.defId)!;
+            return [`dmg_${def.damageType}`, `arm_${def.armor}`];
+          }),
+        );
         for (const track of this.data.economy.tech.tracks) {
-          if (track.id.startsWith('dmg_') && !dealt.has(track.id)) continue;
+          if (!own.has(track.id)) continue;
           const owned = this.lane.economy.tech[track.id] ?? 0;
           const level = track.levels.find((l) => l.level === owned + 1);
           if (!level) continue;

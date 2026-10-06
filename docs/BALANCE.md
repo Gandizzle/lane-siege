@@ -1,7 +1,8 @@
 # Balance: the budget, the ladders, and how we will know
 
 **Status: phases 1 and 3 both open. The economy and the price ladders are in,
-the round robin runs, and every builder wins between 47% and 53% of its duels.
+the round robin runs, and every builder won between 47% and 53% of its duels
+until the counter cycle changed (§4g).
 All twenty-five waves are tuned against an army-gold ladder and against whole
 runs on five economy plans, and gem output costs 3 more gold a level. The game
 has since been played to break it (§4b): the
@@ -15,7 +16,13 @@ and a stat pass (§4f) took the lines price could not fix and Pyre's collapse at
 wave 13. Whole runs now end within 3.7 waves of each other across the four
 builders, from 8.5. The open question has moved: Gloomtide is the strongest
 builder in most measures, and the sweep's spread between builders widened in
-the stat pass while the runs and the bots narrowed.**
+the stat pass while the runs and the bots narrowed. Since then waves 1–24 have
+become one armor/damage combination each, fitted to the same line as before
+(§4g): an average army clears 60% of them at the nominal, and one built to
+counter the wave does far better. The practice bots are back where they were
+as a table; Thornweald's fall earliest, by more than before. The new chart
+also moved the arena, and two builders are now outside three points of even in
+its duels — the next pass.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
@@ -299,6 +306,12 @@ The lesson for the ladder is that reach is mispriced in `unitValue`'s
 ---
 
 ## 4. The waves, and what each one asks for
+
+> **Superseded for waves 1–24 by §4g.** The themed, mixed waves below were
+> replaced by waves of one armor/damage combination each, shuffled per match
+> and grown by a table. What a wave is tuned against — `armyGold`, and the share
+> of armies that clear at it — is unchanged; the monsters, counts and themes in
+> this section are history.
 
 A wave is not tuned against "can you beat it". It is tuned against **how much
 gold of army it takes to beat it**, and that number is authored on the wave as
@@ -1530,6 +1543,195 @@ which buys every army fresh, widened.
   rung-mates, which is also part of why Torrent III reads so far ahead: a line
   is scored against its own builder's average gold (§4e), and Gloomtide's
   other top marks pull that average down.
+
+## 4g. Waves of one combination
+
+The playtest found that a general-purpose army beat any of the mixed waves of
+§4, so nobody countered. Waves 1–24 now ask one question each (ARCHITECTURE.md,
+"Waves of one kind"): waves 1–4, 6–9, 11–14 and 16–19 are each one of the
+sixteen armor/damage combinations — every combination once, in an order the
+seed shuffles — waves 5, 10, 15 and 20 are one boss and nothing else, waves
+21–24 pair the eight combinations that hurt the surviving armies most, and
+wave 25 is the council as before. Monsters grow by a table, a `count` and a
+`scale` for every wave, in place of a growth curve.
+
+### How a wave was fitted
+
+`armyGold` means what it meant in §4: the gold at which an average army clears
+the wave. What changed is that a wave is now a die roll over sixteen
+combinations, so it is measured over all sixteen. At the wave's `armyGold`,
+five armies per builder are drawn from everything that builder could buy, and
+each fights each combination: 320 fights a wave (eight random pairs for
+21–24). An army clears when nothing leaks and nothing is left standing.
+
+1. **Every wave monster is one strength.** Any of them can be any wave, so at
+   waves 3, 8 and 14 each combination fought the same armies, and each
+   monster's health and damage were scaled together until the margins agreed:
+   within 0.03 of each other at wave 8, from 0.77 apart on paper.
+2. **Every wave's `scale` was fitted to 60% clear**, ±0.04, by secant on the
+   log of the scale.
+
+**Why 60%.** The same armies against the old mixed waves, measured the same
+way, cleared 61% on average (40–70% across waves 3, 6, 8, 9, 12, 14, 16 and
+19), which is §4's "55 to 65% of every army". A first fit at 50% left the
+lookahead player of the whole runs untroubled — every builder's smart-greed
+run still beat all twenty-five waves — but the practice bots, which counter
+less well, fell three waves earlier than they had (15.1 mean, from 16.5). So
+the line is where it was. What is new is the spread around it: against a
+single combination, an army built to counter it nearly always clears and one
+built into it hardly ever does, where a mixture averaged the two away.
+
+| wave |   count | scale | boss scale | `armyGold` |
+| ---: | ------: | ----: | ---------: | ---------: |
+|    1 |      20 |  1.00 |            |        200 |
+|    2 |      21 |  1.67 |            |        350 |
+|    3 |      22 |  2.42 |            |        500 |
+|    4 |      24 |  3.08 |            |        740 |
+|    5 |    boss |       |       1.95 |        920 |
+|    6 |      26 |  4.59 |            |      1,100 |
+|    7 |      28 |  5.04 |            |      1,300 |
+|    8 |      29 |  5.83 |            |      1,500 |
+|    9 |      30 |  6.82 |            |      1,750 |
+|   10 |    boss |       |       5.18 |      2,175 |
+|   11 |      32 |  9.21 |            |      2,450 |
+|   12 |      34 |  9.70 |            |      2,750 |
+|   13 |      35 |  9.75 |            |      3,100 |
+|   14 |      36 | 12.29 |            |      3,500 |
+|   15 |    boss |       |      12.31 |      4,500 |
+|   16 |      39 | 14.29 |            |      4,200 |
+|   17 |      40 | 17.04 |            |      4,800 |
+|   18 |      41 | 19.42 |            |      5,500 |
+|   19 |      42 | 22.19 |            |      6,300 |
+|   20 |    boss |       |      27.99 |      7,710 |
+|   21 |      45 | 26.88 |            |      8,000 |
+|   22 |      46 | 30.65 |            |      9,000 |
+|   23 |      48 | 38.24 |            |     10,400 |
+|   24 |      49 | 45.36 |            |     12,000 |
+|   25 | council |  49.9 |        8.6 |     21,000 |
+
+Waves 12 and 13 fitted to 9.97 and 9.37 alone; the table may not shrink, so
+they sit at 9.70 and 9.75 — wave 13 measures 57%, and wave 12 is a little
+easier than the line for it. Wave 1 is 1.00 by definition
+and measured 61%: the monsters' written stats are wave 1's, which is why the
+5% the 60% line asked for went into `monsters.json` rather than the table.
+The boss column was fitted the same way at 50% before the change; after the
+health changes below, the four average about 57% at waves 10 and 15, and were
+left there. A boss wave is one body, and the bots' record below says more
+about whether one is too much than the sandbox does.
+
+### Countering is what pays
+
+At wave 8, on six combinations, the third of armies whose damage and armor
+suit the combination best beat the third that suit it worst by 0.18 of margin
+on average, from 0.57 (Swarmlings: blast into swarm) down to −0.30 (Kilns:
+the chart's reading of a fit is not the whole fight).
+The whole runs, whose player buys by playing the coming wave out
+(`src/balance/run.ts`, seed 1, steady and smart greed):
+
+| builder    | §4f, steady | §4f, smart | now, steady | now, smart |
+| ---------- | ----------: | ---------: | ----------: | ---------: |
+| Ironvow    |          21 |         18 |          25 |          ✓ |
+| Pyre       |          18 |         25 |          25 |         25 |
+| Thornweald |          25 |          ✓ |          25 |          ✓ |
+| Gloomtide  |          25 |          ✓ |          25 |          ✓ |
+
+A number is the wave the run died in, ✓ a run that beat the council. Every
+smart run that beat it did so without the fortress taking a hit.
+
+A player who reads the wave and answers it goes further than one did before;
+one who builds the same army whatever comes does worse. That is the change the
+playtest asked for.
+
+### The bosses
+
+The four bosses were stated as equal bodies and roughly still are in the
+sandbox, but
+bots die at the fortress, and the sandbox's "cleared" does not care how fast a
+boss that gets through kills it. The Gravemother's pierce does 1.5× to plate,
+which is the fortress's armor and most front lines', and its Grave Tithe heals
+it from every wound; on 24 matched seeds, every builder, it ended **31 runs to
+the other three's 20 together**. It came down from 4,300 health and 105 damage
+to 3,800 and 70, and the Hollow King, which ended one, came up from 3,500
+health to 3,800. On the same seeds the endings by boss are now Brood Sire 18,
+Chitin Lord 16, Gravemother 16, Hollow King 5.
+
+### The practice bots
+
+`npm run bots -- --tables 24`, mean last wave standing:
+
+|                                    | §4f (36 tables) | first fit (50%) |  now |
+| ---------------------------------- | --------------: | --------------: | ---: |
+| every bot                          |            16.5 |            15.1 | 17.4 |
+| Gloomtide                          |            19.7 |            19.8 | 21.7 |
+| Pyre                               |            18.0 |            17.4 | 20.6 |
+| Ironvow                            |            14.6 |            14.1 | 15.2 |
+| Thornweald                         |            13.7 |             9.2 | 11.9 |
+| tables where a bot reached wave 20 |             86% |             75% |  96% |
+| tables where a bot beat wave 25    |             44% |             31% |  38% |
+
+The table as a whole is back where it was. The builders are not: the spread
+from best to worst is 9.8 waves, from 6.0. Played alone on matched seeds — the
+same 24 seeds and the same rolled style for every builder, so that no builder
+draws easier wave orders — it is Gloomtide 19.2, Pyre 16.8, Ironvow 14.2 and
+Thornweald 10.2.
+
+**Why Ironvow and Thornweald.** Their deaths outside the boss waves cluster on
+the damage type that hits their cheap front line for 1.5: eleven of Ironvow's
+twelve on pierce waves, eight of Thornweald's sixteen on impact. Ironvow's two
+melee lines, Pledge and Oathwall, are both plate, so a pierce wave goes through
+the whole front at once. Thornling is ward, and Thornweald has no plate, the
+armor that shrugs impact off; its deaths also gather on ward- and
+plate-armored waves (seven and six), and its cheap gun, Mycelia, is arcane,
+which ward shrugs off. It is not the waves being unfair to a roster — at the
+first fit, wave 6, Thornweald's generic armies cleared as many combinations as
+Gloomtide's (44% and 40%), and every builder's lookahead run beats wave 25 — it
+is how much the scripted bot's simple reading of the chart (strength through
+the matrix both ways, body by body) costs a roster with a hole in it.
+
+Tried on the matched seeds, at the first fit, and not kept:
+
+- the matrix counted twice as hard in the bot's reading (every bot 13.0 → 13.3);
+- melee bodies valued for their health, ranged for their damage (→ 10.2);
+- a wider line, a body a wave rather than 0.7 (→ 12.5);
+- all four armors on every roster, by Hollowbark to plate, Pledge to swarm and
+  Foxfire to ward (Ironvow +3.5 waves, Pyre and Thornweald −0.7).
+
+What did work, and is **not** in the game because it is a roster decision
+rather than a number: **Pledge as swarm and Thornling as plate** took Ironvow
+from 14.2 to 18.2 and Thornweald from 10.2 to 12.2 on the matched seeds,
+narrowing the four to 12.2–19.2. Each would need a new silhouette, and
+chapters 2 and 3 of the tutorial teach the Pledge.
+
+### The practice matches
+
+A scripted novice who never counters (`src/headless/_practice.ts`, seeds 1–3),
+minutes until it falls or the bots all have:
+
+| practice        | before      | now         |
+| --------------- | ----------- | ----------- |
+| Hold the line   | 5.7         | 5.6 – 8.9   |
+| Fewer, stronger | 10.4 – 11.2 | 9.2 – 10.9  |
+| Room to grow    | 14.0 – 16.5 | 10.1 – 15.7 |
+| Read the wave   | 10.3 – 11.3 | 10.2 – 14.7 |
+| The full game   | 10.4 – 11.2 | 5.6 – 11.1  |
+
+About as long as they were, and further apart: a practice match takes a
+random seed, so the novice who meets its worst combination early falls early.
+That is the lesson of chapter 5 arriving in practice, not a fault in it.
+
+### What is left
+
+- **Thornweald's bot**, above, and the roster change that would mostly close it.
+- **The Hollow King** is now the softest boss in the bots' record (5 runs
+  ended of 55).
+- **The arena moved with the chart.** The new counter cycle and the armor
+  tech change who beats whom in the Final Showdown (`npm run showdown`, 640
+  fights, §4f's seed). Duels, from §4f: Thornweald 49.6 → 56.3%, Pyre 51.6 →
+  51.7%, Gloomtide 48.8 → 47.9%, Ironvow 50.0 → 44.2% — two builders outside
+  §6's three points, where all four were inside two. One matchup is outside
+  40/60, Pyre over Gloomtide at 61%. Four-ways run the other way: Ironvow 41%,
+  Pyre 33%, Gloomtide 16%, Thornweald 10%, where 25% is even. Nothing here
+  was tuned for it; it wants a pass of its own, as §4e and §4f were.
 
 ## 5. The phases
 

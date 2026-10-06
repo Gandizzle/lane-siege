@@ -150,7 +150,7 @@
     {
       "wave": 3,
       "count": 22,
-      "scale": 2.47,
+      "scale": 2.42,
       "armyGold": 500
     },
     {
@@ -196,25 +196,25 @@
     {
       "wave": 11,
       "count": 32,
-      "scale": 8.62,
+      "scale": 9.21,
       "armyGold": 2450
     },
     {
       "wave": 12,
       "count": 34,
-      "scale": 9.97,
+      "scale": 9.7,
       "armyGold": 2750
     },
     {
       "wave": 13,
       "count": 35,
-      "scale": 11.11,
+      "scale": 9.75,
       "armyGold": 3100
     },
     {
       "wave": 14,
       "count": 36,
-      "scale": 12.82,
+      "scale": 12.29,
       "armyGold": 3500
     },
     {
@@ -225,25 +225,25 @@
     {
       "wave": 16,
       "count": 39,
-      "scale": 15.42,
+      "scale": 14.29,
       "armyGold": 4200
     },
     {
       "wave": 17,
       "count": 40,
-      "scale": 17.57,
+      "scale": 17.04,
       "armyGold": 4800
     },
     {
       "wave": 18,
       "count": 41,
-      "scale": 20.05,
+      "scale": 19.42,
       "armyGold": 5500
     },
     {
       "wave": 19,
       "count": 42,
-      "scale": 24.56,
+      "scale": 22.19,
       "armyGold": 6300
     },
     {
@@ -254,13 +254,13 @@
     {
       "wave": 21,
       "count": 45,
-      "scale": 27.99,
+      "scale": 26.88,
       "armyGold": 8000
     },
     {
       "wave": 22,
       "count": 46,
-      "scale": 34.68,
+      "scale": 30.65,
       "armyGold": 9000
     },
     {
