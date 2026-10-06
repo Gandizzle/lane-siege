@@ -12,7 +12,7 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
-import type { MatchView, WavePreviewEntry, WaveSummary } from '../sim/index.ts';
+import type { MatchView, WavePreviewEntry } from '../sim/index.ts';
 import { boardOpenIn, endlessPool, previewWave, ticksToSeconds } from '../sim/index.ts';
 import type { LaneLayout } from './layout.ts';
 import { fortressShape, screenToTilePoint } from './layout.ts';
@@ -20,8 +20,6 @@ import { DAMAGE_COLORS, UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
 import { GroundView, gridAlpha, isTextured, type BattlefieldId } from './battlefield.ts';
 import { clock, label } from './ui/text.ts';
-import { RichLabel } from './ui/currency.ts';
-import { SWORD_BAD, SWORD_GOOD } from './ui/counterIcons.ts';
 
 /**
  * What the preview should describe: the next wave, or - in solo, from the last
@@ -259,14 +257,8 @@ export class LaneView extends Container {
   }
 
   private showcase = false;
-  /**
-   * The units that counter the wave, over its preview. Kept rather than made
-   * each frame like the rest of the overlay: it holds icons, and a line that
-   * has not changed costs nothing to show again (currency.ts).
-   */
-  private readonly counterHint = new RichLabel(10, UI.textMuted, '600');
 
-  render(view: MatchView, summary: WaveSummary | null): void {
+  render(view: MatchView): void {
     this.overlay.removeChildren();
 
     // §3.1: the build phase is the only one in which a tile is a thing you can
@@ -281,16 +273,18 @@ export class LaneView extends Container {
     // The preview is for deciding what to build, so it goes when the wave
     // starts: in combat the wave is on the board to be looked at, and the strip
     // was only text drawn over the top of it (solo's endless stream included).
-    if (view.phase === 'build') this.drawWavePreview(view, summary);
+    if (view.phase === 'build') this.drawWavePreview(view);
   }
 
   /**
-   * Two fixed rows across the top of the spawn zone - heading on the left,
-   * counter hint on the right, trimmed to whatever space the heading leaves -
-   * kept to the top so the clump spawning at the zone's centre is not drawn
-   * through text.
+   * Fixed rows across the top of the spawn zone, kept to the top so the clump
+   * spawning at the zone's centre is not drawn through text.
+   *
+   * There used to be a line here naming the units that counter the wave. It
+   * said again what the sword and shield on the unit cards say, a few inches
+   * away (counterIcons.ts), so it went.
    */
-  private drawWavePreview(view: MatchView, summary: WaveSummary | null): void {
+  private drawWavePreview(view: MatchView): void {
     const l = this.layout;
     const pad = 12;
     // The lane COLUMN's edges, not the screen's: in landscape the preview has
@@ -323,32 +317,6 @@ export class LaneView extends Container {
     heading.x = leftEdge;
     heading.y = rowOne;
     this.overlay.addChild(heading);
-
-    // §9.3: name which of the player's units hit this wave hard and which
-    // barely scratch it, with the unit cards' green and red sword
-    // (counterIcons.ts). Only mark 1 - higher marks are reached by upgrading,
-    // not building, so naming them here would be advice you cannot act on.
-    // No summary, no hint: the match does not show counter hints (features.ts).
-    if (summary && !this.showcase) {
-      const buildable = summary.units.filter((u) => u.mark === 1);
-      const strong = buildable.filter((u) => u.verdict === 'strong').map((u) => u.name);
-      const weak = buildable.filter((u) => u.verdict === 'weak').map((u) => u.name);
-
-      const parts: string[] = [];
-      if (strong.length > 0) parts.push(`${SWORD_GOOD} ${strong.join(', ')}`);
-      if (weak.length > 0) parts.push(`${SWORD_BAD} ${weak.join(', ')}`);
-
-      if (parts.length > 0) {
-        const hint = this.counterHint;
-        hint.set(parts.join('   '));
-        const room = rightEdge - (heading.x + heading.width + 10);
-        if (hint.naturalWidth <= room) {
-          hint.x = rightEdge - hint.naturalWidth;
-          hint.y = rowOne;
-          this.overlay.addChild(hint);
-        }
-      }
-    }
 
     // One chip per monster type: count and name, the armor word as its legend,
     // and the monster's own silhouette centred underneath (§14.2, amended).

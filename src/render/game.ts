@@ -149,8 +149,6 @@ export class Game extends Container {
    */
   private pendingUnitDefId: string | null = null;
   private summary: WaveSummary | null = null;
-  /** Whether this match shows the counter hints (features.ts). */
-  private counterHints = true;
   private summarisedWave = -1;
   private summarisedBuilder = '';
 
@@ -621,7 +619,6 @@ export class Game extends Container {
   private applyFeatures(features: Features): void {
     this.buildBar.setFeatures(features);
     this.hud.setGems(features.gems);
-    this.counterHints = features.counterHints;
   }
 
   // ------------------------------------------------------------ the tutorial
@@ -1163,9 +1160,7 @@ export class Game extends Container {
         runner !== undefined && !runner.complete && runner.step?.preview === 'everyType',
       );
       this.laneLayer.animateGround(this.groundClock);
-      // The preview names the units that counter the wave only where the
-      // counter hints are shown at all (features.ts).
-      this.laneLayer.render(view, this.counterHints ? this.summary : null);
+      this.laneLayer.render(view);
       this.auraLayer.render();
       this.entities.render(lane, transport.alpha, {
         selectedId: selectedUnitId,

@@ -1637,15 +1637,18 @@ only answered the first question, so a unit that hit the wave hard and folded
 under it read as the right choice. They are drawn, like the coin and the gem,
 as tokens in the card's `RichLabel` line (`{sword-good}`, `{shield-bad}`), a
 little taller than the words because a sword drawn at the coin's size reads as
-a scratch. The wave preview's line naming the units that counter it uses the
-same green and red sword in place of its arrows.
+a scratch. The bad ones differ in shape as well as color — the sword snapped,
+its point a shard knocked aside, and the shield split by a crack — because red
+and green are the pair the commonest color blindness cannot tell apart. The
+wave preview used to carry a line naming the units that counter the wave; it
+said again what the cards say a few inches below, and it went.
 
 **And they are a learning aid, so they are not in every game.** `Features`
 carries `counterHints`: on in practice and solo and in the tutorial from the
 Counters chapter, which explains them, and off in a quick or private online
 match, where reading the wave against the chart is part of what is being
 played (`featuresFor`, exhaustive over the kinds of match so a new one has to
-choose). Off hides both the card icons and the preview's line. The chapters
+choose). The chapters
 before Counters keep them off too, so a player is never shown two colored
 icons nobody has explained.
 

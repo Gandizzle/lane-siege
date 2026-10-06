@@ -63,14 +63,20 @@ export function counterToken(kind: 'sword' | 'shield', verdict: Verdict): string
  *   shield  a heater shield, flat across the top and pointed below, with a
  *           lighter boss down the middle so it reads as a shield and not a
  *           badge
+ *
+ * The bad ones are not only red: the sword is snapped, its point a shard
+ * knocked aside, and the shield is split by a crack. Red and green are the
+ * pair the commonest color blindness cannot tell apart, so the shape has to
+ * say it too.
  */
 export function drawCounter(g: Graphics, icon: Counter, x: number, y: number, size: number): void {
-  const color = icon.endsWith('good') ? COUNTER_COLORS.good : COUNTER_COLORS.bad;
+  const bad = icon.endsWith('bad');
+  const color = bad ? COUNTER_COLORS.bad : COUNTER_COLORS.good;
   const rim = Math.max(0.6, size * 0.06);
   if (icon.startsWith('sword')) {
-    drawSword(g, x, y, size, color, rim);
+    drawSword(g, x, y, size, color, rim, bad);
   } else {
-    drawShield(g, x, y, size, color, rim);
+    drawShield(g, x, y, size, color, rim, bad);
   }
 }
 
@@ -81,6 +87,7 @@ function drawSword(
   size: number,
   color: number,
   rim: number,
+  broken: boolean,
 ): void {
   // Laid out upright in a unit square, then turned 45 degrees about its
   // centre so the point is top right, and scaled so the turned sword spans
@@ -94,13 +101,37 @@ function drawSword(
   };
   const shape = (points: [number, number][]) => points.flatMap(([u, v]) => at(u, v));
 
-  const blade = shape([
-    [0.5, 0],
-    [0.62, 0.14],
-    [0.62, 0.62],
-    [0.38, 0.62],
-    [0.38, 0.14],
-  ]);
+  // Whole, or snapped a third of the way down with a jagged edge, the point
+  // a shard knocked off to the side.
+  const blade = broken
+    ? shape([
+        [0.38, 0.62],
+        [0.38, 0.27],
+        [0.46, 0.33],
+        [0.53, 0.24],
+        [0.62, 0.31],
+        [0.62, 0.62],
+      ])
+    : shape([
+        [0.5, 0],
+        [0.62, 0.14],
+        [0.62, 0.62],
+        [0.38, 0.62],
+        [0.38, 0.14],
+      ]);
+  // The point: a triangle with a jagged foot, off to one side of the stump.
+  const shard = broken
+    ? shape(
+        [
+          [0.5, -0.04],
+          [0.63, 0.1],
+          [0.6, 0.18],
+          [0.52, 0.13],
+          [0.43, 0.19],
+          [0.37, 0.1],
+        ].map(([u, v]) => [u! + 0.12, v! - 0.03] as [number, number]),
+      )
+    : null;
   const guard = shape([
     [0.18, 0.6],
     [0.82, 0.6],
@@ -116,6 +147,7 @@ function drawSword(
   const [px, py] = at(0.5, 0.93);
 
   g.poly(blade).fill({ color }).stroke({ width: rim, color: RIM, join: 'round' });
+  if (shard) g.poly(shard).fill({ color }).stroke({ width: rim, color: RIM, join: 'round' });
   g.poly(grip).fill({ color }).stroke({ width: rim, color: RIM, join: 'round' });
   g.poly(guard).fill({ color }).stroke({ width: rim, color: RIM, join: 'round' });
   g.circle(px, py, size * 0.085 * stretch)
@@ -130,6 +162,7 @@ function drawShield(
   size: number,
   color: number,
   rim: number,
+  cracked: boolean,
 ): void {
   const left = x + size * 0.14;
   const right = x + size * 0.86;
@@ -150,4 +183,11 @@ function drawShield(
     color: 0xffffff,
     alpha: 0.35,
   });
+  if (!cracked) return;
+  // A crack from the top edge to the point, zigzagging across the boss.
+  const at = (u: number, v: number) => [x + size * u, y + size * v];
+  g.poly(
+    [at(0.58, 0.06), at(0.4, 0.3), at(0.62, 0.5), at(0.42, 0.7), at(0.52, 0.92)].flat(),
+    false,
+  ).stroke({ width: Math.max(1, size * 0.12), color: RIM, join: 'miter', cap: 'butt' });
 }

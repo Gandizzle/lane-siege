@@ -27,8 +27,7 @@ export interface Features {
   /** Gems in the HUD, and the passive income sends pay. */
   gems: boolean;
   /**
-   * The counter hints: the sword and shield on each unit card (counterIcons.ts)
-   * and the names of the units that counter the wave over its preview.
+   * The counter hints: the sword and shield on each unit card (counterIcons.ts).
    *
    * A learning aid, so it is in the games you learn in - practice, solo and
    * the tutorial from the chapter that explains it - and not in a game
