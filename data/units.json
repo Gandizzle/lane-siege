@@ -898,15 +898,15 @@
       "goldCost": 42,
       "supplyCost": 1,
       "hp": 351,
-      "armor": "ward",
-      "shape": "spear",
+      "armor": "plate",
+      "shape": "stake",
       "damage": 5,
       "damageType": "pierce",
       "attackSpeed": 1.6,
       "range": 0.1,
       "bodyRadius": 0.26,
       "abilities": ["rootbite"],
-      "moveSpeed": 0.65
+      "moveSpeed": 0.55
     },
     {
       "id": "thornling_2",
@@ -918,8 +918,8 @@
       "goldCost": 65,
       "supplyCost": 0,
       "hp": 1000,
-      "armor": "ward",
-      "shape": "spear",
+      "armor": "plate",
+      "shape": "stake",
       "damage": 16,
       "damageType": "pierce",
       "attackSpeed": 1.6,
@@ -931,7 +931,7 @@
           "rank": 2
         }
       ],
-      "moveSpeed": 0.65
+      "moveSpeed": 0.55
     },
     {
       "id": "thornling_3",
@@ -943,8 +943,8 @@
       "supplyCost": 1,
       "valueWeight": 0.93,
       "hp": 2226,
-      "armor": "ward",
-      "shape": "spear",
+      "armor": "plate",
+      "shape": "stake",
       "damage": 32.3,
       "damageType": "pierce",
       "attackSpeed": 1.7,
@@ -957,7 +957,7 @@
         },
         "bindroot"
       ],
-      "moveSpeed": 0.65
+      "moveSpeed": 0.55
     },
     {
       "id": "hollowbark",
@@ -1045,13 +1045,13 @@
       "hp": 1107,
       "armor": "swarm",
       "shape": "diamonds3",
-      "damage": 116.4,
+      "damage": 110,
       "damageType": "arcane",
       "attackSpeed": 1.9,
-      "range": 3,
+      "range": 3.9,
       "bodyRadius": 0.26,
       "abilities": ["bloomspread"],
-      "moveSpeed": 0.5
+      "moveSpeed": 0.3
     },
     {
       "id": "sporecrown_2",
@@ -1066,10 +1066,10 @@
       "hp": 3096,
       "armor": "swarm",
       "shape": "diamonds3",
-      "damage": 334.5,
+      "damage": 316.3,
       "damageType": "arcane",
       "attackSpeed": 1.9,
-      "range": 3.15,
+      "range": 4.05,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1077,7 +1077,7 @@
           "rank": 2
         }
       ],
-      "moveSpeed": 0.5
+      "moveSpeed": 0.3
     },
     {
       "id": "sporecrown_3",
@@ -1091,10 +1091,10 @@
       "hp": 7275,
       "armor": "swarm",
       "shape": "diamonds3",
-      "damage": 803.2,
+      "damage": 759.9,
       "damageType": "arcane",
       "attackSpeed": 2,
-      "range": 3.3,
+      "range": 4.2,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1103,7 +1103,7 @@
         },
         "blightbloom"
       ],
-      "moveSpeed": 0.5
+      "moveSpeed": 0.3
     },
     {
       "id": "mycelia",
@@ -1117,13 +1117,13 @@
       "hp": 187,
       "armor": "swarm",
       "shape": "ring6",
-      "damage": 13,
+      "damage": 12.6,
       "damageType": "arcane",
       "attackSpeed": 2.1,
-      "range": 1.9,
+      "range": 2.4,
       "bodyRadius": 0.26,
       "abilities": ["underweb"],
-      "moveSpeed": 0.55
+      "moveSpeed": 0.45
     },
     {
       "id": "mycelia_2",
@@ -1136,10 +1136,10 @@
       "hp": 517,
       "armor": "swarm",
       "shape": "ring6",
-      "damage": 38,
+      "damage": 36.7,
       "damageType": "arcane",
       "attackSpeed": 2.1,
-      "range": 2.05,
+      "range": 2.55,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1147,7 +1147,7 @@
           "rank": 2
         }
       ],
-      "moveSpeed": 0.55,
+      "moveSpeed": 0.45,
       "upgradesTo": "mycelia_3"
     },
     {
@@ -1162,10 +1162,10 @@
       "hp": 1122,
       "armor": "swarm",
       "shape": "ring6",
-      "damage": 81.7,
+      "damage": 79,
       "damageType": "arcane",
       "attackSpeed": 2.21,
-      "range": 2.16,
+      "range": 2.66,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1174,7 +1174,7 @@
         },
         "sporebloom"
       ],
-      "moveSpeed": 0.55
+      "moveSpeed": 0.45
     },
     {
       "id": "nettlespire",
@@ -1188,10 +1188,10 @@
       "hp": 1680,
       "armor": "flesh",
       "shape": "spindle",
-      "damage": 672,
+      "damage": 664.3,
       "damageType": "pierce",
       "attackSpeed": 0.45,
-      "range": 4.7,
+      "range": 4.9,
       "bodyRadius": 0.26,
       "abilities": ["impale"],
       "moveSpeed": 0.25
@@ -1208,10 +1208,10 @@
       "hp": 4746,
       "armor": "flesh",
       "shape": "spindle",
-      "damage": 1899,
+      "damage": 1877.5,
       "damageType": "pierce",
       "attackSpeed": 0.45,
-      "range": 5,
+      "range": 5.2,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1233,10 +1233,10 @@
       "hp": 10310,
       "armor": "flesh",
       "shape": "spindle",
-      "damage": 4259.1,
+      "damage": 4211.8,
       "damageType": "pierce",
       "attackSpeed": 0.45,
-      "range": 5.3,
+      "range": 5.5,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1259,10 +1259,10 @@
       "hp": 583,
       "armor": "ward",
       "shape": "kite",
-      "damage": 93,
+      "damage": 89.4,
       "damageType": "blast",
       "attackSpeed": 0.7,
-      "range": 2.3,
+      "range": 2.9,
       "bodyRadius": 0.26,
       "abilities": ["wilt"],
       "moveSpeed": 0.4
@@ -1278,10 +1278,10 @@
       "hp": 1635,
       "armor": "ward",
       "shape": "kite",
-      "damage": 266,
+      "damage": 255.8,
       "damageType": "blast",
       "attackSpeed": 0.7,
-      "range": 2.5,
+      "range": 3.1,
       "bodyRadius": 0.26,
       "abilities": [
         {
@@ -1304,10 +1304,10 @@
       "hp": 3546,
       "armor": "ward",
       "shape": "kite",
-      "damage": 577.4,
+      "damage": 555.4,
       "damageType": "blast",
       "attackSpeed": 0.73,
-      "range": 2.64,
+      "range": 3.24,
       "bodyRadius": 0.26,
       "abilities": [
         {

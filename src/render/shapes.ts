@@ -371,6 +371,14 @@ const CATALOGUE: Record<ShapeId, () => Piece[]> = {
           ),
         ),
     ),
+  // Plate: a thorn cut square at the tip, a spur each side - Thornling's
+  // spear, become a stake when it took plate armor.
+  stake: () => [
+    poly([
+      -0.42, 0.9, -0.42, 0.1, -0.78, -0.1, -0.42, -0.25, -0.18, -0.92, 0.18, -0.92, 0.42, -0.25,
+      0.78, -0.1, 0.42, 0.1, 0.42, 0.9,
+    ]),
+  ],
 };
 
 /** The centres of `n` things evenly around a ring of radius `r`. */

@@ -20,9 +20,10 @@ the stat pass while the runs and the bots narrowed. Since then waves 1–24 have
 become one armor/damage combination each, fitted to the same line as before
 (§4g): an average army clears 60% of them at the nominal, and one built to
 counter the wave does far better. The practice bots are back where they were
-as a table; Thornweald's fall earliest, by more than before. The new chart
-also moved the arena, and two builders are now outside three points of even in
-its duels — the next pass.**
+as a table. Thornweald, which won duels and lost everything else, was the
+fastest and shortest-reaching roster - first into every fight and alone in it
+(§4h); it walks slower and reaches further now, and every builder is again
+within three points of even in its duels.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
@@ -1756,8 +1757,8 @@ That is the lesson of chapter 5 arriving in practice, not a fault in it.
 
 ### What is left
 
-- **Thornweald's bot**, above. Thornling as plate is the half of the roster
-  change not taken; it was worth two waves to Thornweald's solo runs.
+- **Thornweald's bot**, above — taken up in §4h, which found the cause and
+  put Thornling in plate.
 - **The Hollow King** is now the softest boss in the bots' record (5 runs
   ended of 55).
 - **The arena moved with the chart.** The new counter cycle and the armor
@@ -1767,7 +1768,142 @@ That is the lesson of chapter 5 arriving in practice, not a fault in it.
   §6's three points, where all four were inside two. One matchup is outside
   40/60, Pyre over Gloomtide at 61%. Four-ways run the other way: Ironvow 41%,
   Pyre 33%, Gloomtide 16%, Thornweald 10%, where 25% is even. Nothing here
-  was tuned for it; it wants a pass of its own, as §4e and §4f were.
+  was tuned for it; it wants a pass of its own, as §4e and §4f were. §4h was that pass.
+
+## 4h. Thornweald: first to the hill
+
+After §4g, Thornweald was the best builder in the arena's duels (56%) and the
+worst in its four-ways (11%, where 25% is even) and in the waves (its
+practice bots fell earliest). The same army winning one-on-one and losing
+everywhere else is a question about how it fights, not about how strong it
+is, so this pass measured how before changing anything.
+
+### How it was measured
+
+The arena's own fights (`npm run showdown`'s 80 four-ways and 480 duels),
+replayed with every tick recorded (`src/headless/_ffa.ts`, scratch): where
+each army is at 2 and 4 seconds, how many enemy bodies are aiming at it, the
+damage each army deals and takes tick by tick, its healing, and how long it
+holds the centre — the hill that gives its holder +50% damage and −50% taken
+(`waves.showdown.centre`).
+
+### What it showed
+
+**Thornweald's raw damage is the lowest of the four, in duels and four-ways
+alike** — about 2,900 a second alive in duels against 3,100–3,200, and 3,400 in
+four-ways against 3,800–4,300. Its strength is somewhere else.
+
+**In a duel it is the hill.** Thornweald is the fastest roster (Thornling
+0.65, Mycelia 0.55, Sporecrown 0.5, against 0.2–0.6 for everything else) and
+the shortest-reaching one: its guns averaged 2.98 tiles where the other three
+average 3.30–3.53, rung for rung. Fast and short-reaching, it walks into the
+middle first and deepest. One-on-one that is the whole fight: it held the
+centre 12.5 seconds of a 26-second duel, more than anyone, and dealt two
+thirds of its damage there at +50% while taking −50%, and its Heartwood and
+Underweb gave back another 11,000 health.
+
+**In a four-way the same habit is fatal.** First into the middle is nearest to
+everybody. It arrived first in 36 of 80 four-ways (Pyre 23, Ironvow 19,
+Gloomtide 2); at four seconds 24 enemy bodies were aiming at it, against 17
+to 20 at anyone else; it took the most damage of the four (91,000 a fight,
+against 65,000–84,000) and lived the shortest. Arriving first is not what
+hurts — Ironvow and Pyre win 12 of 19 and 13 of 23 of the four-ways they
+arrive first in — it is arriving first with guns that have to stand in the
+middle to reach anything. Thornweald won 6 of its 36.
+
+**In a lane it is the same two numbers.** Every unit walks at the nearest
+monster from the moment a wave appears (§5.2, amended). Thornweald's cheap
+melee ran at nearly twice its tank's speed (0.65 against 0.35) and its cheap
+gun at 0.55, so the line reached the wave in pieces, and its guns, needing to
+be within 1.9 to 3 tiles, walked into the monsters' reach to fire.
+
+### Each half on its own
+
+The two causes were tried apart and together, on the same fights — the
+tournament's 80 four-ways and the 240 duels Thornweald is in — and on the
+practice bot alone on the same 24 matched seeds (§4g):
+
+| Thornweald            | four-ways won | duels won | first to the middle | solo bot, mean wave |
+| --------------------- | ------------: | --------: | ------------------: | ------------------: |
+| as it was             |           11% |       56% |            36 of 80 |                10.2 |
+| slower                |           12% |       50% |            25 of 80 |                10.5 |
+| its rung-mates' reach |           19% |       64% |            35 of 80 |                13.2 |
+| both                  |           19% |       52% |            21 of 80 |                14.3 |
+
+Speed alone took away the duels' edge and nothing else; reach alone helped
+everywhere, too much in duels. Together they move the duels back toward even
+and the four-ways and the bot most of the way up. The four-way field went from
+42 / 30 / 16 / 11 (Ironvow, Pyre, Gloomtide, Thornweald) to 35 / 25 / 21 / 19.
+Generic armies in the waves hardly moved (wave 6: 55% → 48%, wave 12: 42% →
+43%, within the sample's noise), so the wave fit of §4g stands.
+
+That reach alone lifted every measure is worth noting for the price ladder:
+it charges 8% of offence a tile (`RANGE_VALUE_PER_TILE`), and Thornweald's
+guns were priced down for their shortfall, but in the arena and in a lane
+reach is worth more than that.
+
+### The change
+
+- **Slower:** Thornling 0.65 → 0.55, Mycelia 0.55 → 0.45, Sporecrown
+  0.5 → 0.3 — each to the middle of its rung-mates.
+- **Reach of its rung-mates:** Mycelia +0.5 (1.9 → 2.4 at Mark I), Rotgourd
+  +0.6 (2.3 → 2.9), Sporecrown +0.9 (3.0 → 3.9), Nettlespire +0.2
+  (4.7 → 4.9), every mark the same amount.
+- **Damage trimmed to pay for it**, mark by mark, so the price ladder's
+  reading of each line (damage × attack speed × (1 + 0.08 × reach)) is what
+  it was: 3–6% off each, about 1% on Nettlespire. Prices did not move.
+- **Thornling wears plate** (all marks), with a plate silhouette to match: a
+  stake, cut square at the tip with a spur each side.
+
+The last bullet is the waves' second cause, found once the first was out of
+the way. With speed and reach fixed, Thornweald's bot reached 13.4 on the
+matched seeds, level with Ironvow (14.0) and behind Pyre (16.8) and Gloomtide
+(19.0), and seven of its eleven deaths outside the boss waves were impact
+waves: impact hits ward for 1.5, Thornling and Rotgourd were ward, and
+Thornweald had no plate, the armor impact glances off — Ironvow's hole of
+§4g, with the damage types turned round. One line to plate, on the same seeds:
+Thornling 14.9, Rotgourd 13.9, Hollowbark 12.2. Thornling it is, the cheap
+front line taking the blows that were going through it; in the arena it
+changed nothing measurable (four-ways 21% both ways, duels 53.3% → 52.9%).
+Thornweald now wears all four armors, as Ironvow does since Oathwall.
+
+### What it did
+
+All three changes together, against where §4g left the game (`npm run
+showdown`, 640 fights; `npm run bots -- --tables 24`; the matched solo runs):
+
+|                                    | before | after |
+| ---------------------------------- | -----: | ----: |
+| arena duels, Thornweald            |  56.3% | 52.9% |
+| arena duels, Pyre                  |  52.9% | 52.9% |
+| arena duels, Gloomtide             |  48.3% | 47.1% |
+| arena duels, Ironvow               |  42.5% | 47.1% |
+| four-ways, Ironvow                 |  42.5% | 31.3% |
+| four-ways, Pyre                    |  30.0% | 28.7% |
+| four-ways, Thornweald              |  11.3% | 21.3% |
+| four-ways, Gloomtide               |  16.3% | 18.8% |
+| practice tables, every bot         |   17.5 |  18.4 |
+| practice tables, Thornweald        |   13.1 |  16.1 |
+| tables where a bot reached wave 20 |    88% |   96% |
+| tables where a bot beat wave 25    |    25% |   33% |
+| solo bot on matched seeds          |   10.2 |  14.9 |
+
+Every builder is back within three points of even in its duels, §6's bar,
+for the first time since the counter cycle changed; the one matchup outside
+40/60 is still Pyre over Gloomtide (61%), which none of this touched.
+Thornweald's four-ways doubled, and Ironvow's came down from 42% as the army
+it had been feeding on stopped walking into the crossfire. In the tables the
+other bots read Gloomtide 19.1, Ironvow 16.4 and Pyre 21.9, and the spread from
+best to worst is 5.8 waves, from 8.1. The waves did not move: 6 and 13 measure
+60% and 57.5%.
+
+**What is left.** Ironvow is now the mirror image of where Thornweald was — the
+best four-way army (31%) and below even in duels (47%) — because it hangs back:
+before this pass it held the centre least of the four in four-ways (4.6 seconds
+a fight), and its taunts, wards and parries are built for outlasting a
+crossfire, not for a straight fight. Gloomtide, the slowest roster, is lowest in
+four-ways (19%). Both are inside the same spread the other builders are, which
+is why neither was moved here.
 
 ## 5. The phases
 

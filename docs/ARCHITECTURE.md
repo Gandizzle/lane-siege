@@ -2612,7 +2612,7 @@ one-combination wave tests. The armor reduction is cached on each unit
 abilities and the Final Showdown alike. The tab lays the eight out four across,
 damage over armor, and each button says what its level has bought.
 
-### Oathwall's shield wall, and Gloomtide's two cheap lines swapped
+### Roster moves for one-combination waves
 
 A one-combination wave finds the one armor a front line is weak to and hits
 all of it at once. Ironvow's two melee lines, Pledge and Oathwall, were both
@@ -2627,6 +2627,17 @@ armors.
 **Kelpsnare and Murmur traded damage types**: Kelpsnare, Gloomtide's cheap
 melee, is arcane now, and Murmur, its cheap gun, is pierce. Gloomtide still
 deals all four. Neither ability names a damage type, so nothing else moved.
+
+**Thornweald walks slower and reaches further.** It was the fastest roster and
+the shortest-reaching, so it got to the arena's middle first and deepest every
+time: one-on-one that wins the hill and the duel, in a four-way it makes it
+everybody's nearest target, and in a lane it reaches the wave strung out with
+its guns walking into contact (BALANCE.md §4h). Thornling, Mycelia and
+Sporecrown now walk at their rung-mates' pace, and its four guns reach as far
+as theirs, with damage trimmed so each line's price is unchanged. **Thornling
+wears plate**, so impact waves - which hit its old ward for 1.5 - meet armor
+that turns them, and its spear became a plate stake (`stake`). Like Ironvow,
+Thornweald now wears all four armors.
 
 ### Not yet built
 

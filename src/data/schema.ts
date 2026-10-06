@@ -179,7 +179,8 @@ export type ShapeId =
   | 'flock'
   | 'hive'
   | 'needles3'
-  | 'shieldwall';
+  | 'shieldwall'
+  | 'stake';
 
 /** Which armor type each silhouette belongs to. The counter-read lives here. */
 export const SHAPE_FAMILY: Record<ShapeId, ArmorType> = {
@@ -232,6 +233,7 @@ export const SHAPE_FAMILY: Record<ShapeId, ArmorType> = {
   hive: 'swarm',
   needles3: 'swarm',
   shieldwall: 'swarm',
+  stake: 'plate',
 };
 
 export interface UnitDef {
