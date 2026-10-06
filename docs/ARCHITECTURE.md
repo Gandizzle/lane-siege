@@ -1620,11 +1620,34 @@ makes it while the match is held.
 ### What a unit card says
 
 Each Build card now says whether the unit is **melee** or **ranged** on its
-third line, ahead of the counter verdict ("ranged · ▲ strong"), by the same
+third line, ahead of the counter hints, by the same
 rule the stat panel uses (`isMelee`, the attack-style threshold). Where it
 stands follows from that, and the silhouette does not say. The unit's own
 silhouette in the corner is drawn larger than a color chip (`bodySize` in
 gridButton.ts): it is a shape the player has to learn to pick out of a crowd.
+
+**The counter hints are a sword and a shield** (counterIcons.ts). The damage
+chart answers two questions about a unit and the coming wave, and the card
+answers both: the SWORD is its damage type against the wave's armor, the
+SHIELD its armor against the wave's damage types, each green where the chart
+favours the unit and red where it does not, and absent where it is about even
+(`summariseWave` averages the multipliers over the wave by count, and 1.15 and
+0.85 are the lines). They used to be the words "▲ strong" and "▼ weak", which
+only answered the first question, so a unit that hit the wave hard and folded
+under it read as the right choice. They are drawn, like the coin and the gem,
+as tokens in the card's `RichLabel` line (`{sword-good}`, `{shield-bad}`), a
+little taller than the words because a sword drawn at the coin's size reads as
+a scratch. The wave preview's line naming the units that counter it uses the
+same green and red sword in place of its arrows.
+
+**And they are a learning aid, so they are not in every game.** `Features`
+carries `counterHints`: on in practice and solo and in the tutorial from the
+Counters chapter, which explains them, and off in a quick or private online
+match, where reading the wave against the chart is part of what is being
+played (`featuresFor`, exhaustive over the kinds of match so a new one has to
+choose). Off hides both the card icons and the preview's line. The chapters
+before Counters keep them off too, so a player is never shown two colored
+icons nobody has explained.
 
 The ability card is bigger and set larger (20/15/14 at a scale of 1, from
 16/11/11), and "Tap anywhere to close" is a full-width bar in the accent color

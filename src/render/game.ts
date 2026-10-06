@@ -103,7 +103,7 @@ import { CHAPTERS } from '../tutorial/chapters.ts';
 import { LESSONS, lessonId, lessonTitle, practiceIntro } from '../tutorial/lessons.ts';
 import { TutorialRunner } from '../tutorial/runner.ts';
 import type { Chapter, Lesson, Practice, Scene, Target, UiProbe } from '../tutorial/types.ts';
-import { EVERYTHING, type Features } from './features.ts';
+import { EVERYTHING, featuresFor, type Features } from './features.ts';
 import { OpponentTabs } from './ui/opponentTabs.ts';
 import { Toast } from './ui/toast.ts';
 import { WatchBanner } from './ui/watchBanner.ts';
@@ -149,6 +149,8 @@ export class Game extends Container {
    */
   private pendingUnitDefId: string | null = null;
   private summary: WaveSummary | null = null;
+  /** Whether this match shows the counter hints (features.ts). */
+  private counterHints = true;
   private summarisedWave = -1;
   private summarisedBuilder = '';
 
@@ -608,7 +610,8 @@ export class Game extends Container {
     this.leaveShowdown();
     this.lesson = null;
     this.practice = null;
-    this.applyFeatures(EVERYTHING);
+    // Everything, less the counter hints in a match against other people.
+    this.applyFeatures(featuresFor(this.mode));
     this.soloResult = null;
     this.coach.hide();
     this.chapterComplete.hide();
@@ -618,6 +621,7 @@ export class Game extends Container {
   private applyFeatures(features: Features): void {
     this.buildBar.setFeatures(features);
     this.hud.setGems(features.gems);
+    this.counterHints = features.counterHints;
   }
 
   // ------------------------------------------------------------ the tutorial
@@ -1159,7 +1163,9 @@ export class Game extends Container {
         runner !== undefined && !runner.complete && runner.step?.preview === 'everyType',
       );
       this.laneLayer.animateGround(this.groundClock);
-      this.laneLayer.render(view, this.summary);
+      // The preview names the units that counter the wave only where the
+      // counter hints are shown at all (features.ts).
+      this.laneLayer.render(view, this.counterHints ? this.summary : null);
       this.auraLayer.render();
       this.entities.render(lane, transport.alpha, {
         selectedId: selectedUnitId,

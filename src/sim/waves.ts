@@ -521,7 +521,15 @@ export interface UnitRating {
   mark: number;
   /** Average matrix multiplier of this unit's damage against the wave. */
   effectiveness: number;
+  /** Whether its DAMAGE is good against the wave's armor: the sword. */
   verdict: 'strong' | 'neutral' | 'weak';
+  /**
+   * Average matrix multiplier of the wave's damage against this unit's armor:
+   * how hard the wave's blows land on it. Below 1 is good for the unit.
+   */
+  taken: number;
+  /** Whether its ARMOR is good against the wave's damage: the shield. */
+  armorVerdict: 'strong' | 'neutral' | 'weak';
 }
 
 export interface WaveSummary {
@@ -576,7 +584,9 @@ export function summariseWave(
     .sort((a, b) => b.count - a.count);
 
   // A unit's usefulness is its damage type averaged over the armor it will
-  // actually meet, weighted by how much of that armor is coming.
+  // actually meet, weighted by how much of that armor is coming - and, the
+  // other way round, the wave's damage types averaged over the unit's armor,
+  // weighted by how much of each is coming: the matrix works both ways (§6).
   const units: UnitRating[] = [];
   for (const unit of data.units.units) {
     if (builderId && unit.builderId !== builderId) continue;
@@ -586,6 +596,11 @@ export function summariseWave(
       weighted += (data.matrix.multipliers[unit.damageType]?.[armor] ?? 1) * count;
     }
     const effectiveness = total > 0 ? weighted / total : 1;
+    let incoming = 0;
+    for (const [type, count] of damageCounts) {
+      incoming += (data.matrix.multipliers[type]?.[unit.armor] ?? 1) * count;
+    }
+    const taken = total > 0 ? incoming / total : 1;
 
     units.push({
       unitId: unit.id,
@@ -598,6 +613,10 @@ export function summariseWave(
           : effectiveness <= WEAK_THRESHOLD
             ? 'weak'
             : 'neutral',
+      taken,
+      // Taking less is the good side, so the thresholds turn round.
+      armorVerdict:
+        taken <= WEAK_THRESHOLD ? 'strong' : taken >= STRONG_THRESHOLD ? 'weak' : 'neutral',
     });
   }
 

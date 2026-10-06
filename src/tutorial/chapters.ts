@@ -36,17 +36,27 @@ import type { Chapter, Scene, StepContext, Target } from './types.ts';
  */
 export const STAGES = {
   /** Building, and nothing else: the Build tab, no upgrades, no gems. */
-  building: { tabs: ['build'], upgrades: false, fort: 'supply', gems: false },
+  building: { tabs: ['build'], upgrades: false, fort: 'supply', gems: false, counterHints: false },
   /** And upgrading and selling a unit. */
-  upgrading: { tabs: ['build'], upgrades: true, fort: 'supply', gems: false },
+  upgrading: { tabs: ['build'], upgrades: true, fort: 'supply', gems: false, counterHints: false },
   /** And the supply cap, in a Fort tab that has nothing else in it yet. */
-  supply: { tabs: ['build', 'fort'], upgrades: true, fort: 'supply', gems: false },
-  /** And counters: the weapon and auras, tech, and what each unit landed. */
+  supply: {
+    tabs: ['build', 'fort'],
+    upgrades: true,
+    fort: 'supply',
+    gems: false,
+    counterHints: false,
+  },
+  /**
+   * And counters: the weapon and auras, tech, what each unit landed, and the
+   * sword and shield on the unit cards, which this chapter explains.
+   */
   counters: {
     tabs: ['build', 'tech', 'fort', 'aura', 'damage'],
     upgrades: true,
     fort: 'supply',
     gems: false,
+    counterHints: true,
   },
   /** Everything: gems, the fortress ladders and sends. */
   everything: EVERYTHING,
@@ -661,7 +671,10 @@ const COUNTERS: Chapter = {
     {
       mode: 'next',
       target: { kind: 'buildBar' },
-      text: 'Each unit card says whether its damage is strong ▲ or weak ▼ against the coming wave.',
+      text:
+        "Look at the unit cards. A GREEN SWORD means that unit's damage type hits the coming " +
+        "wave's armor hard. A RED SWORD means the armor shrugs it off. No sword means it is " +
+        'about even.',
     },
     {
       mode: 'next',
@@ -690,6 +703,21 @@ const COUNTERS: Chapter = {
       text:
         'Monsters hit back with a damage type of their own, shown here, and the chart works both ' +
         'ways: your units have armor too, and it decides how hard those hits land.',
+    },
+    {
+      mode: 'next',
+      target: { kind: 'buildBar' },
+      text:
+        "That is the SHIELD on a unit card. A GREEN SHIELD means the unit's armor takes this " +
+        "wave's hits well. A RED SHIELD means they land hard. The best pick for a wave has a " +
+        'green sword and no red shield.',
+    },
+    {
+      mode: 'next',
+      text:
+        'The swords and shields are there in practice and solo games. In an online match ' +
+        'against other players they are hidden, and reading the wave against the chart is up ' +
+        'to you.',
     },
     {
       mode: 'tap',

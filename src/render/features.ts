@@ -15,6 +15,7 @@
  */
 
 import type { Tab } from './ui/buildBar.ts';
+import type { MatchMode } from './ui/homeScreen.ts';
 
 export interface Features {
   /** The build bar's tabs, in the bar's own order; the rest are not shown. */
@@ -25,6 +26,16 @@ export interface Features {
   fort: 'supply' | 'all';
   /** Gems in the HUD, and the passive income sends pay. */
   gems: boolean;
+  /**
+   * The counter hints: the sword and shield on each unit card (counterIcons.ts)
+   * and the names of the units that counter the wave over its preview.
+   *
+   * A learning aid, so it is in the games you learn in - practice, solo and
+   * the tutorial from the chapter that explains it - and not in a game
+   * against other people, where reading the wave against the chart is part
+   * of what is being played (`featuresFor`).
+   */
+  counterHints: boolean;
 }
 
 export const EVERYTHING: Features = {
@@ -32,4 +43,23 @@ export const EVERYTHING: Features = {
   upgrades: true,
   fort: 'all',
   gems: true,
+  counterHints: true,
 };
+
+/**
+ * What a match outside the tutorial shows (the tutorial sets its own, chapter
+ * by chapter). Exhaustive on purpose: a new kind of match has to say which
+ * side of the line it is on.
+ */
+export function featuresFor(mode: MatchMode): Features {
+  switch (mode.kind) {
+    case 'practice':
+    case 'solo':
+    case 'tutorial':
+    case 'showdown':
+      return EVERYTHING;
+    case 'quick':
+    case 'private':
+      return { ...EVERYTHING, counterHints: false };
+  }
+}

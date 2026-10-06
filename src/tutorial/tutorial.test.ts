@@ -584,13 +584,34 @@ describe('the counters chapter', () => {
     expect(new Set(example.map((e) => e.damageType)).size).toBe(data.matrix.damageTypes.length);
   });
 
-  it('says what the arrows on a card mean as a step of its own, on the build bar', () => {
+  it('says what the sword and the shield on a card mean, each on the build bar', () => {
     const counters = CHAPTERS.find((c) => c.id === 'counters')!;
-    const arrows = counters.steps.find(
-      (step) => typeof step.text === 'string' && step.text.includes('▲'),
-    )!;
-    expect(arrows.target).toEqual({ kind: 'buildBar' });
+    const saying = (words: string) =>
+      counters.steps.findIndex(
+        (step) => typeof step.text === 'string' && step.text.includes(words),
+      );
+    const sword = saying('GREEN SWORD');
+    const shield = saying('GREEN SHIELD');
+    expect(counters.steps[sword]!.target).toEqual({ kind: 'buildBar' });
+    expect(counters.steps[shield]!.target).toEqual({ kind: 'buildBar' });
+    expect(counters.steps[sword]!.text).toContain('RED SWORD');
+    expect(counters.steps[shield]!.text).toContain('RED SHIELD');
+    // The shield comes once the chapter has said monsters hit back.
+    const hitBack = counters.steps.findIndex(
+      (step) => typeof step.target === 'object' && step.target.kind === 'hudIncoming',
+    );
+    expect(sword).toBeLessThan(hitBack);
+    expect(shield).toBe(hitBack + 1);
+    // And where the player will and will not see them.
+    expect(counters.steps[shield + 1]!.text).toContain('online match');
     const chart = counters.steps.find((s) => s.nextLabel === 'Show the chart')!;
     expect(chart.text).toContain('One chart summarizes this information.');
+  });
+
+  it('shows the counter hints from the chapter that explains them, and not before', () => {
+    const at = (id: string) => CHAPTERS.findIndex((c) => c.id === id);
+    for (const chapter of CHAPTERS) {
+      expect(chapter.features.counterHints, chapter.id).toBe(at(chapter.id) >= at('counters'));
+    }
   });
 });

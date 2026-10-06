@@ -82,6 +82,7 @@ import { centreOn, label, wrapped } from './text.ts';
 import { AbilityChips, type Chip } from './abilityChips.ts';
 import { screenRect, unionOf } from './locate.ts';
 import { GEM, GOLD, SUPPLY, type Currency } from './currency.ts';
+import { counterHints } from './counterIcons.ts';
 import type { StatDirection } from './unitStats.ts';
 import {
   NOTHING_SPECIAL,
@@ -1323,23 +1324,22 @@ export class BuildBar extends Container {
       const supply = def.supplyCost ?? 0;
       const canPay = economy.gold >= gold && economy.supplyUsed + supply <= economy.supplyCap;
 
-      const verdict = summary?.units.find((u) => u.unitId === def.id)?.verdict;
       // Whether it stands in the fight or shoots into it: where it goes on the
       // grid follows from that, and the silhouette does not say.
       const reach = isMelee(def) ? 'melee' : 'ranged';
+      // §9.3: say which units counter this wave, or the matrix stays invisible.
+      // A sword for its damage against the wave's armor and a shield for its
+      // armor against the wave's damage, green or red, and neither where it is
+      // about even (counterIcons.ts) - in the games the hints are shown in.
+      const hints = counterHints(
+        this.features.counterHints ? summary?.units.find((u) => u.unitId === def.id) : undefined,
+      );
       button.setSwatch(glyphOf(def));
       button.update({
         title: def.name,
         detail: `${GOLD}${gold} · ${SUPPLY}${supply}`,
-        // §9.3: say which units counter this wave, or the matrix stays invisible.
-        note:
-          verdict === 'strong'
-            ? `${reach} · ▲ strong`
-            : verdict === 'weak'
-              ? `${reach} · ▼ weak`
-              : reach,
-        noteColor:
-          verdict === 'strong' ? UI.healthGood : verdict === 'weak' ? UI.danger : UI.textMuted,
+        note: hints ? `${reach} ${hints}` : reach,
+        noteColor: UI.textMuted,
         enabled: canBuild && canPay,
         // Out for want of gold or supply, and only then: during a wave every
         // unit is out, and the price is not the reason.

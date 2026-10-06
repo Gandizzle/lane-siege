@@ -20,6 +20,8 @@ import { DAMAGE_COLORS, UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
 import { GroundView, gridAlpha, isTextured, type BattlefieldId } from './battlefield.ts';
 import { clock, label } from './ui/text.ts';
+import { RichLabel } from './ui/currency.ts';
+import { SWORD_BAD, SWORD_GOOD } from './ui/counterIcons.ts';
 
 /**
  * What the preview should describe: the next wave, or - in solo, from the last
@@ -257,6 +259,12 @@ export class LaneView extends Container {
   }
 
   private showcase = false;
+  /**
+   * The units that counter the wave, over its preview. Kept rather than made
+   * each frame like the rest of the overlay: it holds icons, and a line that
+   * has not changed costs nothing to show again (currency.ts).
+   */
+  private readonly counterHint = new RichLabel(10, UI.textMuted, '600');
 
   render(view: MatchView, summary: WaveSummary | null): void {
     this.overlay.removeChildren();
@@ -316,23 +324,26 @@ export class LaneView extends Container {
     heading.y = rowOne;
     this.overlay.addChild(heading);
 
-    // §9.3: highlight which of the player's units are strong or weak against
-    // this wave. Only mark 1 - higher marks are reached by upgrading, not
-    // building, so naming them here would be advice you cannot act on.
+    // §9.3: name which of the player's units hit this wave hard and which
+    // barely scratch it, with the unit cards' green and red sword
+    // (counterIcons.ts). Only mark 1 - higher marks are reached by upgrading,
+    // not building, so naming them here would be advice you cannot act on.
+    // No summary, no hint: the match does not show counter hints (features.ts).
     if (summary && !this.showcase) {
       const buildable = summary.units.filter((u) => u.mark === 1);
       const strong = buildable.filter((u) => u.verdict === 'strong').map((u) => u.name);
       const weak = buildable.filter((u) => u.verdict === 'weak').map((u) => u.name);
 
       const parts: string[] = [];
-      if (strong.length > 0) parts.push(`▲ ${strong.join(', ')}`);
-      if (weak.length > 0) parts.push(`▼ ${weak.join(', ')}`);
+      if (strong.length > 0) parts.push(`${SWORD_GOOD} ${strong.join(', ')}`);
+      if (weak.length > 0) parts.push(`${SWORD_BAD} ${weak.join(', ')}`);
 
       if (parts.length > 0) {
-        const hint = label(parts.join('   '), 10, UI.textMuted, '600');
+        const hint = this.counterHint;
+        hint.set(parts.join('   '));
         const room = rightEdge - (heading.x + heading.width + 10);
-        if (hint.width <= room) {
-          hint.x = rightEdge - hint.width;
+        if (hint.naturalWidth <= room) {
+          hint.x = rightEdge - hint.naturalWidth;
           hint.y = rowOne;
           this.overlay.addChild(hint);
         }

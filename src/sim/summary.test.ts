@@ -75,6 +75,25 @@ describe('wave summary (§9.3)', () => {
     expect(hammer.effectiveness).toBeCloseTo(1.0, 6);
   });
 
+  it("rates a unit's armor by how hard the wave's damage lands on it: the shield", () => {
+    // Grubs deal impact (§6): it glances off plate (0.6) and goes through ward
+    // (1.5). The other way round from the sword, so a LOW multiplier is good.
+    const summary = summariseWave(grubsOnly, 1, 1);
+    const impact = data.matrix.multipliers.impact;
+    for (const rating of summary.units) {
+      const def = data.units.units.find((u) => u.id === rating.unitId)!;
+      expect(rating.taken, def.id).toBeCloseTo(impact[def.armor], 6);
+      const expected = def.armor === 'plate' ? 'strong' : def.armor === 'ward' ? 'weak' : 'neutral';
+      expect(rating.armorVerdict, def.id).toBe(expected);
+    }
+    // Both readings, on the roster that wears all four armors.
+    const ironvow = summary.units.filter(
+      (u) => data.units.units.find((d) => d.id === u.unitId)!.builderId === 'ironvow',
+    );
+    expect(ironvow.some((u) => u.armorVerdict === 'strong')).toBe(true);
+    expect(ironvow.some((u) => u.armorVerdict === 'weak')).toBe(true);
+  });
+
   it('weights effectiveness by how much of each armor is actually coming', () => {
     // Wave 3 mixes flesh, plate and swarm, so nothing should read as a pure
     // 1.5 or 0.6 - the average has to move off the single-armor values.

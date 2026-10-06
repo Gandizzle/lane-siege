@@ -10,14 +10,24 @@
  *
  * A string says where an icon goes with a token - `{gold}`, `{gem}`,
  * `{supply}` - and a `RichLabel` lays out the text and the icons in one line.
- * Prose keeps its words ("not enough gems"): these are for numbers.
+ * Prose keeps its words ("not enough gems"): these are for numbers. The same
+ * line also takes the unit cards' counter hints, a sword and a shield
+ * (counterIcons.ts), which are icons but not money.
  */
 
 import { Container, Graphics, type Text } from 'pixi.js';
 import { UI } from '../palette.ts';
+import { drawCounter, type Counter } from './counterIcons.ts';
 import { label } from './text.ts';
 
 export type Currency = 'gold' | 'gem' | 'supply';
+
+/** Everything a `RichLabel` can draw in a line of text. */
+export type Icon = Currency | Counter;
+
+function isCurrency(icon: Icon): icon is Currency {
+  return icon === 'gold' || icon === 'gem' || icon === 'supply';
+}
 
 /** The tokens, for building strings: `${GOLD}45` reads as a coin and 45. */
 export const GOLD = '{gold}';
@@ -86,9 +96,9 @@ export function drawCurrency(
   }
 }
 
-const TOKEN = /\{(gold|gem|supply)\}/g;
+const TOKEN = /\{(gold|gem|supply|sword-good|sword-bad|shield-good|shield-bad)\}/g;
 
-export type Run = { text: string } | { icon: Currency };
+export type Run = { text: string } | { icon: Icon };
 
 /** Split a string into runs of text and icons. */
 export function parseRich(text: string): Run[] {
@@ -96,7 +106,7 @@ export function parseRich(text: string): Run[] {
   let at = 0;
   for (const match of text.matchAll(TOKEN)) {
     if (match.index > at) runs.push({ text: text.slice(at, match.index) });
-    runs.push({ icon: match[1] as Currency });
+    runs.push({ icon: match[1] as Icon });
     at = match.index + match[0].length;
   }
   if (at < text.length) runs.push({ text: text.slice(at) });
@@ -104,7 +114,7 @@ export function parseRich(text: string): Run[] {
 }
 
 /** A run of text, and the currency it is an amount of, if it is one. */
-export type Piece = { text: string; of?: Currency } | { icon: Currency };
+export type Piece = { text: string; of?: Currency } | { icon: Icon };
 
 /** The amount straight after an icon: "44" of "44 · ", "+1" of "+1". */
 const AMOUNT = /^[^\s·]+/;
@@ -120,7 +130,8 @@ export function splitAmounts(runs: readonly Run[]): Piece[] {
   for (const run of runs) {
     if ('icon' in run) {
       pieces.push(run);
-      after = run.icon;
+      // Only money has an amount after it.
+      after = isCurrency(run.icon) ? run.icon : null;
       continue;
     }
     const amount = after ? AMOUNT.exec(run.text)?.[0] : undefined;
@@ -246,7 +257,16 @@ export class RichLabel extends Container {
         piece.position.set(x, 0);
         x += piece.width;
       } else {
-        drawCurrency(this.icons, run.icon, x + gap / 2, (lineHeight - size) / 2 + 1, size);
+        if (isCurrency(run.icon)) {
+          drawCurrency(this.icons, run.icon, x + gap / 2, (lineHeight - size) / 2 + 1, size);
+        } else {
+          // A sword is a long thin thing: drawn at the coin's size it reads
+          // as a scratch, so the counter icons stand a little taller than the
+          // words, centred on the same line.
+          const big = Math.round(size * 1.35);
+          drawCounter(this.icons, run.icon, x + gap / 2, (lineHeight - big) / 2 + 1, big);
+          x += big - size;
+        }
         x += size + gap;
       }
     }
