@@ -20,6 +20,7 @@ function status(overrides: Partial<Status>): Status {
     ofMaxHealth: 0,
     damageType: null,
     blocks: 0,
+    absorbs: 0,
     control: null,
     immuneTo: null,
     tag: null,

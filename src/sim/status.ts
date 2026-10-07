@@ -77,6 +77,11 @@ export interface Status {
   damageType: DamageType | null;
   /** Attacks this ward will still eat, for `shield`. */
   blocks: number;
+  /**
+   * How much of one attack each block soaks, as a share of the carrier's
+   * maximum health. 0 eats the whole attack.
+   */
+  absorbs: number;
   control: ControlKind | null;
   immuneTo: 'control' | 'abilities' | null;
   /** The word this status leaves on its carrier, for synergies. */
@@ -306,19 +311,22 @@ export function hasTag(body: Afflicted, tag: string): boolean {
 /**
  * Spend a ward on an incoming attack, if there is one.
  *
- * Returns true when the attack was eaten entirely. A ward that runs out of
- * blocks is removed here rather than waiting for its clock, because a spent
- * ward that still shows is a ward the player will count on.
+ * Returns how much of the attack the ward soaks, in health: `Infinity` for a
+ * ward that eats the whole attack, a share of the carrier's maximum for one
+ * that soaks only so much (`absorbs`), and 0 for no ward at all. A ward that
+ * runs out of blocks is removed here rather than waiting for its clock,
+ * because a spent ward that still shows is a ward the player will count on.
  */
-export function consumeShield(body: Afflicted): boolean {
+export function consumeShield(body: Afflicted): number {
   for (let i = 0; i < body.statuses.length; i++) {
     const s = body.statuses[i]!;
     if (s.kind !== 'shield' || s.blocks <= 0) continue;
     s.blocks -= 1;
+    const soaks = s.absorbs > 0 ? s.absorbs * body.maxHp : Infinity;
     if (s.blocks <= 0) body.statuses.splice(i, 1);
-    return true;
+    return soaks;
   }
-  return false;
+  return 0;
 }
 
 /**

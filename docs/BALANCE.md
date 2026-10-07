@@ -23,11 +23,14 @@ counter the wave does far better. The practice bots are back where they were
 as a table. Thornweald, which won duels and lost everything else, was the
 fastest and shortest-reaching roster - first into every fight and alone in it
 (§4h); it walks slower and reaches further now, and every builder is again
-within three points of even in its duels.**
+within three points of even in its duels. Every ability has since been measured
+on its own in mixed waves (§4j): the fifteen that did nothing now do something,
+the five that were most of their unit's worth are cut back, and the four
+builders' practice bots last within a wave of each other, from five and a half.**
 
 Every number in `data/` is a placeholder until something measures it. This file
 is the plan for measuring them, the arithmetic the roster is priced against, and
-the standard we are going to hold the answer to. Five commands
+the standard we are going to hold the answer to. Six commands
 reproduce everything quoted here:
 
 ```
@@ -36,6 +39,7 @@ npm run reprice    the price ladder, and each unit's price against it
 npm run showdown   the round robin, across every core
 npm run waves      every army a builder could buy, against every wave
 npm run runs       whole runs, played, on four economy plans
+npm run abilities  what every ability is worth, in mixed waves and against bosses
 ```
 
 ---
@@ -1934,6 +1938,357 @@ what was expected: the waits only reorder purchases inside a phase that has
 room for all of them. The lookahead harness (`balance/run.ts`) buys in one
 instant on purpose and is allowed as many levels of a ladder as fit into thirty
 seconds one cooldown apart, so the wave fits of §4g stand.
+
+## 4j. What every ability is worth
+
+Every unit has an ability and every Mark III a second one, and nothing had
+measured whether they did anything. This pass did, for all forty-eight of them,
+and fixed the ones that did nothing and the ones that did too much
+(`npm run abilities`, `src/balance/abilityAudit.ts`).
+
+### How it was measured
+
+Three armies per builder, each the same shape for every builder, with the gold
+split evenly between its lines (and at least one body of each):
+
+| army  |   gold | units                              | wave                                  |
+| ----- | -----: | ---------------------------------- | ------------------------------------- |
+| early |    600 | Mark I, the four cheaper lines     | all sixteen combinations, one of each |
+| mid   |  3,000 | Mark II, all six lines             | all sixteen, two of each              |
+| late  | 12,000 | Mark III, all six (both abilities) | all sixteen, four of each             |
+
+A wave of every armor and damage type at once is on purpose: a wave of one
+combination is a test of counters, and a counter is not an ability. The
+fortress is silent (no weapon, no aura, no regeneration) and anything that
+reaches the leak line is taken off the board with its health counted against
+the army, so nothing the wall does is in a number.
+
+The wave's strength (`scale`, the multiple on every monster's health and
+damage) is searched for the point where the army and the wave come out even,
+with every ability on. Then every configuration - the whole army, and the army
+with one ability switched off wherever it appears - is fought across a band of
+waves from 0.6 to 1.4 times that strength, sixteen fights at each point, and
+two numbers are read off the curves:
+
+- **survival** - how much weaker a wave the army can still beat without the
+  ability. +10% means the ability is the difference between beating a wave and
+  losing to one ten per cent stronger.
+- **comfort** - on the waves it still beats, how much more of the army is left
+  standing with it, in points of the whole fight. It is what an ability that
+  turns a narrow win into an easy one shows up as.
+
+Both are reported because the curve has a cliff: margin falls gently while an
+army holds and then collapses, so an ability can move where the cliff is, or
+raise what is left before it, or both.
+
+### A seed was not a sample
+
+The first two rounds of this audit were tuned against noise, and the reason is
+worth knowing for anything else that runs the sandbox. A wave fight there is
+deterministic except for the game's own dice - critical hits, dodges, chances
+to proc - and the wave arrives in the same order into the same formation every
+time. An army that rolls no dice (most of Thornweald and Pyre's) fought
+exactly the same fight under every seed: sixteen seeds were one fight sixteen
+times, and every measurement of an ability that changed anything at all was a
+single chaotic sample. The same ability measured +15% one round and +1% the
+next.
+
+Each seed is now a different fight: the wave comes in a different order, and
+each row of the army stands in a different order along itself
+(`SandboxOptions.shuffle`, `marginAt`). The numbers below are all from that.
+`npm run waves` and the wave fits of §4g do not shuffle; their spread comes from
+running many different armies rather than many seeds of one.
+
+### What it found
+
+On the data as it was, fifteen of the forty-eight were worth 2% or less at
+nearly every tier they appear in (Wildfire's best was 2.2% early, Stoke's 2.1%
+late), which is to say nothing: Deepcall, Weedbind, Snarekelp before Mark III,
+Final Sentence, Riposte, Interdict, Emberdust, Slagshot, Wildfire, Stoke,
+Cinderburst, Impale, Wilt, Burstspore and Rootbite. Three
+more - Verdict, Drownward and Heartpiercer - read zero against a crowd because
+they are built for one big target, and the boss pass below is where they are
+judged. At the other end, Torrential was worth 30% of a mid army's strength,
+Firestorm 21% at both mid and late, Undertow 17-18%, Sleetfall 16% late and
+Pyroclasm 13%: each of those was most of what its unit was worth.
+
+Why the dead ones were dead is a short list, and most of them are one of five
+things:
+
+- **Overkill.** Verdict (a slice of the target's maximum health) and Slagshot
+  (the same, from a sniper) rode on blows that already killed what they hit.
+  Judgement III hits for 4,520 and a late monster has 2,400.
+- **A flat number on a game that scales.** Emberdust burned 7 a second,
+  Wildfire 4.5 to 12, Cinderburst 80 once. Against a late monster that is a
+  rounding error.
+- **Nothing to act on.** Wilt cut healing on monsters that do not heal. Deepcall
+  gave energy to units that never ran short of it: a pool opens every wave full,
+  and inside a twenty- or thirty-second fight an ability's clock, not its pool,
+  is what holds it back.
+- **Too rare to matter.** Riposte answered the Sentinel's own dodges, and a
+  Sentinel standing behind the line is attacked about a dozen times a fight.
+  Final Sentence finished a target left below a quarter of its health, and the
+  Judgement's blow had nearly always killed it outright. Weedbind was
+  a 20% chance to hold one monster for under a second. Stoke's heat lasted
+  three seconds on a gun that fires every three.
+- **Worse than nothing.** Rootbite slowed the feet of what it bit. It measured
+  nothing either way in the sandbox, but in play it cost: on the same 24
+  practice tables, Thornweald's bots reached 2.3 waves further once Rootbite
+  slowed attacks instead of feet, with nothing else changed.
+
+### What changed
+
+Every change keeps the ability what it was for. The numbers are the ones in
+`data/abilities.json`; a / b / c is Mark I / II / III.
+
+**Ironvow.**
+
+- _Hold the Line_ also weakens what it taunts (25 / 30 / 35% less damage) and
+  opens it up (10 / 15 / 20% more taken), so dragging a crowd onto the Oathwall
+  is something the line can use rather than something it suffers.
+- _Parry_ covers the Sentinel and the two allies nearest it (12 / 15 / 20%
+  dodge) instead of the Sentinel alone (18 / 26 / 34%), so the dodge lands on
+  the bodies that are actually being hit.
+- _Riposte_ is a 25% `reflect` aura on the same three, not an answer to the
+  Sentinel's own dodges.
+- _Final Sentence_ carries the blow on to up to four enemies within 1.5 tiles
+  of the target (5% of the Judgement's attack) and then finishes any of them at
+  or below a quarter of their health, where it used to finish only the target.
+- _Interdict_ holds six enemies for 1.6 seconds, not five for one.
+- _Shoulder to Shoulder_ also guards (5 / 7 / 8% less damage taken).
+- _Warding Light_ blocks two blows, each soaking up to 15% of the carrier's
+  maximum health, instead of swallowing one blow whole (below, the bosses).
+- _Verdict_ is a third smaller: it was the strongest thing Ironvow had against
+  a boss.
+
+**Pyre.**
+
+- _Firestorm_ 0.36 / 0.5 / 0.62 of attack → 0.18 / 0.2 / 0.32.
+- _Emberdust_ is a 50% chance to scatter embers over up to three enemies round
+  the target, each burning for 18% of the Wickling's attack a second, instead of
+  a flat 7 a second on one.
+- _Slagshot_ is a 40% chance of a slag round that splashes up to four enemies
+  for 20% of the Scoria's attack, instead of 3% of the target's maximum health.
+- _Stoke_'s heat lasts 8 seconds, not 3.
+- _Wildfire_ burns 6 / 14 / 24 a second (from 4.5 / 8 / 12), _Kindle_ 4 / 12 / 24
+  (from 4 / 9 / 19), _Conflagration_ hits for 2× attack (from 1.2×) and burns
+  for 20, _Cinderburst_ bursts for 500 and burns for 30 (from 80 and 8),
+  _Spitfire_ jumps for 42% (from 38%).
+
+**Thornweald.**
+
+- _Rootbite_ slows the ATTACKS of up to three enemies round the target
+  (12 / 14 / 16%), and no longer slows anybody's feet.
+- _Bindroot_ stuns for a second instead of rooting for 1.8. The root was worth
+  having (+4% late), but a rooted monster that shoots carries on shooting, and a
+  stunned one does not; it measures about the same.
+- _Impale_ is a lance: each shot carries on in a line through up to three
+  enemies behind the target (four at Mark III) for 10 / 11 / 13% of the attack,
+  falling off by a fifth each. It was a stacking self-buff that measured zero.
+- _Wilt_ withers up to four enemies round the target: they deal 12 / 15 / 18%
+  less damage, as well as healing less.
+- _Burstspore_ fires when the Rotgourd KILLS something rather than when it
+  dies, for 15% of its attack and a rot of 5% a second. A gun behind the line
+  rarely died before the fight was decided, and it measured zero.
+- _Blightbloom_'s rot is 8% of the Sporecrown's attack a second rather than a
+  flat 11, and the vulnerability it leaves is 15% rather than 20%.
+- _Underweb_ adds 8 / 10 / 12% maximum health rather than a flat 60 / 110 / 160,
+  which at Mark III was nothing on a body with 15,000.
+- _Sporebloom_ reaches 2.6 tiles rather than 2.2.
+
+**Gloomtide.**
+
+- _Torrential_ 0.45 / 0.6 / 0.62 of attack → 0.11 / 0.12 / 0.24.
+- _Undertow_ 0.6 / 0.6 / 0.62 over 2 / 3 / 4 jumps → 0.28 / 0.3 / 0.32 over
+  2 / 2 / 3. The jumps were most of it: cutting the share by a quarter moved its
+  value by a tenth.
+- _Sleetfall_ chills 16% (from 14 / 20 / 26%), three enemies rather than four,
+  in a smaller circle. _Hailburst_ 0.4 → 0.32, _Cloudburst_ 0.55 → 0.4,
+  _Tidesong_ 15 / 20% → 13 / 16% at Marks II and III.
+- _Snarekelp_ soaks the target and the enemy beside it, and a soaked enemy
+  takes 15 / 20 / 25% more damage as well as attacking slower.
+- _Weedbind_ fires when the Kelpsnare dies: its kelp grabs up to four enemies
+  within 1.6 tiles and stuns them for 1.2 seconds. Kelpsnares are the first
+  thing a wave kills, so this is the ability that is sure to go off.
+- _Anchorline_ also weakens what it holds (15 / 25 / 28%), and _Deadweight_
+  is 25% rather than 15%.
+- _Deepcall_ reaches eight allies within 3.6 tiles, gives 20 energy, and brings
+  every ability they are waiting on 0.6 seconds closer to ready (`recharge`, a
+  new effect: ARCHITECTURE.md). A first try at 1.5 seconds was far too much:
+  three of Gloomtide's late abilities run on a clock, and all of them sped up.
+
+### Before and after
+
+Survival is the strength of wave the army loses with the ability switched off;
+comfort (after, in brackets) is the points of the fight it loses on the waves it
+still wins. Each figure is sixteen shuffled fights at each of eight strengths
+(`npm run abilities`; `-- --data dir` runs the same on another copy of
+`data/`). Anything inside about two points is noise.
+
+**Ironvow** - survival, before → after (comfort in brackets, after)
+
+| ability              | unit      |           early |            mid |            late |
+| -------------------- | --------- | --------------: | -------------: | --------------: |
+| Shoulder to Shoulder | Pledge    | +4% → +7% (+11) | +4% → +6% (+8) |  +3% → +3% (+6) |
+| Hold the Line        | Oathwall  |  +5% → +6% (+7) | +4% → +6% (+9) | +5% → +7% (+13) |
+| Parry                | Sentinel  |  +3% → +5% (+5) | +5% → +6% (+8) |  +4% → +4% (+5) |
+| Warding Light        | Vigil     |  +2% → +3% (+5) | +2% → +5% (+6) | +3% → +6% (+11) |
+| Verdict              | Judgement |                 | +0% → +0% (+0) |  +0% → +0% (+0) |
+| Censure              | Sanction  |                 | +6% → +4% (+5) |  +5% → +3% (+4) |
+| Closing Ranks        | Pledge    |                 |                |  +1% → +3% (+5) |
+| Unbroken             | Oathwall  |                 |                |  +4% → +3% (+5) |
+| Riposte              | Sentinel  |                 |                |  +2% → +3% (+3) |
+| Final Sentence       | Judgement |                 |                |  +0% → +6% (+9) |
+| Interdict            | Sanction  |                 |                |  +2% → +2% (+5) |
+| Absolution           | Vigil     |                 |                | +5% → +4% (+10) |
+| _breaking wave_      |           |       3.9 → 4.2 |    13.0 → 13.9 |     35.2 → 43.0 |
+
+**Pyre** - survival, before → after (comfort in brackets, after)
+
+| ability         | unit      |          early |               mid |              late |
+| --------------- | --------- | -------------: | ----------------: | ----------------: |
+| Kindle          | Ember     | +6% → +6% (+8) |    +1% → +3% (+3) |    +1% → +3% (+0) |
+| Molten Hide     | Slagmaw   | +5% → +5% (+3) |    +4% → +4% (+5) |    +5% → +5% (+5) |
+| Spitfire        | Wickling  | +5% → +5% (+6) |    +0% → +2% (+4) |    +4% → +3% (+6) |
+| Wildfire        | Foxfire   | +2% → +3% (+3) |    +1% → +2% (+1) |    +1% → +4% (+4) |
+| Firestorm       | Firebrand |                | +21% → +11% (+15) | +21% → +13% (+17) |
+| Stoke           | Scoria    |                |    +0% → +3% (+2) |    +2% → +2% (+3) |
+| Conflagration   | Ember     |                |                   |    +4% → +3% (+3) |
+| Cinderburst     | Slagmaw   |                |                   |    +2% → +3% (+2) |
+| Pyroclasm       | Firebrand |                |                   | +13% → +11% (+14) |
+| Emberdust       | Wickling  |                |                   |    -0% → +3% (+5) |
+| Slagshot        | Scoria    |                |                   |    -2% → +5% (+7) |
+| Emberwind       | Foxfire   |                |                   |    +5% → +5% (+5) |
+| _breaking wave_ |           |      3.8 → 3.8 |       17.8 → 16.7 |       52.2 → 55.3 |
+
+**Thornweald** - survival, before → after (comfort in brackets, after)
+
+| ability         | unit        |          early |            mid |           late |
+| --------------- | ----------- | -------------: | -------------: | -------------: |
+| Rootbite        | Thornling   | -0% → +2% (+3) | -1% → +2% (+2) | +1% → +2% (+0) |
+| Heartwood       | Hollowbark  | +2% → +3% (+4) | +1% → +1% (+3) | +5% → +4% (+9) |
+| Underweb        | Mycelia     | +6% → +3% (+5) | +3% → +2% (+6) | +3% → +6% (+7) |
+| Wilt            | Rotgourd    | +0% → +3% (+5) | +0% → +2% (+2) | +0% → +4% (+4) |
+| Bloomspread     | Sporecrown  |                | +4% → +5% (+6) | +7% → +6% (+7) |
+| Impale          | Nettlespire |                | +0% → +6% (+8) | -0% → +8% (+8) |
+| Bindroot        | Thornling   |                |                | +4% → +4% (+3) |
+| Thicket         | Hollowbark  |                |                | +5% → +4% (+6) |
+| Blightbloom     | Sporecrown  |                |                | +3% → +5% (+1) |
+| Sporebloom      | Mycelia     |                |                | +4% → +5% (+5) |
+| Heartpiercer    | Nettlespire |                |                | -0% → -0% (+0) |
+| Burstspore      | Rotgourd    |                |                | +0% → +6% (+7) |
+| _breaking wave_ |             |      3.9 → 4.0 |    15.4 → 17.0 |    43.9 → 53.4 |
+
+**Gloomtide** - survival, before → after (comfort in brackets, after)
+
+| ability         | unit       |          early |               mid |              late |
+| --------------- | ---------- | -------------: | ----------------: | ----------------: |
+| Anchorline      | Fathomhold | +2% → +3% (+3) |    +3% → +4% (+4) |   +6% → +6% (+10) |
+| Snarekelp       | Kelpsnare  | +0% → +4% (+5) |    +0% → +5% (+7) |    +4% → +4% (+8) |
+| Sleetfall       | Sleet      | +1% → +1% (+2) |   +11% → +5% (+9) |  +16% → +7% (+11) |
+| Tidesong        | Murmur     | +5% → +5% (+6) |    +7% → +6% (+8) |  +10% → +9% (+13) |
+| Torrential      | Torrent    |                | +30% → +14% (+20) |  +15% → +9% (+13) |
+| Undertow        | Maelstrom  |                | +18% → +16% (+20) |  +17% → +9% (+14) |
+| Deadweight      | Fathomhold |                |                   |    +4% → +5% (+8) |
+| Weedbind        | Kelpsnare  |                |                   |    +1% → +4% (+6) |
+| Cloudburst      | Torrent    |                |                   | +11% → +11% (+17) |
+| Hailburst       | Sleet      |                |                   | +13% → +11% (+17) |
+| Drownward       | Maelstrom  |                |                   |    -2% → +0% (-0) |
+| Deepcall        | Murmur     |                |                   |    +0% → +4% (+7) |
+| _breaking wave_ |            |      3.7 → 3.9 |       22.2 → 15.7 |       68.4 → 63.1 |
+
+### Bosses and monsters
+
+Against one boss alone (`npm run abilities -- --bosses --tiers late`, the late
+armies, eight or twelve shuffled fights a point), three abilities are what they
+were built to be and more: a slice of the target's health is the one damage in
+the game that grows with the target. Verdict, Drownward and Heartpiercer were
+each worth 33-57% against a lone boss, Final Sentence's finishing blow 22-57%,
+and an army that had one beat bosses far stronger than an army that did not.
+That is what a boss-killer is for, up to a point; past it, the builder without
+one (Pyre) simply cannot keep up, and solo's endless wave, after wave 25, grows
+its bosses without end.
+
+So the share of health in each is now capped at so many of the unit's own
+attacks (`capOfAttack`, ARCHITECTURE.md): Verdict 2, Drownward and
+Heartpiercer 3. None of the caps bite on a boss of the twenty-five waves -
+wave 20's Brood Sire has 112,000 health, where Verdict's share comes to under
+one Judgement blow - so the game to wave 25 is the same; what changes is the
+giant.
+
+The strongest boss each late army beats, uncapped → capped:
+
+| late army  | Brood Sire | Hollow King | Gravemother |
+| ---------- | ---------: | ----------: | ----------: |
+| Gloomtide  |  234 → 141 |   289 → 166 |   463 → 150 |
+| Ironvow    |   114 → 97 | 1,439 → 185 |   351 → 197 |
+| Thornweald |  157 → 119 |   141 → 110 |   165 → 122 |
+| Pyre       |         90 |         104 |          68 |
+
+(Strength is the boss row's `bossScale`; wave 20's is 28.) Capped, the three
+are worth 16-41% apiece against a lone boss, and Final Sentence 11-20%: still
+the reason to build them for a boss wave, no longer the only thing that
+matters in one. The bosses' own abilities matter as well - what an army gains
+without them: Brood Surge 10-27%, Chitin Ward 4-28%, Grave Tithe 1-7%, Hollow
+Cry 0-7%.
+
+The wave monsters' own abilities, measured the same way on the mid armies
+(`--monsters`), are small: Dampening Field 3-4%, Rupture 1-3%, Plated Shell,
+Unhallowed and Ambush under 1%. That undersells them - each is one sixteenth of
+a mixed wave - and they are part of what a wave of one combination asks for,
+which is §4g's business and was not touched here.
+
+### What it did to the game
+
+The practice tables (`npm run bots -- --tables 72`, seeds 1-72, the code and
+data before against after, nothing else changed):
+
+| last wave standing, mean           | before | after |
+| ---------------------------------- | -----: | ----: |
+| every bot                          |   17.7 |  19.5 |
+| Gloomtide                          |   20.3 |  19.5 |
+| Pyre                               |   19.0 |  20.0 |
+| Ironvow                            |   16.8 |  19.1 |
+| Thornweald                         |   14.9 |  19.4 |
+| tables where a bot reached wave 20 |  65/72 | 69/72 |
+| tables where a bot beat wave 25    |  21/72 | 36/72 |
+
+Twenty-four tables were not enough to steer by: a builder's bots either fall at
+an early wave they cannot counter or stand to the end, so a couple of seeds
+moved one builder's mean by three waves with nothing about it changed. The
+first full set of fixes put every bot 2.7 waves further on 24 tables, most of
+it Thornweald (6.5) with Ironvow and Pyre behind; two rounds of giving back
+(the numbers above are after them) brought the strongest builder back to about
+where it was and left the four within a wave of each other, from five and a
+half.
+
+That is the one thing this pass changes about the game as a whole. The best
+builder lasts about as long as it did; the two that were behind now last as
+long as it, which is what balanced means, but it is also why more tables see wave 25
+fall. The waves were not touched. If the old difficulty is the goal, the place
+to put it back is the wave fit of §4g, against armies that now have abilities
+worth having.
+
+### What is left
+
+- **Verdict, Drownward and Heartpiercer** do nothing against a crowd and are
+  meant not to: each is a slice of a big target's health. The boss pass is where
+  they show.
+- **Kindle and Rootbite fade late.** A rung-1 body lives through about one
+  swing of a late wave, so an ability that works through its own hits has
+  nothing to work with there. Their Mark III second abilities - Conflagration,
+  Bindroot - fire as the fight opens, and carry the line late instead.
+- **Sleetfall is small early.** It is Gloomtide's soak, and nothing pays a soak
+  off until Maelstrom and Torrent arrive at rungs 5 and 6.
+- **Gloomtide leans on its abilities.** Its ranged kit is worth 7-11% apiece
+  late, more than any other builder's, because its abilities feed each other
+  through `soaked`. Its whole army sits level with the others, so that is a
+  builder's character rather than one ability out of line, but it is the
+  builder to watch if the waves are re-fitted.
+- **The sandbox's other harnesses do not shuffle.** `npm run waves` and the
+  §4g fits run the same fight under every seed for an army that rolls no dice.
+  Their spread comes from fitting many armies rather than many seeds, which is
+  why they were still useful, but a mean over seeds there is not what it says.
 
 ## 5. The phases
 

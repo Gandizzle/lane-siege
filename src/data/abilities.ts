@@ -255,6 +255,8 @@ export const EFFECT_KINDS = [
   'immunity',
   /** Grant energy, the resource active abilities spend. */
   'energy',
+  /** Bring every ability a body is waiting on that much closer to ready. */
+  'recharge',
   // ---- vocabulary from here down: typed, validated, and not yet honoured.
   /** Bring a body of your own onto the field for a while. */
   'summon',
@@ -301,6 +303,7 @@ export const IMPLEMENTED_EFFECTS: readonly EffectKind[] = [
   'execute',
   'immunity',
   'energy',
+  'recharge',
 ];
 
 /**
@@ -350,6 +353,13 @@ export interface AbilityEffect {
   ofMissingHealth?: Tunable;
   /** A multiple of the source's own attack damage. */
   ofAttack?: Tunable;
+  /**
+   * The most the share-of-health part (the three `of...Health` fields) may
+   * come to, in multiples of the source's own attack damage. Absent, there is
+   * no ceiling - and a share of a boss's health is then the one damage in the
+   * game that keeps up with a boss however big it grows.
+   */
+  capOfAttack?: Tunable;
   /** Overrides the source's own damage type. */
   damageType?: DamageType;
   /** Skip the §6 matrix and every mitigation: true damage. */
@@ -364,6 +374,12 @@ export interface AbilityEffect {
 
   // ---- shield
   blocks?: Tunable;
+  /**
+   * How much of one blow a ward soaks, as a share of the warded body's own
+   * maximum health. Absent, a ward eats the whole blow, however big - which is
+   * what let a line warded often enough stand under a boss untouched.
+   */
+  absorbs?: Tunable;
 
   // ---- control
   control?: ControlKind;
@@ -377,6 +393,10 @@ export interface AbilityEffect {
   // ---- energy
   /** Energy granted. Negative spends it. */
   energy?: Tunable;
+
+  // ---- recharge
+  /** Seconds taken off every cooldown and interval the target is waiting on. */
+  recharge?: Tunable;
 
   // ---- tags: the synergy channel (§18, "elemental combos").
   /** A word this effect leaves on its target, e.g. `soaked`, `burning`. */
@@ -537,16 +557,21 @@ export interface ResolvedEffect {
   ofCurrentHealth: number;
   ofMissingHealth: number;
   ofAttack: number;
+  /** 0 is no ceiling. */
+  capOfAttack: number;
   damageType: DamageType | null;
   bypassArmor: boolean;
   perSecond: number;
   durationSeconds: number;
   stacks: { max: number; from: StackRule['from']; refresh: boolean };
   blocks: number;
+  /** 0 is a ward that eats the whole blow. */
+  absorbs: number;
   control: ControlKind | null;
   belowFraction: number;
   immuneTo: 'control' | 'abilities' | null;
   energy: number;
+  recharge: number;
   appliesTag: string | null;
   bonusIfTag: { tag: string; multiplier: number } | null;
   defId: string | null;
@@ -634,6 +659,7 @@ function resolveEffect(e: AbilityEffect, n: Record<string, number>): ResolvedEff
     ofCurrentHealth: num(e.ofCurrentHealth, n),
     ofMissingHealth: num(e.ofMissingHealth, n),
     ofAttack: num(e.ofAttack, n),
+    capOfAttack: num(e.capOfAttack, n),
     damageType: e.damageType ?? null,
     bypassArmor: e.bypassArmor === true,
     perSecond: num(e.perSecond, n),
@@ -644,10 +670,12 @@ function resolveEffect(e: AbilityEffect, n: Record<string, number>): ResolvedEff
       refresh: stacks.refresh !== false,
     },
     blocks: num(e.blocks, n),
+    absorbs: num(e.absorbs, n),
     control: e.control ?? null,
     belowFraction: num(e.belowFraction, n),
     immuneTo: e.immuneTo ?? null,
     energy: num(e.energy, n),
+    recharge: num(e.recharge, n),
     appliesTag: e.appliesTag ?? null,
     bonusIfTag: e.bonusIfTag
       ? { tag: e.bonusIfTag.tag, multiplier: num(e.bonusIfTag.multiplier, n) }

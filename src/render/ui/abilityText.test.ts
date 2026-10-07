@@ -89,10 +89,10 @@ describe('every ability on the field has a paragraph', () => {
 describe('the numbers in the words are the numbers in the data', () => {
   it('reads Shoulder to Shoulder the way a player would ask about it', () => {
     expect(paragraph('shoulder_to_shoulder', 1)).toBe(
-      'Up to 3 allies within 1.6 tiles of the Pledge, nearest first, deal 8% more damage ' +
-        "for as long as they stay in range. The Pledge doesn't buff itself. Each Pledge can " +
-        'give an ally only one stack, but an ally standing near several Pledges can carry up ' +
-        'to 3 stacks, and the stacks multiply together.',
+      'Up to 3 allies within 1.8 tiles of the Pledge, nearest first, deal 10% more damage ' +
+        "and take 5% less for as long as they stay in range. The Pledge doesn't buff itself. " +
+        'Each Pledge can give an ally only one stack of each, but an ally standing near ' +
+        'several Pledges can carry up to 3, and the stacks multiply together.',
     );
   });
 
@@ -100,7 +100,7 @@ describe('the numbers in the words are the numbers in the data', () => {
     const one = paragraph('kindle', 1);
     const three = paragraph('kindle', 3);
     expect(one).toContain('4 blast damage per second over 4 seconds');
-    expect(three).toContain('19 blast damage per second over 5 seconds');
+    expect(three).toContain('24 blast damage per second over 5 seconds');
   });
 
   it('reads a cost, a stack cap and a trigger threshold off the resolved ability', () => {
@@ -112,12 +112,13 @@ describe('the numbers in the words are the numbers in the data', () => {
   it('agrees a noun with its number', () => {
     expect(paragraph('spitfire', 1)).toContain('making up to 1 jump,');
     expect(paragraph('spitfire', 2)).toContain('making up to 2 jumps,');
-    expect(paragraph('interdict')).toContain('for 1 second.');
+    expect(paragraph('bindroot')).toContain('for 1 second.');
+    expect(paragraph('interdict')).toContain('for 1.6 seconds.');
   });
 
   it('writes a debuff as a size, and lets the sentence say which way', () => {
-    // -0.15 in the data is "slows ... by 15%", not "by -15%".
-    expect(paragraph('rootbite', 1)).toContain('by 15% for 2.5 seconds');
+    // -0.12 in the data is "slows ... by 12%", not "by -12%".
+    expect(paragraph('rootbite', 1)).toContain('by 12% for 2.5 seconds');
   });
 
   it('reports a placeholder that names nothing rather than printing it', () => {

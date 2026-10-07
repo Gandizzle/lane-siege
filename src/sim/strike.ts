@@ -12,7 +12,10 @@
  * THE ORDER, WHICH IS THE WHOLE OF THE RULES
  *
  *   1. Evasion    - only an attack can be evaded. A burn cannot miss.
- *   2. A ward     - only an attack is eaten. Same reason.
+ *   2. A ward     - only an attack is warded. Same reason. A ward with no
+ *                   `absorbs` eats the attack whole; one with an `absorbs`
+ *                   takes that share of the carrier's maximum health off
+ *                   what lands, after step 6, and the rest goes through.
  *   3. Critical   - rolled per attack, and never on a burn.
  *   4. The attacker's own modifiers: flat first, then multipliers.
  *   5. §6's matrix, unless the damage bypasses armor entirely.
@@ -97,13 +100,17 @@ export function dealDamage(
 
   const attack = strike.isAttack === true;
   const victim = modifiersOf(target);
+  // Health a ward will soak off this attack, if a soaking ward is spent on it.
+  let ward = 0;
 
   if (attack) {
     if (victim.evasion > 0 && env.rng.next() < victim.evasion) {
       env.onEvade?.(target, attacker);
       return 0;
     }
-    if (consumeShield(target)) return 0;
+    const soaks = consumeShield(target);
+    if (soaks === Infinity) return 0;
+    ward = soaks;
   }
 
   let amount = strike.amount;
@@ -116,11 +123,13 @@ export function dealDamage(
   }
   if (amount <= 0) return 0;
 
-  const resolved = strike.bypassArmor
+  let resolved = strike.bypassArmor
     ? amount
     : resolveDamage(env.matrix, amount, strike.damageType, target.armor) *
       victim.damageTakenMul *
       (target.techDamageTaken ?? 1);
+  resolved = Math.max(0, resolved - ward);
+  if (resolved <= 0) return 0;
 
   const landed = Math.min(resolved, target.hp);
   target.hp -= resolved;

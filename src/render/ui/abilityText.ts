@@ -195,7 +195,9 @@ function damageAmount(effect: ResolvedEffect): string {
   if (effect.ofMissingHealth > 0) {
     parts.push(`${n(effect.ofMissingHealth * 100)}% of the health it has lost`);
   }
-  return parts.length > 0 ? parts.join(' + ') : 'nothing';
+  if (parts.length === 0) return 'nothing';
+  const cap = effect.capOfAttack > 0 ? `, at most ${n(effect.capOfAttack)}× its own hit` : '';
+  return parts.join(' + ') + cap;
 }
 
 /** One line per effect: what it does, for how long, and how it stacks. */
@@ -220,7 +222,12 @@ export function effectLine(effect: ResolvedEffect): string {
     }
     case 'damageOverTime': {
       const rate = effect.perSecond + effect.ofMaxHealth;
-      const per = effect.ofMaxHealth > 0 ? `${n(effect.ofMaxHealth * 100)}% max health` : n(rate);
+      const per =
+        effect.ofAttack > 0
+          ? `${Math.round(effect.ofAttack * 100)}% of its own hit`
+          : effect.ofMaxHealth > 0
+            ? `${n(effect.ofMaxHealth * 100)}% max health`
+            : n(rate);
       return `${per} damage per second${forSeconds(effect)}${stackNote(effect)}${tag}`;
     }
     case 'heal': {
@@ -236,8 +243,12 @@ export function effectLine(effect: ResolvedEffect): string {
           : n(effect.perSecond);
       return `Restores ${share} per second${forSeconds(effect)}`;
     }
-    case 'shield':
-      return `Blocks the next ${Math.round(effect.blocks)} attack${effect.blocks === 1 ? '' : 's'} outright${forSeconds(effect)}`;
+    case 'shield': {
+      const count = `${Math.round(effect.blocks)} attack${effect.blocks === 1 ? '' : 's'}`;
+      return effect.absorbs > 0
+        ? `Soaks up to ${n(effect.absorbs * 100)}% of max health from each of the next ${count}${forSeconds(effect)}`
+        : `Blocks the next ${count} outright${forSeconds(effect)}`;
+    }
     case 'control': {
       const words: Record<string, string> = {
         stun: 'Stuns',
@@ -260,6 +271,8 @@ export function effectLine(effect: ResolvedEffect): string {
         : `Cannot be stunned, rooted or held${forSeconds(effect)}`;
     case 'energy':
       return `Grants ${Math.round(effect.energy)} energy`;
+    case 'recharge':
+      return `Brings its abilities ${n(effect.recharge)} seconds closer to ready`;
     default:
       return effect.kind;
   }

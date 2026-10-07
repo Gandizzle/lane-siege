@@ -52,9 +52,11 @@ describe('what causes each marker', () => {
   it('leaves out a passive that only ever lands on its own carrier', () => {
     const listed = STATUS_MARKS.flatMap((m) => causes[m].map((c) => c.ability));
     expect(listed).not.toContain('Plated Shell');
-    expect(listed).not.toContain('Parry');
-    // The same kind of passive reaching OTHER bodies is listed.
+    expect(listed).not.toContain('Molten Hide');
+    // The same kind of passive reaching OTHER bodies is listed - and Parry,
+    // which covers the allies beside the Sentinel now, is one of them.
     expect(causes.empowered.map((c) => c.ability)).toContain('Shoulder to Shoulder');
+    expect(listed).toContain('Parry');
   });
 
   it('lists every carried ability that leaves a marker, under the marker it leaves', () => {

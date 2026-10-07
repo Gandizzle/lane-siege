@@ -47,6 +47,7 @@ import {
   generateWave,
   recomputeUnitBuffs,
   resolveMonsterStats,
+  Rng,
   stat,
   step,
   TICKS_PER_SECOND,
@@ -101,6 +102,14 @@ export interface SandboxOptions {
    * two, since the leak line is a stricter bar than the wall.
    */
   atWall?: boolean;
+  /**
+   * Stand the bodies of each row in a different order along it, by the seed:
+   * who is next to whom, and who has the middle. Off by default, and
+   * then the seed does nothing to an army that rolls no dice - the wave and the
+   * formation are fixed - so a dozen seeds are one fight a dozen times. The
+   * ability audit turns it on so that its seeds are samples (abilityAudit.ts).
+   */
+  shuffle?: boolean;
 }
 
 export interface WaveOutcome {
@@ -453,6 +462,8 @@ export function layOut(
   builderId: string,
   shopping: Shopping,
   stance: 'forward' | 'wall' = 'forward',
+  /** Shuffle each row along itself by this seed (`SandboxOptions.shuffle`). */
+  shuffleSeed: number | null = null,
 ): Placed[] {
   const chains = lines(data, builderId);
   const bodies: UnitDef[] = [];
@@ -488,9 +499,29 @@ export function layOut(
     for (const tileX of columns) tiles.push({ tileX, tileY });
   }
 
-  return [...melee, ...reach]
+  const placed = [...melee, ...reach]
     .slice(0, tiles.length)
     .map((def, i) => ({ def, tileX: tiles[i]!.tileX, tileY: tiles[i]!.tileY }));
+  if (shuffleSeed !== null) {
+    // Each row keeps the bodies it has - melee in front, the guns behind by
+    // reach - and they trade places along it.
+    const rng = new Rng(shuffleSeed);
+    for (let tileY = 0; tileY < rows; tileY++) {
+      const row = placed.filter((p) => p.tileY === tileY);
+      const defs = row.map((p) => p.def);
+      shuffleInPlace(defs, rng);
+      row.forEach((p, i) => (p.def = defs[i]!));
+    }
+  }
+  return placed;
+}
+
+/** Fisher-Yates, from the match's own generator so a seed is a placement. */
+function shuffleInPlace<T>(items: T[], rng: Rng): void {
+  for (let i = items.length - 1; i > 0; i--) {
+    const j = rng.int(i + 1);
+    [items[i], items[j]] = [items[j]!, items[i]!];
+  }
 }
 
 /** The whole wave's health, which is what `waveHpLeft` is a fraction of. */
@@ -530,7 +561,13 @@ export function runWave(
     lane.fortress.hp = lane.fortress.maxHp;
   }
 
-  const placed = layOut(data, builderId, shopping, options.stance ?? 'forward');
+  const placed = layOut(
+    data,
+    builderId,
+    shopping,
+    options.stance ?? 'forward',
+    options.shuffle ? seed : null,
+  );
   const energyMax = stat(data.abilities.energy.max);
   for (const p of placed) lane.units.push(createUnit(state, p.def, p.tileX, p.tileY, energyMax));
   Object.assign(lane.economy.tech, options.tech ?? {});

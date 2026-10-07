@@ -9,7 +9,7 @@
     "immuneSeconds": 5
   },
   "energy": {
-    "_comment": "The resource the expensive abilities spend (§18). Every body has the same pool, fills it passively, and tops it up on a kill - so an active ability fires on a rhythm set by the fight rather than by a bare cooldown, and a unit that is not killing anything fires it less often. Gloomtide's Deepcall grants energy directly, which is what makes Murmur worth its supply.",
+    "_comment": "The resource the expensive abilities spend (§18). Every body has the same pool, fills it passively, and tops it up on a kill - so an active ability fires on a rhythm set by the fight rather than by a bare cooldown, and a unit that is not killing anything fires it less often. A full pool lasts most of a wave fight, so energy on its own is rarely what holds an ability back: Gloomtide's Deepcall grants it AND brings its allies' clocks forward (`recharge`), and the second half is the one that shows (BALANCE.md §4j).",
     "max": 100,
     "regenPerSecond": 6,
     "perKill": 8
@@ -18,22 +18,25 @@
     {
       "id": "shoulder_to_shoulder",
       "name": "Shoulder to Shoulder",
-      "text": "Allies standing close hit harder, and stack with each other.",
-      "description": "Up to {allies} allies within {radius} tiles of the Pledge, nearest first, deal {damage%} more damage for as long as they stay in range. The Pledge doesn't buff itself. Each Pledge can give an ally only one stack, but an ally standing near several Pledges can carry up to {effects.0.stacks.max} stacks, and the stacks multiply together.",
+      "text": "Allies standing close hit harder and hold firmer, and it stacks.",
+      "description": "Up to {allies} allies within {radius} tiles of the Pledge, nearest first, deal {damage%} more damage and take {guard%} less for as long as they stay in range. The Pledge doesn't buff itself. Each Pledge can give an ally only one stack of each, but an ally standing near several Pledges can carry up to {effects.0.stacks.max}, and the stacks multiply together.",
       "role": "support",
       "numbers": {
-        "radius": 1.6,
+        "radius": 1.8,
         "allies": 3,
-        "damage": 0.08
+        "damage": 0.1,
+        "guard": -0.05
       },
       "ranks": [
         {},
         {
-          "damage": 0.14
+          "damage": 0.13,
+          "guard": -0.07
         },
         {
-          "damage": 0.2,
-          "radius": 1.9
+          "damage": 0.16,
+          "guard": -0.08,
+          "radius": 2.0
         }
       ],
       "trigger": {
@@ -54,32 +57,48 @@
             "max": 3,
             "from": "perSource"
           }
+        },
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@guard",
+          "stacks": {
+            "max": 3,
+            "from": "perSource"
+          }
         }
       ]
     },
     {
       "id": "hold_the_line",
       "name": "Hold the Line",
-      "text": "Drags the enemies around its target onto itself, off whatever they were hitting.",
-      "description": "Every {period} seconds, up to {targets} enemies within {radius} tiles of the Oathwall's current target, nearest to that target first, are taunted for {hold} seconds. A taunted enemy has to attack the Oathwall, and walks over to it if it can't reach it from where it stands.",
+      "text": "Drags the enemies around its target onto itself, and holds them there weak and open.",
+      "description": "Every {period} seconds, up to {targets} enemies within {radius} tiles of the Oathwall's current target, nearest to that target first, are taunted for {hold} seconds. A taunted enemy has to attack the Oathwall, and walks over to it if it can't reach it from where it stands. For the same {hold} seconds it deals {weaken%} less damage and takes {exposed%} more damage from everything.",
       "role": "control",
       "numbers": {
         "period": 5.0,
         "radius": 2.2,
         "targets": 3,
-        "hold": 2.0
+        "hold": 2.0,
+        "weaken": -0.25,
+        "exposed": 0.1
       },
       "ranks": [
         {},
         {
           "radius": 2.8,
           "targets": 4,
-          "hold": 2.6
+          "hold": 2.6,
+          "weaken": -0.3,
+          "exposed": 0.15
         },
         {
           "radius": 3.4,
           "targets": 5,
-          "hold": 3.2
+          "hold": 3.2,
+          "weaken": -0.35,
+          "exposed": 0.2
         }
       ],
       "trigger": {
@@ -95,6 +114,20 @@
         {
           "kind": "control",
           "control": "taunt",
+          "durationSeconds": "@hold"
+        },
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@weaken",
+          "durationSeconds": "@hold"
+        },
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@exposed",
           "durationSeconds": "@hold"
         }
       ]
@@ -149,26 +182,31 @@
     {
       "id": "parry",
       "name": "Parry",
-      "text": "Turns a share of what is swung at it aside entirely.",
-      "description": "The Sentinel dodges {chance%} of the attacks aimed at it, and a dodged attack does no damage at all. Ability damage and burns can't be dodged.",
+      "text": "Its spear turns blows aside, for itself and the allies beside it.",
+      "description": "The Sentinel and the allies nearest it within {radius} tiles, {allies} in all counting the Sentinel, dodge {chance%} of the attacks aimed at them, and a dodged attack does no damage at all. Ability damage and burns can't be dodged. An ally near two Sentinels only gets the bonus once.",
       "role": "defence",
       "numbers": {
-        "chance": 0.18
+        "radius": 2.0,
+        "allies": 3,
+        "chance": 0.12
       },
       "ranks": [
         {},
         {
-          "chance": 0.26
+          "chance": 0.15
         },
         {
-          "chance": 0.34
+          "chance": 0.2
         }
       ],
       "trigger": {
         "when": "passive"
       },
       "target": {
-        "what": "self"
+        "what": "nearestAllies",
+        "radius": "@radius",
+        "max": "@allies",
+        "includeSelf": true
       },
       "effects": [
         {
@@ -182,22 +220,29 @@
     {
       "id": "riposte",
       "name": "Riposte",
-      "text": "A blow it turns aside is a blow it answers.",
-      "description": "Whenever the Sentinel dodges an attack, it hits the attacker straight back for {share%} of its own attack damage, in its own damage type. There's no cooldown, so every dodge gets an answer.",
+      "text": "Every blow that lands on it or the allies beside it is answered.",
+      "description": "The Sentinel and the allies nearest it within {radius} tiles, {allies} in all counting the Sentinel, hit back at whatever attacks them: {share%} of the damage each attack does to them goes straight back to the attacker, through its armor. Damage from abilities and burns isn't returned. An ally near two Sentinels only gets this once.",
       "role": "defence",
       "numbers": {
-        "share": 0.9
+        "radius": 2.0,
+        "allies": 3,
+        "share": 0.25
       },
       "trigger": {
-        "when": "onEvade"
+        "when": "passive"
       },
       "target": {
-        "what": "attacker"
+        "what": "nearestAllies",
+        "radius": "@radius",
+        "max": "@allies",
+        "includeSelf": true
       },
       "effects": [
         {
-          "kind": "damage",
-          "ofAttack": "@share"
+          "kind": "modify",
+          "stat": "reflect",
+          "mode": "percent",
+          "amount": "@share"
         }
       ]
     },
@@ -205,18 +250,19 @@
       "id": "verdict",
       "name": "Verdict",
       "text": "Every shot takes a slice of whatever it is aimed at, however big.",
-      "description": "Each of the Judgement's attacks also deals {share%} of the target's maximum health as extra damage, so it hits big enemies as hard, in proportion, as small ones.",
+      "description": "Each of the Judgement's attacks also deals {share%} of the target's maximum health as extra damage, up to {cap} times the Judgement's own attack damage, so it hits big enemies as hard, in proportion, as small ones until they are very big indeed.",
       "role": "offence",
       "numbers": {
-        "share": 0.02
+        "share": 0.014,
+        "cap": 2
       },
       "ranks": [
         {},
         {
-          "share": 0.035
+          "share": 0.024
         },
         {
-          "share": 0.05
+          "share": 0.034
         }
       ],
       "trigger": {
@@ -228,26 +274,36 @@
       "effects": [
         {
           "kind": "damage",
-          "ofMaxHealth": "@share"
+          "ofMaxHealth": "@share",
+          "capOfAttack": "@cap"
         }
       ]
     },
     {
       "id": "final_sentence",
       "name": "Final Sentence",
-      "text": "Finishes anything it leaves below a quarter of its health.",
-      "description": "After each of the Judgement's attacks, once the attack and Verdict have both landed, a target left at or below {threshold%} of its maximum health is killed outright. Nothing reduces this, but an enemy that is immune to abilities can't be finished this way.",
+      "text": "The blow carries to everything near its target, and finishes what it leaves weak.",
+      "description": "After each of the Judgement's attacks, once the attack and Verdict have both landed, the blow carries on to up to {targets} enemies within {radius} tiles of the target, nearest to it first and the target included if it's still standing. Each of them takes {share%} of the Judgement's attack damage, and then any of them left at or below {threshold%} of its maximum health is killed outright. Nothing reduces the finishing blow, but an enemy that is immune to abilities can't be reached this way.",
       "role": "offence",
       "numbers": {
+        "radius": 1.5,
+        "targets": 4,
+        "share": 0.05,
         "threshold": 0.25
       },
       "trigger": {
         "when": "onAttack"
       },
       "target": {
-        "what": "attackTarget"
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
       },
       "effects": [
+        {
+          "kind": "damage",
+          "ofAttack": "@share"
+        },
         {
           "kind": "execute",
           "belowFraction": "@threshold"
@@ -306,9 +362,9 @@
       "role": "control",
       "numbers": {
         "period": 8.0,
-        "radius": 1.8,
-        "targets": 5,
-        "hold": 1.0
+        "radius": 2.0,
+        "targets": 6,
+        "hold": 1.6
       },
       "trigger": {
         "when": "interval",
@@ -331,14 +387,15 @@
     {
       "id": "warding_light",
       "name": "Warding Light",
-      "text": "Wards the allies furthest forward against the next blow that lands.",
-      "description": "Every {period} seconds, the Vigil wards the {allies} allies within {radius} tiles of it that stand furthest forward, toward the enemy. Each ward absorbs {blocks:attack:attacks} completely and then breaks, or fades after {duration} seconds if nothing hits the ally. Warding an ally that still has its ward only resets the timer. Wards don't stop burns or ability damage, and the Vigil never wards itself.",
+      "text": "Wards the allies furthest forward against the next blows that land.",
+      "description": "Every {period} seconds, the Vigil wards the {allies} allies within {radius} tiles of it that stand furthest forward, toward the enemy. Each ward soaks up to {absorbs%} of the warded ally's maximum health from each of the next {blocks:attack:attacks}, then breaks, or fades after {duration} seconds if nothing hits the ally. A blow smaller than that is stopped entirely; a bigger one goes through, less what the ward soaked. Warding an ally that still has its ward only resets the timer. Wards don't stop burns or ability damage, and the Vigil never wards itself.",
       "role": "support",
       "numbers": {
         "period": 6.0,
         "radius": 2.4,
         "allies": 2,
-        "blocks": 1,
+        "blocks": 2,
+        "absorbs": 0.15,
         "duration": 8.0
       },
       "ranks": [
@@ -364,6 +421,7 @@
         {
           "kind": "shield",
           "blocks": "@blocks",
+          "absorbs": "@absorbs",
           "durationSeconds": "@duration"
         }
       ]
@@ -457,10 +515,10 @@
       "ranks": [
         {},
         {
-          "burn": 9.0
+          "burn": 12.0
         },
         {
-          "burn": 19.0,
+          "burn": 24.0,
           "duration": 5.0
         }
       ],
@@ -526,8 +584,8 @@
       "numbers": {
         "radius": 1.6,
         "targets": 6,
-        "damage": 80,
-        "burn": 8.0
+        "damage": 500,
+        "burn": 30.0
       },
       "trigger": {
         "when": "onDeath"
@@ -562,16 +620,16 @@
         "radius": 1.3,
         "targets": 3,
         "falloff": 0.7,
-        "share": 0.36,
+        "share": 0.18,
         "bonus": 1.6
       },
       "ranks": [
         {},
         {
-          "share": 0.5
+          "share": 0.2
         },
         {
-          "share": 0.62,
+          "share": 0.32,
           "radius": 1.6,
           "targets": 4
         }
@@ -608,7 +666,7 @@
         "jumps": 1,
         "radius": 1.8,
         "falloff": 0.75,
-        "share": 0.38
+        "share": 0.42
       },
       "ranks": [
         {},
@@ -641,31 +699,35 @@
     {
       "id": "emberdust",
       "name": "Emberdust",
-      "text": "Leaves embers in the wound often enough to matter.",
-      "description": "Each attack has a {chance%} chance to leave embers in the target, burning it for {burn} blast damage per second over {effects.0.durationSeconds} seconds. One enemy can carry up to {effects.0.stacks.max} of these burns at once.",
+      "text": "Scatters embers off each shot, and what they land on catches.",
+      "description": "Each attack has a {chance%} chance to scatter embers over up to {targets} enemies within {radius} tiles of the target, nearest first and the target included. Each of them burns for {burn%} of the Wickling's attack damage as blast damage every second for {effects.0.durationSeconds} seconds. One enemy can carry up to {effects.0.stacks.max} of these burns at once.",
       "role": "offence",
       "numbers": {
-        "chance": 0.35,
-        "burn": 7.0
+        "chance": 0.5,
+        "radius": 1.2,
+        "targets": 3,
+        "burn": 0.18
       },
       "trigger": {
         "when": "onAttack",
         "chance": "@chance"
       },
       "target": {
-        "what": "attackTarget"
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
       },
       "effects": [
         {
           "kind": "damageOverTime",
-          "perSecond": "@burn",
           "durationSeconds": 3.0,
           "appliesTag": "burning",
           "damageType": "blast",
           "stacks": {
             "max": 2,
             "from": "any"
-          }
+          },
+          "ofAttack": "@burn"
         }
       ]
     },
@@ -678,7 +740,7 @@
       "numbers": {
         "step": 0.08,
         "crit": 0.04,
-        "window": 3.0,
+        "window": 8.0,
         "max": 5
       },
       "ranks": [
@@ -728,24 +790,28 @@
     {
       "id": "slagshot",
       "name": "Slagshot",
-      "text": "A round of molten slag, heavy in proportion to what it hits.",
-      "description": "Each attack has a {chance%} chance to fire a round of slag as well, dealing {share%} of the target's maximum health as blast damage.",
+      "text": "Now and then a round of molten slag splashes the crowd around its target.",
+      "description": "Each attack has a {chance%} chance to throw a round of slag as well, hitting up to {targets} enemies within {radius} tiles of the target, nearest to it first and the target included if it's still standing, for {share%} of the Scoria's attack damage as blast damage.",
       "role": "offence",
       "numbers": {
-        "chance": 0.25,
-        "share": 0.03
+        "chance": 0.4,
+        "radius": 1.6,
+        "targets": 4,
+        "share": 0.2
       },
       "trigger": {
         "when": "onAttack",
         "chance": "@chance"
       },
       "target": {
-        "what": "attackTarget"
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
       },
       "effects": [
         {
           "kind": "damage",
-          "ofMaxHealth": "@share",
+          "ofAttack": "@share",
           "damageType": "blast"
         }
       ]
@@ -759,18 +825,18 @@
       "numbers": {
         "jumps": 1,
         "radius": 2.2,
-        "burn": 4.5,
+        "burn": 6.0,
         "duration": 4.0
       },
       "ranks": [
         {},
         {
           "jumps": 2,
-          "burn": 8.0
+          "burn": 14.0
         },
         {
           "jumps": 2,
-          "burn": 12.0,
+          "burn": 24.0,
           "radius": 2.64
         }
       ],
@@ -836,9 +902,9 @@
         "period": 8.0,
         "radius": 2.4,
         "targets": 8,
-        "share": 1.2,
+        "share": 2.0,
         "bonus": 1.5,
-        "burn": 12.0
+        "burn": 20.0
       },
       "trigger": {
         "when": "interval",
@@ -915,20 +981,22 @@
     {
       "id": "rootbite",
       "name": "Rootbite",
-      "text": "Its bite leaves roots behind. Different thorns root deeper.",
-      "description": "Each attack slows the target's movement by {slow%} for {duration} seconds. Each mark of Thornling adds its own stack, up to {effects.0.stacks.max}, so a mix of Thornlings, Super Thornlings and Ultra Thornlings slows harder than a crowd of one kind. Stacks multiply together, and another bite from the same kind of Thornling only resets its stack's timer.",
+      "text": "Its bite runs roots through the ground, and everything near it swings slower.",
+      "description": "Each attack slows the attacks of up to {targets} enemies within {radius:tile:tiles} of the target, nearest first and the target included, by {chill%} for {duration} seconds. Each mark of Thornling adds its own stack, up to {effects.0.stacks.max}, so a mix of Thornlings, Super Thornlings and Ultra Thornlings slows harder than a crowd of one kind. Stacks multiply together, and another bite from the same kind of Thornling only resets its stack's timer.",
       "role": "control",
       "numbers": {
-        "slow": -0.15,
+        "radius": 1.0,
+        "targets": 3,
+        "chill": -0.12,
         "duration": 2.5
       },
       "ranks": [
         {},
         {
-          "slow": -0.22
+          "chill": -0.14
         },
         {
-          "slow": -0.3,
+          "chill": -0.16,
           "duration": 3.0
         }
       ],
@@ -936,14 +1004,16 @@
         "when": "onAttack"
       },
       "target": {
-        "what": "attackTarget"
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
       },
       "effects": [
         {
           "kind": "modify",
-          "stat": "moveSpeed",
+          "stat": "attackSpeed",
           "mode": "percent",
-          "amount": "@slow",
+          "amount": "@chill",
           "durationSeconds": "@duration",
           "stacks": {
             "max": 3,
@@ -1063,25 +1133,25 @@
       "id": "underweb",
       "name": "Underweb",
       "text": "Threads the ground under the line: whoever stands on it is bigger, and mending.",
-      "description": "Up to {allies} allies within {radius} tiles of the Mycelia, nearest first, gain {bulk} maximum health and heal {rate%} of their maximum health every second while they stay in range. The extra maximum health arrives with the same amount of current health, and both go when the ally leaves. The Mycelia doesn't affect itself, and an ally near two of them only gets one Underweb.",
+      "description": "Up to {allies} allies within {radius} tiles of the Mycelia, nearest first, get {bulk%} more maximum health and heal {rate%} of their maximum health every second while they stay in range. The extra maximum health arrives with the same amount of current health, and both go when the ally leaves. The Mycelia doesn't affect itself, and an ally near two of them only gets one Underweb.",
       "role": "support",
       "numbers": {
         "radius": 2.0,
         "allies": 4,
         "rate": 0.004,
-        "bulk": 60
+        "bulk": 0.08
       },
       "ranks": [
         {},
         {
           "rate": 0.0055,
           "radius": 2.3,
-          "bulk": 110
+          "bulk": 0.1
         },
         {
           "rate": 0.007,
           "radius": 2.6,
-          "bulk": 160
+          "bulk": 0.12
         }
       ],
       "trigger": {
@@ -1100,7 +1170,7 @@
         {
           "kind": "modify",
           "stat": "maxHealth",
-          "mode": "flat",
+          "mode": "percent",
           "amount": "@bulk"
         }
       ],
@@ -1113,7 +1183,7 @@
       "description": "When the Mycelia dies, up to {allies} allies within {radius} tiles of it, nearest first, each heal {heal%} of their own maximum health.",
       "role": "support",
       "numbers": {
-        "radius": 2.2,
+        "radius": 2.6,
         "allies": 5,
         "heal": 0.12
       },
@@ -1136,70 +1206,76 @@
     {
       "id": "impale",
       "name": "Impale",
-      "text": "Each shot drives deeper than the last, while it keeps firing.",
-      "description": "Each attack gives the Nettlespire a stack that raises its damage by {step%} for {window} seconds, up to {max} stacks, and the stacks multiply together. At the cap, a new attack renews the stack closest to running out, so the bonus holds while it keeps firing and fades once it stops.",
+      "text": "Each shot drives on through its target, into whatever stands behind.",
+      "description": "Each attack drives on in a line {length} tiles long and {width:tile:tiles} wide, running from the Nettlespire toward its target. Up to {targets} enemies in that line, nearest the Nettlespire first, take {share%} of its attack damage, each one after the first {falloff%} of what the one before it took. The target is in the line too if the shot didn't kill it.",
       "role": "offence",
       "numbers": {
-        "step": 0.1,
-        "window": 5.0,
-        "max": 4
+        "length": 8.0,
+        "width": 1.0,
+        "targets": 3,
+        "falloff": 0.8,
+        "share": 0.1
       },
       "ranks": [
         {},
         {
-          "step": 0.14
+          "share": 0.11
         },
         {
-          "step": 0.18,
-          "max": 5
+          "share": 0.13,
+          "targets": 4
         }
       ],
       "trigger": {
         "when": "onAttack"
       },
       "target": {
-        "what": "self"
+        "what": "enemiesInLine",
+        "length": "@length",
+        "width": "@width",
+        "max": "@targets",
+        "falloff": "@falloff"
       },
       "effects": [
         {
-          "kind": "modify",
-          "stat": "damageDealt",
-          "mode": "percent",
-          "amount": "@step",
-          "durationSeconds": "@window",
-          "stacks": {
-            "max": "@max",
-            "from": "any"
-          }
+          "kind": "damage",
+          "ofAttack": "@share"
         }
       ]
     },
     {
       "id": "wilt",
       "name": "Wilt",
-      "text": "Nothing it has touched heals properly again for a while.",
-      "description": "Each attack cuts the healing the target gets from heals and regeneration by {antiheal%} for {duration} seconds, and marks it as blighted for that time. Lifesteal isn't affected. Hitting it again resets the timer.",
+      "text": "What it hits withers, and so does what stands near it: softer blows, poorer healing.",
+      "description": "Each attack withers up to {targets} enemies within {radius} tiles of the target, nearest first and the target included. For {duration} seconds a withered enemy deals {weaken%} less damage, has the healing it gets from heals and regeneration cut by {antiheal%}, and is marked as blighted. Lifesteal isn't affected. Withering it again resets the timers.",
       "role": "control",
       "numbers": {
         "antiheal": -0.6,
-        "duration": 4.0
+        "duration": 4.0,
+        "weaken": -0.12,
+        "radius": 1.3,
+        "targets": 4
       },
       "ranks": [
         {},
         {
           "antiheal": -1.0,
-          "duration": 5.0
+          "duration": 5.0,
+          "weaken": -0.15
         },
         {
           "antiheal": -1,
-          "duration": 6.0
+          "duration": 6.0,
+          "weaken": -0.18
         }
       ],
       "trigger": {
         "when": "onAttack"
       },
       "target": {
-        "what": "attackTarget"
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
       },
       "effects": [
         {
@@ -1209,23 +1285,30 @@
           "amount": "@antiheal",
           "durationSeconds": "@duration",
           "appliesTag": "blighted"
+        },
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@weaken",
+          "durationSeconds": "@duration"
         }
       ]
     },
     {
       "id": "burstspore",
       "name": "Burstspore",
-      "text": "Bursts when killed, and the spores keep working.",
-      "description": "When the Rotgourd dies, up to {targets} enemies within {radius} tiles of it, nearest first, take {damage} arcane damage and then rot for {rot} arcane damage per second over {effects.1.durationSeconds} seconds. The rot marks them as blighted.",
+      "text": "What it kills bursts, and the spores keep working.",
+      "description": "Whenever the Rotgourd kills an enemy, the body bursts: up to {targets} enemies within {radius} tiles of it, nearest first, take {share%} of the Rotgourd's attack damage as arcane damage, then rot for {rot%} of its attack damage as arcane damage every second for {effects.1.durationSeconds} seconds. The rot marks them as blighted.",
       "role": "offence",
       "numbers": {
         "radius": 1.7,
         "targets": 6,
-        "damage": 55,
-        "rot": 9.0
+        "share": 0.15,
+        "rot": 0.05
       },
       "trigger": {
-        "when": "onDeath"
+        "when": "onKill"
       },
       "target": {
         "what": "enemiesInRadius",
@@ -1235,12 +1318,12 @@
       "effects": [
         {
           "kind": "damage",
-          "flat": "@damage",
+          "ofAttack": "@share",
           "damageType": "arcane"
         },
         {
           "kind": "damageOverTime",
-          "perSecond": "@rot",
+          "ofAttack": "@rot",
           "durationSeconds": 4.0,
           "appliesTag": "blighted",
           "damageType": "arcane"
@@ -1251,12 +1334,13 @@
       "id": "heartpiercer",
       "name": "Heartpiercer",
       "text": "One shot straight through the armor, worth a slice of what it hit.",
-      "description": "Every {period} seconds, if it has {energyCost} energy, the Nettlespire shoots whatever it is currently aiming at, whether or not it's in range yet, for {share%} of that target's maximum health. The shot ignores armor, the damage chart and every damage reduction on the target. A blighted target takes {bonus} times as much.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Nettlespire shoots whatever it is currently aiming at, whether or not it's in range yet, for {share%} of that target's maximum health, up to {cap} times the Nettlespire's own attack damage. The shot ignores armor, the damage chart and every damage reduction on the target. A blighted target takes {bonus} times as much.",
       "role": "offence",
       "numbers": {
         "period": 7.0,
         "share": 0.06,
-        "bonus": 1.5
+        "bonus": 1.5,
+        "cap": 3
       },
       "trigger": {
         "when": "interval",
@@ -1273,7 +1357,8 @@
           "bonusIfTag": {
             "tag": "blighted",
             "multiplier": "@bonus"
-          }
+          },
+          "capOfAttack": "@cap"
         }
       ],
       "energyCost": 55
@@ -1281,14 +1366,14 @@
     {
       "id": "bindroot",
       "name": "Bindroot",
-      "text": "The ground closes round their feet.",
-      "description": "Every {period} seconds, if it has {energyCost} energy, the Thornling roots up to {targets} enemies within {radius} tiles of its current target, nearest first, for {hold} seconds. A rooted enemy can't move, but it can still attack and use abilities.",
+      "text": "The ground closes round them and holds them still.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Thornling stuns up to {targets} enemies within {radius} tiles of its current target, nearest first, for {hold:second:seconds}. A stunned enemy can't move, attack or use abilities.",
       "role": "control",
       "numbers": {
         "period": 7.0,
         "radius": 2.0,
         "targets": 5,
-        "hold": 1.8
+        "hold": 1.0
       },
       "trigger": {
         "when": "interval",
@@ -1302,7 +1387,7 @@
       "effects": [
         {
           "kind": "control",
-          "control": "root",
+          "control": "stun",
           "durationSeconds": "@hold"
         }
       ],
@@ -1312,16 +1397,16 @@
       "id": "blightbloom",
       "name": "Blightbloom",
       "text": "Opens every bloom at once: the rot spreads, holds, and stops them mending.",
-      "description": "Every {period} seconds, if it has {energyCost} energy, the Sporecrown opens every bloom around its current target. Up to {targets} enemies within {radius} tiles of that target, nearest first, rot for {rot} arcane damage per second, take {vulnerable%} more damage from everything and get {antiheal%} less healing from heals and regeneration, all for {duration} seconds. The rot marks them as blighted.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Sporecrown opens every bloom around its current target. Up to {targets} enemies within {radius} tiles of that target, nearest first, rot for {rot%} of the Sporecrown's attack damage as arcane damage every second, take {vulnerable%} more damage from everything and get {antiheal%} less healing from heals and regeneration, all for {duration} seconds. The rot marks them as blighted.",
       "role": "control",
       "numbers": {
         "period": 9.0,
         "radius": 2.6,
         "targets": 8,
-        "rot": 11.0,
         "duration": 5.0,
-        "vulnerable": 0.2,
-        "antiheal": -0.8
+        "vulnerable": 0.15,
+        "antiheal": -0.8,
+        "rot": 0.08
       },
       "trigger": {
         "when": "interval",
@@ -1335,10 +1420,10 @@
       "effects": [
         {
           "kind": "damageOverTime",
-          "perSecond": "@rot",
           "durationSeconds": "@duration",
           "appliesTag": "blighted",
-          "damageType": "arcane"
+          "damageType": "arcane",
+          "ofAttack": "@rot"
         },
         {
           "kind": "modify",
@@ -1360,26 +1445,29 @@
     {
       "id": "anchorline",
       "name": "Anchorline",
-      "text": "Throws its chain and holds what it catches in place.",
-      "description": "Every {period} seconds, the Fathomhold roots up to {targets} enemies within {radius} tiles of its current target, nearest first, for {hold} seconds. A rooted enemy can't move, but it can still attack.",
+      "text": "Throws its chain and holds what it catches, dragging on every swing.",
+      "description": "Every {period} seconds, the Fathomhold roots up to {targets} enemies within {radius} tiles of its current target, nearest first, for {hold} seconds, and they deal {weaken%} less damage while it holds them. A rooted enemy can't move, but it can still attack.",
       "role": "control",
       "numbers": {
         "period": 6.0,
         "radius": 2.0,
         "targets": 3,
-        "hold": 1.5
+        "hold": 1.5,
+        "weaken": -0.15
       },
       "ranks": [
         {},
         {
           "radius": 2.4,
           "targets": 4,
-          "hold": 2.0
+          "hold": 2.0,
+          "weaken": -0.25
         },
         {
           "radius": 2.8,
           "targets": 5,
-          "hold": 2.5
+          "hold": 2.5,
+          "weaken": -0.28
         }
       ],
       "trigger": {
@@ -1396,6 +1484,13 @@
           "kind": "control",
           "control": "root",
           "durationSeconds": "@hold"
+        },
+        {
+          "kind": "modify",
+          "stat": "damageDealt",
+          "mode": "percent",
+          "amount": "@weaken",
+          "durationSeconds": "@hold"
         }
       ]
     },
@@ -1406,7 +1501,7 @@
       "description": "The Fathomhold takes {reduction%} less damage and can never be stunned, rooted or taunted. Damage that ignores armor isn't reduced.",
       "role": "defence",
       "numbers": {
-        "reduction": -0.15
+        "reduction": -0.25
       },
       "trigger": {
         "when": "passive"
@@ -1430,38 +1525,56 @@
     {
       "id": "snarekelp",
       "name": "Snarekelp",
-      "text": "Leaves what it hits waterlogged: slower, and easier for the tide to find.",
-      "description": "Each attack slows the target's movement by {slow%} for {duration} seconds and marks it as soaked. Each mark of Kelpsnare can add its own stack, up to {effects.0.stacks.max}, and the stacks multiply; another hit from the same kind only resets its stack's timer.",
+      "text": "Waterlogs what it hits and what stands beside it: slower to swing, easier to hurt.",
+      "description": "Each attack soaks up to {targets} enemies within {radius} tiles of the target, the target first, for {duration} seconds: they attack {slow%} slower and take {soak%} more damage from everything. Each mark of Kelpsnare can add its own stack of each, up to {effects.0.stacks.max}, and the stacks multiply; another hit from the same kind only resets its stacks' timers.",
       "role": "control",
       "numbers": {
-        "slow": -0.18,
-        "duration": 3.0
+        "slow": -0.15,
+        "duration": 3.0,
+        "soak": 0.15,
+        "radius": 0.9,
+        "targets": 2
       },
       "ranks": [
         {},
         {
-          "slow": -0.25,
-          "duration": 3.5
+          "slow": -0.2,
+          "duration": 3.5,
+          "soak": 0.2
         },
         {
-          "slow": -0.32,
-          "duration": 4.0
+          "slow": -0.25,
+          "duration": 4.0,
+          "soak": 0.25
         }
       ],
       "trigger": {
         "when": "onAttack"
       },
       "target": {
-        "what": "attackTarget"
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
       },
       "effects": [
         {
           "kind": "modify",
-          "stat": "moveSpeed",
+          "stat": "attackSpeed",
           "mode": "percent",
           "amount": "@slow",
           "durationSeconds": "@duration",
           "appliesTag": "soaked",
+          "stacks": {
+            "max": 2,
+            "from": "perSourceType"
+          }
+        },
+        {
+          "kind": "modify",
+          "stat": "damageTaken",
+          "mode": "percent",
+          "amount": "@soak",
+          "durationSeconds": "@duration",
           "stacks": {
             "max": 2,
             "from": "perSourceType"
@@ -1472,24 +1585,26 @@
     {
       "id": "weedbind",
       "name": "Weedbind",
-      "text": "Now and then the kelp holds outright.",
-      "description": "Each attack has a {chance%} chance to root the target for {hold} seconds. A rooted enemy can't move, but it can still attack.",
+      "text": "Dying, it drags everything around it down with it for a moment.",
+      "description": "When the Kelpsnare dies, its kelp grabs up to {targets} enemies within {radius} tiles of it, nearest first, and stuns them for {hold:second:seconds}. A stunned enemy can't move, attack or use abilities.",
       "role": "control",
       "numbers": {
-        "chance": 0.2,
-        "hold": 0.9
+        "radius": 1.6,
+        "targets": 4,
+        "hold": 1.2
       },
       "trigger": {
-        "when": "onAttack",
-        "chance": "@chance"
+        "when": "onDeath"
       },
       "target": {
-        "what": "attackTarget"
+        "what": "enemiesInRadius",
+        "radius": "@radius",
+        "max": "@targets"
       },
       "effects": [
         {
           "kind": "control",
-          "control": "root",
+          "control": "stun",
           "durationSeconds": "@hold"
         }
       ]
@@ -1505,16 +1620,16 @@
         "width": 1.2,
         "targets": 4,
         "falloff": 0.8,
-        "share": 0.45,
+        "share": 0.11,
         "bonus": 1.5
       },
       "ranks": [
         {},
         {
-          "share": 0.6
+          "share": 0.12
         },
         {
-          "share": 0.62,
+          "share": 0.24,
           "length": 3.6,
           "bonus": 1.3
         }
@@ -1548,20 +1663,18 @@
       "description": "Each attack chills up to {targets} enemies within {radius} tiles of the target, the target included, nearest first. A chilled enemy attacks {chill%} slower for {duration} seconds and is marked as soaked. Each mark of Sleet can add its own stack, up to {effects.0.stacks.max}, and the stacks multiply; another hit from the same kind only resets its stack's timer.",
       "role": "control",
       "numbers": {
-        "radius": 1.5,
-        "targets": 4,
-        "chill": -0.14,
+        "radius": 1.4,
+        "targets": 3,
+        "chill": -0.16,
         "duration": 3.0
       },
       "ranks": [
         {},
         {
-          "chill": -0.2,
-          "radius": 1.8
+          "radius": 1.5
         },
         {
-          "chill": -0.26,
-          "radius": 2.1
+          "radius": 1.6
         }
       ],
       "trigger": {
@@ -1596,7 +1709,7 @@
       "numbers": {
         "radius": 1.4,
         "targets": 3,
-        "share": 0.4,
+        "share": 0.32,
         "bonus": 1.5
       },
       "trigger": {
@@ -1629,16 +1742,16 @@
         "jumps": 2,
         "radius": 2.4,
         "falloff": 0.8,
-        "share": 0.6
+        "share": 0.28
       },
       "ranks": [
         {},
         {
-          "jumps": 3
+          "share": 0.3
         },
         {
-          "jumps": 4,
-          "share": 0.62
+          "jumps": 3,
+          "share": 0.32
         }
       ],
       "trigger": {
@@ -1663,13 +1776,14 @@
       "id": "drownward",
       "name": "Drownward",
       "text": "Pressure, not injury: it takes a share of whatever is left.",
-      "description": "Every {period} seconds, if it has {energyCost} energy, the Maelstrom hits whatever it is currently aiming at for {share%} of the health that target has left, as arcane damage. A soaked target takes {bonus} times as much.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Maelstrom hits whatever it is currently aiming at for {share%} of the health that target has left, up to {cap} times the Maelstrom's own attack damage, as arcane damage. A soaked target takes {bonus} times as much.",
       "_note": "Raised from 8% in the stat pass (BALANCE.md §4f): Maelstrom III was 13% behind its rung-mates at 18% under its ladder price, and this was the whole of what its Mark III added.",
       "role": "offence",
       "numbers": {
         "period": 6.0,
         "share": 0.11,
-        "bonus": 1.25
+        "bonus": 1.25,
+        "cap": 3
       },
       "trigger": {
         "when": "interval",
@@ -1686,7 +1800,8 @@
           "bonusIfTag": {
             "tag": "soaked",
             "multiplier": "@bonus"
-          }
+          },
+          "capOfAttack": "@cap"
         }
       ],
       "energyCost": 50
@@ -1696,7 +1811,7 @@
       "name": "Cloudburst",
       "text": "Opens the whole sky along one line and leaves it soaked.",
       "description": "Every {period} seconds, if it has {energyCost} energy, the Torrent opens a strip of rain {width} tiles wide and {length} tiles long, running out from it toward its current target. Up to {targets} enemies in the strip, nearest the Torrent first, take {share%} of its attack damage as blast damage, move {slow%} slower for {duration} seconds and are marked as soaked. Each enemy after the first takes {falloff%} of what the one before it took, and gets that share of the slow.",
-      "_note": "Share cut from 0.85 in the stat pass (BALANCE.md §4f): Torrent III did 26% more for its gold than any other rung 6 Mark III with its price at +23%, and the jump came at Mark III, which is where this arrives - six bodies at 85% of a 5,800 shell every eight seconds.",
+      "_note": "Share cut from 0.85 in the stat pass (BALANCE.md §4f): Torrent III did 26% more for its gold than any other rung 6 Mark III with its price at +23%, and the jump came at Mark III, which is where this arrives - six bodies at 85% of a 5,800 shell every eight seconds. Cut again to 0.4 in the ability audit (BALANCE.md §4j), where it was the strongest thing Torrent III did.",
       "role": "offence",
       "numbers": {
         "period": 8.0,
@@ -1704,7 +1819,7 @@
         "width": 1.6,
         "targets": 6,
         "falloff": 0.9,
-        "share": 0.55,
+        "share": 0.4,
         "slow": -0.2,
         "duration": 3.0
       },
@@ -1750,11 +1865,11 @@
       "ranks": [
         {},
         {
-          "haste": 0.15,
+          "haste": 0.13,
           "radius": 2.5
         },
         {
-          "haste": 0.2,
+          "haste": 0.16,
           "radius": 2.8
         }
       ],
@@ -1778,21 +1893,22 @@
     {
       "id": "deepcall",
       "name": "Deepcall",
-      "text": "Calls something up from below; the line finds its second wind sooner.",
-      "description": "Every {period} seconds, if it has {energyCost} energy, the Murmur gives {energy} energy to each of the {allies} allies nearest to it within {radius} tiles. Nobody can hold more than the maximum.",
+      "text": "Calls something up from below, and the line's abilities come round sooner.",
+      "description": "Every {period} seconds, if it has {energyCost} energy, the Murmur calls on up to {allies} allies within {radius} tiles of it, nearest first. Each gets {energy} energy, and every ability it is waiting on comes {recharge} seconds closer to ready. Nobody can hold more than the maximum energy, and an ability that costs energy still has to pay for it. The Murmur doesn't call on itself.",
       "role": "support",
       "numbers": {
-        "period": 5.0,
-        "radius": 2.6,
-        "allies": 3,
-        "energy": 25
+        "period": 6.0,
+        "radius": 3.6,
+        "allies": 8,
+        "energy": 20,
+        "recharge": 0.6
       },
       "trigger": {
         "when": "interval",
         "everySeconds": "@period"
       },
       "target": {
-        "what": "nearestAllies",
+        "what": "alliesInRadius",
         "radius": "@radius",
         "max": "@allies"
       },
@@ -1800,9 +1916,13 @@
         {
           "kind": "energy",
           "energy": "@energy"
+        },
+        {
+          "kind": "recharge",
+          "recharge": "@recharge"
         }
       ],
-      "energyCost": 55
+      "energyCost": 40
     },
     {
       "id": "rupture",
@@ -1999,9 +2119,9 @@
       "role": "control",
       "numbers": {
         "period": 9.0,
-        "radius": 2.2,
-        "targets": 4,
-        "hold": 1.0
+        "radius": 2.6,
+        "targets": 6,
+        "hold": 1.6
       },
       "trigger": {
         "when": "interval",

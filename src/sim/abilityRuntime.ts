@@ -710,12 +710,16 @@ function strikeFrom(
   scale: number,
 ): Strike | null {
   const missing = Math.max(0, target.maxHp - target.hp);
-  let amount =
-    effect.flat +
+  const attack = env.attackDamage(source);
+  let share =
     effect.ofMaxHealth * target.maxHp +
     effect.ofCurrentHealth * target.hp +
-    effect.ofMissingHealth * missing +
-    effect.ofAttack * env.attackDamage(source);
+    effect.ofMissingHealth * missing;
+  // A slice of a big target, but never more than so many of the source's own
+  // blows. A share of health grows with the target and nothing else does, so
+  // without a ceiling it is all that matters against a big enough boss.
+  if (effect.capOfAttack > 0) share = Math.min(share, effect.capOfAttack * attack);
+  let amount = effect.flat + share + effect.ofAttack * attack;
 
   if (effect.bonusIfTag && hasTag(target, effect.bonusIfTag.tag)) {
     amount *= effect.bonusIfTag.multiplier;
@@ -754,6 +758,7 @@ function statusFrom(
     ofMaxHealth: effect.ofMaxHealth * scale,
     damageType: effect.damageType,
     blocks: effect.blocks,
+    absorbs: effect.absorbs,
     control: effect.control as ControlKind | null,
     immuneTo: effect.immuneTo,
     tag: effect.appliesTag,
@@ -821,6 +826,17 @@ function applyEffect(
       break;
     }
 
+    // Every clock the target is counting down - an interval, a cooldown -
+    // comes forward by the same amount, and none goes below ready. What it
+    // does not do is pay: an ability that costs energy still waits for it.
+    case 'recharge': {
+      const cut = ticks(effect.recharge * scale);
+      for (const key of Object.keys(target.clocks)) {
+        target.clocks[key] = Math.max(0, (target.clocks[key] ?? 0) - cut);
+      }
+      break;
+    }
+
     case 'modify':
       if (effect.stat === null) break;
       applyStatus(
@@ -830,13 +846,15 @@ function applyEffect(
       );
       break;
 
-    case 'damageOverTime':
-      applyStatus(
-        target,
-        statusFrom(source, ability, effect, slot, 'damageOverTime', duration, scale),
-        effect.stacks,
-      );
+    case 'damageOverTime': {
+      const burn = statusFrom(source, ability, effect, slot, 'damageOverTime', duration, scale);
+      // A burn can scale with whoever lit it, as a strike can: `ofAttack` is
+      // a share of its own hit, per second. A fixed `perSecond` does not grow
+      // with the waves, and the monsters' health does.
+      burn.perSecond += effect.ofAttack * env.attackDamage(source) * scale;
+      applyStatus(target, burn, effect.stacks);
       break;
+    }
 
     case 'regen':
       applyStatus(

@@ -29,7 +29,8 @@
     "waves": "tsx src/headless/waves.ts",
     "runs": "tsx src/headless/runs.ts",
     "audio": "tsx src/headless/makeAudio.ts",
-    "bots": "tsx src/headless/bots.ts"
+    "bots": "tsx src/headless/bots.ts",
+    "abilities": "tsx src/headless/abilities.ts"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

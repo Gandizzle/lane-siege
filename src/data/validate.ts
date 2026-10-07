@@ -428,6 +428,7 @@ const REQUIRED_FIELDS: Partial<Record<(typeof EFFECT_KINDS)[number], (keyof Abil
   execute: ['belowFraction'],
   immunity: ['immuneTo'],
   energy: ['energy'],
+  recharge: ['recharge'],
 };
 
 /** The five ways a `damage` effect can say how much, any one of which will do. */
@@ -626,9 +627,17 @@ function checkOneAbility(ability: AbilityDef, where: string, errors: string[]): 
       errors.push(`${at}'s damage effect never says how much`);
     }
     if (
+      effect.capOfAttack !== undefined &&
+      (effect.kind !== 'damage' ||
+        (effect.ofMaxHealth ?? effect.ofCurrentHealth ?? effect.ofMissingHealth) === undefined)
+    ) {
+      errors.push(`${at} caps a share of health it does not deal`);
+    }
+    if (
       (effect.kind === 'damageOverTime' || effect.kind === 'regen') &&
       effect.perSecond === undefined &&
-      effect.ofMaxHealth === undefined
+      effect.ofMaxHealth === undefined &&
+      !(effect.kind === 'damageOverTime' && effect.ofAttack !== undefined)
     ) {
       errors.push(`${at}'s ${effect.kind} effect has no rate`);
     }

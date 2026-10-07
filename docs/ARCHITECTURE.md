@@ -252,8 +252,12 @@ definition index is built — so a tick never resolves anything (§15.3).
 effect kinds the simulation honours: `modify` (any of twelve stats, as a
 multiplier or a flat amount), `damage` (flat, a share of max, current or
 missing HP, or a multiple of the attacker's own swing, optionally bypassing
-armor entirely), `damageOverTime`, `heal`, `regen`, `shield`, `control`
-(stun, root, disarm, silence, taunt), `execute`, `immunity` and `energy`.
+armor entirely; a share of HP can be capped at so many of the attacker's own
+swings, `capOfAttack`, because nothing else in the game grows with the target
+and a boss can be made as big as endless likes), `damageOverTime` (so much a second, or a share of the
+source's attack a second, `ofAttack`), `heal`, `regen`, `shield`, `control`
+(stun, root, disarm, silence, taunt), `execute`, `immunity`, `energy` and
+`recharge`.
 `EFFECT_KINDS` is longer: summons, resurrection, knockback, pull, teleport,
 transformation, spirit link, amplify-and-detonate, path blocking, cost
 reduction, sell value and bonds are all typed, validated and inert. Those live
@@ -311,10 +315,19 @@ Every body has the same pool and fills it passively, and the ability a
 three-tier unit unlocks at the top of its ladder spends it — Interdict's area
 stun, Absolution's cleanse, Conflagration, Pyroclasm, Blightbloom, Cloudburst.
 So the big ability fires on a rhythm its pool sets rather than a bare timer.
-Gloomtide's Murmur grants energy directly, which is what makes it worth its
-supply. The energy block also has a `perKill` figure, but nothing reads it: a
-kill does not refill a pool today, and the ability card does not claim it
-does.
+The energy block also has a `perKill` figure, but nothing reads it: a kill
+does not refill a pool today, and the ability card does not claim it does.
+
+**A full pool lasts most of a fight, so energy alone was not something to
+give.** Every pool opens a wave full and refills at six a second, and the
+priciest ability spends seventy: inside the twenty or thirty seconds a wave
+fight lasts, the clock - not the pool - is what holds an energy ability back.
+Murmur III's Deepcall granted energy and nothing else, and the ability audit
+(BALANCE.md §4j) measured it at exactly nothing. So it carries a second
+effect, `recharge`, which takes the same seconds off every clock the ally is
+waiting on - an interval, a cooldown - and never below ready. What it does not
+do is pay: an ability that costs energy still waits for the energy, which is
+what the energy half of Deepcall is for.
 
 **Energy belongs to the fight, so nothing spends it outside one.** No ability
 that costs energy fires during a build phase (`AbilityEnv.fighting`), because
@@ -350,8 +363,19 @@ An evaded attack is the one strike that ends before any damage is dealt, so it
 is reported on its own hook (`StrikeEnv.onEvade`), and that is what an
 `onEvade` trigger listens to. For a while nothing called it — the trigger was
 typed, validated and wired into the runtime, and Sentinel III's Riposte, the
-one ability that uses it, never fired once. A test now dodges a blow and
-expects the answer.
+one ability that used it, never fired once. Once it did fire it still did
+next to nothing: a Sentinel stands behind the line and is attacked about a
+dozen times a fight. Riposte is a `reflect` aura on the Sentinel and the two
+allies nearest it now, and nothing in the roster listens to `onEvade`; the
+hook stays, because a dodge is still the one strike nothing else can see.
+
+**A ward can soak rather than swallow.** A `shield` with no `absorbs` eats the
+next attack whole, whatever it was. One with `absorbs` takes that share of the
+carrier's maximum health off each blow it is spent on, after armor and
+vulnerability, and lets the rest through (`consumeShield`, `dealDamage` step 2
+and 6). Warding Light is the second kind since the audit: a ward that ate whole
+blows made two Vigils and an Ironvow line nearly immune to a lone boss, whose
+damage is in a few big swings.
 
 **A passive is a status that keeps being renewed.** There are no permanent
 buffs. A `passive` ability fires every tick and applies statuses lasting two

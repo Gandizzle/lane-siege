@@ -29,7 +29,7 @@ import {
   resolveAbility,
   type AbilityDef,
 } from '../data/schema.ts';
-import { buildArenaAbilityEnv, buildLaneAbilityEnv, fire } from './abilityRuntime.ts';
+import { buildArenaAbilityEnv, buildLaneAbilityEnv, fire, tickBody } from './abilityRuntime.ts';
 import { applyCommand } from './apply.ts';
 import { arenaCentre, arenaShape } from './arena.ts';
 import { TICKS_PER_SECOND } from './constants.ts';
@@ -83,6 +83,7 @@ function status(overrides: Partial<Status> = {}): Status {
     ofMaxHealth: 0,
     damageType: null,
     blocks: 0,
+    absorbs: 0,
     control: null,
     immuneTo: null,
     tag: null,
@@ -283,9 +284,23 @@ describe('wards', () => {
       status({ kind: 'shield', stat: null, blocks: 1, ticksLeft: 100 }),
       rule('any', 1),
     );
-    expect(consumeShield(subject)).toBe(true);
-    expect(consumeShield(subject)).toBe(false);
+    expect(consumeShield(subject)).toBe(Infinity);
+    expect(consumeShield(subject)).toBe(0);
     expect(subject.statuses.length).toBe(0);
+  });
+
+  it('soaks only its share of the carrier when it says how much', () => {
+    // A ward with `absorbs` takes that share of the carrier's maximum health
+    // off one blow, and the rest goes through: a boss's blow is blunted, not
+    // erased (Warding Light).
+    const subject = body({ hp: 100, maxHp: 100 });
+    applyStatus(
+      subject,
+      status({ kind: 'shield', stat: null, blocks: 1, absorbs: 0.25, ticksLeft: 100 }),
+      rule('any', 1),
+    );
+    expect(consumeShield(subject)).toBeCloseTo(25);
+    expect(consumeShield(subject)).toBe(0);
   });
 });
 
@@ -332,6 +347,15 @@ function toCombat(ctx: SimContext, state: MatchState): void {
   while (state.phase !== 'combat' && guard++ < 5000) step(ctx, state);
 }
 
+/** One tick of one body's abilities, outside the match loop, with a fight on. */
+function tickTheBody(
+  ctx: SimContext,
+  lane: MatchState['lanes'][string],
+  who: MatchState['lanes'][string]['units'][number],
+): void {
+  tickBody(buildLaneAbilityEnv(ctx, lane, new Rng(1), true), who);
+}
+
 describe('a real roster applies its real abilities', () => {
   it('sets a wave alight (Pyre: Kindle)', () => {
     const { state, ctx } = match('pyre');
@@ -351,7 +375,7 @@ describe('a real roster applies its real abilities', () => {
     expect(burning).toBeGreaterThan(0);
   });
 
-  it('slows a wave down (Thornweald: Rootbite)', () => {
+  it('takes the swing out of a wave (Thornweald: Rootbite)', () => {
     const { state, ctx } = match('thornweald');
     for (let x = 0; x < 8; x++) place(ctx, state, 'thornling', x, 0);
     toCombat(ctx, state);
@@ -360,7 +384,7 @@ describe('a real roster applies its real abilities', () => {
     let slowed = false;
     for (let t = 0; t < 400 && !slowed; t++) {
       step(ctx, state);
-      slowed = lane.monsters.some((m) => modifiersOf(m).moveSpeedMul < 1);
+      slowed = lane.monsters.some((m) => modifiersOf(m).attackSpeedMul < 1);
     }
     expect(slowed).toBe(true);
   });
@@ -539,6 +563,30 @@ describe('a real roster applies its real abilities', () => {
   });
 });
 
+describe('Gloomtide: a call that brings the line round sooner (Murmur III: Deepcall)', () => {
+  it('takes the same seconds off every clock an ally is waiting on, and none below ready', () => {
+    const { state, ctx } = match('gloomtide');
+    place(ctx, state, 'murmur_3', 3, 5);
+    place(ctx, state, 'torrent_3', 4, 5);
+    toCombat(ctx, state);
+    const lane = state.lanes.lane1!;
+    const [murmur, torrent] = lane.units as [(typeof lane.units)[0], (typeof lane.units)[0]];
+    const deepcall = resolveAbility(
+      data.abilities.abilities.find((a) => a.id === 'deepcall')!,
+      1,
+    );
+    const cut = Math.round(Number(deepcall.effects[1]!.recharge) * TICKS_PER_SECOND);
+    expect(cut).toBeGreaterThan(0);
+
+    torrent.clocks = { cloudburst: 10 * TICKS_PER_SECOND, nearlyReady: 1 };
+    murmur.clocks = {};
+    murmur.energy = Number(data.abilities.energy.max);
+    tickTheBody(ctx, lane, murmur);
+    expect(torrent.clocks.cloudburst).toBe(10 * TICKS_PER_SECOND - cut);
+    expect(torrent.clocks.nearlyReady).toBe(0);
+  });
+});
+
 describe('Ironvow: support that reaches the front, and a sentence that bites', () => {
   it('wards the allies furthest forward, not the ones beside it (Vigil: Warding Light)', () => {
     const { state, ctx } = match('ironvow');
@@ -626,38 +674,71 @@ describe('Ironvow: support that reaches the front, and a sentence that bites', (
     fire(env, judge, 'onAttack', { target: boss });
     expect(boss.hp).toBe(0);
 
-    // Well above a quarter it stands, down only Verdict's slice.
+    // Well above a quarter it stands, down only Verdict's slice and the splash.
     boss.hp = boss.maxHp * 0.6;
     fire(env, judge, 'onAttack', { target: boss });
     expect(boss.hp).toBeGreaterThan(boss.maxHp * 0.25);
   });
 
-  it('answers a blow it turns aside (Sentinel III: Riposte)', () => {
-    // The dodge used to fire Riposte with nobody to answer: the attacker never
-    // reached the ability, so it had no target and did nothing at all.
+  it('takes a slice of a giant, but never more than two of its own blows (Judgement: Verdict)', () => {
+    // A share of health grows with the target and nothing else does: without
+    // the ceiling a Judgement out-scaled every other gun against a boss that
+    // kept growing (BALANCE.md §4j).
+    const { state, ctx } = match('ironvow');
+    place(ctx, state, 'judgement_2', 3, 5);
+    const lane = state.lanes.lane1!;
+    const judge = lane.units[0]!;
+    const giant = createMonster(
+      state,
+      data,
+      ctx.defs,
+      { defId: 'brood_sire', waveNumber: 25 },
+      { x: 3.5, y: 1 },
+    )!;
+    giant.maxHp = 1e9;
+    giant.hp = giant.maxHp;
+    lane.monsters.push(giant);
+    const env = buildLaneAbilityEnv(ctx, lane, new Rng(1), true);
+
+    fire(env, judge, 'onAttack', { target: giant });
+    const lost = giant.maxHp - giant.hp;
+    const blow = Number(ctx.defs.units.get('judgement_2')!.damage);
+    expect(lost).toBeGreaterThan(0);
+    // Two blows' worth, through whatever the matrix does to it - nowhere near
+    // the 2.4% of a billion it would be uncapped.
+    expect(lost).toBeLessThan(2 * blow * 3);
+  });
+
+  it('answers the blows that land on it and the allies beside it (Sentinel III: Riposte)', () => {
+    // Riposte used to answer only the Sentinel's own dodges, and a reach unit
+    // standing behind the line is attacked about a dozen times in a fight, so
+    // it hardly ever fired. It covers the line next to it now.
     const { state, ctx } = match('ironvow');
     place(ctx, state, 'sentinel_3', 3, 5);
+    place(ctx, state, 'pledge', 4, 5);
     const lane = state.lanes.lane1!;
-    const sentinel = lane.units[0]!;
+    const [sentinel, pledge] = lane.units as [(typeof lane.units)[0], (typeof lane.units)[0]];
     const grub = createMonster(
       state,
       data,
       ctx.defs,
       { defId: 'grub', waveNumber: 10 },
-      { x: 3.5, y: 4.5 },
+      { x: 4.5, y: 4.5 },
     )!;
     lane.monsters.push(grub);
     const env = buildLaneAbilityEnv(ctx, lane, new Rng(1), true);
-    // Certain to dodge, so the test is about what happens after the dodge.
-    sentinel.statuses.push(status({ abilityId: 'test', stat: 'evasion', amount: 1, ticksLeft: 0 }));
+    tickBody(env, sentinel);
+    expect(modifiersOf(pledge).reflect).toBeGreaterThan(0);
+    // Parry covers the Pledge too; take its dodge away so the blow lands.
+    pledge.statuses = pledge.statuses.filter((st) => st.stat !== 'evasion');
 
     const before = grub.hp;
-    const landed = dealDamage(env.strike, grub, sentinel, {
+    const landed = dealDamage(env.strike, grub, pledge, {
       amount: 50,
       damageType: 'impact',
       isAttack: true,
     });
-    expect(landed).toBe(0);
+    expect(landed).toBeGreaterThan(0);
     expect(grub.hp).toBeLessThan(before);
   });
 });
