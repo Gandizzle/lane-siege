@@ -495,14 +495,14 @@ export function screenToTile(
 /**
  * The Final Showdown's camera. DESIGN.md §3.3 replaced, amending §14.1's fixed camera.
  *
- * §14.1's whole-lane-on-one-screen rule cannot hold here: the arena is 32
- * tiles on a side against a lane's 8 by 14, and shrinking it to fit a portrait
- * phone would leave a body four pixels across. So this is the one place the
- * camera moves, and the rules it moves under are:
+ * §14.1's whole-lane-on-one-screen rule cannot hold here: the cross is 32
+ * tiles on a side and the Y 29 by 25, against a lane's 8 by 14, and shrinking
+ * either to fit a portrait phone would leave a body four pixels across. So this
+ * is the one place the camera moves, and the rules it moves under are:
  *
- *   - **Zoom out, but only as far as necessary.** The arena is fitted to the
- *     LONGER screen axis, which on a phone means its full height is on screen
- *     and the scrolling is sideways. It is never zoomed IN past the tile size
+ *   - **Zoom out, but only as far as necessary.** The arena is fitted along
+ *     the LONGER screen axis, which on a phone means its full height is on
+ *     screen and the scrolling is sideways. It is never zoomed IN past the tile size
  *     the lane was drawn at, so a body in the arena is at most the size it was
  *     in the lane and usually a little smaller - the "slightly zoomed out" the
  *     showdown is meant to read as, not a different game.
@@ -514,17 +514,18 @@ export function screenToTile(
 export function arenaCamera(
   width: number,
   height: number,
-  arenaTiles: number,
+  arenaWidth: number,
+  arenaDepth: number,
   laneTileSize: number,
   offset: { x: number; y: number },
 ): Camera {
-  const tileSize = Math.min(laneTileSize, Math.max(width, height) / arenaTiles);
-  const span = arenaTiles * tileSize;
+  const fit = height >= width ? height / arenaDepth : width / arenaWidth;
+  const tileSize = Math.min(laneTileSize, fit);
   return {
     tileSize,
     gridOrigin: {
-      x: clampAxis(offset.x, span, width),
-      y: clampAxis(offset.y, span, height),
+      x: clampAxis(offset.x, arenaWidth * tileSize, width),
+      y: clampAxis(offset.y, arenaDepth * tileSize, height),
     },
   };
 }

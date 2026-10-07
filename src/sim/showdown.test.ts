@@ -7,7 +7,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { LEGS, arenaShape, crossesTheVoid, inCentre, legForSeat, legPosition } from './arena.ts';
+import { LEGS, arenaShape, crossesTheVoid, inCentre, seating, spokePosition } from './arena.ts';
 import {
   applyHealing,
   crowdControlMultiplier,
@@ -23,6 +23,7 @@ import {
   slideStep,
   step,
   viewFor,
+  Rng,
   TICKS_PER_SECOND,
 } from './index.ts';
 import type { Body, MatchState, SimContext } from './index.ts';
@@ -78,9 +79,9 @@ function startFighting(ctx: SimContext, state: MatchState): void {
   for (let i = 0; i < card; i++) step(ctx, state);
 }
 
-/** How far a body is from the middle of the arena. */
+/** How far a body is from the middle of the cross. */
 function toCentre(at: { x: number; y: number }): number {
-  return Math.hypot(at.x - shape.size / 2, at.y - shape.size / 2);
+  return Math.hypot(at.x - shape.centre.x, at.y - shape.centre.y);
 }
 
 describe('the arena (§3.3, replaced)', () => {
@@ -88,7 +89,8 @@ describe('the arena (§3.3, replaced)', () => {
     expect(shape.spokeWidth).toBe(data.lane.buildZone.width);
     expect(shape.spokeLength).toBe(data.lane.buildZone.depth + data.waves.showdown.approachDepth);
     // Spoke, centre, spoke.
-    expect(shape.size).toBe(shape.spokeLength * 2 + shape.spokeWidth);
+    expect(shape.width).toBe(shape.spokeLength * 2 + shape.spokeWidth);
+    expect(shape.depth).toBe(shape.width);
     // The centre is where the four spokes overlap, so it is square by
     // construction: spokeWidth on a side.
     expect(shape.bounds.band).toEqual({
@@ -104,11 +106,11 @@ describe('the arena (§3.3, replaced)', () => {
     for (let seat = 0; seat < LEGS.length; seat++) {
       for (let x = 0; x < width; x++) {
         for (let y = 0; y < depth; y++) {
-          const at = legPosition(shape, legForSeat(seat), x, y);
+          const at = spokePosition(shape, seat, x, y);
           expect(at.x).toBeGreaterThan(0);
           expect(at.y).toBeGreaterThan(0);
-          expect(at.x).toBeLessThan(shape.size);
-          expect(at.y).toBeLessThan(shape.size);
+          expect(at.x).toBeLessThan(shape.width);
+          expect(at.y).toBeLessThan(shape.depth);
           // A corner is outside the band on BOTH axes, and there is no arena
           // there for anybody to stand on.
           const offX = at.x < band.min || at.x > band.max;
@@ -120,15 +122,12 @@ describe('the arena (§3.3, replaced)', () => {
   });
 
   it('seats the four armies on four different spokes, each facing the centre', () => {
-    const centre = shape.size / 2;
     const corners = new Set<string>();
 
     for (let seat = 0; seat < LEGS.length; seat++) {
-      const leg = legForSeat(seat);
       // Tile row 0 faced the monsters; in the arena it faces the fight.
-      const front = legPosition(shape, leg, 3, 0);
-      const back = legPosition(shape, leg, 3, data.lane.buildZone.depth - 1);
-      const toCentre = (p: { x: number; y: number }) => Math.hypot(p.x - centre, p.y - centre);
+      const front = spokePosition(shape, seat, 3, 0);
+      const back = spokePosition(shape, seat, 3, data.lane.buildZone.depth - 1);
 
       expect(toCentre(front)).toBeLessThan(toCentre(back));
       corners.add(`${Math.round(front.x)},${Math.round(front.y)}`);
@@ -140,9 +139,34 @@ describe('the arena (§3.3, replaced)', () => {
   it('places tile (x, y) of the south spoke where the build grid would be', () => {
     // The seat-one layout written out: the grid at the bottom of the arena,
     // its far row nearest the centre.
-    const at = legPosition(shape, 'south', 0, 0);
-    expect(at.x).toBeCloseTo(shape.spokeLength + 0.5);
-    expect(at.y).toBeCloseTo(shape.size - data.lane.buildZone.depth + 0.5);
+    const at = spokePosition(shape, LEGS.indexOf('south'), 0, 0);
+    expect(at.x).toBe(shape.spokeLength + 0.5);
+    expect(at.y).toBe(shape.depth - data.lane.buildZone.depth + 0.5);
+  });
+
+  it('lays every spoke out exactly - the same bits a quarter turn always gave', () => {
+    // The cross is where every balance number so far was measured, so moving
+    // its layout onto the general spoke formula must not move a body by so
+    // much as a rounding error. Every quantity is a half tile and every
+    // direction a whole axis, so the old rotation is reproducible exactly.
+    const centre = shape.width / 2;
+    for (let seat = 0; seat < LEGS.length; seat++) {
+      for (let x = 0; x < data.lane.buildZone.width; x++) {
+        for (let y = 0; y < data.lane.buildZone.depth; y++) {
+          let wantX = shape.spokeLength + x + 0.5;
+          let wantY = shape.spokeLength + shape.spokeWidth + shape.approachDepth + y + 0.5;
+          for (let turn = seat; turn > 0; turn--) {
+            const dx = wantX - centre;
+            const dy = wantY - centre;
+            wantX = centre - dy;
+            wantY = centre + dx;
+          }
+          const at = spokePosition(shape, seat, x, y);
+          expect(at.x).toBe(wantX);
+          expect(at.y).toBe(wantY);
+        }
+      }
+    }
   });
 });
 
@@ -187,28 +211,81 @@ describe('the transplant (§3.3, replaced)', () => {
 
   it('stands each unit on the tile it was built on, in its seat spoke', () => {
     const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'd']) arm(ctx, state, id, 'pledge', 2);
     arm(ctx, state, 'c', 'pledge', 5);
     reachShowdown(ctx, state);
 
+    expect(state.showdown!.layout).toBe('cross');
     const army = state.showdown!.armies.find((a) => a.teamId === 'c')!;
     expect(army.seat).toBe(2);
+    expect(army.spoke).toBe(2);
     for (const unit of army.units) {
-      const want = legPosition(shape, legForSeat(2), unit.homeTileX, unit.homeTileY);
-      expect(unit.pos.x).toBeCloseTo(want.x);
-      expect(unit.pos.y).toBeCloseTo(want.y);
+      const want = spokePosition(shape, 2, unit.homeTileX, unit.homeTileY);
+      expect(unit.pos.x).toBe(want.x);
+      expect(unit.pos.y).toBe(want.y);
     }
   });
 
-  it('leaves an eliminated player’s spoke empty rather than reseating the table', () => {
+  it('fights three on a Y, each keeping their seat and taking a spoke in order', () => {
     const { state, ctx } = fourPlayers();
     for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 2);
     state.teams[1]!.eliminated = true;
 
     reachShowdown(ctx, state);
-    const seats = state.showdown!.armies.map((a) => a.seat);
+    const showdown = state.showdown!;
 
-    // Seat 1 is gone; nobody is promoted into it.
-    expect(seats).toEqual([0, 2, 3]);
+    // Seat 1 is gone, and nobody is promoted into it: the seats - and so the
+    // colors - are the ones the players had all match. What changes is the
+    // ground they stand on.
+    expect(showdown.layout).toBe('y');
+    expect(showdown.armies.map((a) => a.seat)).toEqual([0, 2, 3]);
+    expect(showdown.armies.map((a) => a.spoke)).toEqual([0, 1, 2]);
+    const y = arenaShape(data, 'y');
+    for (const army of showdown.armies) {
+      for (const unit of army.units) {
+        const want = spokePosition(y, army.spoke, unit.homeTileX, unit.homeTileY);
+        expect(unit.pos.x).toBe(want.x);
+        expect(unit.pos.y).toBe(want.y);
+      }
+    }
+  });
+
+  it('puts a duel on opposite spokes, whichever two seats are left', () => {
+    // Seats 0 and 1 are a quarter turn apart on the cross. A duel between them
+    // is still fought head on.
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', 2);
+    state.teams[2]!.eliminated = true;
+    state.teams[3]!.eliminated = true;
+
+    reachShowdown(ctx, state);
+    const showdown = state.showdown!;
+    expect(showdown.layout).toBe('cross');
+    expect(showdown.armies.map((a) => a.seat)).toEqual([0, 1]);
+    expect(showdown.armies.map((a) => LEGS[a.spoke])).toEqual(['south', 'north']);
+  });
+
+  it('seats by how many arrive: four on the cross, three on the Y, two opposite', () => {
+    expect(seating(4)).toEqual({ layout: 'cross', spokes: [0, 1, 2, 3] });
+    expect(seating(3)).toEqual({ layout: 'y', spokes: [0, 1, 2] });
+    expect(seating(2)).toEqual({ layout: 'cross', spokes: [0, 2] });
+    expect(seating(1)).toEqual({ layout: 'cross', spokes: [0] });
+  });
+
+  it('puts a player with nothing standing out before the card, not on a spoke', () => {
+    // Three real armies and an empty lane are three armies: they get the Y,
+    // and the empty lane places last, exactly as it would have the moment the
+    // card lifted.
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'c', 'd']) arm(ctx, state, id, 'pledge', 2);
+
+    reachShowdown(ctx, state);
+    const showdown = state.showdown!;
+    expect(showdown.layout).toBe('y');
+    expect(showdown.armies.map((a) => a.teamId)).toEqual(['a', 'c', 'd']);
+    const empty = state.teams.find((t) => t.id === 'b')!;
+    expect(empty.eliminated).toBe(true);
+    expect(empty.placement).toBe(4);
   });
 });
 
@@ -281,8 +358,8 @@ describe('the free-for-all (§3.3, replaced)', () => {
           expect(offX && offY).toBe(false);
           expect(unit.pos.x).toBeGreaterThanOrEqual(-1e-6);
           expect(unit.pos.y).toBeGreaterThanOrEqual(-1e-6);
-          expect(unit.pos.x).toBeLessThanOrEqual(shape.size + 1e-6);
-          expect(unit.pos.y).toBeLessThanOrEqual(shape.size + 1e-6);
+          expect(unit.pos.x).toBeLessThanOrEqual(shape.width + 1e-6);
+          expect(unit.pos.y).toBeLessThanOrEqual(shape.depth + 1e-6);
         }
       }
     }
@@ -346,8 +423,8 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
     const mine = state.showdown!.armies.find((army) => army.teamId === 'a')!.units[0]!;
     const theirs = state.showdown!.armies.find((army) => army.teamId === 'b')!.units[0]!;
     // Side by side in the middle of the arena, `edgeGap` apart edge to edge.
-    mine.pos.x = shape.size / 2;
-    mine.pos.y = shape.size / 2;
+    mine.pos.x = shape.centre.x;
+    mine.pos.y = shape.centre.y;
     theirs.pos.x = mine.pos.x + mine.radius + theirs.radius + edgeGap;
     theirs.pos.y = mine.pos.y;
 
@@ -418,10 +495,13 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
     // Seat 0 fights from the south spoke and seat 1 from the west one, so
     // "toward the centre" and "toward them" are different directions. Two
     // units on the WEST side of the south spoke: the centre is up and to the
-    // right of both of them, and the other army is up and to the left.
+    // right of both of them, and the other army is up and to the left. Four
+    // armies, so that it is the cross and seat 1 is west.
     const { state, ctx } = fourPlayers();
     arm(ctx, state, 'a', 'pledge', 2);
     arm(ctx, state, 'b', 'pledge', 4);
+    arm(ctx, state, 'c', 'pledge', 1);
+    arm(ctx, state, 'd', 'pledge', 1);
     reachShowdown(ctx, state);
     startFighting(ctx, state);
     step(ctx, state);
@@ -430,7 +510,7 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
     expect(south.seat).toBe(0);
     for (const unit of south.units) {
       expect(unit.targetId).toBeNull();
-      expect(unit.pos.x).toBeLessThan(shape.size / 2);
+      expect(unit.pos.x).toBeLessThan(shape.centre.x);
       // Up and to the RIGHT. Walking at the west army would mean up and left.
       expect(unit.moveY).toBeLessThan(0);
       expect(unit.moveX).toBeGreaterThan(0.2);
@@ -438,7 +518,9 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
   });
 
   it('walks the arena at `walkSpeed` times lane speed', () => {
-    // One pledge alone, walking at the centre for one second, at two paces.
+    // One pledge walking at the centre for one second, at two paces. Another
+    // army across the board, or the match would be over the moment the card
+    // lifted and nothing would walk at all.
     const walked = (pace: number): number => {
       const paced = structuredClone(data);
       paced.waves.showdown.walkSpeed = pace;
@@ -446,6 +528,7 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
       const state = createMatch(paced, { seed: 7, teams });
       const ctx = createContext(paced);
       arm(ctx, state, 'a', 'pledge', 1);
+      arm(ctx, state, 'b', 'pledge', 1);
       reachShowdown(ctx, state);
       startFighting(ctx, state);
       const unit = state.showdown!.armies[0]!.units[0]!;
@@ -454,6 +537,7 @@ describe('what a unit can see in the arena (§3.3, replaced)', () => {
       return from - toCentre(unit.pos);
     };
     expect(data.waves.showdown.walkSpeed).toBeGreaterThan(1);
+    expect(walked(1)).toBeGreaterThan(0.1);
     expect(walked(2)).toBeCloseTo(2 * walked(1), 1);
   });
 
@@ -599,17 +683,17 @@ describe('holding the centre (§3.3, replaced)', () => {
   /** Move an army's bodies onto the middle of the arena, `count` of them. */
   function stand(state: MatchState, teamId: string, count: number): void {
     const army = state.showdown!.armies.find((a) => a.teamId === teamId)!;
-    const middle = shape.size / 2;
+    const middle = shape.centre;
     army.units.forEach((unit, i) => {
       if (i >= count) return;
       // Spread along one row so nothing overlaps, and well inside the square.
-      unit.pos.x = middle - 2 + (i % 4);
-      unit.pos.y = middle - 1 + Math.floor(i / 4) * 0.6;
+      unit.pos.x = middle.x - 2 + (i % 4);
+      unit.pos.y = middle.y - 1 + Math.floor(i / 4) * 0.6;
     });
   }
 
   it('knows the centre square from the spokes', () => {
-    const mid = shape.size / 2;
+    const mid = shape.centre.x;
     expect(inCentre(shape, { x: mid, y: mid })).toBe(true);
     // Down a spoke is not the middle, on either axis.
     expect(inCentre(shape, { x: mid, y: 1 })).toBe(false);
@@ -710,7 +794,7 @@ describe('holding the centre (§3.3, replaced)', () => {
     const army = state.showdown!.armies.find((x) => x.teamId === 'a')!;
     for (const body of army.units) {
       body.pos.x = 1.5;
-      body.pos.y = shape.size / 2;
+      body.pos.y = shape.centre.y;
       body.moveSpeed = 0;
     }
     step(ctx, state);
@@ -760,14 +844,15 @@ describe('holding the centre (§3.3, replaced)', () => {
  * the next across the gap between them.
  */
 describe('shooting across the void (§3.3, replaced)', () => {
-  const mid = shape.size / 2;
+  const mid = shape.centre.x;
+  const size = shape.width;
   const band = shape.bounds.band!;
 
   it('lets a shot travel down a spoke and through the centre', () => {
     // South to north, the length of the vertical bar.
-    expect(crossesTheVoid(shape, { x: mid, y: shape.size - 2 }, { x: mid, y: 2 })).toBe(false);
+    expect(crossesTheVoid(shape, { x: mid, y: size - 2 }, { x: mid, y: 2 })).toBe(false);
     // West to east, the length of the horizontal one.
-    expect(crossesTheVoid(shape, { x: 2, y: mid }, { x: shape.size - 2, y: mid })).toBe(false);
+    expect(crossesTheVoid(shape, { x: 2, y: mid }, { x: size - 2, y: mid })).toBe(false);
     // And anywhere inside the middle square.
     expect(
       crossesTheVoid(
@@ -781,12 +866,10 @@ describe('shooting across the void (§3.3, replaced)', () => {
   it('stops a shot that would cut a corner', () => {
     // The back of the south spoke at the back of the east spoke: the line
     // between them runs through ground that is not arena.
-    expect(
-      crossesTheVoid(shape, { x: mid, y: shape.size - 2 }, { x: shape.size - 2, y: mid }),
-    ).toBe(true);
-    expect(crossesTheVoid(shape, { x: mid, y: shape.size - 2 }, { x: 2, y: mid })).toBe(true);
+    expect(crossesTheVoid(shape, { x: mid, y: size - 2 }, { x: size - 2, y: mid })).toBe(true);
+    expect(crossesTheVoid(shape, { x: mid, y: size - 2 }, { x: 2, y: mid })).toBe(true);
     expect(crossesTheVoid(shape, { x: mid, y: 2 }, { x: 2, y: mid })).toBe(true);
-    expect(crossesTheVoid(shape, { x: mid, y: 2 }, { x: shape.size - 2, y: mid })).toBe(true);
+    expect(crossesTheVoid(shape, { x: mid, y: 2 }, { x: size - 2, y: mid })).toBe(true);
   });
 
   it('lets neighbours shoot each other across the middle', () => {
@@ -830,8 +913,8 @@ describe('shooting across the void (§3.3, replaced)', () => {
   });
 
   it('is symmetric, because a wall is a wall from either side', () => {
-    const a = { x: mid, y: shape.size - 3 };
-    const b = { x: shape.size - 3, y: mid };
+    const a = { x: mid, y: size - 3 };
+    const b = { x: size - 3, y: mid };
     expect(crossesTheVoid(shape, a, b)).toBe(crossesTheVoid(shape, b, a));
   });
 
@@ -900,5 +983,259 @@ describe('shooting across the void (§3.3, replaced)', () => {
     // The rule lives on the showdown block, and nothing in a lane consults it.
     expect(data.lane).not.toHaveProperty('lineOfSight');
     expect(data.waves.showdown.lineOfSight).toBe(true);
+  });
+});
+
+/**
+ * THE Y (§3.3, replaced): three survivors fight on three spokes a third of a
+ * turn apart, so that each has the same two neighbours at the same angle.
+ *
+ * The checks below lean on an independent reading of the shape - a point is in
+ * the Y when it is inside one of the three spoke strips - rather than on the
+ * functions under test, so a wrong rotation in one cannot be agreed with by
+ * the same wrong rotation in another.
+ */
+describe('the Y, for three (§3.3, replaced)', () => {
+  const y = arenaShape(data, 'y');
+  const half = y.spokeWidth / 2;
+
+  /** Along and across spoke `i`, by hand. */
+  function frame(p: { x: number; y: number }, i: number): { along: number; across: number } {
+    const d = y.spokes[i]!;
+    const rx = p.x - y.centre.x;
+    const ry = p.y - y.centre.y;
+    return { along: rx * d.x + ry * d.y, across: rx * d.y - ry * d.x };
+  }
+
+  /** Inside the Y, with `margin` to spare from every wall. */
+  function insideY(p: { x: number; y: number }, margin = 0): boolean {
+    return y.spokes.some((_, i) => {
+      const { along, across } = frame(p, i);
+      return along >= 0 && along <= y.reach - margin && Math.abs(across) <= half - margin;
+    });
+  }
+
+  /** `p` turned a third of a turn clockwise about the centre. */
+  function turn(p: { x: number; y: number }): { x: number; y: number } {
+    const dx = p.x - y.centre.x;
+    const dy = p.y - y.centre.y;
+    const c = -0.5;
+    const s = Math.sqrt(3) / 2;
+    return { x: y.centre.x + dx * c - dy * s, y: y.centre.y + dx * s + dy * c };
+  }
+
+  function threePlayers(units = 3): { state: MatchState; ctx: SimContext } {
+    const { state, ctx } = fourPlayers();
+    for (const id of ['a', 'b', 'c', 'd']) arm(ctx, state, id, 'pledge', units);
+    state.teams[1]!.eliminated = true;
+    state.eliminatedCount = 1;
+    state.teams[1]!.placement = 4;
+    return { state, ctx };
+  }
+
+  it('is three lane-wide spokes a third of a turn apart, meeting in a triangle', () => {
+    expect(y.spokes).toHaveLength(3);
+    expect(y.spokeWidth).toBe(data.lane.buildZone.width);
+    expect(y.spokeLength).toBe(shape.spokeLength);
+    for (let i = 0; i < 3; i++) {
+      const d = y.spokes[i]!;
+      const next = y.spokes[(i + 1) % 3]!;
+      expect(Math.hypot(d.x, d.y)).toBeCloseTo(1, 12);
+      expect(d.x * next.x + d.y * next.y).toBeCloseTo(-0.5, 12);
+    }
+    // The stem points down the screen, like a lane's own defenders.
+    expect(y.spokes[0]).toEqual({ x: 0, y: 1 });
+    // The triangle's corners are the inside corners between spokes; each side
+    // is a spoke's width, so every spoke ends flush against it.
+    const corners = y.spokes.map((d) => ({
+      x: y.centre.x + y.hub * d.x - half * d.y,
+      y: y.centre.y + y.hub * d.y + half * d.x,
+    }));
+    for (let i = 0; i < 3; i++) {
+      const a = corners[i]!;
+      const b = corners[(i + 1) % 3]!;
+      expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeCloseTo(y.spokeWidth, 9);
+    }
+    expect(y.reach).toBeCloseTo(y.hub + y.spokeLength, 12);
+  });
+
+  it('fits its bounding box, and the field grid is whole tiles', () => {
+    expect(Number.isInteger(y.width)).toBe(true);
+    expect(Number.isInteger(y.depth)).toBe(true);
+    for (let i = 0; i < 3; i++) {
+      for (const along of [y.hub, y.reach]) {
+        for (const across of [-half, half]) {
+          const d = y.spokes[i]!;
+          const x = y.centre.x + along * d.x + across * d.y;
+          const yy = y.centre.y + along * d.y - across * d.x;
+          expect(x).toBeGreaterThanOrEqual(0);
+          expect(yy).toBeGreaterThanOrEqual(0);
+          expect(x).toBeLessThanOrEqual(y.width);
+          expect(yy).toBeLessThanOrEqual(y.depth);
+        }
+      }
+    }
+  });
+
+  it('puts every build tile in its own spoke, clear of the middle', () => {
+    const { width, depth } = data.lane.buildZone;
+    for (let spoke = 0; spoke < 3; spoke++) {
+      for (let x = 0; x < width; x++) {
+        for (let row = 0; row < depth; row++) {
+          const at = spokePosition(y, spoke, x, row);
+          const { along, across } = frame(at, spoke);
+          expect(along).toBeGreaterThan(y.hub + y.approachDepth);
+          expect(along).toBeLessThan(y.reach);
+          expect(Math.abs(across)).toBeLessThan(half);
+          expect(inCentre(y, at)).toBe(false);
+        }
+      }
+    }
+  });
+
+  it('lays every army out as the same army turned, so no spoke is a better seat', () => {
+    for (let x = 0; x < data.lane.buildZone.width; x++) {
+      for (let row = 0; row < data.lane.buildZone.depth; row++) {
+        const south = spokePosition(y, 0, x, row);
+        const left = spokePosition(y, 1, x, row);
+        const right = spokePosition(y, 2, x, row);
+        expect(turn(south).x).toBeCloseTo(left.x, 9);
+        expect(turn(south).y).toBeCloseTo(left.y, 9);
+        expect(turn(left).x).toBeCloseTo(right.x, 9);
+        expect(turn(left).y).toBeCloseTo(right.y, 9);
+      }
+    }
+    // Tile row 0 faced the monsters; in the arena it faces the fight.
+    const front = spokePosition(y, 1, 3, 0);
+    const back = spokePosition(y, 1, 3, data.lane.buildZone.depth - 1);
+    const dist = (p: { x: number; y: number }) => Math.hypot(p.x - y.centre.x, p.y - y.centre.y);
+    expect(dist(front)).toBeLessThan(dist(back));
+  });
+
+  it('knows the triangle from the spokes', () => {
+    expect(inCentre(y, y.centre)).toBe(true);
+    for (let i = 0; i < 3; i++) {
+      const d = y.spokes[i]!;
+      // Just short of where the spoke's own ground starts, and just past it.
+      const inside = { x: y.centre.x + (y.hub - 0.01) * d.x, y: y.centre.y + (y.hub - 0.01) * d.y };
+      const outside = {
+        x: y.centre.x + (y.hub + 0.01) * d.x,
+        y: y.centre.y + (y.hub + 0.01) * d.y,
+      };
+      expect(inCentre(y, inside)).toBe(true);
+      expect(inCentre(y, outside)).toBe(false);
+    }
+  });
+
+  it('blocks a shot exactly when the line leaves the Y', () => {
+    // Random pairs of standing points, against a brute-force walk along the
+    // line. The walk can only miss a sliver too thin to sample, so it is held
+    // to the cases it can decide.
+    const rng = new Rng(1234);
+    const point = () => {
+      for (;;) {
+        const p = { x: rng.next() * y.width, y: rng.next() * y.depth };
+        if (insideY(p, 0.3)) return p;
+      }
+    };
+    let blocked = 0;
+    for (let n = 0; n < 2000; n++) {
+      const a = point();
+      const b = point();
+      let worst = Infinity;
+      for (let k = 0; k <= 400; k++) {
+        const t = k / 400;
+        const p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+        // How far inside the Y this sample is: the best spoke's margin.
+        const margin = Math.max(
+          ...y.spokes.map((_, i) => {
+            const { along, across } = frame(p, i);
+            return Math.min(along, y.reach - along, half - Math.abs(across));
+          }),
+        );
+        worst = Math.min(worst, margin);
+      }
+      const crosses = crossesTheVoid(y, a, b);
+      expect(crossesTheVoid(y, b, a)).toBe(crosses);
+      if (worst < -1e-3) expect(crosses, `${JSON.stringify([a, b])} leaves the Y`).toBe(true);
+      if (worst > 1e-3) expect(crosses, `${JSON.stringify([a, b])} stays in it`).toBe(false);
+      if (crosses) blocked++;
+    }
+    // Both answers came up often enough to mean something.
+    expect(blocked).toBeGreaterThan(200);
+    expect(blocked).toBeLessThan(1800);
+  });
+
+  it('lets the front ranks of neighbouring spokes see each other through the middle', () => {
+    // The middle of each front row, either side of an inside corner.
+    const stem = spokePosition(y, 0, 3, 0);
+    const left = spokePosition(y, 1, 4, 0);
+    expect(crossesTheVoid(y, stem, left)).toBe(false);
+    // But not round the inside corner itself: the outer files are walled off
+    // from each other, as on the cross.
+    const stemEdge = spokePosition(y, 0, 0, 2);
+    const leftEdge = spokePosition(y, 1, 7, 2);
+    expect(crossesTheVoid(y, stemEdge, leftEdge)).toBe(true);
+  });
+
+  it('keeps every body inside the Y through a whole fight, and finishes it', () => {
+    const { state, ctx } = threePlayers(8);
+    reachShowdown(ctx, state);
+    expect(state.showdown!.layout).toBe('y');
+
+    let guard = 0;
+    while (!state.finished && guard++ < 40000) {
+      step(ctx, state);
+      for (const army of state.showdown!.armies) {
+        for (const unit of army.units) {
+          if (!unit.alive) continue;
+          expect(insideY(unit.pos, unit.radius - 1e-6), `${unit.pos.x},${unit.pos.y}`).toBe(true);
+        }
+      }
+    }
+    expect(state.finished).toBe(true);
+    const placements = state.teams.map((t) => t.placement).sort();
+    expect(placements).toEqual([1, 2, 3, 4]);
+  });
+
+  it('walks every army at the middle of the triangle', () => {
+    const { state, ctx } = threePlayers(2);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+    const before = new Map<number, number>();
+    const dist = (p: { x: number; y: number }) => Math.hypot(p.x - y.centre.x, p.y - y.centre.y);
+    for (const army of state.showdown!.armies) {
+      for (const unit of army.units) before.set(unit.id, dist(unit.pos));
+    }
+    for (let i = 0; i < TICKS_PER_SECOND; i++) step(ctx, state);
+    for (const army of state.showdown!.armies) {
+      for (const unit of army.units) expect(dist(unit.pos)).toBeLessThan(before.get(unit.id)!);
+    }
+  });
+
+  it('gives the hill to whoever has the most bodies in the triangle', () => {
+    const { state, ctx } = threePlayers(3);
+    reachShowdown(ctx, state);
+    startFighting(ctx, state);
+    const army = state.showdown!.armies.find((x) => x.teamId === 'c')!;
+    army.units.forEach((unit, i) => {
+      unit.pos.x = y.centre.x - 0.8 + i * 0.8;
+      unit.pos.y = y.centre.y;
+      unit.moveSpeed = 0;
+    });
+    step(ctx, state);
+    expect(state.showdown!.centreHolders).toEqual(['c']);
+  });
+
+  it('tells the viewer which shape and which spoke', () => {
+    const { state, ctx } = threePlayers(2);
+    reachShowdown(ctx, state);
+    const view = viewFor(ctx, state, 'a').showdown!;
+    expect(view.layout).toBe('y');
+    expect(view.armies.map((a) => [a.seat, a.spoke])).toEqual([
+      [0, 0],
+      [2, 1],
+      [3, 2],
+    ]);
   });
 });

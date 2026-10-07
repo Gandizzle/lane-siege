@@ -49,7 +49,7 @@ import type {
   StatKey,
 } from '../data/schema.ts';
 import { refId, refRank, resolveAbility } from '../data/schema.ts';
-import { arenaCentre, arenaShape } from './arena.ts';
+import { arenaCentre, arenaShape, type ArenaLayout } from './arena.ts';
 import { TICKS_PER_SECOND } from './constants.ts';
 import { crowdControlMultiplier, healBy, healingMultiplier } from './dampening.ts';
 import { dealDamage, type Strike, type StrikeEnv } from './strike.ts';
@@ -1009,7 +1009,7 @@ export function buildLaneAbilityEnv(
 
 /**
  * The environment for the arena: an army's allies are its own and its enemies
- * are the other three seats' (§3.3, replaced).
+ * are every other army's (§3.3, replaced).
  *
  * The lists are built ONCE per tick rather than per lookup. Membership can only
  * change when a body dies, the dead are filtered out of target selection
@@ -1029,12 +1029,14 @@ export function buildArenaAbilityEnv(
   },
   showdown: {
     age: number;
+    /** Which arena: forward is toward ITS middle. The cross when not said. */
+    layout?: ArenaLayout;
     armies: { teamId: string; units: AbilityBody[] }[];
   },
   rng: Rng,
 ): AbilityEnv {
   const dampening = ctx.data.waves.showdown.dampening;
-  const centre = arenaCentre(arenaShape(ctx.data));
+  const centre = arenaCentre(arenaShape(ctx.data, showdown.layout));
   const allies = new Map<string, AbilityBody[]>();
   const enemies = new Map<string, AbilityBody[]>();
   const everyone: AbilityBody[] = [];

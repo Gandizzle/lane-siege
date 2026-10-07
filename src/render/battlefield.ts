@@ -109,9 +109,9 @@ interface Ember {
 
 /**
  * One battlefield's ground, painted into one or more areas (the lane is one;
- * the showdown arena's cross is three). Paint it when the choice, the area or
- * the tile size changes, and call `animate` every frame: on a still ground it
- * returns at once.
+ * the showdown arena's cross is three, and its Y one block cut to shape by a
+ * mask). Paint it when the choice, the area or the tile size changes, and call
+ * `animate` every frame: on a still ground it returns at once.
  */
 export class GroundView extends Container {
   /** Everything that does not move: on a calm ground, all of it. */

@@ -84,17 +84,15 @@ export const TECH_LEVEL = 3;
 /**
  * Which seats at the table a fight of this many armies uses.
  *
- * Two armies sit OPPOSITE each other - south and north - rather than in the
- * first two seats, which are south and west and therefore a quarter turn apart.
- * Adjacent spokes make a duel an L-shaped fight that meets at an angle; opposite
- * ones make it the head-on clash a duel is supposed to be, and the two are
- * different enough that measuring one and calling it the other would be a
- * mistake with no symptom.
+ * Where they STAND is no longer decided here: `beginShowdown` seats whoever
+ * arrives by how many there are (src/sim/arena.ts, `seating`) - a duel on
+ * opposite spokes of the cross, three on the Y, four on the cross - exactly as
+ * it does in a real match. What is left is which teams they are.
  *
- * Three is left as the first three seats and is KNOWN TO BE UNFAIR: the arena is
- * a cross, and three armies in it means two are adjacent and one is opposite
- * both. It needs its own shape (docs/OPEN-QUESTIONS.md) and nothing here should
- * be read as balancing for it.
+ * A duel still takes seats 0 and 2 rather than 0 and 1, with the other two
+ * seats empty. It makes no difference to where the armies stand, and it keeps
+ * the table - four teams, two of them out before the start - the one every
+ * duel measured so far was fought at, bit for bit.
  */
 export function seatsForArmies(count: number): number[] {
   if (count === 2) return [0, 2];
@@ -151,10 +149,10 @@ export function dominantArmorTrack(data: GameData, army: Army): string {
  * tournament rotates.
  */
 export function runArena(data: GameData, armies: readonly Army[], seed: number): ArenaResult {
-  // Always four seats at the table, so a duel can take opposite spokes rather
-  // than the first two. The empty ones are eliminated before anything starts,
-  // which is exactly the state a player who lost during the waves leaves
-  // behind, and `beginShowdown` already skips them.
+  // A duel sits at a table of four with two seats empty (`seatsForArmies`).
+  // The empty ones are eliminated before anything starts, which is exactly the
+  // state a player who lost during the waves leaves behind, and
+  // `beginShowdown` already skips them.
   const seats = seatsForArmies(armies.length);
   const total = Math.max(armies.length, seats.length > 0 ? Math.max(...seats) + 1 : 0);
   const teams = Array.from({ length: total }, (_, seat) => {

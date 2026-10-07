@@ -238,6 +238,47 @@ strange exception to that.
   `sellValue`, so the number on the button is the number the command pays.
 - Checked: `src/sim/selling.test.ts`.
 
+### 13. The arena is a cross, and a cross is only fair to four (§3.3, replaced) → **two fight head on, three fight on a Y**
+
+The Final Showdown seated each surviving army on the spoke its seat at the
+table owned and left an eliminated player's spoke empty. That is the right rule
+for identity and the wrong one for geometry as soon as fewer than four arrive:
+two survivors could land on adjacent spokes (an L-shaped fight round a corner)
+or opposite ones (a head-on clash) depending on who had died, and three always
+had two neighbours a quarter turn apart and a third facing one of them across
+the whole board, with the middle seat flanked on both sides.
+
+Decided: the arena is chosen by how many armies arrive (`seating` in
+src/sim/arena.ts).
+
+- **Four fight on the cross**, as before.
+- **Three fight on a Y**: three spokes a third of a turn apart, meeting at a
+  triangle a spoke wide, so every army has the same two neighbours at the same
+  angle.
+- **Two fight on opposite spokes of the cross**, south and north, whichever two
+  seats they hold. The side spokes stay open ground.
+
+Survivors take the spokes in seat order, the first at the south - the bottom
+of the screen - and keep their seat's color wherever they stand. A player who
+arrives with nothing standing is out before the card rather than taking a
+spoke.
+
+Measured on the same 108 three-way fights before and after (BALANCE.md §4k):
+on the cross the middle seat won 6% of three-way mirrors and the seating
+decided more fights than the armies did (chi-square 21.1 on 2 df); on the Y
+both controls are inside chance (2.9 and 0.9) and the army decides 14 line-ups
+of 20. Duels and four-ways are unchanged to the tick. What is left is a smaller
+edge for the Y's upper-right arm in mirrors, the same kind of edge the cross
+has for four - question 14.
+
+- Built: `seating`, `spokePosition` and the Y's shape, sight and hill in
+  src/sim/arena.ts; `Bounds.spokes` in motion.ts and its field mask in
+  flowfield.ts; `Showdown.layout` and `ShowdownArmy.spoke`, carried in the view
+  and on the wire; both shapes drawn from the same spokes in
+  src/render/arena.ts; three-ways in `npm run showdown`.
+- Checked: the Y tests in src/sim/showdown.test.ts, src/sim/flowfield.test.ts
+  and src/net/protocol.test.ts.
+
 ## Still open — needed before the milestone in brackets
 
 ### 3. Post-wave-25 purchases (§3.3) → **overtaken: the shop closes when the armies march**
@@ -270,29 +311,6 @@ is single-armor, where §3.4 wants bosses to carry a **mix** of armor types
 across their parts or spawns so no single damage type hard-counters them. That
 needs a multi-part boss model that does not exist yet.
 
-### 13. The arena is a cross, and a cross is only fair to four (§3.3, replaced) [balance]
-
-The Final Showdown seats each surviving army on the spoke its seat at the table
-owns, and an eliminated player's spoke is left empty rather than handed to
-somebody else. That is the right rule for identity and the wrong one for
-geometry as soon as fewer than four armies arrive.
-
-**Two survivors** may end up on ADJACENT spokes or OPPOSITE ones depending on
-which two players died, and those are materially different fights: opposite is a
-head-on clash, adjacent is an L-shaped one that meets at an angle. Two duels
-decided by different geometry is a fairness problem with no symptom - nothing
-crashes, one player simply had a different game. The balance harness and the
-Final Showdown mode already seat a duel opposite (`seatsForArmies` in
-src/balance/arena.ts); the live rule is unchanged and needs a decision.
-
-**Three survivors** cannot be made fair on this shape at all: two of them are
-adjacent and one is opposite both, whatever the seating. It wants its own arena
-shape - a Y rather than a cross - and nothing measured on the current one should
-be read as balancing for it.
-
-Neither blocks the first phase of balancing, which is four-way and duel only.
-See [BALANCE.md](BALANCE.md).
-
 ### 14. The arena is not rotationally symmetric, and one seat wins more (§3.3, replaced) [balance]
 
 Four IDENTICAL armies in the cross should win a quarter each. They do not. Over
@@ -324,6 +342,18 @@ direction.
 seatings, so whatever the advantage is, both sides get it. It does mean a
 four-way result carries it, and it means a real player in one seat has an edge,
 which is a shipping bug rather than a balance one.
+
+**The Y has one too, and it is not the order.** Three identical armies on the Y
+(question 13) won 30 / 26 / 45 per cent by spoke over 47 mirrors, the upper-right
+arm ahead. Handing the spokes out in reverse left the edge on the upper-right
+arm (20 of 47), so there it follows the SPOKE, not the processing order; nor
+did mirroring the steering's left-right scan move it (23 of 47). The Y has a
+source of asymmetry the cross does not: on the cross every spoke is a quarter
+turn of the next, and a square grid is symmetric under quarter turns, so the
+cross's edge has to come from something that is not - tie-breaks, processing
+order; on the Y the arms run at thirty degrees to the grid and the stem along
+it, and three armies of the same handedness meet the grid differently on each.
+Mixed three-ways show the Y's edge far less (38%, inside chance).
 
 ### 11. Monetisation and audio (§18) [post-ship]
 
@@ -363,9 +393,10 @@ Decisions that override the document rather than filling a gap in it:
   ever-nastier waves until one player was left. That is a race against a clock,
   and it is settled by who banked the most gold rather than by who built the
   better army. Clearing the last wave now cuts to a card — "Final Showdown in
-  3…" — and then to a cross-shaped arena, four spokes of lane width around an
-  8 × 8 centre, with every surviving army standing in its own spoke on the
-  tiles it was built on, restored to full HP. They converge on the middle and
+  3…" — and then to one arena with every surviving army standing in its own
+  spoke on the tiles it was built on, restored to full HP: a cross of four
+  spokes of lane width around an 8 × 8 centre for four, a Y of three around a
+  triangle for three, and opposite spokes of the cross for two (question 13). They converge on the middle and
   fight a free-for-all under the targeting and movement rules they have used all
   match, with one addition: sight in the arena is local rather than global -
   a unit looks its own reach plus a margin, never less than a floor, and walks
@@ -373,8 +404,8 @@ Decisions that override the document rather than filling a gap in it:
   Three things follow: every build phase is open, including the one before the
   last wave, and nothing at all is buyable once the armies march; units respawn
   at every build phase without exception; and the camera moves for the first
-  time, since a 32 × 32 arena does not fit a phone screen at a readable
-  scale. **Dampening** is the brake that guarantees termination — healing, a
+  time, since neither a 32 × 32 cross nor a 29 × 25 Y fits a phone screen at
+  a readable scale. **Dampening** is the brake that guarantees termination — healing, a
   summon's starting HP and crowd-control durations all fade 1% per second
   additively after the first 30 seconds. Two of the three are load-bearing now
   that abilities exist: the arena heals and holds, and both multipliers are

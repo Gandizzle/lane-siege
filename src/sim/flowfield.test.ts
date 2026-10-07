@@ -33,6 +33,7 @@ import {
   steerAlongField,
 } from './flowfield.ts';
 import type { FieldShape } from './flowfield.ts';
+import { settle, type Body, type Bounds } from './motion.ts';
 
 const SUB = 5;
 /** The 8-wide, 13-deep lane the fixtures below live in, as contact sees it. */
@@ -725,5 +726,111 @@ describe('a cross-shaped world, for the Final Showdown (§3.3, replaced)', () =>
 
     expect(plain.blocked[cellAt(plain, 1, 1)]).toBe(0);
     expect(plain.blocked[cellAt(plain, SIZE - 1, SIZE - 1)]).toBe(0);
+  });
+});
+
+describe('a Y-shaped world, for three in the Final Showdown (§3.3, replaced)', () => {
+  // A small Y: spokes 4 wide and 6 long past the triangle they meet in, the
+  // stem pointing down. The same construction as the arena's, by hand.
+  const HALF = 2;
+  const S = Math.sqrt(3) / 2;
+  const HUB = HALF / Math.sqrt(3);
+  const REACH = HUB + 6;
+  const W = 16;
+  const D = 14;
+  const C = { x: 8, y: 6 };
+  const DIRS = [
+    { x: 0, y: 1 },
+    { x: -S, y: -0.5 },
+    { x: S, y: -0.5 },
+  ];
+  const Y: Bounds = {
+    minX: 0,
+    maxX: W,
+    minY: 0,
+    maxY: D,
+    spokes: { cx: C.x, cy: C.y, half: HALF, reach: REACH, dirs: DIRS },
+  };
+  const along = (i: number, t: number) => ({ x: C.x + DIRS[i]!.x * t, y: C.y + DIRS[i]!.y * t });
+
+  function yField(inflate = 0.2) {
+    const field = createFlowField(W, D, 0, SUB);
+    clearField(field);
+    markOutside(field, Y, inflate);
+    return field;
+  }
+
+  it('leaves every spoke and the triangle open, and the gaps between them shut', () => {
+    const field = yField();
+    const open = (p: { x: number; y: number }) => field.blocked[cellAt(field, p.x, p.y)] === 0;
+
+    expect(open(C)).toBe(true);
+    for (let i = 0; i < 3; i++) {
+      expect(open(along(i, HUB + 1)), `spoke ${i} near the middle`).toBe(true);
+      expect(open(along(i, REACH - 0.6)), `spoke ${i} at the far end`).toBe(true);
+      // Straight away from a spoke is the gap between the other two.
+      expect(open(along(i, -(2 * HUB + 1.5))), `the gap opposite spoke ${i}`).toBe(false);
+      // And past the far end is nothing at all.
+      expect(open(along(i, REACH + 0.5)), `beyond spoke ${i}`).toBe(false);
+    }
+  });
+
+  it('agrees with the contact code about every cell', () => {
+    // A cell is open exactly when a body of the field's size can stand on its
+    // centre - which is to say, when settling a body there leaves it there.
+    const inflate = 0.35;
+    const field = yField(inflate);
+    let open = 0;
+    for (let gy = 0; gy < field.depth; gy++) {
+      for (let gx = 0; gx < field.width; gx++) {
+        const at = { x: (gx + 0.5) / SUB, y: (gy + 0.5) / SUB };
+        const body: Body = {
+          id: 1,
+          pos: { ...at },
+          radius: inflate,
+          halfWidth: 0,
+          alive: true,
+          settled: false,
+          monster: false,
+          phasesMonsters: false,
+        };
+        settle(body, [], Y);
+        const stays = body.pos.x === at.x && body.pos.y === at.y;
+        expect(field.blocked[gy * field.width + gx] === 0, `cell ${gx},${gy}`).toBe(stays);
+        if (stays) open++;
+      }
+    }
+    expect(open).toBeGreaterThan(1000);
+  });
+
+  it('works the shape out once per size and copies it after that', () => {
+    const first = yField(0.2);
+    const again = yField(0.2);
+    expect(again.blocked).toEqual(first.blocked);
+    expect(again.blockedFine).toEqual(first.blockedFine);
+    expect(again.open).toEqual(first.open);
+    // A bigger body has less room, and gets its own answer.
+    const big = yField(0.6);
+    const count = (a: Uint8Array) => a.reduce((n, v) => n + v, 0);
+    expect(count(big.blocked)).toBeGreaterThan(count(first.blocked));
+  });
+
+  it('routes round an inside corner rather than across the gap', () => {
+    // A goal at the far end of the left arm, a seeker at the far end of the
+    // right one: the straight line between them crosses the gap above the
+    // triangle, so the only way is in to the middle and out again.
+    const field = yField();
+    const goal = along(1, REACH - 1);
+    markRing(field, disc(goal.x, goal.y, 0.2), 0.2, MELEE, 7);
+    computeFlowField(field);
+
+    const from = along(2, REACH - 1);
+    const cost = costAt(field, from.x, from.y);
+    const dx = Math.abs(from.x - goal.x) * SUB;
+    const dy = Math.abs(from.y - goal.y) * SUB;
+    const straight = Math.min(dx, dy) * W_DIAG + Math.abs(dx - dy) * W_ORTH;
+
+    expect(cost).toBeLessThan(UNREACHABLE);
+    expect(cost).toBeGreaterThan(straight);
   });
 });

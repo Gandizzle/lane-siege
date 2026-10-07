@@ -2312,6 +2312,72 @@ as before, and a 640-fight run is a coarser instrument than its error bars say.
   Their spread comes from fitting many armies rather than many seeds, which is
   why they were still useful, but a mean over seeds there is not what it says.
 
+## 4k. Three on a Y
+
+When one player went out during the waves, the other three used to fight on
+the cross with that player's spoke left empty. That is two armies a quarter
+turn apart and a third facing one of them across the whole board, with the one
+in the middle seat flanked on both sides. It is now a Y (src/sim/arena.ts):
+three spokes a third of a turn apart, meeting at a triangle a spoke wide, so
+every army has the same two neighbours at the same angle. Two survivors fight
+on opposite spokes of the cross, whichever two seats they hold.
+
+### How it was measured
+
+`src/headless/_ythree.ts` (scratch): 48 three-way mirrors - three copies of one
+builder on one build, twelve builds a builder, drawn without replacement - and
+20 three-way line-ups of random builders and builds, each fought at all three
+rotations of the seating, for 60 fights. The same plans were fought on the
+code before the Y (three on the cross, south, west and north) and after it.
+
+| three armies                  | mirrors won, by seat | chi-square | rotations won, by seat | chi-square | army decides |
+| ----------------------------- | -------------------- | ---------- | ---------------------- | ---------- | ------------ |
+| on the cross, S / W / N       | 33% / 6% / 60%       | 21.1       | 42% / 15% / 43%        | 9.1        | 7 of 20      |
+| on the Y, stem / left / right | 30% / 26% / 45%      | 2.9        | 28% / 33% / 38%        | 0.9        | 14 of 20     |
+
+Chi-square is on 2 degrees of freedom: 5.99 is the 5% line and 9.21 the 1%.
+"Army decides" counts the line-ups whose winner was the same army at all three
+seatings.
+
+On the cross the middle seat won 3 mirrors of 48, and the seating decided more
+three-ways than the armies did: 13 of 20 line-ups changed winner when they
+changed seats. On the Y neither control is outside chance and the army decided
+14 of 20.
+
+Duels and four-ways did not move. The cross is now laid out by the same spoke
+formula as the Y, and a test holds it to the old quarter-turn rotation bit for
+bit; 8 duels and 3 four-ways replayed before and after came out identical to
+the tick.
+
+### What is left: the upper-right arm
+
+The right arm won 21 of 47 decided mirrors. Handed out in reverse - the first
+seat on the right arm - it still won 20 of 47, so the edge goes with the spoke,
+not with the seat or the order the armies are processed in. Mirroring the
+steering's left-right scan did not move it either (23 of 47). The likely cause
+is that every army is the same army turned, so all three have the same
+handedness, while a square grid is not symmetric under a third of a turn: the
+stem runs along the grid and the arms at thirty degrees to it, and a
+left-handed army facing down the right arm meets the grid differently from one
+facing down the left.
+
+It is the same kind of edge the cross has for four - its east spoke won 44% of
+mirrors (OPEN-QUESTIONS.md, question 14) - and about the same size. It shows
+where nothing else separates the armies, in mirrors, far more than in mixed
+three-ways (38% at rotation, inside chance), and it is open.
+
+### Cost and harness
+
+Three full-budget armies on the Y cost 7 ms a tick, against 16 ms for four on
+the cross: one army fewer and a smaller field, and the Y's outside mask is
+worked out once per body radius rather than every tick.
+
+`npm run showdown` now fights three-ways too - `--threes` line-ups of three
+different builders seated at random, and `--mirrors3` three-way mirrors a
+builder - and reads both controls on two degrees of freedom. They are planned
+after every other fight from the same generator, so a run with the old options
+fights exactly the fights it always did.
+
 ## 5. The phases
 
 **Phase 0 — instrumentation.** _Done._ Vocabulary settled, the budget computed
@@ -2399,6 +2465,10 @@ of the mean, not of whether the fight was close.
 
 Win rate by spoke across the four-ways, seating shuffled. **25% ± 3 points.** The
 arena is a cross whose four spokes are meant to be one spoke rotated.
+
+The same two controls hold for three, on the Y: **a third a seat** in the
+three-way mirrors and across the three-ways, read together on two degrees of
+freedom (§4k).
 
 ### 2. Duels
 

@@ -730,25 +730,54 @@ sends can stand in a lane together, sixty bodies.
   failure is slow motion rather than a spiral, but it wants checking on a real
   mid-range phone.
 
-### The Final Showdown: one arena, four armies
+### The Final Showdown: one arena, every army left
 
 §3.3 ended a match with an attrition endgame — from wave 25 nothing could be
 built and nothing respawned, and increasingly nasty waves ground the table down
 until one player was left. That is a race against a clock, settled by who
 banked the most gold. **It has been replaced.** Clearing the last wave
 (`waves.showdown.afterWave`) now opens the **Final Showdown**: a card counts
-down from three, and the four armies are set down in one cross-shaped arena
-facing each other. Last player with anything standing wins.
+down from three, and every surviving army is set down in one arena facing the
+others. Last player with anything standing wins.
 
-**The shape** (`src/sim/arena.ts`). Four spokes of lane width meeting at a
-square centre. A spoke is the player's whole 8 × 10 build grid plus
-`approachDepth` rows of open ground ahead of it, so the centre is 8 × 8 by
-construction and the bounding square is 32 × 32. The four corners of that
-square are _not_ arena: `Bounds.band` in motion.ts is what keeps bodies out of
-them, and `markOutside` in flowfield.ts is what stops the distance field
-routing through them. Seating is by seat at the table, clockwise from south,
-and an eliminated player simply leaves their spoke empty rather than the table
-reshuffling.
+**The shapes** (`src/sim/arena.ts`). Spokes of lane width meeting in a shared
+middle. A spoke is the player's whole 8 × 10 build grid plus `approachDepth`
+rows of open ground ahead of it, and which shape they make depends on how many
+armies arrive (`seating`):
+
+- **Four fight on a cross.** Four spokes around an 8 × 8 square centre, in a
+  32 × 32 bounding square whose four corners are _not_ arena: `Bounds.band` in
+  motion.ts keeps bodies out of them, and `markOutside` in flowfield.ts stops
+  the distance field routing through them.
+- **Three fight on a Y.** Three spokes a third of a turn apart — the stem
+  pointing south, the arms up and out at thirty degrees — meeting at an
+  equilateral triangle whose sides are each a spoke's width, so every spoke
+  ends flush against it (its inradius, `hub`, is spokeWidth / 2√3 = 2.3
+  tiles). The bounding box is 29 × 25. A cross with one spoke empty is not a
+  fair place for three: two of them are a quarter turn apart and the third
+  faces one of them across the whole board, while the one in the middle has an
+  enemy on each side. The Y gives every army the same two neighbours at the
+  same angle. It has its own `Bounds.spokes` — a body must be inside one spoke
+  strip, eroded by its radius — and its own pieces in each place the cross has
+  them: a wedge test for line of sight (two half-planes per gap), a triangle
+  for the hill, and a field mask worked out once per body radius and copied in
+  after that, because the Y's edges are not on the grid's axes and testing a
+  third of a million fine cells against three rotations every tick is not
+  affordable. Directions are built from `Math.sqrt(3) / 2`, never `Math.sin`,
+  since the root is correctly rounded on every machine and the sine is not.
+- **Two fight on opposite spokes of the cross** — south and north — whichever
+  two seats they hold, so a duel is always the head-on clash and never an
+  L-shaped fight round a corner. The side spokes stay open, untinted ground.
+
+Survivors take the shape's spokes in seat order, the first on the south spoke —
+the bottom of the screen, where a lane's own defenders stand — and the rest
+clockwise. With all four at the table that is lane one south, lane two west
+and so on, exactly as before. A seat keeps its color whichever spoke it lands
+on: `ShowdownArmy` carries both its `seat` and its `spoke`, and `Showdown`
+carries the `layout`, all three on the wire. The cross's layout is computed by
+the same general spoke formula as the Y's, and is bit-identical to the old
+quarter-turn rotation (a test holds it to that), so every duel and four-way
+measured before the Y existed is unchanged to the last tick.
 
 **The transplant** (`src/sim/showdown.ts`). Every unit is _moved_ out of its
 lane — the same objects, not copies — restored to full HP as at the start of a
@@ -756,7 +785,10 @@ build phase, and stood on the tile it was built on in its owner's spoke. The
 line a player spent twenty-five waves arranging is the line they take in, and
 the row they kept safest behind the fight is the row furthest from the centre.
 `lane.units` is left empty; from there the lanes, the fortresses and the
-economy are done.
+economy are done. A player who arrives with nothing standing is out before the
+card rather than after it — at the same placement `showdownEliminations` would
+have given them the moment it lifted — so an empty lane never takes a spoke and
+leaves three real armies on a cross built for four.
 
 **The fight is the fight they already know, with one thing added.** Units hold
 a target until it dies, take the nearest otherwise, walk downhill on the same
@@ -799,21 +831,26 @@ multiplier to bite, and a healing effect added without going through it is
 visibly wrong.
 
 **The camera moves, and it is the only one that does.** §14.1's whole-board-on-
-one-screen rule cannot hold for a 32 × 32 arena on a portrait phone — fitting
-it would leave a body four pixels across. So `arenaCamera` fits the arena to
-the _longer_ screen axis (on a phone: full height, scroll sideways), never
-zooms in past the tile size the lane was drawn at, and clamps the offset so the
-board always covers the screen. Drag anywhere to scroll. The lane stack — lane,
+one-screen rule cannot hold for a 32 × 32 cross or a 29 × 25 Y on a portrait
+phone — fitting either would leave a body four pixels across. So `arenaCamera`
+fits the arena along the _longer_ screen axis (on a phone: full height, scroll
+sideways), never zooms in past the tile size the lane was drawn at, and clamps
+the offset so the board always covers the screen. Both shapes are drawn by one
+set of code from the simulation's spokes (`src/render/arena.ts`): each spoke a
+rectangle along its own direction, the middle the polygon their inner ends
+close, the outline the walk round all of them. A painted battlefield is laid
+on the cross as three axis-aligned pieces and on the Y as one block cut to the
+outline by a mask. Drag anywhere to scroll. The lane stack — lane,
 aura, HUD, opponent tabs, build bar — is hidden outright, because none of it
 means anything any more: nothing to build, nothing to send, no fortress to
 upgrade and no other lane to watch.
 
 **Ownership needed a channel.** §14.2 spends silhouette on armor, fill on
 damage type, and size and pips on tier; a lane never needs a fifth because
-everything solid in it is yours. Four armies in one arena do, so each spoke's
-floor is tinted with its seat's color and each body wears a ring in the same
-color — two readings of one fact, and the spoke tint survives a crowded
-centre.
+everything solid in it is yours. Several armies in one arena do, so each
+spoke's floor is tinted with the color of the seat fighting from it and each
+body wears a ring in the same color — two readings of one fact, and the spoke
+tint survives a crowded centre. A spoke nobody fights from is left bare.
 
 Measured: **7.6 ms per tick** with four armies of forty (15% of the 50 ms
 budget, against 10.9 ms for four lanes with a full wave each - the arena's
@@ -822,8 +859,10 @@ rather than every lane's), and **99.3 KiB/s** on the wire, below the 171.3
 KiB/s a four-lane spectator already costs. `npm run perf` and `npm run wire`.
 
 To look at it without playing twenty-five waves: `?wave=25` starts a practice
-match at the last build phase, and `?showdown=1` starts inside the arena with
-four scripted armies already in it.
+match at the last build phase, `?showdown=1` starts inside the arena with four
+scripted armies already in it, and the Final Showdown mode on the home screen
+sets up two, three or four armies by hand — two on the cross head on, three on
+the Y.
 
 ### Solo: your own sends, and a wave that never ends
 
@@ -1300,7 +1339,9 @@ its own (`animate`): it is scenery, so it keeps moving while a practice match is
 paused and does not speed up with it. A still ground's `animate` returns at
 once. Every detail is kept wholly inside its area, so nothing needs a mask. The
 arena's cross is painted as three areas with their own seeds — the column and
-the two arms — so neighbouring pieces are not copies.
+the two arms — so neighbouring pieces are not copies. The Y is the one
+exception: its spokes run at angles no rectangle follows, so it is painted as
+one block over its bounding box and cut to its outline by a mask.
 
 ### The practice bots: seven ways to play
 
@@ -2487,6 +2528,15 @@ Implemented and tested (388 tests):
   out of the lanes, the countdown holding every army still, four armies
   converging on one centre, the last one standing placed first, and the shop
   closing when the armies march (§3.3, replaced)
+- The arena by who arrives: four on the cross, three on the Y keeping their
+  seats, two head on whichever seats they hold, and an empty lane out before
+  the card rather than on a spoke; the cross's layout bit-identical to the old
+  quarter-turn rotation; and on the Y, three spokes a third of a turn apart
+  meeting in a triangle a spoke wide, every army laid out as the same army
+  turned, every build tile in its own spoke, line of sight agreeing with a
+  brute-force walk along 2,000 random lines, every body kept inside it through
+  a whole fight, the hill held in the triangle, and the shape and spokes on the
+  wire, with a frame from before the Y read as the cross (§3.3, replaced)
 - What a unit can see in the arena: a body just inside its reach plus the
   margin and not one just outside, a long-reaching unit given sight to match
   rather than the floor, nothing at all across the board when the card lifts,
@@ -2558,6 +2608,10 @@ Implemented and tested (388 tests):
 - The distance field against a plain shortest path, cell for cell, on forty
   random layouts, and that a mirrored layout produces a mirrored field - the
   two tests that catch a wrong field rather than a wrong-looking crowd
+- The Y's field mask agreeing with the contact code about every cell - a cell
+  is open exactly when a body settled on its centre stays there - worked out
+  once per body size and copied after that, and a route between two arms going
+  in through the triangle rather than across the gap (§3.3, replaced)
 - Rule zero: a monster ignores a defender it has not reached, takes one that
   comes inside its acquisition range, keeps it rather than swapping every tick,
   and goes back to the fortress when it dies (§5.1)
@@ -2597,7 +2651,8 @@ matters. The full list is in
 with the widest blast radius are:
 
 - **The match ends in the Final Showdown, not in attrition** (§3.3). The last
-  wave is followed by a free-for-all in one cross-shaped arena rather than by
+  wave is followed by a free-for-all in one arena - a cross for four, a Y for
+  three, opposite spokes for two - rather than by
   ever-nastier waves against a table that can no longer build or respawn. The
   old ending was decided by who banked the most gold; this one is decided by
   the armies. See

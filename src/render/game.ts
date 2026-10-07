@@ -55,6 +55,7 @@ import {
   hasMark,
   inBounds,
   summariseWave,
+  type ArenaLayout,
   type Command,
   type DefIndex,
   type LaneView,
@@ -240,7 +241,7 @@ export class Game extends Container {
   private readonly matchCues = new MatchCues();
   /** Board widths in tiles, for panning a sound to where it happened. */
   private readonly laneWidth: number;
-  private readonly arenaWidth: number;
+  private readonly arenaWidths: Record<ArenaLayout, number>;
 
   constructor(
     private readonly data: GameData,
@@ -261,7 +262,7 @@ export class Game extends Container {
     const defs = buildDefIndex(data);
     this.defs = defs;
     this.laneWidth = data.lane.buildZone.width;
-    this.arenaWidth = arenaShape(data).size;
+    this.arenaWidths = { cross: arenaShape(data, 'cross').width, y: arenaShape(data, 'y').width };
     this.auraLayer = new AuraLayer(this.layout, data.lane);
     this.entities = new EntityLayer(this.layout, defs);
     // Above the bodies, so a swing reads as landing ON what it hits (§14.2).
@@ -330,13 +331,7 @@ export class Game extends Container {
       onPlay: (seats) => this.startShowdown(seats),
       onBack: () => this.goHome(),
     });
-    this.arena = new ArenaStage(
-      arenaShape(data),
-      this.layout.screen,
-      this.layout.tileSize,
-      data,
-      defs,
-    );
+    this.arena = new ArenaStage(this.layout.screen, this.layout.tileSize, data, defs);
     this.arena.visible = false;
     this.countdown = new ShowdownCountdown(this.layout);
     this.waveCleared = new WaveCleared(this.layout);
@@ -1081,7 +1076,15 @@ export class Game extends Container {
       this.statusLog.observe(incomingArena ?? incoming, this.statusClock);
       // The same fight, heard: whichever board is on screen, and only that one.
       if (incomingArena)
-        this.hear(combatCues(incomingArena, outgoingArena, 'all', this.defs, this.arenaWidth));
+        this.hear(
+          combatCues(
+            incomingArena,
+            outgoingArena,
+            'all',
+            this.defs,
+            this.arenaWidths[this.view?.showdown?.layout ?? 'cross'],
+          ),
+        );
       else if (incoming)
         this.hear(combatCues(incoming, outgoing, deaths, this.defs, this.laneWidth));
     }

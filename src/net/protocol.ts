@@ -41,7 +41,7 @@
 import type { GameData } from '../data/schema.ts';
 import type { ArmorType, DamageType } from '../data/schema.ts';
 import { SUPPLY_LADDER_ID, upgradeLadderIds } from '../data/schema.ts';
-import { FORTRESS_UPGRADE_IDS } from '../sim/index.ts';
+import { ARENA_LAYOUTS, FORTRESS_UPGRADE_IDS, LEGS } from '../sim/index.ts';
 import type {
   AttackView,
   LaneView,
@@ -175,23 +175,30 @@ export interface WireLane {
 }
 
 /**
- * One army in the Final Showdown (§3.3, replaced): `[teamIndex, seat, units]`.
+ * One army in the Final Showdown (§3.3, replaced): `[teamIndex, seat, units,
+ * spoke]`.
  *
  * The seat rides along rather than being derived from the team index, because
- * an eliminated player leaves their spoke empty and the armies that are left
+ * an eliminated player's seat is simply missing and the armies that are left
  * keep the seats they had - so the position in this array is not the seat.
+ * The spoke rides along because it is not the seat either: it depends on how
+ * many armies arrived (arena.ts, `seating`). Optional, so a frame from before
+ * the Y existed decodes - to the seat's own spoke of the cross, which is where
+ * every army stood then.
  */
-export type WireArmy = [number, number, WireEntity[]];
+export type WireArmy = [number, number, WireEntity[], number?];
 
 /**
- * `[countdownTicks, armies, flat attacks, centre holders, status marks]`.
+ * `[countdownTicks, armies, flat attacks, centre holders, status marks,
+ * layout]`.
  *
  * The holders are team INDICES into the same table the armies use, and there
  * are at most four of them, so who owns the hill costs a handful of bytes a
  * frame. See `WireLane.a` on the flattening of the attacks, and `WireLane.sm`
- * on the marks, which are optional for the same reason.
+ * on the marks, which are optional for the same reason. The layout is an
+ * index into `ARENA_LAYOUTS`, absent - the cross - on an older frame.
  */
-export type WireShowdown = [number, WireArmy[], number[], number[], number[]?];
+export type WireShowdown = [number, WireArmy[], number[], number[], number[]?, number?];
 
 export interface WireFrame {
   tk: number;
@@ -661,24 +668,28 @@ function encodeShowdown(showdown: ShowdownView, tables: WireTables): WireShowdow
           tables.teamIds.indexOf(army.teamId),
           army.seat,
           army.units.map((u) => encodeEntity(u, tables.unitIndex)),
+          army.spoke,
         ] as WireArmy,
     ),
     flattenAttacks(showdown.attacks),
     showdown.centreHolders.map((id) => tables.teamIds.indexOf(id)).filter((i) => i >= 0),
     showdown.armies.flatMap((army) => encodeMarks(army.units)),
+    Math.max(0, ARENA_LAYOUTS.indexOf(showdown.layout)),
   ];
 }
 
 function decodeShowdown(wire: WireShowdown, tables: WireTables): ShowdownView {
-  const [countdown, armies, attacks, holders, marks] = wire;
+  const [countdown, armies, attacks, holders, marks, layout] = wire;
   const decoded: ShowdownView = {
     countdown,
+    layout: ARENA_LAYOUTS[layout ?? 0] ?? 'cross',
     // Absent on a frame from before the hill existed, which is what the `?? []`
     // is for - a replay recorded then should decode rather than throw.
     centreHolders: (holders ?? []).map((i) => tables.teamIds[i] ?? '').filter((id) => id !== ''),
-    armies: armies.map(([teamIndex, seat, units]) => ({
+    armies: armies.map(([teamIndex, seat, units, spoke]) => ({
       teamId: tables.teamIds[teamIndex] ?? '',
       seat,
+      spoke: spoke ?? seat % LEGS.length,
       units: units.map((row) => decodeEntity(row, tables.unitIds, tables.unitTraits)),
     })),
     attacks: unflattenAttacks(attacks),

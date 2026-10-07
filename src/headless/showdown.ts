@@ -10,6 +10,7 @@
  *   npm run showdown -- --quick          a short one, for checking a change
  *   npm run showdown -- --jobs 1         one process, for profiling
  *   npm run showdown -- --duels 100 --ffa 200 --mirrors 40
+ *   npm run showdown -- --threes 120 --mirrors3 20   three-ways, on the Y
  *   npm run showdown -- --seed 7
  *   npm run showdown -- --walk 2         arena walking at twice lane speed
  *   npm run showdown -- --centre 0.25    the centre worth +25% dealt, -25% taken
@@ -57,8 +58,8 @@ const quick = has('quick');
 
 // `--sight on|off` overrides waves.showdown.lineOfSight for this run, so the
 // difference the corners make can be measured rather than argued about. It
-// only shows up in four-ways: a duel sits on opposite spokes and every line
-// between them stays inside one bar of the cross.
+// only shows up in four-ways and three-ways: a duel sits on opposite spokes and
+// every line between them stays inside one bar of the cross.
 const sight = flag('sight');
 if (sight === 'on' || sight === 'off') data.waves.showdown.lineOfSight = sight === 'on';
 // `--walk <n>` overrides waves.showdown.walkSpeed the same way.
@@ -74,6 +75,8 @@ const options: TournamentOptions = {
   duelsPerPair: numberFlag('duels', quick ? 4 : DEFAULTS.duelsPerPair),
   freeForAlls: numberFlag('ffa', quick ? 8 : DEFAULTS.freeForAlls),
   mirrors: numberFlag('mirrors', quick ? 2 : DEFAULTS.mirrors),
+  threeWays: numberFlag('threes', quick ? 6 : DEFAULTS.threeWays),
+  threeMirrors: numberFlag('mirrors3', quick ? 1 : DEFAULTS.threeMirrors),
   seed: numberFlag('seed', DEFAULTS.seed),
 };
 
@@ -119,7 +122,8 @@ const jobs = Math.max(1, Math.min(numberFlag('jobs', os.cpus().length), plans.le
 
 console.log(
   `\n${plans.length} fights: ${options.mirrors} mirrors a builder, ${options.duelsPerPair} duels a pair ` +
-    `(both seatings), ${options.freeForAlls} four-ways. seed ${options.seed}.`,
+    `(both seatings), ${options.freeForAlls} four-ways, ${options.threeMirrors} three-way mirrors ` +
+    `a builder, ${options.threeWays} three-ways. seed ${options.seed}.`,
 );
 console.log(`running on ${jobs} ${jobs === 1 ? 'process' : 'processes'}...\n`);
 
@@ -276,6 +280,14 @@ function report(r: TournamentReport, raw: readonly FightRecord[]): void {
   verdict(r.mirror);
   tallyRows('SEATS: win rate by spoke across the four-ways, seating shuffled.', r.seats, 0.25);
   verdict(r.seats);
+  tallyRows(
+    'MIRROR, THREE: three copies of one builder, one build, on the Y. 33% a seat.',
+    r.mirror3,
+    1 / 3,
+  );
+  verdict(r.mirror3);
+  tallyRows('SEATS, THREE: win rate by spoke across the three-ways.', r.threeSeats, 1 / 3);
+  verdict(r.threeSeats);
 
   console.log('\n' + '='.repeat(78));
   console.log('DUELS - the primary signal for builder parity');
@@ -299,6 +311,11 @@ function report(r: TournamentReport, raw: readonly FightRecord[]): void {
   console.log('FOUR-WAYS - a check on what only shows up with four');
   console.log('='.repeat(78));
   tallyRows('By builder.', r.ffaBuilders, 0.25);
+
+  console.log('\n' + '='.repeat(78));
+  console.log('THREE-WAYS - the ending when one player went out during the waves');
+  console.log('='.repeat(78));
+  tallyRows('By builder.', r.threeBuilders, 1 / 3);
 
   console.log('\n' + '='.repeat(78));
   console.log('BUILDS - is one shape of army simply correct?');

@@ -449,9 +449,16 @@ describe('a frame cannot leak what the view withheld', () => {
 });
 
 describe('the Final Showdown on the wire (§3.3, replaced)', () => {
-  /** Arm every lane and jump to the tick the last wave is cleared. */
-  function showdownMatch() {
+  /**
+   * Arm every lane - or every lane but `out`, whose player is gone - and jump
+   * to the tick the last wave is cleared.
+   */
+  function showdownMatch(out: number[] = []) {
     const { state, ctx } = match();
+    for (const index of out) {
+      state.teams[index]!.eliminated = true;
+      state.eliminatedCount += 1;
+    }
     for (const id of TEAMS) {
       const lane = state.lanes[id]!;
       lane.economy.gold = 99_999;
@@ -498,6 +505,7 @@ describe('the Final Showdown on the wire (§3.3, replaced)', () => {
       const got = decoded.showdown!.armies[i]!;
       expect(got.teamId).toBe(army.teamId);
       expect(got.seat).toBe(army.seat);
+      expect(got.spoke).toBe(army.spoke);
       expect(got.units).toHaveLength(army.units.length);
       army.units.forEach((unit, j) => {
         const row = got.units[j]!;
@@ -507,6 +515,38 @@ describe('the Final Showdown on the wire (§3.3, replaced)', () => {
         expect(row.y).toBeCloseTo(unit.y, 2);
       });
     });
+  });
+
+  it('carries the arena’s shape and who stands on which spoke', () => {
+    // Three left is a Y, and the seats no longer say where anybody stands.
+    const three = showdownMatch([1]);
+    const y = roundTrip(three.state, three.ctx, 'a').decoded.showdown!;
+    expect(y.layout).toBe('y');
+    expect(y.armies.map((a) => [a.seat, a.spoke])).toEqual([
+      [0, 0],
+      [2, 1],
+      [3, 2],
+    ]);
+    // Two left fight head on, whichever two they are.
+    const two = showdownMatch([2, 3]);
+    const duel = roundTrip(two.state, two.ctx, 'a').decoded.showdown!;
+    expect(duel.layout).toBe('cross');
+    expect(duel.armies.map((a) => [a.seat, a.spoke])).toEqual([
+      [0, 0],
+      [1, 2],
+    ]);
+  });
+
+  it('reads a frame from before the Y as the cross, every army on its own seat', () => {
+    const { state, ctx } = showdownMatch();
+    const frame = encodeFrame(viewFor(ctx, state, 'a'), tables);
+    // What an older server sent: no layout, and no spoke on any army.
+    const old = frame.sd!;
+    old.length = 5;
+    for (const army of old[1]) army.length = 3;
+    const decoded = decodeFrame(frame, tables).showdown!;
+    expect(decoded.layout).toBe('cross');
+    expect(decoded.armies.map((a) => a.spoke)).toEqual(decoded.armies.map((a) => a.seat));
   });
 
   it('carries the status marks on the armies', () => {

@@ -11,6 +11,7 @@
  */
 
 import type { ArmorType, DamageType } from '../data/schema.ts';
+import type { ArenaLayout } from './arena.ts';
 import type { Status } from './status.ts';
 
 export type EntityId = number;
@@ -522,14 +523,16 @@ export interface WaveTally {
  */
 export interface ShowdownArmy {
   teamId: TeamId;
-  /**
-   * Seat at the table, which is the whole of where this army fights from:
-   * `legForSeat(seat)` (arena.ts) turns it into a spoke. Stored rather than
-   * the spoke itself because the seat is the fact and the spoke is a reading
-   * of it - and an eliminated player's spoke stays empty rather than being
-   * handed to somebody else.
-   */
+  /** Seat at the table: the team's place in the match, and its color. */
   seat: number;
+  /**
+   * Which of the arena's spokes it fights from (`ArenaShape.spokes`), decided
+   * when the showdown begins by how many armies there are (arena.ts,
+   * `seating`). Not the seat: a cross with one spoke left empty is not a fair
+   * fight for three, so three get a Y, and a duel is always fought on
+   * opposite spokes however the two seats happened to be placed.
+   */
+  spoke: number;
   units: DefensiveUnit[];
 }
 
@@ -547,11 +550,17 @@ export interface Showdown {
    * cannot change how hard it bites (§3.3, replaced).
    */
   age: number;
+  /**
+   * The arena's shape: a cross for four, and for two; a Y for three (arena.ts).
+   * Fixed for the fight, since it is chosen by who arrives rather than by who
+   * is left.
+   */
+  layout: ArenaLayout;
   armies: ShowdownArmy[];
   /** Blows landed on this tick, as in a lane. See `Attack`. */
   attacks: Attack[];
   /**
-   * Who holds the centre square this tick, and so who is hitting harder and
+   * Who holds the centre this tick, and so who is hitting harder and
    * taking less (`holdTheCentre` in showdown.ts). Everyone tied for the most
    * bodies inside it; empty when nobody is standing there at all.
    *

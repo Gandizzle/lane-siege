@@ -123,6 +123,33 @@ export interface Bounds {
    * the same width around a square centre.
    */
   band?: { min: number; max: number };
+  /**
+   * A Y-shaped arena (§3.3 replaced, the Final Showdown for three): spokes of
+   * one width radiating from one point.
+   *
+   * Present: a body must sit inside at least one spoke - between the centre
+   * and the spoke's far end, and within its half-width of the spoke's middle
+   * line, both less the body's own radius. The triangle where the spokes meet
+   * needs no rule of its own: every point of it is inside one spoke or
+   * another.
+   *
+   * Not used for the cross, which has `band`: the band is the same idea with
+   * every direction a whole axis, and it is what the cross was measured on.
+   */
+  spokes?: Spokes;
+}
+
+/** See `Bounds.spokes`. */
+export interface Spokes {
+  /** Where the spokes meet. */
+  cx: number;
+  cy: number;
+  /** Half a spoke's width. */
+  half: number;
+  /** From the centre to a spoke's far end. */
+  reach: number;
+  /** Each spoke's direction out from the centre, unit length. */
+  dirs: readonly Vec2[];
 }
 
 /**
@@ -152,6 +179,12 @@ function outsideBy(bounds: Bounds, x: number, y: number, halfSpan: number, radiu
     const corner = Math.min(offX, offY);
     if (corner > worst) worst = corner;
   }
+
+  const spokes = bounds.spokes;
+  if (spokes) {
+    const off = spokeOffset(spokes, x, y, halfSpan, null);
+    if (off > worst) worst = off;
+  }
   return worst;
 }
 
@@ -162,6 +195,59 @@ function bandOffset(band: { min: number; max: number }, v: number, half: number)
   if (v < low) return low - v;
   if (v > high) return v - high;
   return 0;
+}
+
+/**
+ * Closer than this to a spoke counts as in it. A body put back on a spoke's
+ * edge is put there by a rotation, and reading its position back through the
+ * same rotation can land a rounding error outside - which, without this, is a
+ * contact that resolves forever and costs every pass `resolveContacts` has.
+ */
+const SPOKE_EPSILON = 1e-9;
+
+/**
+ * How far a body of `radius` at (x, y) is from standing inside one of the
+ * spokes: 0 when it already is. With `out`, also where the nearest such place
+ * is - the closest point of the closest spoke, the spokes taken in order so
+ * that a tie always goes the same way.
+ *
+ * A spoke here is a rectangle in its own frame - along it from the centre to
+ * the far end, across it from edge to edge - shrunk by the radius everywhere
+ * but at the centre, where it is not a wall but the start of the middle.
+ */
+function spokeOffset(
+  spokes: Spokes,
+  x: number,
+  y: number,
+  radius: number,
+  out: Vec2 | null,
+): number {
+  const rx = x - spokes.cx;
+  const ry = y - spokes.cy;
+  const far = Math.max(0, spokes.reach - radius);
+  const side = Math.max(0, spokes.half - radius);
+  let best = Infinity;
+
+  for (const d of spokes.dirs) {
+    const along = rx * d.x + ry * d.y;
+    const across = rx * d.y - ry * d.x;
+    const a = along < 0 ? 0 : along > far ? far : along;
+    const c = across < -side ? -side : across > side ? side : across;
+    const da = along - a;
+    const dc = across - c;
+    const distSq = da * da + dc * dc;
+    if (distSq < best) {
+      best = distSq;
+      if (out) {
+        out.x = spokes.cx + a * d.x + c * d.y;
+        out.y = spokes.cy + a * d.y - c * d.x;
+      }
+      if (distSq === 0) break;
+    }
+  }
+
+  const dist = Math.sqrt(best);
+  return dist <= SPOKE_EPSILON ? 0 : dist;
 }
 
 /**
@@ -246,6 +332,9 @@ function deepestOverlap(
   return worst;
 }
 
+const scratchProposed: Vec2 = { x: 0, y: 0 };
+const scratchSpoke: Vec2 = { x: 0, y: 0 };
+
 /**
  * Push a proposed position out of every settled body it overlaps, treating
  * those bodies as immovable, and back inside the lane's edges, which are walls
@@ -298,6 +387,15 @@ function resolveContacts(
       }
     }
 
+    // A Y's inside corners are walls too: a body outside every spoke is put
+    // back at the nearest point of the nearest one.
+    const spokes = bounds.spokes;
+    if (spokes && spokeOffset(spokes, proposed.x, proposed.y, halfSpan, scratchSpoke) > 0) {
+      proposed.x = scratchSpoke.x;
+      proposed.y = scratchSpoke.y;
+      touched = true;
+    }
+
     for (const set of obstacles) {
       for (const other of set) {
         if (!other.alive || !other.settled || other === self) continue;
@@ -330,8 +428,6 @@ function resolveContacts(
   }
   return touched;
 }
-
-const scratchProposed: Vec2 = { x: 0, y: 0 };
 
 /**
  * A resolved position this deep in something is not clean, and is only taken

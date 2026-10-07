@@ -8,7 +8,7 @@
  */
 
 import type { GameData } from '../data/schema.ts';
-import { arenaCentre, arenaShape, type ArenaShape } from './arena.ts';
+import { ARENA_LAYOUTS, arenaShape, type ArenaLayout, type ArenaShape } from './arena.ts';
 import { buildAbilityIndex, type AbilityIndex } from './abilityRuntime.ts';
 import { buildDefIndex, type DefIndex } from './defs.ts';
 import type { FlowField } from './flowfield.ts';
@@ -23,12 +23,13 @@ import { ARENA_CENTRE_ID, FORTRESS_ID, type Vec2 } from './types.ts';
  * of body. A MONSTER'S LANE is the whole 8-wide strip - the spawn zone it
  * enters through, the build grid, and the fortress zone with the wall across
  * it. A UNIT'S LANE is the same strip without the spawn zone, because the
- * spawn zone is the attacker's ground (see `unitLane`). The ARENA is the cross
- * the Final Showdown is fought in (§3.3, replaced): four spokes of lane width
- * around a shared centre, no fortress, everybody in it at once.
+ * spawn zone is the attacker's ground (see `unitLane`). The ARENA is where the
+ * Final Showdown is fought (§3.3, replaced): spokes of lane width around a
+ * shared centre - a cross, or a Y for three (arena.ts) - no fortress,
+ * everybody in it at once.
  *
  * The movement code takes a world rather than reaching for the lane's numbers,
- * so one set of rules runs in all three.
+ * so one set of rules runs in all of them.
  */
 export interface World {
   /** Field-cache prefix. Two worlds never share a field. */
@@ -42,6 +43,24 @@ export interface World {
   bounds: Bounds;
   /** Solid to everyone and never moving: the fortress in a lane, nothing yet in the arena. */
   solids: readonly Body[];
+}
+
+/** One shape of the Final Showdown's arena, ready to fight in (§3.3, replaced). */
+export interface Arena {
+  world: World;
+  /** The geometry, so a transplant does not recompute it per body. */
+  shape: ArenaShape;
+  /**
+   * The middle of the arena, as a body with no size.
+   *
+   * What a unit walks at when nothing is inside its acquisition range
+   * (§3.3, replaced). The armies converge because all of them are walking at
+   * the same point, not because any of them can see across the board. A point
+   * rather than the whole centre on purpose: stopping at the near edge of an
+   * eight-tile square would leave two melee lines eight tiles apart and blind
+   * to each other, which is a stalemate rather than a showdown.
+   */
+  centre: Body;
 }
 
 /** Everything a tick needs that is not match state: the data and its index. */
@@ -95,21 +114,12 @@ export interface SimContext {
    * the monsters standing in the spawn zone - only the EDGES differ.
    */
   unitLane: World;
-  /** The cross the Final Showdown is fought in (§3.3, replaced). */
-  arena: World;
-  /** The arena's geometry, so a transplant does not recompute it per body. */
-  arenaShape: ArenaShape;
   /**
-   * The middle of the arena, as a body with no size.
-   *
-   * What a unit walks at when nothing is inside its acquisition range
-   * (§3.3, replaced). Four armies converge because all four are walking at the
-   * same point, not because any of them can see across the board. A point
-   * rather than the whole centre square on purpose: stopping at the near edge
-   * of an eight-tile square would leave two melee lines eight tiles apart and
-   * blind to each other, which is a stalemate rather than a showdown.
+   * Every shape the Final Showdown can be fought in, by layout (arena.ts).
+   * Which one a match uses is decided by how many armies reach it, and is
+   * recorded on the showdown (`Showdown.layout`).
    */
-  arenaCentre: Body;
+  arenas: Record<ArenaLayout, Arena>;
   /**
    * Distance fields, one per lane per (kind, radius, range) that has needed one.
    * Scratch, derived entirely from the lane's contents and rebuilt each tick,
@@ -148,7 +158,35 @@ export function createContext(data: GameData): SimContext {
     minY: -lane.spawnZoneDepth,
     maxY: lane.buildZone.depth + lane.fortressZoneDepth,
   };
-  const shape = arenaShape(data);
+  const arenas = {} as Record<ArenaLayout, Arena>;
+  for (const layout of ARENA_LAYOUTS) {
+    const shape = arenaShape(data, layout);
+    arenas[layout] = {
+      world: {
+        // Two shapes never share a field: the cache is keyed on this.
+        id: layout === 'cross' ? 'arena' : `arena-${layout}`,
+        width: shape.width,
+        depth: shape.depth,
+        originY: 0,
+        subdivision: lane.pathSubdivision,
+        bounds: shape.bounds,
+        // Nobody's fortress comes to the showdown (§3.3, replaced): the armies
+        // are the only solid things in it.
+        solids: [],
+      },
+      shape,
+      centre: {
+        id: ARENA_CENTRE_ID,
+        pos: { ...shape.centre },
+        radius: 0,
+        halfWidth: 0,
+        alive: true,
+        settled: true,
+        monster: false,
+        phasesMonsters: false,
+      },
+    };
+  }
 
   return {
     data,
@@ -176,28 +214,7 @@ export function createContext(data: GameData): SimContext {
       bounds: { ...bounds, minY: 0 },
       solids: [fortress],
     },
-    arena: {
-      id: 'arena',
-      width: shape.size,
-      depth: shape.size,
-      originY: 0,
-      subdivision: lane.pathSubdivision,
-      bounds: shape.bounds,
-      // Nobody's fortress comes to the showdown (§3.3, replaced): the armies are the
-      // only solid things in it.
-      solids: [],
-    },
-    arenaShape: shape,
-    arenaCentre: {
-      id: ARENA_CENTRE_ID,
-      pos: arenaCentre(shape),
-      radius: 0,
-      halfWidth: 0,
-      alive: true,
-      settled: true,
-      monster: false,
-      phasesMonsters: false,
-    },
+    arenas,
     fields: new Map(),
   };
 }

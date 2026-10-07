@@ -28,7 +28,7 @@ interface PreviousPosition {
  * Who a body belongs to, drawn as a ring behind it, or null for no ring.
  *
  * Only the Final Showdown uses it (§3.3, replaced): a lane has exactly one side on each
- * team, so solid-fill-means-defender already says whose a body is. Four armies
+ * team, so solid-fill-means-defender already says whose a body is. Several armies
  * in one arena do not have that, and §14.2's channels are all spoken for -
  * silhouette is armor, fill is damage type, size and pips are mark - so
  * ownership gets a channel of its own rather than taking one of those over.

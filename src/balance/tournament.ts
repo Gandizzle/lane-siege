@@ -12,6 +12,10 @@
  *            to be one spoke rotated; if they are not, a builder's result is
  *            partly a statement about where it happened to stand.
  *
+ * And the same two for three, which fight on a Y (src/sim/arena.ts): three
+ * copies of one army should win a third each, and so should each spoke across
+ * the three-ways.
+ *
  * THEN THE DUELS, which are the primary signal. A four-way free-for-all is
  * confounded by who converges on whom: a player nobody walks at wins fights
  * they never fought. One-on-one has no such thing, so builder parity is settled
@@ -44,6 +48,10 @@ export interface TournamentOptions {
   freeForAlls: number;
   /** Mirror fights per builder: four copies of it, all on one build. */
   mirrors: number;
+  /** Three-way fights, three different builders on the Y, seated at random. */
+  threeWays: number;
+  /** Three-way mirrors per builder: three copies of it on one build, on the Y. */
+  threeMirrors: number;
   seed: number;
   /** Which builds to draw from. Defaults to all of BUILD_SPECS. */
   specIds?: readonly string[];
@@ -53,10 +61,13 @@ export const DEFAULTS: TournamentOptions = {
   duelsPerPair: 40,
   freeForAlls: 80,
   mirrors: 20,
+  threeWays: 60,
+  threeMirrors: 12,
   seed: 20260920,
 };
 
-export type FightKind = 'mirror' | 'duel' | 'ffa';
+/** `mirror3` and `three` are the mirror and the free-for-all for three, on the Y. */
+export type FightKind = 'mirror' | 'duel' | 'ffa' | 'mirror3' | 'three';
 
 /** One fight, named entirely by data, so it can be sent to another process. */
 export interface FightPlan {
@@ -170,6 +181,33 @@ export function planFights(data: GameData, options: Partial<TournamentOptions> =
     });
   }
 
+  // Three, on the Y. Planned AFTER everything above, from the same generator,
+  // so adding them moved none of the fights a run made before they existed.
+  //
+  // Mirrors first, without replacement for the same reason as the four-way
+  // ones; then three different builders a fight, seated at random.
+  for (const builderId of builders) {
+    const pool = shuffle(
+      specs.map((spec) => spec.id),
+      rng,
+    );
+    for (const specId of pool.slice(0, Math.min(opts.threeMirrors, pool.length))) {
+      plans.push({
+        kind: 'mirror3',
+        seats: [0, 1, 2].map(() => ({ builderId, specId })),
+        seed: rng.int(1e9),
+      });
+    }
+  }
+  for (let i = 0; i < opts.threeWays; i++) {
+    const order = shuffle(builders, rng).slice(0, 3);
+    plans.push({
+      kind: 'three',
+      seats: order.map((builderId) => ({ builderId, specId: specs[rng.int(specs.length)]!.id })),
+      seed: rng.int(1e9),
+    });
+  }
+
   return plans;
 }
 
@@ -260,9 +298,13 @@ export interface TournamentReport {
   budget: { gold: number; supply: number };
   mirror: Tally[];
   seats: Tally[];
+  /** The same two controls for three, on the Y. */
+  mirror3: Tally[];
+  threeSeats: Tally[];
   duels: Matchup[];
   duelBuilders: Tally[];
   ffaBuilders: Tally[];
+  threeBuilders: Tally[];
   builds: Tally[];
   spend: SpendRow[];
   fights: number;
@@ -312,15 +354,21 @@ export function evenness(counts: readonly number[]): { chiSquare: number; df: nu
   return { chiSquare, df: counts.length - 1 };
 }
 
-/** Where a chi-square on 3 df falls, in words. Three buckets is all this needs. */
+/**
+ * Where a chi-square falls, in words: on 3 df for four seats, on 2 for three.
+ * Three buckets is all this needs.
+ */
 export function evennessVerdict(chiSquare: number, df: number): string {
-  if (df !== 3)
+  const critical: Record<number, [number, number]> = { 2: [5.99, 9.21], 3: [7.81, 11.34] };
+  const at = critical[df];
+  if (!at)
     return chiSquare === 0
       ? 'nothing to compare'
       : `chi-square ${chiSquare.toFixed(2)} on ${df} df`;
-  if (chiSquare < 7.81) return `chi-square ${chiSquare.toFixed(2)} on 3 df - even, within chance`;
-  if (chiSquare < 11.34) return `chi-square ${chiSquare.toFixed(2)} on 3 df - UNEVEN at 5%`;
-  return `chi-square ${chiSquare.toFixed(2)} on 3 df - UNEVEN at 1%`;
+  const stat = `chi-square ${chiSquare.toFixed(2)} on ${df} df`;
+  if (chiSquare < at[0]) return `${stat} - even, within chance`;
+  if (chiSquare < at[1]) return `${stat} - UNEVEN at 5%`;
+  return `${stat} - UNEVEN at 1%`;
 }
 
 class Counter {
@@ -369,8 +417,11 @@ export function summarise(
 
   const mirror = new Counter();
   const seats = new Counter();
+  const mirror3 = new Counter();
+  const threeSeats = new Counter();
   const duelBuilders = new Counter();
   const ffaBuilders = new Counter();
+  const threeBuilders = new Counter();
   const builds = new Counter();
   const matchups = new Map<
     string,
@@ -391,6 +442,11 @@ export function summarise(
     if (r.kind === 'duel') {
       duelBuilders.add(r.builderId, r);
       builds.add(r.specId, r);
+    }
+    if (r.kind === 'mirror3') mirror3.add(`seat ${r.seat}`, r);
+    if (r.kind === 'three') {
+      threeBuilders.add(r.builderId, r);
+      threeSeats.add(`seat ${r.seat}`, r);
     }
   }
 
@@ -454,6 +510,8 @@ export function summarise(
     budget: { gold: budget.armyGold, supply: budget.armySupply },
     mirror: mirror.tallies().sort((x, y) => x.key.localeCompare(y.key)),
     seats: seats.tallies().sort((x, y) => x.key.localeCompare(y.key)),
+    mirror3: mirror3.tallies().sort((x, y) => x.key.localeCompare(y.key)),
+    threeSeats: threeSeats.tallies().sort((x, y) => x.key.localeCompare(y.key)),
     duels: [...matchups.entries()].map(([key, row]) => {
       const [a, b] = key.split('|') as [string, string];
       const aWinRate = row.fights > 0 ? row.aWins / row.fights : 0;
@@ -469,6 +527,7 @@ export function summarise(
     }),
     duelBuilders: duelBuilders.tallies(),
     ffaBuilders: ffaBuilders.tallies(),
+    threeBuilders: threeBuilders.tallies(),
     builds: builds.tallies(),
     spend,
     fights,

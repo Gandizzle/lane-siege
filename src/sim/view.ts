@@ -52,6 +52,7 @@
  */
 
 import type { ArmorType, DamageType, GameData, UnitDef } from '../data/schema.ts';
+import type { ArenaLayout } from './arena.ts';
 import { energyCostOf, type AbilityIndex } from './abilityRuntime.ts';
 import { auraFor } from './buffs.ts';
 import { bossBatchSize, endlessStep } from './endless.ts';
@@ -314,8 +315,10 @@ export interface OpponentView {
 /** One army in the Final Showdown, as everybody sees it (§3.3, replaced). */
 export interface ShowdownArmyView {
   teamId: TeamId;
-  /** Which spoke it fights from: `legForSeat(seat)` (arena.ts). */
+  /** Seat at the table: whose color it wears. */
   seat: number;
+  /** Which of the arena's spokes it fights from (`ArenaShape.spokes`). */
+  spoke: number;
   units: EntityView[];
 }
 
@@ -333,6 +336,8 @@ export interface ShowdownView {
    * reaches zero, which is what makes the card a pause rather than an overlay.
    */
   countdown: number;
+  /** The arena's shape: a cross for four or two, a Y for three (arena.ts). */
+  layout: ArenaLayout;
   armies: ShowdownArmyView[];
   attacks: AttackView[];
   /**
@@ -555,10 +560,12 @@ function showdownView(
 ): ShowdownView {
   return {
     countdown,
+    layout: showdown.layout,
     centreHolders: [...showdown.centreHolders],
     armies: showdown.armies.map((army) => ({
       teamId: army.teamId,
       seat: army.seat,
+      spoke: army.spoke,
       units: army.units
         .filter((unit) => unit.alive)
         .map((unit) => ({

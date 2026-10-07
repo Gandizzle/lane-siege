@@ -55,16 +55,17 @@ export { inBounds, tileOccupiedByUnit } from './grid.ts';
 export { gap, slideStep } from './motion.ts';
 export type { Body, Bounds } from './motion.ts';
 export {
+  ARENA_LAYOUTS,
   LEGS,
   arenaCentre,
   arenaShape,
   crossesTheVoid,
   hasLineOfSight,
   inCentre,
-  legForSeat,
-  legPosition,
+  seating,
+  spokePosition,
 } from './arena.ts';
-export type { ArenaShape, Leg } from './arena.ts';
+export type { ArenaLayout, ArenaShape, Leg } from './arena.ts';
 export {
   applyHealing,
   crowdControlMultiplier,

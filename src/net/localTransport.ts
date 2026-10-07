@@ -224,8 +224,9 @@ export class LocalTransport implements Transport {
     const byId = new Map(data.units.units.map((u) => [u.id, u]));
     const energyMax = stat(data.abilities.energy.max);
 
-    // Two armies take opposite spokes rather than the first two seats, which
-    // are a quarter turn apart (src/balance/arena.ts, `seatsForArmies`).
+    // The same table the balance harness seats them at (src/balance/arena.ts,
+    // `seatsForArmies`); which spoke each one stands on is the showdown's to
+    // decide (src/sim/arena.ts, `seating`).
     const seats = seatsForArmies(armies.length);
     const lanes = Object.values(this.state.lanes);
     for (const team of this.state.teams) {

@@ -12,9 +12,10 @@
  * same placement by reach. Anything that made this easier to use at the cost of
  * matching the harness would make it a different experiment.
  *
- * Two or four seats, because a duel is where builder parity is actually settled
- * (a four-way is confounded by who converges on whom) and a four-way is what
- * the game ends with.
+ * Two, three or four seats - every table the game can end at. A duel is where
+ * builder parity is actually settled (a four-way is confounded by who
+ * converges on whom), three is the Y (src/sim/arena.ts), and four is the
+ * cross.
  *
  * TAP TO CYCLE, rather than a dropdown. There are four builders and twenty
  * builds and this is a phone; a list that has to be scrolled and dismissed is
@@ -108,7 +109,7 @@ export class ShowdownSetup extends Container {
     this.heading = label('Final Showdown', 22, UI.text, '700');
     this.note = label('', 10, UI.textMuted);
 
-    for (const count of [2, 4]) {
+    for (const count of [2, 3, 4]) {
       const button = this.makeTappable(() => {
         this.count = count;
         this.redraw();
@@ -118,8 +119,9 @@ export class ShowdownSetup extends Container {
       this.countButtons.push({ button, text, count });
     }
 
-    // Four cards, made once. Two of them are hidden in a duel rather than
-    // rebuilt: a rebuilt interactive object never receives a tap (buildBar.ts).
+    // Four cards, made once. The ones a smaller table does not use are hidden
+    // rather than rebuilt: a rebuilt interactive object never receives a tap
+    // (buildBar.ts).
     for (let seat = 0; seat < 4; seat++) {
       const root = new Container();
       const background = new Graphics();
@@ -256,22 +258,23 @@ export class ShowdownSetup extends Container {
 
     let y = top + (compact ? 48 : 56);
 
-    // 2 or 4.
-    const half = (width - 8) / 2;
+    // 2, 3 or 4.
+    const buttons = this.countButtons.length;
+    const each = (width - 8 * (buttons - 1)) / buttons;
     for (const [i, entry] of this.countButtons.entries()) {
-      const bx = x + i * (half + 8);
+      const bx = x + i * (each + 8);
       const on = entry.count === this.count;
       entry.button.background.clear();
       entry.button.background
-        .roundRect(bx, y, half, MIN_TOUCH, 8)
+        .roundRect(bx, y, each, MIN_TOUCH, 8)
         .fill({ color: on ? UI.accent : UI.panel })
         .stroke({ width: 1, color: UI.panelEdge });
       entry.button.hit.x = bx;
       entry.button.hit.y = y;
-      entry.button.hit.width = half;
+      entry.button.hit.width = each;
       entry.button.hit.height = MIN_TOUCH;
       entry.text.style.fill = on ? UI.background : UI.text;
-      centreOn(entry.text, bx + half / 2, y + (MIN_TOUCH - entry.text.height) / 2);
+      centreOn(entry.text, bx + each / 2, y + (MIN_TOUCH - entry.text.height) / 2);
     }
     y += MIN_TOUCH + (compact ? 8 : 14);
 

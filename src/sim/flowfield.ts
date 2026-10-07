@@ -71,7 +71,7 @@
  * computes the same field bit for bit.
  */
 
-import type { Bounds } from './motion.ts';
+import type { Bounds, Spokes } from './motion.ts';
 import type { Vec2 } from './types.ts';
 
 export const UNREACHABLE = 0x7fffffff;
@@ -397,7 +397,7 @@ export function markCrowd(field: FlowField, shape: FieldShape, inflate: number):
 /**
  * Block every cell a body of radius `inflate` could not stand in: the strip
  * along the arena's edge, and - in a cross-shaped arena - the four corners it
- * does not cover.
+ * does not cover, or in a Y everything between its spokes.
  *
  * motion.ts keeps every body's whole width inside the arena, so a position
  * within its own radius of the boundary is one no body of that size can
@@ -409,6 +409,10 @@ export function markCrowd(field: FlowField, shape: FieldShape, inflate: number):
  * where the arena is. Call before the obstacles, like any other terrain.
  */
 export function markOutside(field: FlowField, bounds: Bounds, inflate: number): void {
+  if (bounds.spokes) {
+    markOutsideSpokes(field, bounds.spokes, inflate);
+    return;
+  }
   blockOutside(field.blocked, field, bounds, inflate, 1);
   blockOutside(field.blockedFine, field, bounds, inflate, FINE);
 
@@ -495,6 +499,114 @@ function blockOutside(
     grid.fill(1, row, row + Math.max(0, Math.min(width, bx.first)));
     grid.fill(1, row + Math.max(0, Math.min(width, bx.last + 1)), row + width);
   }
+}
+
+/** One Y's outside, worked out once for one grid and one body size. */
+interface SpokeMask {
+  blocked: Uint8Array;
+  blockedFine: Uint8Array;
+  open: { minX: number; maxX: number; minY: number; maxY: number };
+}
+
+/**
+ * Every mask a Y has needed, by grid and body size. Keyed on the spokes
+ * themselves, so a context that is finished with takes its masks with it.
+ */
+const spokeMasks = new WeakMap<Spokes, Map<string, SpokeMask>>();
+
+/**
+ * `markOutside` for a Y (motion.ts, `Bounds.spokes`).
+ *
+ * The Y's edges are not on the grid's axes, so the row runs `blockOutside`
+ * fills the cross with do not describe it, and testing every cell against
+ * every spoke is a third of a million rotations per field per tick at the
+ * resolution goals are sampled on (§15.3). But the answer depends only on the
+ * grid and the body's radius, and a showdown has a handful of radii - so it is
+ * worked out once per radius and copied in after that.
+ *
+ * Copied, not merged: this is the first thing marked on a cleared field, so
+ * there is nothing underneath it to keep.
+ */
+function markOutsideSpokes(field: FlowField, spokes: Spokes, inflate: number): void {
+  let byGrid = spokeMasks.get(spokes);
+  if (!byGrid) {
+    byGrid = new Map();
+    spokeMasks.set(spokes, byGrid);
+  }
+  const key = `${field.width}x${field.depth}:${field.originY}:${field.subdivision}:${inflate}`;
+  let mask = byGrid.get(key);
+  if (!mask) {
+    mask = buildSpokeMask(field, spokes, inflate);
+    byGrid.set(key, mask);
+  }
+
+  field.blocked.set(mask.blocked);
+  field.blockedFine.set(mask.blockedFine);
+  const open = field.open;
+  open.minX = mask.open.minX;
+  open.maxX = mask.open.maxX;
+  open.minY = mask.open.minY;
+  open.maxY = mask.open.maxY;
+}
+
+/**
+ * Block every cell whose centre a body of radius `inflate` could not stand on:
+ * inside no spoke, by the same rule motion.ts uses to keep it in one. The open
+ * rectangle is every routing cell holding any open fine cell.
+ */
+function buildSpokeMask(field: FlowField, spokes: Spokes, inflate: number): SpokeMask {
+  const far = spokes.reach - inflate;
+  const side = spokes.half - inflate;
+  const standable = (x: number, y: number): boolean => {
+    const rx = x - spokes.cx;
+    const ry = y - spokes.cy;
+    for (const d of spokes.dirs) {
+      const along = rx * d.x + ry * d.y;
+      if (along < 0 || along > far) continue;
+      const across = rx * d.y - ry * d.x;
+      if (across >= -side && across <= side) return true;
+    }
+    return false;
+  };
+
+  const fill = (scale: number): Uint8Array => {
+    const width = field.width * scale;
+    const depth = field.depth * scale;
+    const sub = field.subdivision * scale;
+    const grid = new Uint8Array(width * depth);
+    for (let gy = 0; gy < depth; gy++) {
+      const y = field.originY + (gy + 0.5) / sub;
+      for (let gx = 0; gx < width; gx++) {
+        if (!standable((gx + 0.5) / sub, y)) grid[gy * width + gx] = 1;
+      }
+    }
+    return grid;
+  };
+
+  const blocked = fill(1);
+  const blockedFine = fill(FINE);
+  const open = { minX: field.width, maxX: -1, minY: field.depth, maxY: -1 };
+  const fineWidth = field.width * FINE;
+  for (let fy = 0; fy < field.depth * FINE; fy++) {
+    for (let fx = 0; fx < fineWidth; fx++) {
+      if (blockedFine[fy * fineWidth + fx] === 1) continue;
+      const cx = Math.floor(fx / FINE);
+      const cy = Math.floor(fy / FINE);
+      if (cx < open.minX) open.minX = cx;
+      if (cx > open.maxX) open.maxX = cx;
+      if (cy < open.minY) open.minY = cy;
+      if (cy > open.maxY) open.maxY = cy;
+    }
+  }
+  // A body too big for any spoke has nowhere to stand; an empty rectangle
+  // would be read as inverted, so it keeps one cell rather than none.
+  if (open.maxX < 0) {
+    open.minX = 0;
+    open.maxX = 0;
+    open.minY = 0;
+    open.maxY = 0;
+  }
+  return { blocked, blockedFine, open };
 }
 
 /** How far one x sits outside the spine's interval. 0 anywhere along it. */

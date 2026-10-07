@@ -11,7 +11,14 @@ import {
   sharesLabel,
 } from './builds.ts';
 import { runArena, seatsForArmies } from './arena.ts';
-import { planFights, runFights, standardError, summarise, type FightRecord } from './tournament.ts';
+import {
+  evennessVerdict,
+  planFights,
+  runFights,
+  standardError,
+  summarise,
+  type FightRecord,
+} from './tournament.ts';
 
 const { data } = loadDataFromDisk();
 const budget = computeBudget(data);
@@ -279,6 +286,38 @@ describe('the tournament', () => {
     for (const plan of planFights(data, options).filter((p) => p.kind === 'ffa')) {
       expect(new Set(plan.seats.map((s) => s.builderId)).size).toBe(4);
     }
+  });
+
+  it('plans three-ways for the Y: three builders apart, or three copies of one', () => {
+    const plans = planFights(data, { ...options, threeWays: 5, threeMirrors: 2 });
+    const threes = plans.filter((p) => p.kind === 'three');
+    expect(threes).toHaveLength(5);
+    for (const plan of threes) {
+      expect(new Set(plan.seats.map((s) => s.builderId)).size).toBe(3);
+    }
+    const mirrors = plans.filter((p) => p.kind === 'mirror3');
+    expect(mirrors).toHaveLength(2 * data.units.builders.filter((b) => b.complete).length);
+    for (const plan of mirrors) {
+      expect(plan.seats).toHaveLength(3);
+      expect(new Set(plan.seats.map((s) => `${s.builderId}/${s.specId}`)).size).toBe(1);
+    }
+    const keys = mirrors.map((p) => `${p.seats[0]!.builderId}/${p.seats[0]!.specId}`);
+    expect(new Set(keys).size, 'a three-way mirror was planned twice').toBe(keys.length);
+  });
+
+  it('adds the three-ways after every fight a run made before they existed', () => {
+    // Earlier runs must stay reproducible: the same options without the
+    // three-ways plan exactly the fights they always did.
+    const before = planFights(data, { ...options, threeWays: 0, threeMirrors: 0 });
+    const after = planFights(data, { ...options, threeWays: 4, threeMirrors: 1 });
+    expect(after.slice(0, before.length)).toEqual(before);
+  });
+
+  it('reads three seats on two degrees of freedom', () => {
+    expect(evennessVerdict(1.2, 2)).toContain('even, within chance');
+    expect(evennessVerdict(7, 2)).toContain('UNEVEN at 5%');
+    expect(evennessVerdict(10, 2)).toContain('UNEVEN at 1%');
+    expect(evennessVerdict(7, 3)).toContain('even, within chance');
   });
 
   it('shards into the same records as one run', { timeout: 120_000 }, () => {
