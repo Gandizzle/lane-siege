@@ -2269,6 +2269,28 @@ fall. The waves were not touched. If the old difficulty is the goal, the place
 to put it back is the wave fit of §4g, against armies that now have abilities
 worth having.
 
+The Final Showdown is the other place abilities fight, and it did not move.
+`npm run showdown` on the full 640 fights read Gloomtide's duels at 47.1% before
+and 40.0% after, which would have been the one regression; but the same data run
+again on a different draw of fights (`-- --duels 40 --ffa 0 --mirrors 0`, 480
+duels) reads Gloomtide at 37.9% before. On that one draw, before and after:
+
+| duels, 480 of them | before | after |
+| ------------------ | -----: | ----: |
+| Pyre               |  60.8% | 61.3% |
+| Thornweald         |  54.6% | 55.4% |
+| Ironvow            |  46.7% | 46.7% |
+| Gloomtide          |  37.9% | 36.7% |
+
+Changing an ability reshuffles every fight's chaos, so two runs that differ in
+anything are two samples, and between two draws of the same data Gloomtide
+moved nine points. On the 480, putting all of Gloomtide's abilities back as they
+were, or all of Pyre's, moved nobody by more than two. Putting Thornweald's back
+did move something, the right way round: its new abilities are what took Pyre
+over Thornweald from about 60% to even. What the arena does show is what §4h
+left open: Gloomtide is behind in it and Pyre over Gloomtide is outside 40/60,
+as before, and a 640-fight run is a coarser instrument than its error bars say.
+
 ### What is left
 
 - **Verdict, Drownward and Heartpiercer** do nothing against a crowd and are
