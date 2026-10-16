@@ -1,0 +1,332 @@
+/**
+ * XP, levels, boosts, the store's placeholders and cosmetics (src/progression).
+ */
+
+import { describe, expect, it } from 'vitest';
+import { awardXp, boostStatus, ordinal, startBoost, type MatchResult } from './award.ts';
+import {
+  COSMETICS,
+  PROGRESSION,
+  STORE,
+  parseCosmetics,
+  parseProgression,
+  type ProgressionConfig,
+} from './config.ts';
+import { howToUnlock, isUnlocked, setEnabled } from './cosmetics.ts';
+import { levelOf, xpToNext, xpToReach } from './levels.ts';
+import { NEW_PROFILE, dayKey, parseProfile, type Profile } from './profile.ts';
+import { ProgressStore } from './store.ts';
+
+function memory() {
+  const store = new Map<string, string>();
+  return {
+    store,
+    getItem: (k: string) => store.get(k) ?? null,
+    setItem: (k: string, v: string) => void store.set(k, v),
+  };
+}
+
+/** Fixed numbers, so these tests are about the rules rather than today's tuning. */
+const CONFIG: ProgressionConfig = {
+  levels: { first: 300, step: 100 },
+  match: { played: 100, perWave: 8, placement: [150, 90, 50, 20], showdown: 50 },
+  casual: { xp: 50, gamesPerDay: 1 },
+  adBoost: { bonus: 1, matches: 2, perDay: 3 },
+  supporter: { bonus: 0.25 },
+};
+
+const won: MatchResult = { mode: 'online', placement: 1, wavesSurvived: 25, reachedShowdown: true };
+const outEarly: MatchResult = {
+  mode: 'online',
+  placement: 4,
+  wavesSurvived: 5,
+  reachedShowdown: false,
+};
+const practice: MatchResult = {
+  mode: 'practice',
+  placement: 2,
+  wavesSurvived: 25,
+  reachedShowdown: true,
+};
+
+function fresh(): Profile {
+  return structuredClone(NEW_PROFILE);
+}
+
+describe('the data', () => {
+  it('reads the shipped files', () => {
+    expect(PROGRESSION.levels.first).toBeGreaterThan(0);
+    expect(PROGRESSION.match.placement.length).toBeGreaterThanOrEqual(4);
+    expect(STORE.bundles.some((b) => b.featured)).toBe(true);
+    expect(COSMETICS.slots.length).toBeGreaterThan(0);
+  });
+
+  it('puts every bundled cosmetic in the catalogue, and makes every store cosmetic buyable', () => {
+    const ids = new Set(COSMETICS.cosmetics.map((c) => c.id));
+    for (const bundle of STORE.bundles) {
+      for (const id of bundle.cosmetics) expect(ids.has(id), `${bundle.id}: ${id}`).toBe(true);
+    }
+    // A store cosmetic with no price of its own has to come in a bundle, or
+    // nothing would ever sell it.
+    const bundled = new Set(STORE.bundles.flatMap((b) => b.cosmetics));
+    for (const c of COSMETICS.cosmetics) {
+      if (c.unlock.store && c.price === null) expect(bundled.has(c.id), c.id).toBe(true);
+    }
+  });
+
+  it('refuses a file it cannot trust, naming the field', () => {
+    expect(() => parseProgression({})).toThrow(/progression: expected an object|levels/);
+    expect(() =>
+      parseCosmetics({
+        slots: [{ id: 'title', name: 'T', blurb: 'b', exclusive: true, live: true }],
+        cosmetics: [{ id: 'x', slot: 'hat', name: 'X', unlock: { free: true } }],
+      }),
+    ).toThrow(/no slot called hat/);
+    expect(() =>
+      parseCosmetics({
+        slots: [{ id: 'title', name: 'T', blurb: 'b', exclusive: true, live: true }],
+        cosmetics: [{ id: 'x', slot: 'title', name: 'X', unlock: {} }],
+      }),
+    ).toThrow(/nothing unlocks it/);
+  });
+});
+
+describe('levels', () => {
+  const curve = CONFIG.levels;
+
+  it('asks a fixed step more for each level than for the last', () => {
+    expect(xpToNext(1, curve)).toBe(300);
+    expect(xpToNext(2, curve)).toBe(400);
+    expect(xpToNext(10, curve)).toBe(1200);
+    for (let level = 1; level < 200; level++) {
+      expect(xpToNext(level + 1, curve) - xpToNext(level, curve)).toBe(curve.step);
+    }
+  });
+
+  it('starts at level 1 and climbs at the sums of the steps', () => {
+    expect(xpToReach(1, curve)).toBe(0);
+    expect(xpToReach(2, curve)).toBe(300);
+    expect(xpToReach(3, curve)).toBe(700);
+    expect(levelOf(0, curve)).toEqual({ level: 1, into: 0, needed: 300, total: 0 });
+    expect(levelOf(299, curve).level).toBe(1);
+    expect(levelOf(300, curve)).toEqual({ level: 2, into: 0, needed: 400, total: 300 });
+    expect(levelOf(699, curve)).toEqual({ level: 2, into: 399, needed: 400, total: 699 });
+    expect(levelOf(700, curve).level).toBe(3);
+  });
+
+  it('agrees with counting up, everywhere, and has no top', () => {
+    let level = 1;
+    for (let xp = 0; xp < 60_000; xp += 37) {
+      while (xpToReach(level + 1, curve) <= xp) level++;
+      const at = levelOf(xp, curve);
+      expect(at.level, `${xp} XP`).toBe(level);
+      expect(at.into).toBe(xp - xpToReach(level, curve));
+    }
+    // A billion XP is a level like any other.
+    const far = levelOf(1e9, curve);
+    expect(far.level).toBeGreaterThan(4000);
+    expect(xpToReach(far.level, curve)).toBeLessThanOrEqual(1e9);
+    expect(xpToReach(far.level + 1, curve)).toBeGreaterThan(1e9);
+  });
+});
+
+describe('what a match earns', () => {
+  const today = '2026-10-16';
+
+  it('pays a normal match for playing, waves, placement and the showdown', () => {
+    const { award } = awardXp(CONFIG, fresh(), won, today);
+    expect(award.lines.map((l) => [l.id, l.xp])).toEqual([
+      ['played', 100],
+      ['waves', 200],
+      ['placement', 150],
+      ['showdown', 50],
+    ]);
+    expect(award.total).toBe(500);
+    expect(award.lines[2]!.label).toBe('1st place');
+  });
+
+  it('still pays a player out early', () => {
+    const { award, profile } = awardXp(CONFIG, fresh(), outEarly, today);
+    expect(award.total).toBe(100 + 5 * 8 + 20);
+    expect(profile.xp).toBe(160);
+    expect(award.note).toBeNull();
+  });
+
+  it('pays practice and solo a little, once a day', () => {
+    const first = awardXp(CONFIG, fresh(), practice, today);
+    expect(first.award.lines).toEqual([{ id: 'daily', label: 'Daily practice XP', xp: 50 }]);
+    expect(first.award.total).toBe(50);
+
+    const second = awardXp(CONFIG, first.profile, { ...practice, mode: 'solo' }, today);
+    expect(second.award.total).toBe(0);
+    expect(second.award.note).toMatch(/once a day/);
+    expect(second.profile.xp).toBe(50);
+
+    const tomorrow = awardXp(CONFIG, second.profile, { ...practice, mode: 'solo' }, '2026-10-17');
+    expect(tomorrow.award.lines[0]!.label).toBe('Daily solo XP');
+    expect(tomorrow.award.total).toBe(50);
+  });
+
+  it('boosts the next matches that earn anything, and lets a zero go by', () => {
+    // Today's practice XP, had before the boost starts.
+    let profile = awardXp(CONFIG, fresh(), practice, today).profile;
+    profile = startBoost(CONFIG, profile, today);
+    expect(profile.adBoost.matchesLeft).toBe(2);
+
+    const one = awardXp(CONFIG, profile, outEarly, today);
+    expect(one.award.boosts).toEqual([{ id: 'adBoost', label: 'Boost +100%', xp: 160 }]);
+    expect(one.award.total).toBe(320);
+    profile = one.profile;
+    expect(profile.adBoost.matchesLeft).toBe(1);
+
+    // More practice today earns nothing, so there is nothing to boost and the
+    // boosted match is still there.
+    const nothing = awardXp(CONFIG, profile, practice, today);
+    expect(nothing.award.total).toBe(0);
+    expect(nothing.profile.adBoost.matchesLeft).toBe(1);
+
+    const two = awardXp(CONFIG, nothing.profile, won, today);
+    expect(two.award.total).toBe(1000);
+    expect(two.profile.adBoost.matchesLeft).toBe(0);
+    expect(awardXp(CONFIG, two.profile, won, today).award.total).toBe(500);
+  });
+
+  it('adds the Supporter bonus, and adds rather than multiplies with a boost', () => {
+    const supporter = { ...fresh(), supporter: true };
+    expect(awardXp(CONFIG, supporter, won, today).award.total).toBe(625);
+    const both = awardXp(CONFIG, startBoost(CONFIG, supporter, today), won, today).award;
+    expect(both.boosts.map((b) => b.xp)).toEqual([500, 125]);
+    expect(both.total).toBe(1125);
+  });
+
+  it('pays nothing for a place past the end of the list', () => {
+    const { award } = awardXp(CONFIG, fresh(), { ...outEarly, placement: 6 }, today);
+    expect(award.lines.some((l) => l.id === 'placement')).toBe(false);
+  });
+
+  it('writes places the way they are said', () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101].map(ordinal)).toEqual([
+      '1st',
+      '2nd',
+      '3rd',
+      '4th',
+      '11th',
+      '12th',
+      '13th',
+      '21st',
+      '22nd',
+      '101st',
+    ]);
+  });
+});
+
+describe('the ad boost', () => {
+  const today = '2026-10-16';
+
+  it('is one at a time, a few a day, and new again tomorrow', () => {
+    let profile = fresh();
+    expect(boostStatus(CONFIG, profile, today).available).toBe(true);
+    for (let n = 0; n < CONFIG.adBoost.perDay; n++) {
+      profile = startBoost(CONFIG, profile, today);
+      const running = boostStatus(CONFIG, profile, today);
+      expect(running.available).toBe(false);
+      expect(running.reason).toMatch(/next 2 matches/);
+      // Use it up.
+      profile = awardXp(CONFIG, profile, outEarly, today).profile;
+      profile = awardXp(CONFIG, profile, outEarly, today).profile;
+    }
+    const spent = boostStatus(CONFIG, profile, today);
+    expect(spent.available).toBe(false);
+    expect(spent.leftToday).toBe(0);
+    expect(boostStatus(CONFIG, profile, '2026-10-17').available).toBe(true);
+  });
+});
+
+describe('the saved profile', () => {
+  it('reads junk as a new player, and keeps what it can of a partial save', () => {
+    expect(parseProfile('junk')).toEqual(NEW_PROFILE);
+    expect(parseProfile({ xp: 450.7, owned: ['a', 'a', 3], casual: { day: 'today' } })).toEqual({
+      ...NEW_PROFILE,
+      xp: 450,
+      owned: ['a'],
+    });
+  });
+
+  it('names the day the way daily limits compare it', () => {
+    expect(dayKey(new Date(2026, 0, 5, 23, 59))).toBe('2026-01-05');
+  });
+
+  it('saves an award, and the level it makes, across a reload', () => {
+    const storage = memory();
+    const now = () => new Date(2026, 9, 16, 12);
+    const store = new ProgressStore(storage, now, CONFIG);
+    const result = store.award(won);
+    expect(result.award.total).toBe(500);
+    expect(result.before.level).toBe(1);
+    expect(result.after.level).toBe(2);
+    expect(new ProgressStore(storage, now, CONFIG).level).toEqual(result.after);
+  });
+
+  it('starts a boost only when one is due', () => {
+    const store = new ProgressStore(memory(), () => new Date(2026, 9, 16), CONFIG);
+    expect(store.startBoost()).toBe(true);
+    expect(store.startBoost()).toBe(false);
+    expect(store.boost().matchesLeft).toBe(2);
+  });
+});
+
+describe('cosmetics', () => {
+  const [title, other] = COSMETICS.cosmetics.filter((c) => c.slot === 'title' && c.unlock.free);
+  const badges = COSMETICS.cosmetics.filter((c) => c.slot === 'badge');
+  const leveled = COSMETICS.cosmetics.find((c) => c.unlock.level !== null && !c.unlock.free)!;
+  const supporterOnly = COSMETICS.cosmetics.find((c) => c.unlock.supporter)!;
+
+  it('unlocks by any one of the ways listed', () => {
+    const nobody = { level: 1, supporter: false, owned: [] };
+    expect(isUnlocked(title!, nobody)).toBe(true);
+    expect(isUnlocked(leveled, nobody)).toBe(false);
+    expect(isUnlocked(leveled, { ...nobody, level: leveled.unlock.level! })).toBe(true);
+    expect(isUnlocked(supporterOnly, nobody)).toBe(false);
+    expect(isUnlocked(supporterOnly, { ...nobody, supporter: true })).toBe(true);
+    expect(howToUnlock(leveled)).toContain(`Reach level ${leveled.unlock.level}`);
+  });
+
+  it('wears one title at a time, and any number of badges', () => {
+    // Only one free title ships; a second is made up for the rule.
+    const second = other ?? { ...title!, id: 'title_test' };
+    const config = { ...COSMETICS, cosmetics: [...COSMETICS.cosmetics, second] };
+    let on = setEnabled(config, [], title!, true);
+    on = setEnabled(config, on, second, true);
+    expect(on).toEqual([second.id]);
+    on = setEnabled(config, on, badges[0]!, true);
+    on = setEnabled(config, on, badges[1]!, true);
+    expect(on).toEqual([second.id, badges[0]!.id, badges[1]!.id]);
+    expect(setEnabled(config, on, badges[0]!, false)).toEqual([second.id, badges[1]!.id]);
+  });
+
+  it('switches only what is unlocked, and stops wearing what is locked again', () => {
+    const store = new ProgressStore(memory(), () => new Date(2026, 9, 16), CONFIG);
+    store.setCosmetic(supporterOnly.id, true);
+    expect(store.profile.cosmetics).toEqual([]);
+
+    store.grant('supporter');
+    store.setCosmetic(supporterOnly.id, true);
+    expect(store.worn('badge').map((c) => c.id)).toEqual([supporterOnly.id]);
+
+    store.clearPurchases();
+    expect(store.worn('badge')).toEqual([]);
+    // Still switched on, and back the moment it is unlocked again.
+    store.grant('supporter');
+    expect(store.worn('badge').map((c) => c.id)).toEqual([supporterOnly.id]);
+  });
+
+  it('gives a bundle its cosmetics', () => {
+    const store = new ProgressStore(memory(), () => new Date(2026, 9, 16), CONFIG);
+    const bundle = STORE.bundles.find((b) => b.cosmetics.length > 0)!;
+    store.grant(bundle.id);
+    for (const id of bundle.cosmetics) {
+      const cosmetic = COSMETICS.cosmetics.find((c) => c.id === id)!;
+      expect(store.isUnlocked(cosmetic), id).toBe(true);
+    }
+  });
+});

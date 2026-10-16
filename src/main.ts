@@ -18,6 +18,11 @@
  *                             to the ending; this one is for looking at it.
  *   `?sounds=1`               opens a panel over the game for playing every
  *                             sound and piece of music (src/audio/soundBoard.ts).
+ *   `?progress=test`          practice and solo earn XP as a normal match would,
+ *                             with no daily limit, and the placeholder store
+ *                             grants what it sells, free, on this device - so
+ *                             levels, boosts, bundles and cosmetics can all be
+ *                             tried before there is a server or a way to pay.
  */
 
 import { loadBundledData } from './data/bundle.ts';
@@ -49,11 +54,16 @@ const startWave = Number.isFinite(waveParam) && waveParam > 1 ? Math.floor(waveP
 
 const startInShowdown = params.get('showdown') === '1';
 
+// `?progress=test`: try XP, levels and the placeholder store without a server
+// or a payment provider (render/game.ts, `progressTest`).
+const progressTest = params.get('progress') === 'test';
+
 const running = await startApp(mount, data, {
   ...(seed !== undefined && { seed }),
   ...(server && { server }),
   ...(startWave !== undefined && { startWave }),
   ...(startInShowdown && { startInShowdown }),
+  ...(progressTest && { progressTest }),
 });
 
 if (params.get('sounds') === '1') mountSoundBoard(running.sound);

@@ -28,12 +28,23 @@
  * server is configured. Hiding them would leave a single-button menu that says
  * nothing about why; disabled with a reason underneath says what the game can
  * do and what it needs to do it.
+ *
+ * Under the ways to play, three ways to spend the game's own time and money:
+ * the **Store**, your **Collection** of cosmetics, and **Support**. Each
+ * dresses the part a little - the store glints and says NEW until it has been
+ * opened, the heart beats - because a button nobody notices sells nothing,
+ * and none of them is in the way of the button that starts a match.
+ *
+ * And who you are, at the top: the name card (nameCard.ts), with the level
+ * you have reached and how far it is to the next.
  */
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
+import { drawBadgeGlyph } from './levelBadge.ts';
+import { NameCard, type NameCardState } from './nameCard.ts';
 import { centreOn, fit, label } from './text.ts';
 
 /** How a match is found. Chosen here, carried through the builder picker. */
@@ -63,6 +74,18 @@ export interface HomeHandlers {
   onEditName(): void;
   /** Asks for a room code, then joins or opens that room. */
   onPrivateRoom(): void;
+  onStore(): void;
+  onCollection(): void;
+  onSupport(): void;
+}
+
+/** What the home screen shows about the player's progress. */
+export interface HomeProfile extends NameCardState {
+  /** The store has never been opened: its button says NEW. */
+  storeNew: boolean;
+  supporter: boolean;
+  /** Cosmetics unlocked, of how many. */
+  collection: { unlocked: number; total: number };
 }
 
 interface Button {
@@ -86,15 +109,12 @@ export interface TutorialProgress {
 export class HomeScreen extends Container {
   private readonly scrim = new Graphics();
   private readonly heading: Text;
-  private readonly nameRow = new Container();
-  private readonly nameBackground = new Graphics();
-  private readonly nameLabel: Text;
-  private readonly nameValue: Text;
-  private readonly nameHint: Text;
+  private readonly nameCard: NameCard;
   private readonly buttons: Button[] = [];
+  private readonly extras: ExtraButton[];
   private readonly footnote: Text;
 
-  private playerName = '';
+  private profile: HomeProfile | null = null;
   private online = false;
   private tutorial: TutorialProgress = { done: 0, total: 0 };
   /** Most monsters killed in one solo match on this device, 0 for none yet. */
@@ -107,18 +127,17 @@ export class HomeScreen extends Container {
     super();
 
     this.heading = label('Lane Siege', 26, UI.text, '700');
-    this.nameLabel = label('You are', 10, UI.textMuted, '600');
-    this.nameValue = label('', 15, UI.text, '700');
-    this.nameHint = label('tap to change', 10, UI.textMuted);
     this.footnote = label('', 10, UI.textMuted);
 
-    this.nameRow.eventMode = 'static';
-    this.nameRow.cursor = 'pointer';
-    this.nameRow.on('pointertap', () => this.handlers.onEditName());
     // Every child is made once and only ever repositioned. A rebuilt
     // interactive object never receives a tap (see the note at the top of
     // buildBar.ts), and rebuilding on every redraw is how that happens.
-    this.nameRow.addChild(this.nameBackground, this.nameLabel, this.nameValue, this.nameHint);
+    this.nameCard = new NameCard(() => this.handlers.onEditName());
+    this.extras = [
+      new ExtraButton('store', 'Store', () => this.handlers.onStore()),
+      new ExtraButton('collection', 'Collection', () => this.handlers.onCollection()),
+      new ExtraButton('support', 'Support', () => this.handlers.onSupport()),
+    ];
 
     this.buttons.push(
       this.makeButton('Tutorial', '', false, () => this.handlers.onChoose({ kind: 'tutorial' })),
@@ -140,8 +159,9 @@ export class HomeScreen extends Container {
     this.addChild(
       this.scrim,
       this.heading,
-      this.nameRow,
+      this.nameCard,
       ...this.buttons.map((b) => b.root),
+      ...this.extras,
       this.footnote,
     );
     this.setLayout(layout);
@@ -176,8 +196,8 @@ export class HomeScreen extends Container {
   }
 
   /** `online` is whether a server is configured at all (`?server=`). */
-  setState(playerName: string, online: boolean, tutorial: TutorialProgress, soloBest = 0): void {
-    this.playerName = playerName;
+  setState(profile: HomeProfile, online: boolean, tutorial: TutorialProgress, soloBest = 0): void {
+    this.profile = profile;
     this.online = online;
     this.tutorial = tutorial;
     this.soloBest = soloBest;
@@ -187,6 +207,12 @@ export class HomeScreen extends Container {
   setLayout(layout: LaneLayout): void {
     this.layout = layout;
     this.redraw();
+  }
+
+  /** The glint on the store and the beat of the heart. Nothing while hidden. */
+  update(deltaMs: number): void {
+    if (!this.visible) return;
+    for (const extra of this.extras) extra.animate(deltaMs);
   }
 
   private redraw(): void {
@@ -208,28 +234,21 @@ export class HomeScreen extends Container {
     // that other people will see.
     const rowWidth = Math.min(l.width - 32, 320);
     const rowX = (l.width - rowWidth) / 2;
-    const rowY = top + (compact ? 40 : 52);
-    this.nameBackground.clear();
-    this.nameBackground
-      .roundRect(rowX, rowY, rowWidth, 48, 10)
-      .fill({ color: UI.panel })
-      .stroke({ width: 1, color: UI.panelEdge });
-    this.nameRow.hitArea = new Rectangle(rowX, rowY, rowWidth, 48);
-    this.nameLabel.position.set(rowX + 14, rowY + 9);
-    this.nameValue.text = this.playerName;
-    this.nameValue.position.set(rowX + 14, rowY + 23);
-
-    this.nameHint.position.set(rowX + rowWidth - this.nameHint.width - 14, rowY + 19);
+    const rowY = top + (compact ? 38 : 52);
+    const cardH = NameCard.height(compact);
+    this.nameCard.place(rowX, rowY, rowWidth, cardH);
+    if (this.profile) this.nameCard.set(this.profile);
 
     const buttonHeight = compact ? 52 : 62;
     const gap = compact ? 8 : 12;
-    const firstY = rowY + 48 + (compact ? 14 : 26);
+    const firstY = rowY + cardH + (compact ? 12 : 22);
+    const extraH = compact ? 52 : 60;
 
     // One column while it fits above the footnote; otherwise two, the things
     // this tab can do on the left and the things that need a server on the
     // right - six buttons will not go down a sideways phone.
     const count = this.buttons.length;
-    const oneColumn = firstY + count * (buttonHeight + gap) + 30 <= l.height;
+    const oneColumn = firstY + count * (buttonHeight + gap) + extraH + gap + 30 <= l.height;
     const columnWidth = oneColumn ? rowWidth : Math.min((l.width - 32 - gap) / 2, 320);
     const blockX = oneColumn ? rowX : (l.width - (columnWidth * 2 + gap)) / 2;
 
@@ -251,6 +270,7 @@ export class HomeScreen extends Container {
         : 'Sends come home, then a wave that never ends';
 
     let bottom = firstY;
+    let rightBottom = firstY;
     for (const [index, button] of this.buttons.entries()) {
       button.enabled = !button.needsServer || this.online;
       const column = !oneColumn && button.needsServer ? 1 : 0;
@@ -260,6 +280,7 @@ export class HomeScreen extends Container {
       const x = blockX + column * (columnWidth + gap);
       const y = firstY + slot * (buttonHeight + gap);
       bottom = Math.max(bottom, y + buttonHeight + gap);
+      if (column === 1) rightBottom = Math.max(rightBottom, y + buttonHeight + gap);
 
       const onAccent = index === lit;
       button.background.clear();
@@ -276,6 +297,25 @@ export class HomeScreen extends Container {
       button.note.text = fit(button.noteText, columnWidth - 28, 10);
       button.note.position.set(x + 16, y + (compact ? 31 : 36));
     }
+
+    // Store, Collection, Support: a row of three under the ways to play, or -
+    // two columns, sideways - in the room the right column has to spare, since
+    // the left one is the longer. A small phone held upright gets two narrow
+    // columns, and three in one of those would not hold their own names: there
+    // the row goes under both columns instead.
+    const beside = !oneColumn && (columnWidth - gap * 2) / 3 >= 84;
+    const extrasW = oneColumn ? rowWidth : beside ? columnWidth : columnWidth * 2 + gap;
+    const extrasX = oneColumn ? rowX : beside ? blockX + columnWidth + gap : blockX;
+    const extrasY = beside ? rightBottom : bottom;
+    const each = (extrasW - gap * 2) / 3;
+    const p = this.profile;
+    this.extras[0]!.setNote(p?.storeNew ? 'New bundles' : 'Bundles & looks', p?.storeNew ?? false);
+    this.extras[1]!.setNote(p ? `${p.collection.unlocked} of ${p.collection.total}` : '', false);
+    this.extras[2]!.setNote(p?.supporter ? 'Thank you!' : 'Back the game', false);
+    this.extras.forEach((extra, i) => {
+      extra.place(extrasX + i * (each + gap), extrasY, each, extraH);
+    });
+    bottom = Math.max(bottom, extrasY + extraH + gap);
     const y = bottom;
 
     this.footnote.text = this.online
@@ -285,5 +325,161 @@ export class HomeScreen extends Container {
     this.footnote.style.wordWrapWidth = oneColumn ? rowWidth : columnWidth * 2 + gap;
     this.footnote.style.align = 'center';
     centreOn(this.footnote, l.width / 2, y + 8);
+  }
+}
+
+/**
+ * A small button under the ways to play: the Store, the Collection, Support.
+ *
+ * Each has a drawn icon, and the two that ask for money are dressed for it -
+ * the store's border is gold and a glint crosses its bag every few seconds,
+ * with a NEW ribbon until it has been opened; Support's heart beats. Drawn
+ * every frame only in the few pixels that move.
+ */
+class ExtraButton extends Container {
+  private readonly bg = new Graphics();
+  private readonly icon = new Graphics();
+  private readonly ribbon = new Graphics();
+  private readonly title: Text;
+  private readonly note: Text;
+  private readonly ribbonText: Text;
+  private clock = 0;
+  private noteText = '';
+  private isNew = false;
+
+  constructor(
+    private readonly kind: 'store' | 'collection' | 'support',
+    caption: string,
+    onTap: () => void,
+  ) {
+    super();
+    this.title = label(caption, 13, UI.text, '700');
+    this.note = label('', 9, UI.textMuted, '600');
+    this.ribbonText = label('NEW', 8, UI.background, '700');
+    this.addChild(this.bg, this.icon, this.title, this.note, this.ribbon, this.ribbonText);
+    this.eventMode = 'static';
+    this.cursor = 'pointer';
+    this.on('pointertap', onTap);
+  }
+
+  setNote(text: string, isNew: boolean): void {
+    this.noteText = text;
+    this.isNew = isNew;
+  }
+
+  place(x: number, y: number, width: number, height: number): void {
+    this.hitArea = new Rectangle(x, y, width, height);
+    const edge = this.kind === 'store' ? UI.level : this.kind === 'support' ? UI.support : UI.xp;
+    this.bg.clear();
+    this.bg
+      .roundRect(x, y, width, height, 10)
+      .fill({ color: UI.panel })
+      .stroke({ width: this.kind === 'collection' ? 1 : 1.5, color: edge, alpha: 0.85 });
+
+    // Icon above or beside the words, whichever the button has room for.
+    const stacked = width < 120;
+    const iconSize = Math.min(20, height * (stacked ? 0.3 : 0.4));
+    const textX = stacked ? x + width / 2 : x + 12 + iconSize + 8;
+    this.title.style.fontSize = width < 90 ? 11 : 13;
+    this.note.text = fit(this.noteText, stacked ? width - 8 : width - (textX - x) - 6, 9);
+    if (stacked) {
+      // Icon, name and note as one block, centred top to bottom.
+      const block = iconSize + 4 + this.title.height + this.note.height - 2;
+      const top = y + (height - block) / 2;
+      this.iconAt = { cx: x + width / 2, cy: top + iconSize / 2, size: iconSize };
+      centreOn(this.title, textX, top + iconSize + 4);
+      centreOn(this.note, textX, top + iconSize + 2 + this.title.height);
+    } else {
+      this.title.position.set(textX, y + height / 2 - this.title.height + 2);
+      this.note.position.set(textX, y + height / 2 + 2);
+      this.iconAt = { cx: x + 12 + iconSize / 2, cy: y + height / 2, size: iconSize };
+    }
+
+    // NEW, across the top right corner.
+    this.ribbon.clear();
+    this.ribbonText.visible = this.isNew;
+    if (this.isNew) {
+      const rw = this.ribbonText.width + 10;
+      const rh = this.ribbonText.height + 2;
+      this.ribbon
+        .roundRect(x + width - rw - 4, y - rh / 2, rw, rh, rh / 2)
+        .fill({ color: UI.level });
+      this.ribbonText.position.set(x + width - rw + 1, y - rh / 2 + 1);
+    }
+    this.drawIcon();
+  }
+
+  private iconAt = { cx: 0, cy: 0, size: 0 };
+
+  animate(deltaMs: number): void {
+    this.clock += deltaMs / 1000;
+    if (this.kind !== 'collection') this.drawIcon();
+  }
+
+  private drawIcon(): void {
+    const g = this.icon;
+    const { cx, cy, size } = this.iconAt;
+    g.clear();
+    if (size <= 0) return;
+    if (this.kind === 'support') {
+      // A heartbeat: two quick swells, then rest.
+      const t = this.clock % 1.4;
+      const beat = t < 0.15 ? t / 0.15 : t < 0.3 ? 1 - (t - 0.15) / 0.15 : 0;
+      const beat2 =
+        t >= 0.35 && t < 0.5 ? (t - 0.35) / 0.15 : t >= 0.5 && t < 0.65 ? 1 - (t - 0.5) / 0.15 : 0;
+      const scale = 1 + 0.14 * Math.max(beat, beat2 * 0.7);
+      drawBadgeGlyph(g, 'heart', cx, cy, size * scale, UI.support);
+      return;
+    }
+    if (this.kind === 'store') {
+      // A bag: a body, a handle, and a glint crossing it every few seconds.
+      const w = size * 0.9;
+      const h = size * 0.8;
+      const top = cy - h / 2 + size * 0.1;
+      g.roundRect(cx - w / 2, top, w, h, size * 0.15).fill({ color: UI.level });
+      // Its own path: an arc with nowhere to start from is drawn from the origin.
+      g.moveTo(cx - w * 0.28, top)
+        .arc(cx, top, w * 0.28, Math.PI, 0)
+        .stroke({ width: Math.max(1.5, size * 0.1), color: UI.level });
+      const sweep = (this.clock % 3.2) / 0.6;
+      if (sweep < 1) {
+        const gx = cx - w / 2 + sweep * w;
+        g.moveTo(gx - size * 0.12, top + h)
+          .lineTo(gx + size * 0.05, top + h)
+          .lineTo(gx + size * 0.25, top)
+          .lineTo(gx + size * 0.08, top)
+          .closePath()
+          .fill({ color: 0xffffff, alpha: 0.55 });
+      }
+      // And two sparkles, twinkling out of step.
+      for (const [dx, dy, phase] of [
+        [0.75, -0.55, 0],
+        [-0.8, -0.35, 1.3],
+      ] as const) {
+        const tw = Math.max(0, Math.sin((this.clock + phase) * 2.6));
+        if (tw <= 0.05) continue;
+        const sx = cx + dx * size;
+        const sy = cy + dy * size;
+        const r = size * 0.22 * tw;
+        g.poly([sx, sy - r, sx + r * 0.3, sy, sx, sy + r, sx - r * 0.3, sy]).fill({
+          color: UI.level,
+        });
+        g.poly([sx - r, sy, sx, sy - r * 0.3, sx + r, sy, sx, sy + r * 0.3]).fill({
+          color: UI.level,
+        });
+      }
+      return;
+    }
+    // The collection: four tiles, one of them gold.
+    const t = size * 0.42;
+    const gap = size * 0.12;
+    const x0 = cx - t - gap / 2;
+    const y0 = cy - t - gap / 2;
+    const colors = [UI.xp, UI.level, UI.accent, UI.support];
+    for (let i = 0; i < 4; i++) {
+      const tx = x0 + (i % 2) * (t + gap);
+      const ty = y0 + Math.floor(i / 2) * (t + gap);
+      g.roundRect(tx, ty, t, t, t * 0.25).fill({ color: colors[i]! });
+    }
   }
 }

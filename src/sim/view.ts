@@ -294,6 +294,8 @@ export interface OpponentView {
   teamId: TeamId;
   /** What to call them, or empty when nobody has said. Always public. */
   name: string;
+  /** Their level, shown with the name; 0 when nobody has said (a bot). */
+  level: number;
   eliminated: boolean;
   /** Locked in at elimination (§13). */
   placement: number | null;
@@ -379,6 +381,8 @@ export interface MatchView {
   teamId: TeamId;
   /** What to call yourself, or empty when nobody has said. */
   teamName: string;
+  /** Your own level, as the match was told it (`Team.level`). */
+  teamLevel: number;
   /** Public and identical for everyone: every lane faces the same wave (§9.2). */
   seed: number;
   /**
@@ -657,6 +661,7 @@ export function viewFor(
     opponents.push({
       teamId: team.id,
       name: team.name,
+      level: team.level,
       eliminated: team.eliminated,
       placement: team.placement,
       // §12's suggested minimum, and the whole of it.
@@ -673,6 +678,7 @@ export function viewFor(
   return {
     teamId,
     teamName: self?.name ?? '',
+    teamLevel: self?.level ?? 0,
     seed: state.seed,
     lateWaves: state.lateWaves,
     tick: state.tick,

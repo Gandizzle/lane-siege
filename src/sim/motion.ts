@@ -98,11 +98,29 @@ export interface Body {
    * everything.
    */
   phasesMonsters: boolean;
+  /**
+   * Which send delivered this body (§11.5), or null - absent on anything that
+   * is not a monster. A sent body phases through the wave it joins, as a boss
+   * does (`phasesMonsters`), so a send never snags on the wave or trips it
+   * up. It does NOT phase through other sent bodies: sends passing through
+   * each other walked one path to one gap and arrived as a single stack, a
+   * dozen bodies hitting the line at one point.
+   */
+  sendId?: string | null;
 }
 
-/** Do these two bodies touch at all? §3.4: a boss and a monster do not. */
-function collides(a: Body, b: Body): boolean {
+/**
+ * Do these two bodies touch at all? §3.4: a boss and a monster do not, nor a
+ * send and the wave it joins - but two sends do.
+ */
+export function collides(a: Body, b: Body): boolean {
+  if (isSent(a) && isSent(b)) return true;
   return !((a.phasesMonsters && b.monster) || (b.phasesMonsters && a.monster));
+}
+
+/** Delivered by a send (`Body.sendId`). */
+export function isSent(body: Body): boolean {
+  return body.sendId !== undefined && body.sendId !== null;
 }
 
 /** The edges of the lane, in tiles. A body's centre stays a radius inside them. */

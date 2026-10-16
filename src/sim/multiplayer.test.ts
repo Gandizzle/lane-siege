@@ -464,12 +464,14 @@ describe('fog of war (§12)', () => {
     // across the top is the whole point of playing against people. So is
     // `fighting`: whether a lane is still at it says nothing about what is in
     // it, and the wave ending a moment later tells everyone the same thing.
+    // And `level`, which goes with the name and exists to be seen.
     for (const opponent of view.opponents) {
       expect(Object.keys(opponent).sort()).toEqual([
         'eliminated',
         'fighting',
         'fortressHp',
         'fortressMaxHp',
+        'level',
         'name',
         'placement',
         'teamId',

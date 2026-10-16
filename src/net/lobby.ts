@@ -62,6 +62,12 @@ export interface LobbySeat {
   playerId: string | null;
   /** Display name, or empty for an empty seat. */
   name: string;
+  /**
+   * The player's level (src/progression), shown with their name; 0 for an
+   * empty seat or a player who did not say. A claim, like the name - it buys
+   * nothing but the right to be looked at.
+   */
+  level: number;
   /** The roster this player has chosen (§7.1). */
   builderId: string;
   /** Has confirmed their roster and wants to start. */
@@ -96,6 +102,7 @@ export function createSeats(teamIds: readonly string[]): LobbySeat[] {
     teamId,
     playerId: null,
     name: '',
+    level: 0,
     builderId: '',
     ready: false,
     connected: false,
@@ -115,12 +122,14 @@ export function seatPlayer(
   playerId: string,
   name: string,
   builderId: string,
+  level = 0,
 ): LobbySeat | null {
   const existing = seats.find((s) => s.playerId === playerId);
   if (existing) {
     existing.connected = true;
     if (name) existing.name = name;
     if (builderId) existing.builderId = builderId;
+    if (level > 0) existing.level = level;
     return existing;
   }
 
@@ -129,6 +138,7 @@ export function seatPlayer(
 
   free.playerId = playerId;
   free.name = name;
+  free.level = level;
   free.builderId = builderId;
   free.ready = false;
   free.connected = true;
@@ -139,9 +149,21 @@ export function seatPlayer(
 export function releaseSeat(seat: LobbySeat): void {
   seat.playerId = null;
   seat.name = '';
+  seat.level = 0;
   seat.builderId = '';
   seat.ready = false;
   seat.connected = false;
+}
+
+/**
+ * A level as a client claimed it, made safe to draw: a whole number from 0 to
+ * a million, and 0 for anything else. Like a name, cleaned by the server
+ * because the client is not trusted (§15.1) - though a forged level fools
+ * nobody about anything that matters.
+ */
+export function cleanLevel(claimed: unknown): number {
+  if (typeof claimed !== 'number' || !Number.isFinite(claimed)) return 0;
+  return Math.max(0, Math.min(1_000_000, Math.floor(claimed)));
 }
 
 export function occupiedSeats(seats: readonly LobbySeat[]): LobbySeat[] {

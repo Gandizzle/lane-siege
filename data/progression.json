@@ -1,0 +1,30 @@
+{
+  "_comment": "Experience and levels (docs/ARCHITECTURE.md, Progression). XP is earned at the end of a match - mostly from a normal match against other people, a little once a day from practice or solo - and the level it adds up to is shown with your name. Levels will unlock builders and cosmetics; which level unlocks what is still to be decided. Every number here is a first guess, to tune once there are players.",
+  "levels": {
+    "_comment": "XP to climb from level L to L + 1 is first + step x (L - 1): 300 to reach level 2, then 400, 500 and so on. A straight line, so every level asks a little more than the last without ever running away, and there is no top. Level 10 is 6,300 XP in all - about twenty normal matches, at the 300 or so an average one earns.",
+    "first": 300,
+    "step": 100
+  },
+  "match": {
+    "_comment": "A normal match, played to the end of YOUR match: eliminated, or the last one standing. Leaving early earns nothing. Everyone who plays it out earns played; then every wave survived, the placement (1st, 2nd, 3rd, 4th), and reaching the Final Showdown. A match won in the showdown is 100 + 25 x 8 + 150 + 50 = 500; out on wave 6 in fourth is 100 + 5 x 8 + 20 = 160.",
+    "played": 100,
+    "perWave": 8,
+    "placement": [150, 90, 50, 20],
+    "showdown": 50
+  },
+  "casual": {
+    "_comment": "Practice and solo: the first gamesPerDay finished each day earn xp each, and the rest of that day earn nothing. Enough that playing alone is not a dead end, not enough to be the way to level. A day is the device's own calendar day.",
+    "xp": 50,
+    "gamesPerDay": 1
+  },
+  "adBoost": {
+    "_comment": "Watching an opt-in ad adds bonus (1.0 is +100%, so double) to the next matches matches that earn XP. One boost at a time, and at most perDay a day so it stays a treat. A match that earns nothing - practice after the day's allowance - does not use one up.",
+    "bonus": 1.0,
+    "matches": 2,
+    "perDay": 3
+  },
+  "supporter": {
+    "_comment": "A Supporter earns bonus more on every match, for good. Boosts add rather than multiply: an ad boost and Supporter together are 1 + 1.0 + 0.25 = 2.25 times.",
+    "bonus": 0.25
+  }
+}

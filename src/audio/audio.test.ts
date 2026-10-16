@@ -103,6 +103,7 @@ function match(
   return {
     teamId: 'lane1',
     teamName: '',
+    teamLevel: 0,
     seed: 1,
     lateWaves: null,
     tick: 0,
@@ -117,6 +118,7 @@ function match(
       {
         teamId: 'lane2',
         name: 'Bot 2',
+        level: 0,
         eliminated: false,
         placement: null,
         fortressHp: 1000,

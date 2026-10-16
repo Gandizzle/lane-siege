@@ -57,6 +57,7 @@ import { cleanName } from '../src/net/identity.ts';
 import {
   MAX_PLAYERS,
   PUBLIC_CODE,
+  cleanLevel,
   createSeats,
   lobbyViewFor,
   occupiedSeats,
@@ -102,6 +103,8 @@ export interface RoomOptions extends Partial<LobbyTiming> {
 export interface JoinOptions {
   playerId?: string;
   name?: string;
+  /** The player's level, for showing with their name (lobby.ts, `cleanLevel`). */
+  level?: number;
   builderId?: string;
   code?: string;
 }
@@ -232,6 +235,7 @@ export class LaneSiegeRoom extends Room {
       playerId,
       cleanName(String(options?.name ?? '')),
       options?.builderId ?? '',
+      cleanLevel(options?.level),
     );
     if (!placed) {
       client.leave(4000, 'room full');
@@ -369,6 +373,7 @@ export class LaneSiegeRoom extends Room {
       teamId,
       seed: this.match.seed,
       teamNames: this.seats.map((seat) => seat.lobby.name),
+      teamLevels: this.seats.map((seat) => seat.lobby.level),
     };
   }
 
@@ -385,13 +390,17 @@ export class LaneSiegeRoom extends Room {
     // every screen will be labelled with for the rest of the match.
     for (const seat of this.seats) {
       const team = this.match.teams.find((t) => t.id === seat.lobby.teamId);
-      if (team) team.name = seat.lobby.name;
+      if (team) {
+        team.name = seat.lobby.name;
+        team.level = seat.lobby.level;
+      }
     }
     this.tables = buildTables(
       this.data,
       LANE_IDS,
       this.match.seed,
       this.seats.map((seat) => seat.lobby.name),
+      this.seats.map((seat) => seat.lobby.level),
     );
     for (const seat of this.seats) {
       if (seat.client) seat.client.send('hello', this.helloFor(seat.lobby.teamId));

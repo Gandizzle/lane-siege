@@ -93,6 +93,8 @@ export interface RemoteOptions {
   builderId: string;
   /** A private room's code, or `PUBLIC_CODE` for a quick match. */
   code?: string;
+  /** Their level, shown with their name to the others (src/progression). */
+  level?: number;
 }
 
 export class RemoteTransport implements Transport {
@@ -209,6 +211,7 @@ export class RemoteTransport implements Transport {
       playerId: this.options.identity.playerId,
       name: this.options.identity.name,
       builderId: this.options.builderId,
+      level: this.options.level ?? 0,
     });
   }
 
@@ -233,7 +236,15 @@ export class RemoteTransport implements Transport {
 
     room.onMessage('hello', (hello: WireHello) => {
       this.teamId = hello.teamId;
-      this.tables = buildTables(this.data, hello.teamIds, hello.seed);
+      // The names and levels too: constant for the match, so they come with
+      // the hello rather than in every frame (`WireHello.teamNames`).
+      this.tables = buildTables(
+        this.data,
+        hello.teamIds,
+        hello.seed,
+        hello.teamNames ?? [],
+        hello.teamLevels ?? [],
+      );
       this.status = 'ready';
 
       // Anything tapped while connecting goes now, in the order it was tapped.

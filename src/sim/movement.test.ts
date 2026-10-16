@@ -27,6 +27,7 @@ import {
 import type { GameData } from '../data/schema.ts';
 import type { Body, MatchState, SimContext } from './index.ts';
 import { cellAt } from './flowfield.ts';
+import { collides } from './motion.ts';
 
 const { data } = loadDataFromDisk();
 
@@ -91,9 +92,10 @@ function worstOverlap(sets: readonly (readonly Fighter[])[], engagedOnly = false
       const a = all[i]!;
       const b = all[j]!;
       if (engagedOnly && !a.engaged && !b.engaged) continue;
-      // §3.4: a boss and a monster are not in contact at all, so the distance
-      // between them is not an overlap. Every other pair is.
-      if ((a.phasesMonsters && b.monster) || (b.phasesMonsters && a.monster)) continue;
+      // §3.4: a boss and a monster are not in contact at all, nor a send and
+      // the wave it joins, so the distance between them is not an overlap.
+      // Every other pair is - two sends included.
+      if (!collides(a, b)) continue;
       const g = gap(a, b);
       if (-g > worst) worst = -g;
     }
@@ -1046,5 +1048,79 @@ describe('a send passes through the wave it joins', () => {
     const walked = createMonster(state, d, defs, { defId: 'grub', waveNumber: 1 }, { x: 4, y: 1 })!;
     expect(sent.phasesMonsters).toBe(true);
     expect(walked.phasesMonsters).toBe(false);
+    expect(collides(sent, walked)).toBe(false);
+  });
+
+  /**
+   * The second playtest: sends passing through EACH OTHER walked one route to
+   * one gap and arrived as a single stack - a dozen bodies on one spot, hitting
+   * the line as one. Measured on this fight before the fix: two sends sat more
+   * than a third of a tile inside each other on 2,785 pair-ticks, 0.42 deep at
+   * worst.
+   */
+  function sendsIntoAWave() {
+    const d = passiveData();
+    d.waves.composition.find((w) => w.wave === 1)!.entries = [
+      { monsterId: 'mote', count: 10 },
+      { monsterId: 'grub', count: 6 },
+    ];
+    const state = createMatch(d, {
+      seed: 1,
+      teams: [
+        { id: 'l1', playerIds: ['p'] },
+        { id: 'l2', playerIds: ['q'] },
+      ],
+    });
+    const ctx = createContext(d);
+    const lane = state.lanes.l1!;
+    lane.economy.gold = 99999;
+    lane.economy.supplyCap = 999;
+    lane.fortress.maxHp = Number.MAX_SAFE_INTEGER;
+    lane.fortress.hp = lane.fortress.maxHp;
+    for (let x = 0; x < 8; x++) place(ctx, state, 'oathwall', x, 6);
+    for (let i = 0; i < 12; i++) {
+      lane.incomingSends.push({ defId: 'grub', fromTeamId: 'l2', sendId: 'grub' });
+    }
+    startCombat(ctx, state);
+    return { state, ctx, lane };
+  }
+
+  it('does not pass through another send: two sends collide', () => {
+    const d = passiveData();
+    const { state } = setup(d);
+    const defs = buildDefIndex(d);
+    const one = { defId: 'grub', waveNumber: 1, sendId: 'grub' };
+    const a = createMonster(state, d, defs, one, { x: 2, y: 1 })!;
+    const b = createMonster(state, d, defs, one, { x: 2.1, y: 1 })!;
+    expect(collides(a, b)).toBe(true);
+  });
+
+  it('keeps a crowd of sends apart through a whole fight, while they still pass through the wave', () => {
+    const { state, ctx, lane } = sendsIntoAWave();
+    let sends = 0;
+    let sentOverlap = 0;
+    let throughWave = 0;
+    for (let t = 0; t < 600; t++) {
+      step(ctx, state);
+      const living = lane.monsters.filter((m) => m.alive);
+      sends = Math.max(sends, living.filter((m) => m.sendId !== null).length);
+      for (let i = 0; i < living.length; i++) {
+        for (let j = i + 1; j < living.length; j++) {
+          const a = living[i]!;
+          const b = living[j]!;
+          const deep = -gap(a, b);
+          const sentA = a.sendId !== null;
+          const sentB = b.sendId !== null;
+          if (sentA && sentB) sentOverlap = Math.max(sentOverlap, deep);
+          else if (sentA || sentB) throughWave = Math.max(throughWave, deep);
+        }
+      }
+    }
+    expect(sends).toBe(12);
+    // As clean as any two solid seekers in a crowd.
+    expect(sentOverlap).toBeLessThan(OVERLAP_TOLERANCE * 5);
+    // And the half of the rule that stays: a send still walks through the
+    // wave rather than snagging on it.
+    expect(throughWave).toBeGreaterThan(0.1);
   });
 });

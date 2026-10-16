@@ -87,4 +87,13 @@ export const UI = {
   /** The Final Showdown's ground, and the square where the four spokes meet. */
   arenaFloor: 0x171b26,
   arenaCentre: 0x1d2231,
+  /**
+   * Progression, which is outside the fight and draws in colors the fight
+   * never uses: gold for a level - the thing a player shows off - and violet
+   * for the XP climbing towards the next one.
+   */
+  level: 0xf2c14e,
+  xp: 0xa98bf5,
+  /** The Support page's heart, warm against the cool panels. */
+  support: 0xf0708a,
 } as const;

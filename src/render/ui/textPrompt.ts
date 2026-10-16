@@ -1,7 +1,7 @@
 /**
  * Typing something, on a phone. §17 (M6).
  *
- * WHY THIS IS THE ONE PIECE OF DOM IN THE UI
+ * WHY THIS IS DOM, NOT PIXI
  *
  * Everything else the player touches is drawn in Pixi, and deliberately so
  * (§14.2: shapes, no assets). Text entry is the exception, and it is not close:
@@ -11,9 +11,9 @@
  * different way on every device.
  *
  * So a real `<input>` appears over the canvas for as long as it takes to type a
- * name or a room code, and goes away again. It is the whole DOM surface of the
- * game, it is created per use and removed on close, and nothing else depends on
- * it existing.
+ * name or a room code, and goes away again. With the placeholder ad
+ * (adPlaceholder.ts) it is the whole DOM surface of the game; it is created per
+ * use and removed on close, and nothing else depends on it existing.
  *
  * It is deliberately not `prompt()`, which is blocking, unstyleable, suppressed
  * in some mobile browsers entirely, and inside a Capacitor shell (§17, M6)

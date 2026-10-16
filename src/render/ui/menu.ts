@@ -9,8 +9,8 @@
  * practice match runs, whether the status markers are drawn (statusMarks.ts),
  * which battlefield the board is painted on (chosen from previews in its own
  * panel, battlefieldPicker.ts) and a guide to
- * what the markers mean (effectsPanel.ts), leaving the match you are
- * in, and closing the menu. A practice match is paused behind
+ * what the markers mean (effectsPanel.ts), the Store and Support (the home
+ * screen has them too), leaving the match you are in, and closing the menu. A practice match is paused behind
  * the menu, because nobody else is waiting on it; an online match is not, and
  * the panel says so rather than letting a player think they have stopped time.
  *
@@ -50,6 +50,9 @@ export interface MenuHandlers {
   onDamageChart(): void;
   /** Open the battlefield previews (battlefieldPicker.ts), over the menu. */
   onBattlefields(): void;
+  /** The Store and the Support page (ui/storeScreen.ts, ui/supportScreen.ts). */
+  onStore(): void;
+  onSupport(): void;
 }
 
 /** What the menu needs to know about the game behind it, each frame it is open. */
@@ -414,6 +417,8 @@ export class Menu extends Container {
   private readonly battlefield: LineWithButton;
   private readonly guide: PanelButton;
   private readonly chart: PanelButton;
+  private readonly store: PanelButton;
+  private readonly support: PanelButton;
   private readonly note: Text;
   private readonly leave: PanelButton;
   private readonly resume: PanelButton;
@@ -456,6 +461,8 @@ export class Menu extends Container {
     );
     this.guide = new PanelButton('Effects guide', () => this.handlers.onEffectsGuide());
     this.chart = new PanelButton('Damage vs armor', () => this.handlers.onDamageChart());
+    this.store = new PanelButton('Store', () => this.handlers.onStore());
+    this.support = new PanelButton('♥ Support', () => this.handlers.onSupport());
     this.speed = new Picker('Game speed', (by) =>
       this.preferences.configure({
         practiceSpeed: cycle(GAME_SPEEDS, this.preferences.settings.practiceSpeed, by),
@@ -496,6 +503,8 @@ export class Menu extends Container {
       this.battlefield,
       this.guide,
       this.chart,
+      this.store,
+      this.support,
       this.note,
       this.leave,
       this.resume,
@@ -615,7 +624,7 @@ export class Menu extends Container {
 
     const heading = 22;
     const soundH = heading + soundRows * rowH;
-    const gameH = heading + rowH * 4 + 40 + noteH + (inMatch ? 42 : 0) + 42 + 22;
+    const gameH = heading + rowH * 4 + 40 + 40 + noteH + (inMatch ? 42 : 0) + 42 + 22;
     const top = 50;
     const bodyH = twoColumns ? Math.max(soundH, gameH) : soundH + 12 + gameH;
     const panelH = top + bodyH + pad;
@@ -675,6 +684,10 @@ export class Menu extends Container {
     const half = (colW - 8) / 2;
     this.guide.place(gx, y + 2, half, 32);
     this.chart.place(gx + half + 8, y + 2, half, 32);
+    y += 40;
+    // And the two that are about the game rather than the match.
+    this.store.place(gx, y + 2, half, 32);
+    this.support.place(gx + half + 8, y + 2, half, 32);
     y += 40;
     this.note.visible = noteText !== '';
     this.note.position.set(gx, y + 2);

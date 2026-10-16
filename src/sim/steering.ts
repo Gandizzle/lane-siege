@@ -34,7 +34,7 @@ import {
   W_DIAG,
 } from './flowfield.ts';
 import type { FieldShape } from './flowfield.ts';
-import { orderByPriority, slideStep, spineDx, type Body } from './motion.ts';
+import { isSent, orderByPriority, slideStep, spineDx, type Body } from './motion.ts';
 import { SECONDS_PER_TICK } from './constants.ts';
 import type { SimContext, World } from './context.ts';
 import type { DefensiveUnit, Monster, Vec2 } from './types.ts';
@@ -79,7 +79,21 @@ const order: number[] = [];
 /** (radius, range) pairs seen this tick, deduplicated without allocating a Set. */
 const shapesRadius: number[] = [];
 const shapesRange: number[] = [];
-const shapesPhasing: boolean[] = [];
+const shapesPhasing: Phasing[] = [];
+
+/**
+ * Which bodies a seeker can walk through, which decides which of them are
+ * terrain on its field (§3.4). SOLID: none - every unit, and every monster of
+ * a wave. THROUGH: every other monster - a boss. SENT: every other monster but
+ * the other sends, which are as solid to it as it is to them (motion.ts,
+ * `collides`).
+ */
+type Phasing = 'solid' | 'through' | 'sent';
+
+function phasingOf(body: Walker): Phasing {
+  if (!body.phasesMonsters) return 'solid';
+  return isSent(body) ? 'sent' : 'through';
+}
 
 /** Every body that walks: a unit or a monster, seen through what planning needs. */
 export type Walker = DefensiveUnit | Monster;
@@ -143,12 +157,13 @@ export function planMoves(
   shapesPhasing.length = 0;
   for (const seeker of seekers) {
     if (!seeker.alive || seeker.engaged) continue;
+    const phasing = phasingOf(seeker);
     let seen = false;
     for (let i = 0; i < shapesRadius.length; i++) {
       if (
         shapesRadius[i] === seeker.radius &&
         shapesRange[i] === seeker.range &&
-        shapesPhasing[i] === seeker.phasesMonsters
+        shapesPhasing[i] === phasing
       ) {
         seen = true;
         break;
@@ -158,8 +173,9 @@ export function planMoves(
       shapesRadius.push(seeker.radius);
       shapesRange.push(seeker.range);
       // Part of the shape, because it changes which bodies are terrain: a boss
-      // routes as though the swarm around it were not there (§3.4).
-      shapesPhasing.push(seeker.phasesMonsters);
+      // routes as though the swarm around it were not there (§3.4), and a send
+      // as though the wave were not, but round the other sends.
+      shapesPhasing.push(phasing);
     }
   }
 
@@ -169,14 +185,7 @@ export function planMoves(
     const radius = shapesRadius[shape]!;
     const range = shapesRange[shape]!;
     const phasing = shapesPhasing[shape]!;
-    const field = fieldFor(
-      ctx,
-      world,
-      scope,
-      `${kind}:${phasing ? 'phase' : 'solid'}`,
-      radius,
-      range,
-    );
+    const field = fieldFor(ctx, world, scope, `${kind}:${phasing}`, radius, range);
     clearField(field);
     // The world's own edges are terrain too: a body cannot stand with half of
     // itself outside them, and a goal marked where one cannot stand is a goal
@@ -202,10 +211,15 @@ export function planMoves(
     for (const ally of allies) {
       if (!ally.alive) continue;
       // §3.4: a boss and the monsters around it are not terrain to each other,
-      // so neither routes around the other. Units are unaffected - they never
-      // phase, so neither clause fires on a defender's field.
-      if (phasing && ally.monster) continue;
-      if (ally.phasesMonsters) continue;
+      // so neither routes around the other, and nor do a send and the wave it
+      // joins. Two sends are: they collide, so each routes round the other.
+      // Units are unaffected - they never phase, so no clause fires on a
+      // defender's field.
+      const sentPair = phasing === 'sent' && isSent(ally);
+      if (!sentPair) {
+        if (phasing !== 'solid' && ally.monster) continue;
+        if (ally.phasesMonsters) continue;
+      }
       // An ally that is going nowhere is terrain. One that is walking is not -
       // it will have moved by the time anyone gets there - but it is not free
       // ground either: getting past a body takes time, and a route that goes
@@ -244,7 +258,11 @@ export function planMoves(
 
     for (const seeker of seekers) {
       if (!seeker.alive || seeker.engaged) continue;
+      // The whole shape, phasing included: a sent grub and a wave grub are the
+      // same size and reach and want different fields, and steering each by
+      // both left whichever came last in charge of the pair.
       if (seeker.radius !== radius || seeker.range !== range) continue;
+      if (phasingOf(seeker) !== phasing) continue;
 
       const cell = steerAlongField(
         field,

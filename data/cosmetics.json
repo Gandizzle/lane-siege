@@ -1,0 +1,152 @@
+{
+  "_comment": "Cosmetics (docs/ARCHITECTURE.md, Cosmetics). SCAFFOLDING: the slots and the way an unlocked cosmetic is switched on and off are real; most of the items are placeholders, and which level unlocks which item is still to be decided - the levels below are only there so the unlock rule has something to read. A cosmetic never changes anything §14.2 spends on information: silhouette is armor, fill is damage type, size and pips are mark, and none of those are for sale.",
+  "slots": [
+    {
+      "id": "title",
+      "name": "Titles",
+      "blurb": "A line under your name",
+      "exclusive": true,
+      "live": true
+    },
+    {
+      "id": "badge",
+      "name": "Badges",
+      "blurb": "Worn beside your name, as many as you like",
+      "exclusive": false,
+      "live": true
+    },
+    {
+      "id": "fortress",
+      "name": "Fortress skins",
+      "blurb": "Your wall's stonework",
+      "exclusive": true,
+      "live": false
+    },
+    {
+      "id": "trail",
+      "name": "Attack trails",
+      "blurb": "What your shots leave behind them",
+      "exclusive": true,
+      "live": false
+    },
+    {
+      "id": "floor",
+      "name": "Arena floors",
+      "blurb": "Your spoke of the Final Showdown",
+      "exclusive": true,
+      "live": false
+    },
+    {
+      "id": "victory",
+      "name": "Victory effects",
+      "blurb": "Last one standing, with a flourish",
+      "exclusive": true,
+      "live": false
+    }
+  ],
+  "cosmetics": [
+    {
+      "_comment": "unlock: free (everyone has it), level (reach it), supporter (be one), store (buy it, alone or in a bundle). Any one of them unlocks it.",
+      "id": "title_recruit",
+      "slot": "title",
+      "name": "Recruit",
+      "unlock": { "free": true }
+    },
+    { "id": "title_wallwright", "slot": "title", "name": "Wallwright", "unlock": { "level": 5 } },
+    {
+      "id": "title_siegebreaker",
+      "slot": "title",
+      "name": "Siegebreaker",
+      "unlock": { "level": 15 }
+    },
+    {
+      "id": "title_last_standing",
+      "slot": "title",
+      "name": "Last One Standing",
+      "unlock": { "level": 30 }
+    },
+    {
+      "id": "title_founder",
+      "slot": "title",
+      "name": "Founder",
+      "unlock": { "store": true },
+      "price": null
+    },
+    {
+      "id": "badge_supporter",
+      "slot": "badge",
+      "name": "Supporter",
+      "glyph": "heart",
+      "unlock": { "supporter": true }
+    },
+    {
+      "id": "badge_veteran",
+      "slot": "badge",
+      "name": "Veteran",
+      "glyph": "shield",
+      "unlock": { "level": 10 }
+    },
+    {
+      "id": "badge_founder",
+      "slot": "badge",
+      "name": "Founder",
+      "glyph": "star",
+      "unlock": { "store": true },
+      "price": null
+    },
+    {
+      "id": "fortress_granite",
+      "slot": "fortress",
+      "name": "Granite Keep",
+      "unlock": { "level": 8 }
+    },
+    {
+      "id": "fortress_obsidian",
+      "slot": "fortress",
+      "name": "Obsidian Keep",
+      "unlock": { "store": true },
+      "price": "$1.99"
+    },
+    {
+      "id": "fortress_gilded",
+      "slot": "fortress",
+      "name": "Gilded Keep",
+      "unlock": { "store": true },
+      "price": "$1.99"
+    },
+    {
+      "id": "trail_ember",
+      "slot": "trail",
+      "name": "Ember Trail",
+      "unlock": { "store": true },
+      "price": "$0.99"
+    },
+    { "id": "trail_frost", "slot": "trail", "name": "Frost Trail", "unlock": { "level": 12 } },
+    {
+      "id": "floor_checker",
+      "slot": "floor",
+      "name": "Checkered Spoke",
+      "unlock": { "level": 20 }
+    },
+    {
+      "id": "floor_starfield",
+      "slot": "floor",
+      "name": "Starfield Spoke",
+      "unlock": { "store": true },
+      "price": "$1.99"
+    },
+    {
+      "id": "victory_fireworks",
+      "slot": "victory",
+      "name": "Fireworks",
+      "unlock": { "store": true },
+      "price": "$1.99"
+    },
+    {
+      "id": "victory_confetti",
+      "slot": "victory",
+      "name": "Confetti Storm",
+      "unlock": { "level": 25 }
+    }
+  ]
+}

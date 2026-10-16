@@ -60,6 +60,8 @@ export interface TeamSetup {
   playerIds: PlayerId[];
   /** Display name. Absent means unnamed, and the UI labels it by lane. */
   name?: string;
+  /** The player's level, shown with the name. Absent for a bot (`Team.level`). */
+  level?: number;
   /**
    * Which roster this team builds from (§7.1). Defaults to the first builder in
    * `units.json` so that a caller with no opinion - a test, the headless runner
@@ -166,6 +168,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     id: setup.id,
     playerIds: [...setup.playerIds],
     name: setup.name ?? '',
+    level: setup.level ?? 0,
     eliminated: false,
     placement: null,
     vision: {},

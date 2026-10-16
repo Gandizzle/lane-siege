@@ -89,6 +89,7 @@ class OpponentTab extends Container {
     ownName: string,
     ownFraction: number,
     active: boolean,
+    ownLevel = 0,
   ): void {
     const eliminated = opponent?.eliminated ?? false;
     const fraction = opponent
@@ -128,16 +129,23 @@ class OpponentTab extends Container {
     this.caption.style.fill = eliminated ? UI.textMuted : UI.text;
 
     // The second line says something only when there is something to say:
-    // out and where they placed, or how long you can see inside. The HP
-    // PERCENTAGE used to live here and does not need to - the bar under it is
-    // the same number, read faster, and two of one fact is one too many.
+    // out and where they placed, or how long you can see inside - and when
+    // there is nothing else, the level they have reached (src/progression),
+    // which is there to be seen. The HP PERCENTAGE used to live here and does
+    // not need to - the bar under it is the same number, read faster, and two
+    // of one fact is one too many.
+    const level = opponent ? opponent.level : ownLevel;
     const detail = eliminated
       ? `out · ${ordinal(opponent?.placement ?? 0)}`
       : opponent
         ? opponent.watching
           ? watchingLabel(opponent)
-          : ''
-        : 'you';
+          : level > 0
+            ? `Lv ${level}`
+            : ''
+        : level > 0
+          ? `you · Lv ${level}`
+          : 'you';
     if (this.detail.text !== detail) this.detail.text = detail;
     this.detail.style.fill = opponent?.watching ? UI.accent : UI.textMuted;
 
@@ -252,6 +260,7 @@ export class OpponentTabs extends Container {
           view.teamName || shortName(view.teamId),
           ownFraction,
           watchingTeamId === null,
+          view.teamLevel,
         );
         return;
       }

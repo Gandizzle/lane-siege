@@ -501,16 +501,23 @@ reload of the page but not a new tab — a new tab is a different player as far 
 anyone can tell. Connecting tries the token first and falls back to a normal
 join, so a stale one costs a failed round trip and nothing else.
 
-### The one piece of DOM
+### The two pieces of DOM
 
-Everything the player touches is drawn in Pixi except text entry, and that
-exception is not close. A canvas cannot raise the on-screen keyboard, show the
+Everything the player touches is drawn in Pixi except text entry and an ad, and
+neither exception is close. Text entry first. A canvas cannot raise the on-screen keyboard, show the
 caret the operating system draws, offer autocorrect, or be dictated into.
 So a real `<input>` appears over the canvas for as long as it takes to type a
 name or a room code and is removed afterwards (`src/render/ui/textPrompt.ts`).
 It is deliberately not `prompt()`, which is blocking, unstyleable, suppressed in
 some mobile browsers, and inside a Capacitor shell looks like a browser error
 rather than part of the game.
+
+The other is the rewarded ad (`src/render/ui/adPlaceholder.ts`), for the same
+reason the real one will be DOM: an ad is not part of the game's picture, it
+covers it, and the real one is a video some other SDK shows over the whole app.
+Until there is one, a placeholder stands in behind the same shape - `show()`,
+resolving true when the reward is due - with a five-second countdown, a claim
+button and a way to close it that earns nothing.
 
 ### Android: Capacitor, and what is generated
 
@@ -995,6 +1002,21 @@ monster with a `sendId` as well as for a boss (spawn.ts). Same rule, same
 symmetry: sends and the wave pass through each other, and both are solid to the
 defenders.
 
+**But not through each other.** Phasing was a property of the body - this one
+passes through monsters - and a send is a monster, so sends passed through
+other sends too, and a stream of them stacked into one disc a few bodies thick
+that the eye read as one. Two sent bodies are solid to each other now
+(`collides` in motion.ts), and phasing is a three-way property of a seeker's
+distance field rather than a flag: solid, through monsters, or sent - through
+the wave but not other sends (`phasingOf` in steering.ts). Each sees the
+others it would bump into as ground to route round. Measured on twelve grubs
+sent into a full wave: the worst overlap between two sends went from 0.42
+tiles to 0.0009, and the pair-ticks with two sends stacked more than 0.3 tiles
+deep from 2,785 to 0, while the sends still walk through the wave
+(`movement.test.ts`). It also fixed a smaller bug in passing: a send and a wave
+monster of the same kind shared a field, so each was steered round bodies it
+would have walked through.
+
 Contact is move-and-slide: a proposed step is pushed out of everything settled
 it would overlap, along the line between centres, so the component into an
 obstacle is cancelled and the component along it survives. Seekers move in
@@ -1180,8 +1202,8 @@ What is in it is what exists to be set. Sound: three levels, mute, which music
 plays (one piece or shuffle), skip to the next piece, and which effects pack is
 in use, shown even while there is only one so the option is visible. Then the
 game: your name, the game speed, whether status markers are drawn (below), the
-battlefield underfoot (below), the effects guide and the damage chart side by side, leaving the match, and closing
-the menu. Upright it is one
+battlefield underfoot (below), the effects guide and the damage chart side by side, the Store and Support side
+by side (Progression, below), leaving the match, and closing the menu. Upright it is one
 column; on a short screen the two sections sit side by side, since one column
 of every row would run off the bottom.
 
@@ -1214,6 +1236,111 @@ rather than keeping a copy, so M pressed with the menu open moves the mute
 switch too. Each row is one of four shapes (slider, toggle, picker, button), so
 a new option is a row in the constructor and `arrange` and a line in `render`,
 not new layout. Esc opens and closes it.
+
+### Progression: XP, levels, and what they unlock
+
+**A player levels up by playing, and the level is shown with their name.**
+Every match a player plays to the end earns XP, the XP adds up to a level, and
+the level sits beside the name on the home screen, in the lobby's seats and on
+the opponent tabs. It is for show: nothing in a match reads it. Later, levels
+will unlock builders and cosmetics, so that everything for sale can also be
+earned by playing; which level unlocks what is still to be decided (the
+numbers on the cosmetics in `data/cosmetics.json` are placeholders).
+
+**None of it is the simulation's.** XP, levels, purchases and cosmetics live in
+`src/progression/` and three data files - `data/progression.json`,
+`data/store.json` and `data/cosmetics.json` - read and checked strictly at
+start-up (`config.ts`), and kept out of `GameData` on purpose: a match plays out
+the same whoever is in it and whatever they own, and leaving these out of what
+the simulation is built from makes that true by construction.
+
+**The curve.** XP from level L to L + 1 is `first + step × (L − 1)` - 300 to
+reach level 2, then 400, 500 and so on (`levels.ts`). Each level asks a little
+more than the last, in a straight line rather than a growing multiple, so the
+total is quadratic and never runs away, and there is no top level.
+
+| level | XP in all | normal matches at ~300 each |
+| ----- | --------- | --------------------------- |
+| 5     | 1,800     | 6                           |
+| 10    | 6,300     | 21                          |
+| 20    | 22,800    | 76                          |
+| 30    | 49,300    | 164                         |
+
+**What a match earns** (`award.ts`). A normal match - online, against other
+people - pays for playing to the end of your match (100; eliminated counts,
+leaving does not), every wave survived (8 each), the placement
+(150, 90, 50, 20) and reaching the Final Showdown (50): a showdown win is 500,
+out on wave 6 in fourth is 160. Practice and solo pay 50 for the first game of
+the day (`casual.gamesPerDay`) and nothing after it, with a line in the popup
+saying why - enough that playing alone is not a dead end, not enough to be the
+way to level, and not enough to be worth cheating at while the device keeps the
+score. The tutorial and a hand-built showdown earn nothing. XP is counted once, the
+moment your match ends - out, or the last one standing - rather than when the
+whole table's does.
+
+**Boosts add.** The opt-in ad adds +100% to the next two matches that earn
+anything; one runs at a time, three a day, and a match that earns nothing does
+not use one up. A Supporter earns +25% on every match, for good, and starts a
+boost without the ad. Together they are 1 + 1.0 + 0.25, not 2 × 1.25. Each
+boost is its own line in the breakdown, in purple.
+
+**The popup** (`ui/xpReport.ts`). When your match ends a card comes up over the
+end-of-match card: the lines arrive in turn and count up, then the total, then
+the bar fills from where you were to where you are now. Crossing a level is the
+moment - the bar fills to the end, the badge turns over to the new level with
+"Level N!", a burst and the wave-cleared fanfare, and the bar starts again from
+empty, as many times as it takes. A tap skips to the end. Under it is the boost
+offer, in words and a button, which is never pushed: saying no is Continue. The
+timeline is a pure function of the award (`planReport`, `reportFrame`), so the
+tests check it without a canvas, and the card shrinks as a whole on a screen too
+short for it rather than spilling off the bottom.
+
+**The level travels with the name.** The device keeps the profile
+(`progression/store.ts`, `localStorage` under `lane-siege.profile`, read back
+field by field, so damage costs what is damaged rather than the game). Joining a room
+sends the level with the name; the server cleans it to a whole number from 0 to
+a million (`cleanLevel` in net/lobby.ts), seats it, and sends every seat's level
+in the hello (`teamLevels`), from where it reaches `Team.level` and the view
+(`OpponentView.level`, `MatchView.teamLevel`). Like the name, it is a claim
+rather than a proof - which is why it is only ever shown.
+
+**The Store, Support and the Collection** are sheets over the home screen
+(`ui/sheet.ts`: a scrim, a title, a body that scrolls by drag or wheel). They
+are reached from three buttons under the ways to play, dressed to be noticed
+without shouting: the Store's border is gold, a glint crosses its bag every few
+seconds and a NEW ribbon stays until it is first opened; Support's heart beats;
+the Collection says how much of it you have. The Store and Support are in the
+menu as well.
+
+- **The Store** has three tabs. Featured leads with the Founder's Pack - every
+  builder, a title, a badge and a fortress skin, drawn as each builder's
+  champion unit and the cosmetics' own icons, with what it would cost piece by
+  piece struck through beside its price - then the every-builder bundle, the ad
+  boost and Support. Builders shows each builder's roster at $2.99, struck
+  through: every builder is free during early access. Cosmetics is the whole
+  catalogue, priced or with how it is earned.
+- **Support** is one purchase, for good: bonus XP on every match, boosts
+  without the ad, a badge by your name and your name in the credits. The pitch
+  is the data file's words, and it says what the page also means: none of it
+  changes who wins.
+- **The Collection** is every cosmetic by slot, with a switch for each one
+  unlocked and a padlock and how to get it for the rest.
+
+**Cosmetics are switched, not equipped.** Each sits in a slot, and a slot
+holds one at a time (a title, a fortress skin) or any number (badges); switching
+one on in a one-at-a-time slot switches the others off (`cosmetics.ts`). A
+cosmetic is unlocked by any one of: being free, reaching a level, being a
+Supporter, or owning it - alone or in a bundle. The switches are saved with the
+profile. Titles and badges are drawn today, with your name; fortress skins,
+attack trails, arena floors and victory effects are in the Collection marked
+"coming soon", and their switches work and are remembered, so what a player
+chooses now is what they see the day the game learns to draw it.
+
+**Nothing can be bought yet.** There is no payment provider and no ad SDK, so
+every buy button says so. `?progress=test` turns the placeholders into
+something to try: buying grants the item on the device, Support offers a way to
+take every test purchase back, and practice and solo earn XP as a normal match
+would, so the popup and the level-ups can be seen without a server.
 
 ### Status markers: what is happening to a body
 
@@ -2837,7 +2964,16 @@ Thornweald now wears all four armors.
 - **Server-side accounts** (§18) — identity is a player id this device
   generated, which is what seats and reconnection need and no more. A ladder or
   anything purchasable needs a credential a server holds, and that needs the
-  server first.
+  server first. XP, levels and purchases are kept on the device until then.
+- **Payments and real ads** — the Store, Support and the XP boost's ad are
+  placeholders (Progression, above). Each is one implementation behind a seam
+  that exists: `RewardedAds` for the ad, the game's `buy` for a purchase.
+- **Cosmetics past titles and badges** — fortress skins, attack trails, arena
+  floors and victory effects are in the data and the Collection, with working
+  switches, but nothing draws them yet.
+- **What levels unlock** — the level on each cosmetic is a placeholder and
+  every builder is free; tying builders and cosmetics to levels is a decision
+  still to make.
 - **Client-side prediction** — deliberately absent, see the netcode section. The
   cheap version, predicting the wallet rather than the simulation, is the one to
   build if the round trip turns out to feel bad.

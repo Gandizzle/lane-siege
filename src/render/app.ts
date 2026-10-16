@@ -46,6 +46,8 @@ import { textPrompt } from './ui/textPrompt.ts';
 import { UI } from './palette.ts';
 import { AudioEngine } from '../audio/engine.ts';
 import { PreferenceStore } from './preferences.ts';
+import { ProgressStore } from '../progression/store.ts';
+import { PlaceholderAds } from './ui/adPlaceholder.ts';
 import { practiceMatch, sceneOf, tutorialMatch } from '../tutorial/match.ts';
 
 /** §2: four lanes. Fixed ids so a lane's name is stable across matches. */
@@ -68,6 +70,11 @@ export interface AppOptions {
   startWave?: number;
   /** Practice only: start in the Final Showdown's arena (`?showdown=1`). */
   startInShowdown?: boolean;
+  /**
+   * `?progress=test`: practice and solo earn XP as normal matches do, and the
+   * placeholder store grants what it would sell (game.ts, `progressTest`).
+   */
+  progressTest?: boolean;
 }
 
 /**
@@ -83,6 +90,8 @@ function newTransport(
   mode: MatchMode,
   builderId: string,
   identity: { playerId: string; name: string },
+  /** The player's level, shown with their name (src/progression). */
+  level: number,
 ): Transport {
   // §3.3, solo: your lane and nobody else's. No scripted lanes - a send has
   // nowhere to go but home - and the match is local whatever the server.
@@ -90,7 +99,7 @@ function newTransport(
     return new LocalTransport(
       data,
       options.seed ?? Math.floor(Math.random() * 0x7fffffff),
-      [{ id: OWN_LANE, playerIds: ['you'], name: identity.name, builderId }],
+      [{ id: OWN_LANE, playerIds: ['you'], name: identity.name, level, builderId }],
       OWN_LANE,
       [],
       {
@@ -105,6 +114,7 @@ function newTransport(
       identity,
       builderId,
       code: mode.kind === 'private' ? mode.code : PUBLIC_CODE,
+      level,
     });
   }
 
@@ -116,6 +126,7 @@ function newTransport(
     // match says who is who too: your own name, and for the three bots the
     // way each one plays, which the transport rolls and fills in.
     name: id === OWN_LANE ? identity.name : '',
+    level: id === OWN_LANE ? level : 0,
     builderId:
       id === OWN_LANE ? builderId : (others[(index - 1) % Math.max(1, others.length)] ?? builderId),
   }));
@@ -238,6 +249,9 @@ export async function startApp(
   const sound = new AudioEngine(import.meta.env.BASE_URL, storage);
   sound.attach(globalThis.window);
 
+  // What the player has earned and owns across matches (src/progression).
+  const progress = new ProgressStore(storage);
+
   const app = new Application();
   listenForButtonTaps(app, () => sound.play('ui.tap'));
 
@@ -259,7 +273,8 @@ export async function startApp(
   const game = new Game(
     data,
     {
-      createTransport: (mode, builderId) => newTransport(data, options, mode, builderId, identity),
+      createTransport: (mode, builderId) =>
+        newTransport(data, options, mode, builderId, identity, progress.level.level),
       createShowdown: (seats) => newShowdown(data, options, seats, identity),
       createTutorial: (chapter) => {
         const transport = tutorialMatch(data, chapter, identity.name);
@@ -276,6 +291,9 @@ export async function startApp(
       online: Boolean(options.server),
       sound,
       preferences: new PreferenceStore(storage),
+      progress,
+      ads: new PlaceholderAds(mount),
+      progressTest: options.progressTest === true,
       async editName() {
         const typed = await textPrompt(mount, {
           title: 'Your name',

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { trivialWaves } from './fixtures.ts';
 import { applyCommand } from './apply.ts';
+import { collides } from './motion.ts';
 import {
   countLiving,
   createContext,
@@ -453,8 +454,8 @@ describe('ground to stand on (§8.1, amended)', () => {
         const a = living[i]!;
         const b = living[j]!;
         // A send phases through the wave it joins (spawn.ts), so only a pair
-        // that is solid to each other has to stand apart.
-        if (a.phasesMonsters || b.phasesMonsters) continue;
+        // that is solid to each other has to stand apart - two sends are.
+        if (!collides(a, b)) continue;
         const apart = Math.hypot(a.pos.x - b.pos.x, a.pos.y - b.pos.y) - a.radius - b.radius;
         expect(apart, `${a.defId} ${a.id} and ${b.defId} ${b.id}`).toBeGreaterThanOrEqual(0);
       }

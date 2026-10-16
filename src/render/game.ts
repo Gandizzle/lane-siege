@@ -85,7 +85,14 @@ import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { BuilderSelect } from './ui/builderSelect.ts';
 import { ShowdownCountdown } from './ui/countdown.ts';
 import { GameOver } from './ui/gameOver.ts';
-import { HomeScreen, type MatchMode } from './ui/homeScreen.ts';
+import { HomeScreen, type HomeProfile, type MatchMode } from './ui/homeScreen.ts';
+import { XpReport } from './ui/xpReport.ts';
+import { StoreScreen } from './ui/storeScreen.ts';
+import { SupportScreen } from './ui/supportScreen.ts';
+import { CollectionScreen } from './ui/collectionScreen.ts';
+import type { RewardedAds } from './ui/adPlaceholder.ts';
+import type { XpMode } from '../progression/award.ts';
+import type { ProgressStore } from '../progression/store.ts';
 import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Menu, MenuButton } from './ui/menu.ts';
@@ -134,6 +141,16 @@ export interface GameServices {
   sound: SoundSystem;
   /** Status markers and game speed, which the menu edits too (preferences.ts). */
   preferences: PreferenceStore;
+  /** XP, levels, boosts, what is owned and worn (src/progression). */
+  progress: ProgressStore;
+  /** The opt-in ad behind the XP boost. A placeholder for now (ui/adPlaceholder.ts). */
+  ads: RewardedAds;
+  /**
+   * `?progress=test`: practice and solo count as normal matches for XP, and
+   * the store's placeholder buttons grant what they would sell - so the whole
+   * loop can be tried without a server or a payment provider.
+   */
+  progressTest: boolean;
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
@@ -220,6 +237,13 @@ export class Game extends Container {
    * other kind of match.
    */
   private soloResult: { best: number; newBest: boolean } | null = null;
+  /** This match's XP has been counted: once, as your match ends (src/progression). */
+  private awarded = false;
+  /** What the match earned, line by line, and the climb it bought. */
+  private readonly xpReport: XpReport;
+  private readonly storeScreen: StoreScreen;
+  private readonly supportScreen: SupportScreen;
+  private readonly collectionScreen: CollectionScreen;
   /** Where the legend button was last put, so it is only moved when that changes. */
   private effectsButtonAt = '';
   /**
@@ -321,6 +345,35 @@ export class Game extends Container {
       onChoose: (mode) => this.chooseMode(mode),
       onEditName: () => void this.editName(),
       onPrivateRoom: () => void this.askRoomCode(),
+      onStore: () => this.openStore(),
+      onCollection: () => this.openCollection(),
+      onSupport: () => this.openSupport(),
+    });
+    this.xpReport = new XpReport(this.layout, {
+      onBoost: () => void this.startBoost(),
+      onClose: () => this.xpReport.close(),
+      onLevelUp: () => this.services.sound.play('wave.cleared'),
+    });
+    this.storeScreen = new StoreScreen(this.layout, data, services.progress, {
+      onClose: () => this.storeScreen.close(),
+      onBuy: (id, name) => this.buy(id, name),
+      onBoost: () => void this.startBoost(),
+      onSupport: () => this.openSupport(),
+      onCollection: () => this.openCollection(),
+    });
+    this.supportScreen = new SupportScreen(this.layout, services.progress, services.progressTest, {
+      onClose: () => this.supportScreen.close(),
+      onBuy: (id, name) => this.buy(id, name),
+      onResetTest: () => {
+        this.services.progress.clearPurchases();
+        this.toast.showText('Test purchases taken back');
+        this.progressChanged();
+      },
+    });
+    this.collectionScreen = new CollectionScreen(this.layout, services.progress, {
+      onClose: () => this.collectionScreen.close(),
+      onStore: () => this.openStore(),
+      onChanged: () => this.progressChanged(),
     });
     this.lobbyScreen = new LobbyScreen(this.layout, data, {
       onReady: (ready) => this.transport?.setReady(ready),
@@ -356,6 +409,8 @@ export class Game extends Container {
       },
       // Over the menu rather than instead of it: closing it goes back there.
       onBattlefields: () => this.battlefieldPicker.open(),
+      onStore: () => this.openStore(),
+      onSupport: () => this.openSupport(),
     });
     this.tutorialScreen = new TutorialScreen(this.layout, LESSONS.map(lessonEntry), {
       onStart: (index) => this.startLesson(index),
@@ -400,6 +455,8 @@ export class Game extends Container {
       // a moment, and anything the player opens or is being told outranks it.
       this.waveCleared,
       this.gameOver,
+      // Over the end-of-match card it pops up on: what the match earned.
+      this.xpReport,
       // Over the board and under the front screens: it is a cut to a card, but
       // it must not cover the home screen if a match is abandoned under it.
       this.countdown,
@@ -422,6 +479,11 @@ export class Game extends Container {
       // Over the menu, which is one of the two ways into it.
       this.effectsPanel,
       this.damageChart,
+      // From the home screen or the menu, so over both; the store opens the
+      // other two, so they come after it.
+      this.storeScreen,
+      this.collectionScreen,
+      this.supportScreen,
     );
 
     this.showScreen('home');
@@ -433,6 +495,12 @@ export class Game extends Container {
    * close the menu.
    */
   toggleMenu(): void {
+    for (const sheet of [this.supportScreen, this.collectionScreen, this.storeScreen]) {
+      if (sheet.isOpen) {
+        sheet.close();
+        return;
+      }
+    }
     if (this.battlefieldPicker.isOpen) {
       this.battlefieldPicker.close();
       return;
@@ -524,10 +592,29 @@ export class Game extends Container {
     if (screen !== 'lobby') this.lobbyScreen.reset();
   }
 
+  /** What the home screen says about the player's progress. */
+  private homeProfile(): HomeProfile {
+    const progress = this.services.progress;
+    const badges = progress.worn('badge').flatMap((c) => (c.glyph ? [c.glyph] : []));
+    return {
+      name: this.services.name(),
+      level: progress.level,
+      title: progress.worn('title')[0]?.name ?? null,
+      badges,
+      boostMatches: progress.boost().matchesLeft,
+      storeNew: !progress.profile.seenStore,
+      supporter: progress.profile.supporter,
+      collection: {
+        unlocked: progress.cosmetics.cosmetics.filter((c) => progress.isUnlocked(c)).length,
+        total: progress.cosmetics.cosmetics.length,
+      },
+    };
+  }
+
   private refreshHome(): void {
     const done = this.services.preferences.settings.tutorialDone;
     this.home.setState(
-      this.services.name(),
+      this.homeProfile(),
       this.services.online,
       {
         done: CHAPTERS.filter((c) => done.includes(c.id)).length,
@@ -603,6 +690,8 @@ export class Game extends Container {
     this.leaveShowdown();
     this.lesson = null;
     this.practice = null;
+    this.awarded = false;
+    this.xpReport.close();
     // Everything, less the counter hints in a match against other people.
     this.applyFeatures(featuresFor(this.mode));
     this.soloResult = null;
@@ -914,6 +1003,8 @@ export class Game extends Container {
     this.closeAbility();
     this.damageChart.close();
     this.gameOver.reset();
+    this.xpReport.close();
+    this.awarded = false;
     this.entities.reset();
     this.effectsLayer.reset();
     this.upgradeBursts.reset();
@@ -953,6 +1044,131 @@ export class Game extends Container {
     this.goHome();
   }
 
+  // ------------------------------------------------------------- progress
+
+  /**
+   * What this kind of match earns (award.ts): a normal one online, a little
+   * once a day from practice and solo, and nothing from a tutorial or a
+   * showdown set up by hand, which are lessons and experiments rather than
+   * matches. `?progress=test` counts practice and solo as normal matches, so
+   * the whole breakdown can be seen without a server.
+   */
+  private xpMode(): XpMode | null {
+    if (this.lesson || this.practice) return null;
+    const test = this.services.progressTest;
+    switch (this.mode.kind) {
+      case 'quick':
+      case 'private':
+        return 'online';
+      case 'practice':
+        return test ? 'online' : 'practice';
+      case 'solo':
+        return test ? 'online' : 'solo';
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Count the match's XP the moment YOUR match ends - out, or the last one
+   * standing - once, and show what it came to. Saved before anything is
+   * shown, so leaving straight away keeps it.
+   */
+  private awardXp(view: MatchView): void {
+    if (this.awarded || !(view.eliminated || view.finished)) return;
+    const mode = this.xpMode();
+    if (!mode) return;
+    this.awarded = true;
+
+    const reachedShowdown = view.showdown?.armies.some((a) => a.teamId === view.teamId) ?? false;
+    // Waves got through: all of them for an army that reached the showdown;
+    // for a lane that fell, every wave before the one that broke it.
+    const wavesSurvived = reachedShowdown
+      ? view.wave
+      : view.eliminated
+        ? Math.max(0, view.wave - 1)
+        : view.wave;
+    const progress = this.services.progress;
+    const result = progress.award({
+      mode,
+      placement: view.placement,
+      wavesSurvived,
+      reachedShowdown,
+    });
+    this.xpReport.open(
+      result,
+      progress.config.levels,
+      progress.boost(),
+      progress.profile.supporter,
+      progress.config.adBoost.bonus,
+      progress.config.adBoost.matches,
+    );
+  }
+
+  /**
+   * The XP boost: watch the ad - or, for a Supporter, nothing to watch - and
+   * the next matches that earn XP earn more (award.ts).
+   */
+  private async startBoost(): Promise<void> {
+    const progress = this.services.progress;
+    const status = progress.boost();
+    if (!status.available) {
+      this.toast.showText(status.reason ?? 'No boost to start right now');
+      return;
+    }
+    const watched = progress.profile.supporter ? true : await this.services.ads.show();
+    if (!watched) return;
+    if (progress.startBoost()) {
+      const { bonus, matches } = progress.config.adBoost;
+      this.toast.showText(`+${Math.round(bonus * 100)}% XP for your next ${matches} matches`);
+      this.services.sound.play('buy');
+    }
+    this.progressChanged();
+  }
+
+  /**
+   * Buy something. PLACEHOLDER: there is no payment provider yet, so this says
+   * so - except in the `?progress=test` build, which grants it on the device.
+   */
+  private buy(itemId: string, name: string): void {
+    if (!this.services.progressTest) {
+      this.toast.showText('The store opens soon. Nothing can be bought yet.');
+      return;
+    }
+    this.services.progress.grant(itemId);
+    this.toast.showText(`Test purchase: ${name}`);
+    this.services.sound.play('buy');
+    this.progressChanged();
+  }
+
+  /** Something about progress changed: every screen that shows it, redrawn. */
+  private progressChanged(): void {
+    if (this.screen === 'home') this.refreshHome();
+    this.xpReport.setBoost(this.services.progress.boost());
+    this.storeScreen.refresh();
+    this.supportScreen.refresh();
+    this.collectionScreen.refresh();
+  }
+
+  private openStore(): void {
+    this.setMenu(false);
+    this.collectionScreen.close();
+    this.supportScreen.close();
+    this.services.progress.markStoreSeen();
+    this.storeScreen.open();
+    if (this.screen === 'home') this.refreshHome();
+  }
+
+  private openSupport(): void {
+    this.setMenu(false);
+    this.supportScreen.open();
+  }
+
+  private openCollection(): void {
+    this.setMenu(false);
+    this.collectionScreen.open();
+  }
+
   private get teamId(): string {
     return this.transport?.teamId ?? '';
   }
@@ -970,6 +1186,10 @@ export class Game extends Container {
     this.buildBar.setLayout(this.layout);
     this.abilityCard.setLayout(this.layout);
     this.gameOver.setLayout(this.layout);
+    this.xpReport.setLayout(this.layout);
+    this.storeScreen.setLayout(this.layout);
+    this.supportScreen.setLayout(this.layout);
+    this.collectionScreen.setLayout(this.layout);
     this.arena.setLayout(this.layout.screen, this.layout.tileSize);
     this.countdown.setLayout(this.layout);
     this.waveCleared.setLayout(this.layout);
@@ -1023,6 +1243,10 @@ export class Game extends Container {
     this.statusClock += (paused && !reading ? deltaMs : matchDelta) / 1000;
     this.effectsPanel.render(this.statusLog, this.statusClock, deltaMs);
     this.battlefieldPicker.render(deltaMs);
+    this.home.update(deltaMs);
+    this.storeScreen.update(deltaMs);
+    this.supportScreen.update(deltaMs);
+    this.xpReport.update(deltaMs);
 
     if (!transport) {
       // On the home screen or the picker, with no match yet. Nothing to
@@ -1193,6 +1417,7 @@ export class Game extends Container {
     this.waveCleared.render(view, deltaMs);
     this.showEffectsButton();
     this.recordSolo(view);
+    this.awardXp(view);
     this.gameOver.render(view, this.soloResult, this.practiceEnding());
     // Last, so it points at where everything was drawn this frame.
     this.drawCoach(view, deltaMs);
@@ -1280,6 +1505,7 @@ export class Game extends Container {
     this.showEffectsButton();
     this.recordSolo(view);
     this.runPractice(view);
+    this.awardXp(view);
     this.gameOver.render(view, this.soloResult, this.practiceEnding());
   }
 

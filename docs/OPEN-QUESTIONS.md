@@ -189,6 +189,47 @@ and play it differently from how they would.
 - Checked: `src/net/lobby.test.ts` and `identity.test.ts` without a network;
   `npm run lobby` with real sockets, including a drop and a reclaim.
 
+### 11. Monetisation, if any (§18) → **an opt-in ad that boosts XP, a Supporter purchase, and builders and cosmetics for sale that can all be earned by playing**
+
+Decided by the business plan, and built as placeholders until there is a
+payment provider and an ad network. The principle under all of it: nothing that
+is sold changes who wins a match, and everything that is sold can also be
+earned by playing.
+
+- **XP and levels.** Every match played to the end earns XP, mostly a normal
+  match online; practice and solo earn a little, for the first game each day.
+  XP adds up to a level, shown with your name, with no top level and each level
+  asking a straight-line step more XP than the last (300, 400, 500…). Levels
+  will unlock builders and cosmetics; which level unlocks what is still to be
+  decided, and the levels on the cosmetics now are placeholders.
+- **The ad is opt-in and rewarded**: watching one adds +100% XP to the next two
+  matches that earn any, three times a day at most, offered after a match and
+  in the store and never shown unasked.
+- **Support** is one purchase, for good: +25% XP on every match, boosts without
+  the ad, a badge and a name in the credits. The bonuses add: an ad boost for a
+  Supporter is 1 + 1.0 + 0.25.
+- **The store** sells builders (each, or all four together) and cosmetics (each,
+  or in bundles). Every builder is free during early access, and the store says
+  so beside the price it will have.
+- **Cosmetics** are unlocked by being free, reaching a level, being a Supporter
+  or owning them, and once unlocked each can be switched on or off.
+
+Not built yet: real ads and payments - AdMob through a Capacitor plugin and
+in-app purchases through RevenueCat, by the business plan - and real prices. In
+data/store.json the builder and Supporter prices are the business plan's
+ballparks and the rest are there for the layout. Audio, which shared this
+entry, is built - ARCHITECTURE.md, "Sound: cues, packs and a playlist".
+
+- Data: `data/progression.json`, `data/store.json`, `data/cosmetics.json`.
+- Built: `src/progression/` (the rules, pure), `ui/xpReport.ts` (the popup),
+  `ui/storeScreen.ts`, `ui/supportScreen.ts`, `ui/collectionScreen.ts`,
+  `ui/adPlaceholder.ts`, the level on the name card, the lobby and the opponent
+  tabs, and on the wire (ARCHITECTURE.md, "Progression").
+- Checked: `src/progression/progression.test.ts`, `ui/xpReport.test.ts`, and the
+  level's trip through the lobby and the hello in `src/net/lobby.test.ts` and
+  `protocol.test.ts`. `?progress=test` makes the placeholders work on the
+  device.
+
 ### 12. Can a unit be sold, and for how much? (§11) → **yes: full price inside the build phase that bought it, half afterwards, and the rate applies per purchase**
 
 _Not in DESIGN.md at all._ §11 prices everything that can be bought and says
@@ -354,8 +395,6 @@ cross's edge has to come from something that is not - tie-breaks, processing
 order; on the Y the arms run at thirty degrees to the grid and the stem along
 it, and three armies of the same handedness meet the grid differently on each.
 Mixed three-ways show the Y's edge far less (38%, inside chance).
-
-### 11. Monetisation and audio (§18) [post-ship]
 
 ## Answered by transcription, not by invention
 

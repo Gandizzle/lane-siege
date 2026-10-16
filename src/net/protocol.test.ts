@@ -44,6 +44,32 @@ function roundTrip(state: MatchState, ctx: SimContext, teamId: string) {
   return { original, decoded };
 }
 
+describe('names and levels come with the hello', () => {
+  it('labels every team, yours included, with what the lobby said', () => {
+    const state = createMatch(data, {
+      seed: SEED,
+      teams: TEAMS.map((id, i) => ({ id, playerIds: [id], name: `P${i}`, level: i * 5 })),
+    });
+    const ctx = createContext(data);
+    // As the client builds them from the server's hello.
+    const named = buildTables(
+      data,
+      TEAMS,
+      SEED,
+      TEAMS.map((_, i) => `P${i}`),
+      TEAMS.map((_, i) => i * 5),
+    );
+    const view = decodeFrame(encodeFrame(viewFor(ctx, state, 'b'), named), named);
+    expect(view.teamName).toBe('P1');
+    expect(view.teamLevel).toBe(5);
+    expect(view.opponents.map((o) => [o.name, o.level])).toEqual([
+      ['P0', 0],
+      ['P2', 10],
+      ['P3', 15],
+    ]);
+  });
+});
+
 describe('a frame survives the round trip', () => {
   it('carries the match header', () => {
     const { state, ctx } = match();

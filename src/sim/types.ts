@@ -46,6 +46,12 @@ export interface Team {
    * one place rather than a string the simulation invents.
    */
   name: string;
+  /**
+   * The level of the player behind this team (src/progression), shown with
+   * their name - purely to be seen. 0 for a seat nobody has said a level for:
+   * a bot, or an older client. Never read by the simulation.
+   */
+  level: number;
   eliminated: boolean;
   /** Locked in at the moment of elimination (§13). */
   placement: number | null;

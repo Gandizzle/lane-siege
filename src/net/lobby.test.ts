@@ -11,6 +11,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CODE_ALPHABET,
   CODE_LENGTH,
+  cleanLevel,
   createSeats,
   lobbyViewFor,
   makeCode,
@@ -174,5 +175,27 @@ describe('room codes', () => {
 
   it('takes only the first four', () => {
     expect(normaliseCode('QRSTUVWX')).toBe('QRST');
+  });
+});
+
+describe('a level comes with the name (src/progression)', () => {
+  it('seats a player with the level they claimed, and keeps it on a reconnection', () => {
+    const seats = createSeats(TEAMS);
+    const seat = seatPlayer(seats, 'p1', 'Ann', 'ironvow', 12)!;
+    expect(seat.level).toBe(12);
+    // A reconnection that says nothing keeps what was said before.
+    expect(seatPlayer(seats, 'p1', '', '', 0)!.level).toBe(12);
+    releaseSeat(seat);
+    expect(seat.level).toBe(0);
+  });
+
+  it('cleans a claimed level into a whole number it is safe to draw', () => {
+    expect(cleanLevel(7)).toBe(7);
+    expect(cleanLevel(7.9)).toBe(7);
+    expect(cleanLevel(-3)).toBe(0);
+    expect(cleanLevel(1e12)).toBe(1_000_000);
+    expect(cleanLevel('9')).toBe(0);
+    expect(cleanLevel(Number.NaN)).toBe(0);
+    expect(cleanLevel(undefined)).toBe(0);
   });
 });

@@ -34,6 +34,7 @@ import { PUBLIC_CODE, type LobbyView } from '../../net/lobby.ts';
 import type { TransportStatus } from '../../net/transport.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
+import { LevelBadge } from './levelBadge.ts';
 import { centreOn, label } from './text.ts';
 
 export interface LobbyHandlers {
@@ -229,6 +230,13 @@ export class LobbyScreen extends Container {
     );
     nameText.position.set(x + 14, y + 9);
     card.addChild(nameText);
+    // The level beside the name: it is there to be seen (src/progression).
+    if (!empty && seat.level > 0) {
+      const badge = new LevelBadge();
+      badge.set(seat.level, 18);
+      badge.position.set(x + 14 + nameText.width + 8, y + 9);
+      card.addChild(badge);
+    }
 
     const builder = this.data.units.builders.find((b) => b.id === seat.builderId);
     const detail = empty

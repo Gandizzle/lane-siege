@@ -253,6 +253,8 @@ export interface WireHello {
    * the time it has a frame to draw.
    */
   teamNames?: string[];
+  /** Levels, parallel to `teamIds`, 0 where nobody has said. Like the names. */
+  teamLevels?: number[];
 }
 
 /**
@@ -263,6 +265,8 @@ export interface WireTables {
   teamIds: TeamId[];
   /** Display names, parallel to `teamIds`. See `WireHello.teamNames`. */
   teamNames: string[];
+  /** Levels, parallel to `teamIds`. See `WireHello.teamLevels`. */
+  teamLevels: number[];
   /**
    * The match seed. Public and constant (§9.2), so it arrives once with the
    * hello rather than 20 times a second in every frame.
@@ -297,6 +301,7 @@ export function buildTables(
   teamIds: TeamId[],
   seed = 0,
   teamNames: readonly string[] = [],
+  teamLevels: readonly number[] = [],
 ): WireTables {
   const unitIds = data.units.units.map((u) => u.id);
   const monsterIds = [
@@ -318,6 +323,7 @@ export function buildTables(
   return {
     teamIds: [...teamIds],
     teamNames: teamIds.map((_, i) => teamNames[i] ?? ''),
+    teamLevels: teamIds.map((_, i) => teamLevels[i] ?? 0),
     seed,
     unitIds,
     monsterIds,
@@ -751,6 +757,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
   return {
     teamId: tables.teamIds[frame.me] ?? '',
     teamName: tables.teamNames[frame.me] ?? '',
+    teamLevel: tables.teamLevels[frame.me] ?? 0,
     seed: tables.seed,
     lateWaves: frame.lw ?? null,
     tick: frame.tk,
@@ -767,6 +774,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
         // Not in the frame: a name is constant for a match and arrives with
         // the hello (`WireHello.teamNames`).
         name: tables.teamNames[teamIndex] ?? '',
+        level: tables.teamLevels[teamIndex] ?? 0,
         fortressHp: hp,
         fortressMaxHp: maxHp,
         eliminated: eliminated === 1,
