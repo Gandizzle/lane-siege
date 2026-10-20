@@ -6,9 +6,9 @@
     "step": 100
   },
   "match": {
-    "_comment": "A normal match, played to the end of YOUR match: eliminated, or the last one standing. Leaving early earns nothing. Everyone who plays it out earns played; then every wave survived, the placement (1st, 2nd, 3rd, 4th), and reaching the Final Showdown. A match won in the showdown is 100 + 25 x 8 + 150 + 50 = 500; out on wave 6 in fourth is 100 + 5 x 8 + 20 = 160.",
-    "played": 100,
-    "perWave": 8,
+    "_comment": "A normal match, played to the end of YOUR match: eliminated, or the last one standing. Leaving early earns nothing. Everyone who plays it out earns played; then every wave survived, the placement (1st, 2nd, 3rd, 4th), and reaching the Final Showdown. Waves are worth the most in all: a match won in the showdown is 50 + 25 x 10 + 150 + 50 = 500; out on wave 6 in fourth is 50 + 5 x 10 + 20 = 120.",
+    "played": 50,
+    "perWave": 10,
     "placement": [150, 90, 50, 20],
     "showdown": 50
   },
@@ -18,14 +18,14 @@
     "gamesPerDay": 1
   },
   "adBoost": {
-    "_comment": "The opt-in ad. Before any game that can earn XP, a player with fewer than offerBelow boosted waves left is asked whether to watch one. Yes plays it and adds waves boosted waves, to maxWaves at most - so 10 left and another ad makes 35; No goes straight to the game. As many a day as anyone likes. bonus is the boost: 1.0 is +100%, so double. A boosted wave is a wave of a match that earns XP: the match's XP is boosted for the share of its waves the boost covers, and those waves are used up. A match that earns nothing uses none. A Supporter's boost is always on, with no ad and no waves used.",
-    "bonus": 1.0,
+    "_comment": "The opt-in ad. Before any game that can earn XP, a player with fewer than offerBelow boosted waves left is asked whether to watch one. Yes plays it and adds waves boosted waves, to maxWaves at most - so 10 left and another ad makes 35; No goes straight to the game. As many a day as anyone likes. bonus is the boost: 0.5 is +50%. A boosted wave is a wave of a match that earns XP: the match's XP is boosted for the share of its waves the boost covers, and those waves are used up. A match that earns nothing uses none. A Supporter's boost is always on, with no ad and no waves used.",
+    "bonus": 0.5,
     "waves": 25,
     "offerBelow": 25,
     "maxWaves": 50
   },
   "supporter": {
-    "_comment": "A Supporter earns bonus more on every match, for good. Boosts add rather than multiply: an ad boost and Supporter together are 1 + 1.0 + 0.25 = 2.25 times.",
-    "bonus": 0.25
+    "_comment": "A Supporter earns bonus more on every match, for good, and has the ad's boost always on besides (adBoost). Boosts add rather than multiply: the two together are 1 + 0.5 + 0.75 = 2.25 times.",
+    "bonus": 0.75
   }
 }

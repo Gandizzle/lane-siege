@@ -1270,10 +1270,10 @@ total is quadratic and never runs away, and there is no top level.
 | 30    | 49,300    | 164                         |
 
 **What a match earns** (`award.ts`). A normal match - online, against other
-people - pays for playing to the end of your match (100; eliminated counts,
-leaving does not), every wave survived (8 each), the placement
+people - pays for playing to the end of your match (50; eliminated counts,
+leaving does not), every wave survived (10 each), the placement
 (150, 90, 50, 20) and reaching the Final Showdown (50): a showdown win is 500,
-out on wave 6 in fourth is 160. Practice and solo pay 50 for the first game of
+out on wave 6 in fourth is 120. Practice and solo pay 50 for the first game of
 the day (`casual.gamesPerDay`) and nothing after it, with a line in the popup
 saying why - enough that playing alone is not a dead end, not enough to be the
 way to level, and not enough to be worth cheating at while the device keeps the
@@ -1286,7 +1286,7 @@ any game that can earn XP - picked from the builders, so before a practice
 match starts running or a room is joined, and the ad eats into neither - a
 player with fewer than 25 boosted waves left is asked whether to watch an ad.
 It is opt in every time: No goes straight to the game; Yes plays the ad, and
-once it has been watched to the end a card says "Congratulations, you get 100%
+once it has been watched to the end a card says "Congratulations, you get 50%
 experience boost for 25 waves!" with a burst, and Play goes on to the game. An
 ad closed early earns nothing and the game starts anyway. Esc while asking backs
 out to the builders. There is no daily limit, and because it is offered
@@ -1297,10 +1297,10 @@ to 50 at most.
 many boosted waves as it had - the wave it ended in included - so a player out
 in wave 6 keeps 19 for the next match. Its XP is boosted for the share of its
 waves the boost covered: all of a 6-wave match with 25 left, 19/25 of a full
-match with 19 ("Boost +100% (19 of 25 waves)" in the breakdown). A match that
+match with 19 ("Boost +50% (19 of 25 waves)" in the breakdown). A match that
 earns nothing uses none. A Supporter's boost is always on, with no ad, no
-question and no waves to use up, and Supporter adds +25% of its own. Shares add:
-both together are 1 + 1.0 + 0.25, not 2 × 1.25. Each is its own line in the
+question and no waves to use up, and Supporter adds +75% of its own. Shares add:
+both together are 1 + 0.5 + 0.75, not 1.5 × 1.75. Each is its own line in the
 breakdown, in purple.
 
 **The popup** (`ui/xpReport.ts`). When your match ends a card comes up over the

@@ -2,11 +2,11 @@
  * The XP boost, offered before a game (award.ts; progression.json, adBoost).
  *
  * Opt in, every time. Before any game that can earn XP, while fewer than 25
- * boosted waves are left, this asks whether to watch an ad for +100% XP on the
+ * boosted waves are left, this asks whether to watch an ad for +50% XP on the
  * next 25 waves. No goes straight to the game. Yes plays the ad
  * (adPlaceholder.ts, until there is a real one), and once it has been watched
  * to the end the card turns over to say what it earned - "Congratulations,
- * you get 100% experience boost for 25 waves!" - with a burst; Play goes on to
+ * you get 50% experience boost for 25 waves!" - with a burst; Play goes on to
  * the game.
  *
  * Asked before a game rather than after one because that is when saying yes
@@ -62,7 +62,7 @@ export class BoostOffer extends Container {
   private readonly bits = confetti(40);
 
   private face: Face = 'ask';
-  /** What the boost is worth, "100%": the emblem says what the words say. */
+  /** What the boost is worth, "50%": the emblem says what the words say. */
   private bonus = '';
   /** Since the card last turned: the burst runs from it. */
   private ms = 0;

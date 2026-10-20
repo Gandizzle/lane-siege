@@ -29,7 +29,7 @@
  * waves to use up.
  *
  * Supporter adds its own share to every match besides. Shares ADD, as the
- * business plan has it: both together are 1 + 1.0 + 0.25, not 2 × 1.25.
+ * business plan has it: both together are 1 + 0.5 + 0.75, not 1.5 × 1.75.
  *
  * Pure: the profile in, the award and the next profile out. The day is passed
  * in rather than read, so a test can be on any day it likes.

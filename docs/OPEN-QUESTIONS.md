@@ -203,14 +203,14 @@ earned by playing.
   will unlock builders and cosmetics; which level unlocks what is still to be
   decided, and the levels on the cosmetics now are placeholders.
 - **The ad is opt-in and rewarded, and asked about before a game**: Yes plays
-  it and adds +100% XP for the next 25 waves, with a "Congratulations" card
+  it and adds +50% XP for the next 25 waves, with a "Congratulations" card
   before the game; No goes straight to the game. It is offered whenever fewer
   than 25 boosted waves are left, with no daily limit, so boosts stack to 50.
   Counted in waves rather than matches on purpose: a player out early keeps
   what they did not use.
-- **Support** is one purchase, for good: +25% XP on every match, the XP boost
-  always on with no ads, a badge and a name in the credits. The bonuses add: a
-  Supporter earns 1 + 1.0 + 0.25.
+- **Support** is one purchase, for good: +75% XP on every match, the ad's +50%
+  XP boost always on with no ads, a badge and a name in the credits. The bonuses
+  add: a Supporter earns 1 + 0.5 + 0.75.
 - **The store** sells builders (each, or all four together) and cosmetics (each,
   or in bundles). Every builder is free during early access, and the store says
   so beside the price it will have.
