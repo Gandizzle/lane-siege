@@ -45,6 +45,7 @@ import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { drawBadgeGlyph } from './levelBadge.ts';
 import { NameCard, type NameCardState } from './nameCard.ts';
+import { drawStoreBag } from './storeArt.ts';
 import { centreOn, fit, label } from './text.ts';
 
 /** How a match is found. Chosen here, carried through the builder picker. */
@@ -432,42 +433,7 @@ class ExtraButton extends Container {
       return;
     }
     if (this.kind === 'store') {
-      // A bag: a body, a handle, and a glint crossing it every few seconds.
-      const w = size * 0.9;
-      const h = size * 0.8;
-      const top = cy - h / 2 + size * 0.1;
-      g.roundRect(cx - w / 2, top, w, h, size * 0.15).fill({ color: UI.level });
-      // Its own path: an arc with nowhere to start from is drawn from the origin.
-      g.moveTo(cx - w * 0.28, top)
-        .arc(cx, top, w * 0.28, Math.PI, 0)
-        .stroke({ width: Math.max(1.5, size * 0.1), color: UI.level });
-      const sweep = (this.clock % 3.2) / 0.6;
-      if (sweep < 1) {
-        const gx = cx - w / 2 + sweep * w;
-        g.moveTo(gx - size * 0.12, top + h)
-          .lineTo(gx + size * 0.05, top + h)
-          .lineTo(gx + size * 0.25, top)
-          .lineTo(gx + size * 0.08, top)
-          .closePath()
-          .fill({ color: 0xffffff, alpha: 0.55 });
-      }
-      // And two sparkles, twinkling out of step.
-      for (const [dx, dy, phase] of [
-        [0.75, -0.55, 0],
-        [-0.8, -0.35, 1.3],
-      ] as const) {
-        const tw = Math.max(0, Math.sin((this.clock + phase) * 2.6));
-        if (tw <= 0.05) continue;
-        const sx = cx + dx * size;
-        const sy = cy + dy * size;
-        const r = size * 0.22 * tw;
-        g.poly([sx, sy - r, sx + r * 0.3, sy, sx, sy + r, sx - r * 0.3, sy]).fill({
-          color: UI.level,
-        });
-        g.poly([sx - r, sy, sx, sy - r * 0.3, sx + r, sy, sx, sy + r * 0.3]).fill({
-          color: UI.level,
-        });
-      }
+      drawStoreBag(g, cx, cy, size, this.clock);
       return;
     }
     // The collection: four tiles, one of them gold.

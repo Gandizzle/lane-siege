@@ -23,7 +23,7 @@ import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
 import type { PanelButton } from './menu.ts';
 import { Sheet } from './sheet.ts';
-import { drawCosmeticIcon } from './storeArt.ts';
+import { drawCosmeticIcon, drawPadlock } from './storeArt.ts';
 import { fit, label } from './text.ts';
 
 export interface CollectionHandlers {
@@ -172,14 +172,7 @@ export class CollectionScreen extends Sheet {
         .circle(on ? px + pw - ph / 2 : px + ph / 2, py + ph / 2, ph / 2 - 3)
         .fill({ color: UI.text });
     } else {
-      const lx = px + pw / 2;
-      const ly = py + ph / 2 + 2;
-      row.pill.roundRect(lx - 7, ly - 4, 14, 11, 2).fill({ color: UI.textMuted });
-      // The shackle as its own path, started where the arc starts.
-      row.pill
-        .moveTo(lx - 4.5, ly - 4)
-        .arc(lx, ly - 4, 4.5, Math.PI, 0)
-        .stroke({ width: 2, color: UI.textMuted });
+      drawPadlock(row.pill, px + pw / 2, py + ph / 2 + 3.5, UI.textMuted);
     }
   }
 }

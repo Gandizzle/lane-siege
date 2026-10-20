@@ -7,7 +7,7 @@
  * an icon that says what kind of thing is coming.
  */
 
-import type { Graphics } from 'pixi.js';
+import type { Graphics, StrokeInput } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
 import type { Cosmetic } from '../../progression/config.ts';
 import { UI } from '../palette.ts';
@@ -128,6 +128,86 @@ export function drawCosmeticIcon(
     default:
       g.circle(cx, cy, s * 0.6).fill({ color: tint });
   }
+}
+
+/**
+ * A padlock, its body centred on (`cx`, `cy`): for what is not yours yet.
+ */
+export function drawPadlock(g: Graphics, cx: number, cy: number, color: number): void {
+  g.roundRect(cx - 7, cy - 5.5, 14, 11, 2).fill({ color });
+  strokeArc(g, cx, cy - 5.5, 4.5, Math.PI, 0, { width: 2, color });
+}
+
+/**
+ * The Store's bag, centred on (`cx`, `cy`), about `size` across: a body, a
+ * handle, a glint crossing it every few seconds, and two sparkles twinkling
+ * out of step. `clock` is in seconds and moves the glint and the sparkles.
+ */
+export function drawStoreBag(
+  g: Graphics,
+  cx: number,
+  cy: number,
+  size: number,
+  clock: number,
+): void {
+  const w = size * 0.9;
+  const h = size * 0.8;
+  const top = cy - h / 2 + size * 0.1;
+  g.roundRect(cx - w / 2, top, w, h, size * 0.15).fill({ color: UI.level });
+  strokeArc(g, cx, top, w * 0.28, Math.PI, 0, {
+    width: Math.max(1.5, size * 0.1),
+    color: UI.level,
+  });
+  const sweep = (clock % 3.2) / 0.6;
+  if (sweep < 1) {
+    const gx = cx - w / 2 + sweep * w;
+    g.moveTo(gx - size * 0.12, top + h)
+      .lineTo(gx + size * 0.05, top + h)
+      .lineTo(gx + size * 0.25, top)
+      .lineTo(gx + size * 0.08, top)
+      .closePath()
+      .fill({ color: 0xffffff, alpha: 0.55 });
+  }
+  for (const [dx, dy, phase] of [
+    [0.75, -0.55, 0],
+    [-0.8, -0.35, 1.3],
+  ] as const) {
+    const tw = Math.max(0, Math.sin((clock + phase) * 2.6));
+    if (tw <= 0.05) continue;
+    const sx = cx + dx * size;
+    const sy = cy + dy * size;
+    const r = size * 0.22 * tw;
+    g.poly([sx, sy - r, sx + r * 0.3, sy, sx, sy + r, sx - r * 0.3, sy]).fill({
+      color: UI.level,
+    });
+    g.poly([sx - r, sy, sx, sy - r * 0.3, sx + r, sy, sx, sy + r * 0.3]).fill({
+      color: UI.level,
+    });
+  }
+}
+
+/**
+ * An open arc - a shackle, a handle - stroked as a path of its own.
+ *
+ * Both obvious ways to draw one go wrong in Pixi, and both shipped. After a
+ * fill, the next path starts where the last shape ended - the origin, after a
+ * rectangle - and an arc joins on to that, so it came with a line from the
+ * top-left corner. Moving to the arc's own first point instead puts that
+ * point in twice, and a stroke that starts with a step of no length has no
+ * direction to be widened across: its first corners are 0 / 0, NaN, which one
+ * GPU drops and another draws as a spike to the corner. A fresh path has
+ * neither.
+ */
+function strokeArc(
+  g: Graphics,
+  x: number,
+  y: number,
+  radius: number,
+  start: number,
+  end: number,
+  style: StrokeInput,
+): void {
+  g.beginPath().arc(x, y, radius, start, end).stroke(style);
 }
 
 /**
