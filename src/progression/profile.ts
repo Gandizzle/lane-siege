@@ -25,8 +25,8 @@ export function dayKey(date: Date): string {
 export interface Profile {
   /** Every point of XP ever earned. The level is worked out from it (levels.ts). */
   xp: number;
-  /** The opt-in ad's boost: how many XP-earning matches it has left, and today's count. */
-  adBoost: { matchesLeft: number; day: string; watched: number };
+  /** The opt-in ad's boost: how many XP-earning waves it has left. */
+  adBoost: { wavesLeft: number };
   /** Practice and solo games that have earned XP today. */
   casual: { day: string; games: number };
   /** Has bought Supporter (placeholder: nothing can be bought yet). */
@@ -41,7 +41,7 @@ export interface Profile {
 
 export const NEW_PROFILE: Profile = {
   xp: 0,
-  adBoost: { matchesLeft: 0, day: '', watched: 0 },
+  adBoost: { wavesLeft: 0 },
   casual: { day: '', games: 0 },
   supporter: false,
   owned: [],
@@ -75,7 +75,9 @@ export function parseProfile(raw: unknown): Profile {
   >;
   return {
     xp: count(r.xp),
-    adBoost: { matchesLeft: count(ad.matchesLeft), day: day(ad.day), watched: count(ad.watched) },
+    // A save from when the boost was counted in matches has no waves, and
+    // starts again from none.
+    adBoost: { wavesLeft: count(ad.wavesLeft) },
     casual: { day: day(casual.day), games: count(casual.games) },
     supporter: r.supporter === true,
     owned: ids(r.owned),

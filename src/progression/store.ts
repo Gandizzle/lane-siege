@@ -93,13 +93,13 @@ export class ProgressStore {
   }
 
   boost(): BoostStatus {
-    return boostStatus(this.config, this.current, this.today);
+    return boostStatus(this.config, this.current);
   }
 
-  /** The ad was watched, or a Supporter claimed a boost. False if none was due. */
+  /** The ad was watched to the end: add its waves. False if no ad was due. */
   startBoost(): boolean {
-    if (!this.boost().available) return false;
-    this.save(startBoost(this.config, this.current, this.today));
+    if (!this.boost().offer) return false;
+    this.save(startBoost(this.config, this.current));
     return true;
   }
 

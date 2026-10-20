@@ -11,6 +11,7 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
+import { waveCount } from '../../progression/award.ts';
 import type { BadgeGlyph } from '../../progression/config.ts';
 import type { LevelProgress } from '../../progression/levels.ts';
 import { UI } from '../palette.ts';
@@ -25,8 +26,10 @@ export interface NameCardState {
   title: string | null;
   /** Badges being worn, in catalogue order. */
   badges: BadgeGlyph[];
-  /** XP-earning matches the running boost has left; 0 for none. */
-  boostMatches: number;
+  /** Boosted waves left; 0 for none. */
+  boostWaves: number;
+  /** A Supporter's boost, on for good. */
+  boostAlways: boolean;
 }
 
 export class NameCard extends Container {
@@ -110,10 +113,12 @@ export class NameCard extends Container {
     // boost - something worth knowing before a match - or how to edit.
     this.titleText.text = s.title ? fit(s.title, width / 2, 11) : '';
     this.titleText.position.set(x + pad, y + 31);
-    const boosted = s.boostMatches > 0;
-    this.hint.text = boosted
-      ? `XP boost: ${s.boostMatches} ${s.boostMatches === 1 ? 'match' : 'matches'}`
-      : 'tap to change';
+    const boosted = s.boostAlways || s.boostWaves > 0;
+    this.hint.text = s.boostAlways
+      ? 'XP boost: always on'
+      : boosted
+        ? `XP boost: ${waveCount(s.boostWaves)}`
+        : 'tap to change';
     this.hint.style.fill = boosted ? UI.xp : UI.textMuted;
     this.hint.style.fontWeight = boosted ? '700' : '500';
     this.hint.position.set(x + width - pad - this.hint.width, y + 31);

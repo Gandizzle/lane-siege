@@ -11,8 +11,9 @@
  *
  * THREE TABS
  *
- *   Featured   the Founder's Pack banner, the other bundles, the XP boost and
- *              a way to Support.
+ *   Featured   the Founder's Pack banner, the other bundles, and a way to
+ *              Support. The XP boost's ad is not sold here: it is offered
+ *              before a game (ui/boostOffer.ts).
  *   Builders   every builder, shown by its own six units, with the price it
  *              will have and what it costs now: nothing, during early access.
  *   Cosmetics  every cosmetic by slot, with what it costs or how it is earned,
@@ -26,7 +27,6 @@
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
-import type { BoostStatus } from '../../progression/award.ts';
 import { percent } from '../../progression/award.ts';
 import type { Bundle, Cosmetic, CosmeticSlot } from '../../progression/config.ts';
 import { howToUnlock } from '../../progression/cosmetics.ts';
@@ -43,8 +43,6 @@ export interface StoreHandlers {
   onClose(): void;
   /** Buy something: a bundle, a builder, a cosmetic. Placeholder (see above). */
   onBuy(itemId: string, name: string): void;
-  /** Start the XP boost: the placeholder ad, or for a Supporter, no ad. */
-  onBoost(): void;
   onSupport(): void;
   onCollection(): void;
 }
@@ -135,7 +133,6 @@ export class StoreScreen extends Sheet {
   private readonly tabButtons: PanelButton[];
   private readonly featured: Card;
   private readonly bundles: Card[];
-  private readonly boostCard: Card;
   private readonly supportCard: Card;
   private readonly builders: { id: string; card: Card }[];
   private readonly slotHeads: { slot: CosmeticSlot; name: Text; soon: Text }[];
@@ -174,7 +171,6 @@ export class StoreScreen extends Sheet {
 
     this.featured = new Card(this.button('', first ? buy(first.id, first.name) : () => {}), 20);
     this.bundles = rest.map((b) => new Card(this.button('', buy(b.id, b.name))));
-    this.boostCard = new Card(this.button('', () => this.handlers.onBoost()));
     this.supportCard = new Card(this.button('Support the game', () => this.handlers.onSupport()));
     this.builders = this.data.units.builders
       .filter((b) => b.complete)
@@ -198,7 +194,6 @@ export class StoreScreen extends Sheet {
     this.body.addChild(
       this.featured,
       ...this.bundles,
-      this.boostCard,
       this.supportCard,
       ...this.builders.map((b) => b.card),
       ...this.slotHeads.flatMap((h) => [h.name, h.soon]),
@@ -207,7 +202,7 @@ export class StoreScreen extends Sheet {
     );
   }
 
-  /** Something bought or boosted: redraw what it changed. */
+  /** Something bought: redraw what it changed. */
   refresh(): void {
     if (this.visible) this.arrange();
   }
@@ -246,7 +241,7 @@ export class StoreScreen extends Sheet {
   }
 
   protected layoutBody(width: number): number {
-    for (const card of [this.featured, ...this.bundles, this.boostCard, this.supportCard]) {
+    for (const card of [this.featured, ...this.bundles, this.supportCard]) {
       card.visible = this.tab === 'featured';
     }
     for (const { card } of this.builders) card.visible = this.tab === 'builders';
@@ -279,7 +274,6 @@ export class StoreScreen extends Sheet {
       if (!card) return;
       y = this.layoutBundle(card, bundle, 0, y + 10, width, false, owned.includes(bundle.id));
     });
-    y = this.layoutBoost(0, y + 10, width);
     y = this.layoutSupportCard(0, y + 10, width);
     return y;
   }
@@ -367,41 +361,6 @@ export class StoreScreen extends Sheet {
     return y + h;
   }
 
-  private layoutBoost(x: number, y: number, width: number): number {
-    const card = this.boostCard;
-    const pad = 14;
-    const config = this.progress.config.adBoost;
-    const status: BoostStatus = this.progress.boost();
-    const supporter = this.progress.profile.supporter;
-    card.title.text = `+${percent(config.bonus)} XP boost`;
-    card.title.style.fill = UI.xp;
-    card.title.position.set(x + pad, y + pad - 2);
-    card.blurb.text = supporter
-      ? `For your next ${config.matches} matches that earn XP. As a Supporter, no ad to watch.`
-      : `Watch a short ad for your next ${config.matches} matches that earn XP. Up to ${config.perDay} a day.`;
-    card.blurb.style.wordWrapWidth = width - pad * 2;
-    card.blurb.position.set(x + pad, y + pad + 20);
-    // The button under the words, so however they wrap they cannot reach it.
-    const buttonY = card.blurb.y + card.blurb.height + 8;
-    const h = buttonY + 30 + pad - y;
-    card.bg.clear();
-    card.bg
-      .roundRect(x, y, width, h, 12)
-      .fill({ color: UI.panel })
-      .stroke({ width: 1, color: UI.xp });
-    card.price.text = '';
-    card.was.text = '';
-    card.strike.clear();
-    card.tag.text = '';
-    card.tagBg.clear();
-    card.art.clear();
-    const buttonW = Math.min(170, width * 0.5);
-    card.button.place(x + width - pad - buttonW, buttonY, buttonW, 30);
-    if (status.available) card.button.set(supporter ? 'Claim boost' : '▶ Watch an ad', 'primary');
-    else card.button.set(status.reason ?? 'Not now', 'plain', false);
-    return y + h;
-  }
-
   private layoutSupportCard(x: number, y: number, width: number): number {
     const card = this.supportCard;
     const pad = 14;
@@ -413,7 +372,7 @@ export class StoreScreen extends Sheet {
     card.title.position.set(x + pad + 32, y + pad);
     card.blurb.text = supporter
       ? 'Thank you. Your bonus XP and badge are yours for good.'
-      : `+${percent(this.progress.config.supporter.bonus)} XP for good, a badge by your name, and our thanks.`;
+      : `The XP boost always on with no ads, +${percent(this.progress.config.supporter.bonus)} XP for good, and a badge by your name.`;
     card.blurb.style.wordWrapWidth = width - pad * 2 - 32;
     card.blurb.position.set(x + pad + 32, y + pad + 22);
     const buttonY = card.blurb.y + card.blurb.height + 8;

@@ -18,10 +18,11 @@
     "gamesPerDay": 1
   },
   "adBoost": {
-    "_comment": "Watching an opt-in ad adds bonus (1.0 is +100%, so double) to the next matches matches that earn XP. One boost at a time, and at most perDay a day so it stays a treat. A match that earns nothing - practice after the day's allowance - does not use one up.",
+    "_comment": "The opt-in ad. Before any game that can earn XP, a player with fewer than offerBelow boosted waves left is asked whether to watch one. Yes plays it and adds waves boosted waves, to maxWaves at most - so 10 left and another ad makes 35; No goes straight to the game. As many a day as anyone likes. bonus is the boost: 1.0 is +100%, so double. A boosted wave is a wave of a match that earns XP: the match's XP is boosted for the share of its waves the boost covers, and those waves are used up. A match that earns nothing uses none. A Supporter's boost is always on, with no ad and no waves used.",
     "bonus": 1.0,
-    "matches": 2,
-    "perDay": 3
+    "waves": 25,
+    "offerBelow": 25,
+    "maxWaves": 50
   },
   "supporter": {
     "_comment": "A Supporter earns bonus more on every match, for good. Boosts add rather than multiply: an ad boost and Supporter together are 1 + 1.0 + 0.25 = 2.25 times.",

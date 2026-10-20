@@ -2,10 +2,12 @@
  * A rewarded ad, until there is a real one. PLACEHOLDER.
  *
  * The real thing (the business plan: AdMob through a Capacitor plugin) is a
- * video that some other code shows over the whole app and that says, at the
- * end, whether it was watched. This stands in for it behind the same shape -
- * `show()`, resolving true for a reward - so swapping it for the real one
- * changes this file and nothing that calls it.
+ * video that some other code loads ahead of time, shows over the whole app,
+ * and says at the end whether it was watched. This stands in for it behind
+ * the same shape - `ready()`, and `show()` resolving true for a reward - so
+ * swapping it for the real one changes this file and nothing that calls it.
+ * The game asks about the XP boost before a game (ui/boostOffer.ts) only when
+ * `ready()` says there is an ad to show.
  *
  * DOM rather than Pixi for the same reason the real one will be: an ad is not
  * part of the game's picture, it covers it. A countdown, a way to give up
@@ -14,7 +16,17 @@
 
 /** Anything that can show a rewarded ad. */
 export interface RewardedAds {
-  /** Show one. True if it was watched to the end and the reward is due. */
+  /**
+   * Whether an ad is loaded and can be shown now. A real network fills ads
+   * ahead of time and sometimes has none; with none, the boost is not offered,
+   * rather than offered and then not delivered.
+   */
+  ready(): boolean;
+  /**
+   * Show one. True if it was watched to the end and the reward is due. It
+   * must always settle - false for any failure, a network with nothing to
+   * show included - because the game waits on it before starting a match.
+   */
   show(): Promise<boolean>;
 }
 
@@ -36,6 +48,11 @@ export class PlaceholderAds implements RewardedAds {
     /** How long the stand-in "plays". */
     private readonly seconds = 5,
   ) {}
+
+  /** Always: the stand-in never runs out. */
+  ready(): boolean {
+    return true;
+  }
 
   show(): Promise<boolean> {
     return new Promise((resolve) => {
@@ -71,12 +88,12 @@ export class PlaceholderAds implements RewardedAds {
       count.style.cssText = `color:${STYLE.xp};font-size:56px;font-weight:700;margin:14px 0 6px`;
 
       const words = document.createElement('div');
-      words.textContent = 'A short video ad will play here.';
+      words.textContent = 'No ads are hooked up yet. A short video ad will play here.';
       words.style.cssText = `color:${STYLE.text};font-size:14px;margin-bottom:18px`;
 
       const claim = document.createElement('button');
       claim.type = 'button';
-      claim.textContent = 'Claim your XP boost';
+      claim.textContent = 'Close ad';
       claim.disabled = true;
       claim.style.cssText = [
         'width:100%',
@@ -94,7 +111,7 @@ export class PlaceholderAds implements RewardedAds {
 
       const skip = document.createElement('button');
       skip.type = 'button';
-      skip.textContent = 'Close without the boost';
+      skip.textContent = 'Skip the ad (no boost)';
       skip.style.cssText = [
         'margin-top:12px',
         'background:none',
@@ -116,7 +133,7 @@ export class PlaceholderAds implements RewardedAds {
         if (left <= 0) {
           claim.disabled = false;
           claim.style.opacity = '1';
-          words.textContent = 'Thanks for watching.';
+          words.textContent = 'Thanks for watching. Your boost is ready.';
         }
       };
       tick();

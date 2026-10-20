@@ -28,8 +28,12 @@ export interface ProgressionConfig {
   match: { played: number; perWave: number; placement: number[]; showdown: number };
   /** Practice and solo: a little, a few games a day. */
   casual: { xp: number; gamesPerDay: number };
-  /** The opt-in ad's reward: `bonus` extra on the next `matches` that earn XP. */
-  adBoost: { bonus: number; matches: number; perDay: number };
+  /**
+   * The opt-in ad's reward: `bonus` extra for the next `waves` waves that earn
+   * XP. Offered before a game whenever fewer than `offerBelow` are left, so it
+   * stacks, to `maxWaves` at most.
+   */
+  adBoost: { bonus: number; waves: number; offerBelow: number; maxWaves: number };
   supporter: { bonus: number };
 }
 
@@ -146,6 +150,11 @@ export function parseProgression(raw: unknown): ProgressionConfig {
   const casual = object(r.casual, 'progression.casual');
   const ad = object(r.adBoost, 'progression.adBoost');
   const supporter = object(r.supporter, 'progression.supporter');
+  const adWaves = integer(ad.waves, 'progression.adBoost.waves', 1);
+  const maxWaves = integer(ad.maxWaves, 'progression.adBoost.maxWaves', 1);
+  if (maxWaves < adWaves) {
+    throw new Error('progression.adBoost.maxWaves: expected at least adBoost.waves');
+  }
   const placement = list(match.placement, 'progression.match.placement').map((xp, i) =>
     integer(xp, `progression.match.placement[${i}]`),
   );
@@ -167,8 +176,9 @@ export function parseProgression(raw: unknown): ProgressionConfig {
     },
     adBoost: {
       bonus: number(ad.bonus, 'progression.adBoost.bonus'),
-      matches: integer(ad.matches, 'progression.adBoost.matches', 1),
-      perDay: integer(ad.perDay, 'progression.adBoost.perDay'),
+      waves: adWaves,
+      offerBelow: integer(ad.offerBelow, 'progression.adBoost.offerBelow'),
+      maxWaves,
     },
     supporter: { bonus: number(supporter.bonus, 'progression.supporter.bonus') },
   };

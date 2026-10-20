@@ -26,12 +26,12 @@
     }
   ],
   "supporter": {
-    "_comment": "One purchase, for good. The Support page shows the pitch and lists the perks; {bonus} in a perk is filled in from progression.json's supporter.bonus, so the page and the XP it pays cannot disagree.",
+    "_comment": "One purchase, for good. The Support page shows the pitch and lists the perks; {bonus} in a perk is filled in from progression.json's supporter.bonus and {boost} from its adBoost.bonus, so the page and the XP it pays cannot disagree.",
     "price": "$4.99",
     "pitch": "Lane Siege is made by one developer. If you are enjoying it, becoming a Supporter is the most direct way to keep it going - and it changes nothing about who wins.",
     "perks": [
       "+{bonus} XP on every match, for good",
-      "Your XP boosts without watching an ad",
+      "The +{boost} XP boost always on, no ads",
       "A Supporter badge by your name",
       "Your name in the credits"
     ]

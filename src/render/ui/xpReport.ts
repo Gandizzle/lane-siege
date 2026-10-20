@@ -11,16 +11,14 @@
  * A tap on the card skips to the end, so nobody has to sit through it twice.
  * Continue closes it and leaves the end-of-match card underneath.
  *
- * Under it, the opt-in boost (award.ts): watch an ad and the next matches that
- * earn anything earn more. Offered here because this is the one moment a
- * player is looking at what XP is worth to them - and never pushed: it is a
- * button among buttons, and saying no is Continue.
+ * Under the bar, a line on the XP boost (award.ts): how many boosted waves are
+ * left. The ad itself is not offered here - it is asked about before a game
+ * (ui/boostOffer.ts), where saying yes changes the game about to be played.
  */
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
-import type { BoostStatus, XpLine } from '../../progression/award.ts';
-import { percent } from '../../progression/award.ts';
+import type { XpLine } from '../../progression/award.ts';
 import type { LevelCurve } from '../../progression/config.ts';
 import { levelOf } from '../../progression/levels.ts';
 import type { AwardResult } from '../../progression/store.ts';
@@ -113,8 +111,6 @@ export function reportFrame(plan: ReportPlan, ms: number): ReportFrame {
 // ------------------------------------------------------------------ the card
 
 export interface XpReportHandlers {
-  /** Start the boost: the placeholder ad, or - for a Supporter - no ad at all. */
-  onBoost(): void;
   onClose(): void;
   /** A level was crossed: `level` is the new one. For the fanfare. */
   onLevelUp(level: number): void;
@@ -130,10 +126,8 @@ const TOTAL_H = 38;
 const LEVEL_ROOM = 40;
 /** The bar and the XP written under it. */
 const BAR_H = 32;
-/** The boost's offer, in words. */
-const OFFER_H = 22;
-/** Its button and the gap under it. */
-const BOOST_H = 46;
+/** The boost: how much of it is left, and the gap under that. */
+const BOOST_H = 30;
 const CONTINUE_H = 40;
 
 class Row extends Container {
@@ -162,9 +156,8 @@ export class XpReport extends Container {
   private readonly toBadge = new LevelBadge();
   private readonly barText: Text;
   private readonly levelUp: Text;
-  /** What the boost is worth, over its button - or why there is no button. */
+  /** How many boosted waves are left. */
   private readonly boostLine: Text;
-  private readonly boost: PanelButton;
   private readonly continueButton: PanelButton;
   private readonly bits = confetti(36);
 
@@ -175,11 +168,7 @@ export class XpReport extends Container {
   private shownLevel = 0;
   /** Since the last level was crossed, for the pop and the burst; negative for none. */
   private poppedMs = -1;
-  private boostStatus: BoostStatus | null = null;
-  private supporter = false;
-  private bonus = 1;
-  private boostMatches = 2;
-  private geometry = { x: 0, y: 0, w: 0, barY: 0, barX: 0, barW: 0, offerY: 0 };
+  private geometry = { x: 0, y: 0, w: 0, barY: 0, barX: 0, barW: 0 };
 
   constructor(
     private layout: LaneLayout,
@@ -194,7 +183,7 @@ export class XpReport extends Container {
     this.levelUp = overlaid('', 20, UI.level, '700');
     this.boostLine = wrapped('', 12, UI.xp);
     this.boostLine.style.fontWeight = '700';
-    this.boost = new PanelButton('', () => this.handlers.onBoost());
+    this.boostLine.style.align = 'center';
     this.continueButton = new PanelButton('Continue', () => this.handlers.onClose());
 
     // The scrim takes every tap that is not a button's, so nothing reaches
@@ -217,7 +206,6 @@ export class XpReport extends Container {
       this.burst,
       this.levelUp,
       this.boostLine,
-      this.boost,
       this.continueButton,
     );
   }
@@ -226,23 +214,14 @@ export class XpReport extends Container {
     return this.visible;
   }
 
-  open(
-    result: AwardResult,
-    curve: LevelCurve,
-    boost: BoostStatus,
-    supporter: boolean,
-    bonus: number,
-    boostMatches: number,
-  ): void {
+  /** `boost` is the line on the boost under the bar: how much is left. */
+  open(result: AwardResult, curve: LevelCurve, boost: string): void {
     this.plan = planReport(result);
     this.curve = curve;
     this.ms = 0;
     this.shownLevel = result.before.level;
     this.poppedMs = -1;
-    this.supporter = supporter;
-    this.bonus = bonus;
-    this.boostMatches = boostMatches;
-    this.boostStatus = boost;
+    this.boostLine.text = boost;
 
     for (const row of this.rows) row.destroy({ children: true });
     this.rows.length = 0;
@@ -262,12 +241,6 @@ export class XpReport extends Container {
   close(): void {
     this.visible = false;
     this.plan = null;
-  }
-
-  /** After the ad (or a Supporter's claim): show the boost as running. */
-  setBoost(status: BoostStatus): void {
-    this.boostStatus = status;
-    this.drawBoost();
   }
 
   setLayout(layout: LaneLayout): void {
@@ -342,32 +315,6 @@ export class XpReport extends Container {
     }
   }
 
-  /**
-   * The offer in words, and the button that takes it: what it is worth in
-   * purple, short words on the button, so neither is cut on a small phone.
-   * With no boost to start - one running, or the day's all used - the words
-   * say so, in the middle of where the button would be.
-   */
-  private drawBoost(): void {
-    const status = this.boostStatus;
-    const { x, w, offerY } = this.geometry;
-    const pad = 18;
-    if (!status) return;
-    this.boostLine.style.wordWrapWidth = w - pad * 2;
-    this.boostLine.style.align = 'center';
-    if (status.available) {
-      this.boost.visible = true;
-      this.boost.set(this.supporter ? 'Claim your boost' : '▶ Watch an ad', 'plain');
-      const noun = this.boostMatches === 1 ? 'match' : 'matches';
-      this.boostLine.text = `Boost: +${percent(this.bonus)} XP on your next ${this.boostMatches} ${noun}`;
-      centreOn(this.boostLine, x + w / 2, offerY);
-    } else {
-      this.boost.visible = false;
-      this.boostLine.text = status.reason ?? '';
-      centreOn(this.boostLine, x + w / 2, offerY + (OFFER_H + BOOST_H - this.boostLine.height) / 2);
-    }
-  }
-
   private arrange(): void {
     const screen = this.layout.screen;
     const compact = this.layout.compact;
@@ -376,6 +323,8 @@ export class XpReport extends Container {
     const lineH = compact ? 21 : 24;
     const count = this.rows.length;
     const noteH = this.note.text ? 34 : 0;
+    // No boost to speak of, no line for it.
+    const boostH = this.boostLine.text ? BOOST_H : 8;
     // Top to bottom, the same steps the layout below takes.
     const h =
       pad +
@@ -385,8 +334,7 @@ export class XpReport extends Container {
       noteH +
       LEVEL_ROOM +
       BAR_H +
-      OFFER_H +
-      BOOST_H +
+      boostH +
       CONTINUE_H +
       pad;
     const x = Math.round((screen.width - w) / 2);
@@ -437,14 +385,12 @@ export class XpReport extends Container {
     const barX = x + (w - barW) / 2;
     const barY = ty;
     ty += BAR_H;
-    const offerY = ty;
-    ty += OFFER_H;
-    this.geometry = { x, y, w, barX, barY, barW, offerY };
+    this.geometry = { x, y, w, barX, barY, barW };
 
-    this.boost.place(x + pad, ty, w - pad * 2, BOOST_H - 8);
-    ty += BOOST_H;
+    this.boostLine.style.wordWrapWidth = w - pad * 2;
+    centreOn(this.boostLine, x + w / 2, ty);
+    ty += boostH;
     this.continueButton.place(x + pad, ty, w - pad * 2, CONTINUE_H);
     this.continueButton.set('Continue', 'primary');
-    this.drawBoost();
   }
 }

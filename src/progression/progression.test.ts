@@ -31,21 +31,30 @@ const CONFIG: ProgressionConfig = {
   levels: { first: 300, step: 100 },
   match: { played: 100, perWave: 8, placement: [150, 90, 50, 20], showdown: 50 },
   casual: { xp: 50, gamesPerDay: 1 },
-  adBoost: { bonus: 1, matches: 2, perDay: 3 },
+  adBoost: { bonus: 1, waves: 25, offerBelow: 25, maxWaves: 50 },
   supporter: { bonus: 0.25 },
 };
 
-const won: MatchResult = { mode: 'online', placement: 1, wavesSurvived: 25, reachedShowdown: true };
+const won: MatchResult = {
+  mode: 'online',
+  placement: 1,
+  wavesSurvived: 25,
+  wavesPlayed: 25,
+  reachedShowdown: true,
+};
+/** Out in wave 6: five got through, six fought. */
 const outEarly: MatchResult = {
   mode: 'online',
   placement: 4,
   wavesSurvived: 5,
+  wavesPlayed: 6,
   reachedShowdown: false,
 };
 const practice: MatchResult = {
   mode: 'practice',
   placement: 2,
   wavesSurvived: 25,
+  wavesPlayed: 25,
   reachedShowdown: true,
 };
 
@@ -167,36 +176,45 @@ describe('what a match earns', () => {
     expect(tomorrow.award.total).toBe(50);
   });
 
-  it('boosts the next matches that earn anything, and lets a zero go by', () => {
+  it('boosts the waves a match had, keeps the rest, and lets a zero go by', () => {
     // Today's practice XP, had before the boost starts.
     let profile = awardXp(CONFIG, fresh(), practice, today).profile;
-    profile = startBoost(CONFIG, profile, today);
-    expect(profile.adBoost.matchesLeft).toBe(2);
+    profile = startBoost(CONFIG, profile);
+    expect(profile.adBoost.wavesLeft).toBe(25);
 
-    const one = awardXp(CONFIG, profile, outEarly, today);
-    expect(one.award.boosts).toEqual([{ id: 'adBoost', label: 'Boost +100%', xp: 160 }]);
-    expect(one.award.total).toBe(320);
-    profile = one.profile;
-    expect(profile.adBoost.matchesLeft).toBe(1);
+    // Out in wave 6: all six waves boosted, nineteen kept for later.
+    const early = awardXp(CONFIG, profile, outEarly, today);
+    expect(early.award.boosts).toEqual([{ id: 'adBoost', label: 'Boost +100%', xp: 160 }]);
+    expect(early.award.total).toBe(320);
+    expect(early.profile.adBoost.wavesLeft).toBe(19);
 
-    // More practice today earns nothing, so there is nothing to boost and the
-    // boosted match is still there.
-    const nothing = awardXp(CONFIG, profile, practice, today);
+    // More practice today earns nothing, so there is nothing to boost and
+    // the waves are still there.
+    const nothing = awardXp(CONFIG, early.profile, practice, today);
     expect(nothing.award.total).toBe(0);
-    expect(nothing.profile.adBoost.matchesLeft).toBe(1);
+    expect(nothing.profile.adBoost.wavesLeft).toBe(19);
 
-    const two = awardXp(CONFIG, nothing.profile, won, today);
-    expect(two.award.total).toBe(1000);
-    expect(two.profile.adBoost.matchesLeft).toBe(0);
-    expect(awardXp(CONFIG, two.profile, won, today).award.total).toBe(500);
+    // A full match: the boost covers 19 of its 25 waves, so 19/25 of it.
+    const full = awardXp(CONFIG, nothing.profile, won, today);
+    expect(full.award.boosts).toEqual([
+      { id: 'adBoost', label: 'Boost +100% (19 of 25 waves)', xp: 380 },
+    ]);
+    expect(full.award.total).toBe(880);
+    expect(full.profile.adBoost.wavesLeft).toBe(0);
+    expect(awardXp(CONFIG, full.profile, won, today).award.total).toBe(500);
   });
 
-  it('adds the Supporter bonus, and adds rather than multiplies with a boost', () => {
+  it("keeps a Supporter's boost always on, and adds rather than multiplies", () => {
     const supporter = { ...fresh(), supporter: true };
-    expect(awardXp(CONFIG, supporter, won, today).award.total).toBe(625);
-    const both = awardXp(CONFIG, startBoost(CONFIG, supporter, today), won, today).award;
-    expect(both.boosts.map((b) => b.xp)).toEqual([500, 125]);
-    expect(both.total).toBe(1125);
+    const { award, profile } = awardXp(CONFIG, supporter, won, today);
+    expect(award.boosts.map((b) => [b.id, b.xp])).toEqual([
+      ['adBoost', 500],
+      ['supporter', 125],
+    ]);
+    expect(award.total).toBe(1125);
+    // No waves to spend: it is just on.
+    expect(profile.adBoost.wavesLeft).toBe(0);
+    expect(awardXp(CONFIG, profile, won, today).award.total).toBe(1125);
   });
 
   it('pays nothing for a place past the end of the list', () => {
@@ -223,28 +241,56 @@ describe('what a match earns', () => {
 describe('the ad boost', () => {
   const today = '2026-10-16';
 
-  it('is one at a time, a few a day, and new again tomorrow', () => {
+  it('is offered under 25 waves left, and stacks to under 50', () => {
     let profile = fresh();
-    expect(boostStatus(CONFIG, profile, today).available).toBe(true);
-    for (let n = 0; n < CONFIG.adBoost.perDay; n++) {
-      profile = startBoost(CONFIG, profile, today);
-      const running = boostStatus(CONFIG, profile, today);
-      expect(running.available).toBe(false);
-      expect(running.reason).toMatch(/next 2 matches/);
-      // Use it up.
-      profile = awardXp(CONFIG, profile, outEarly, today).profile;
-      profile = awardXp(CONFIG, profile, outEarly, today).profile;
+    expect(boostStatus(CONFIG, profile)).toEqual({
+      wavesLeft: 0,
+      alwaysOn: false,
+      offer: true,
+      wavesAfter: 25,
+    });
+    profile = startBoost(CONFIG, profile);
+    expect(boostStatus(CONFIG, profile).offer).toBe(false);
+
+    // Six waves used: 19 left, so it is offered again, and stacks.
+    profile = awardXp(CONFIG, profile, outEarly, today).profile;
+    expect(boostStatus(CONFIG, profile)).toMatchObject({ wavesLeft: 19, offer: true });
+    profile = startBoost(CONFIG, profile);
+    expect(profile.adBoost.wavesLeft).toBe(44);
+    expect(boostStatus(CONFIG, profile).offer).toBe(false);
+  });
+
+  it('has no daily limit', () => {
+    let profile = fresh();
+    for (let ad = 0; ad < 12; ad++) {
+      expect(boostStatus(CONFIG, profile).offer, `ad ${ad}`).toBe(true);
+      profile = startBoost(CONFIG, profile);
+      profile = awardXp(CONFIG, profile, won, today).profile;
     }
-    const spent = boostStatus(CONFIG, profile, today);
-    expect(spent.available).toBe(false);
-    expect(spent.leftToday).toBe(0);
-    expect(boostStatus(CONFIG, profile, '2026-10-17').available).toBe(true);
+    expect(profile.adBoost.wavesLeft).toBe(0);
+  });
+
+  it('never holds more than the most it stacks to', () => {
+    const generous = { ...CONFIG, adBoost: { ...CONFIG.adBoost, offerBelow: 40 } };
+    const profile = { ...fresh(), adBoost: { wavesLeft: 30 } };
+    expect(boostStatus(generous, profile).wavesAfter).toBe(50);
+    expect(startBoost(generous, profile).adBoost.wavesLeft).toBe(50);
+  });
+
+  it('is never offered to a Supporter, whose boost is always on', () => {
+    const status = boostStatus(CONFIG, { ...fresh(), supporter: true });
+    expect(status.alwaysOn).toBe(true);
+    expect(status.offer).toBe(false);
   });
 });
 
 describe('the saved profile', () => {
   it('reads junk as a new player, and keeps what it can of a partial save', () => {
     expect(parseProfile('junk')).toEqual(NEW_PROFILE);
+    // A boost saved when it was counted in matches starts again from none.
+    expect(parseProfile({ adBoost: { matchesLeft: 2, day: '2026-10-16', watched: 1 } })).toEqual(
+      NEW_PROFILE,
+    );
     expect(parseProfile({ xp: 450.7, owned: ['a', 'a', 3], casual: { day: 'today' } })).toEqual({
       ...NEW_PROFILE,
       xp: 450,
@@ -267,11 +313,11 @@ describe('the saved profile', () => {
     expect(new ProgressStore(storage, now, CONFIG).level).toEqual(result.after);
   });
 
-  it('starts a boost only when one is due', () => {
+  it('starts a boost only when one is offered', () => {
     const store = new ProgressStore(memory(), () => new Date(2026, 9, 16), CONFIG);
     expect(store.startBoost()).toBe(true);
     expect(store.startBoost()).toBe(false);
-    expect(store.boost().matchesLeft).toBe(2);
+    expect(store.boost().wavesLeft).toBe(25);
   });
 });
 

@@ -504,20 +504,23 @@ join, so a stale one costs a failed round trip and nothing else.
 ### The two pieces of DOM
 
 Everything the player touches is drawn in Pixi except text entry and an ad, and
-neither exception is close. Text entry first. A canvas cannot raise the on-screen keyboard, show the
-caret the operating system draws, offer autocorrect, or be dictated into.
-So a real `<input>` appears over the canvas for as long as it takes to type a
-name or a room code and is removed afterwards (`src/render/ui/textPrompt.ts`).
+neither exception is close. Text entry first. A canvas cannot raise the
+on-screen keyboard, show the caret the operating system draws, offer
+autocorrect, or be dictated into. So a real `<input>` appears over the canvas
+for as long as it takes to type a name or a room code and is removed afterwards
+(`src/render/ui/textPrompt.ts`).
 It is deliberately not `prompt()`, which is blocking, unstyleable, suppressed in
 some mobile browsers, and inside a Capacitor shell looks like a browser error
 rather than part of the game.
 
 The other is the rewarded ad (`src/render/ui/adPlaceholder.ts`), for the same
 reason the real one will be DOM: an ad is not part of the game's picture, it
-covers it, and the real one is a video some other SDK shows over the whole app.
-Until there is one, a placeholder stands in behind the same shape - `show()`,
-resolving true when the reward is due - with a five-second countdown, a claim
-button and a way to close it that earns nothing.
+covers it, and the real one is a video some other SDK loads ahead of time and
+shows over the whole app. Until there is one, a placeholder stands in behind
+the same shape, `ready()` and a `show()` that resolves true when the reward is
+due: a five-second countdown, a close button once it is done, and a skip that
+earns nothing. The game only offers the XP boost when `ready()` says there is
+an ad to show.
 
 ### Android: Capacitor, and what is generated
 
@@ -1278,20 +1281,37 @@ score. The tutorial and a hand-built showdown earn nothing. XP is counted once, 
 moment your match ends - out, or the last one standing - rather than when the
 whole table's does.
 
-**Boosts add.** The opt-in ad adds +100% to the next two matches that earn
-anything; one runs at a time, three a day, and a match that earns nothing does
-not use one up. A Supporter earns +25% on every match, for good, and starts a
-boost without the ad. Together they are 1 + 1.0 + 0.25, not 2 × 1.25. Each
-boost is its own line in the breakdown, in purple.
+**The XP boost is asked about before a game** (`ui/boostOffer.ts`). Before
+any game that can earn XP - picked from the builders, so before a practice
+match starts running or a room is joined, and the ad eats into neither - a
+player with fewer than 25 boosted waves left is asked whether to watch an ad.
+It is opt in every time: No goes straight to the game; Yes plays the ad, and
+once it has been watched to the end a card says "Congratulations, you get 100%
+experience boost for 25 waves!" with a burst, and Play goes on to the game. An
+ad closed early earns nothing and the game starts anyway. Esc while asking backs
+out to the builders. There is no daily limit, and because it is offered
+whenever fewer than 25 are left, boosts stack: 19 left and another ad makes 44,
+to 50 at most.
+
+**A boost is counted in waves, not matches** (`award.ts`). A match uses up as
+many boosted waves as it had - the wave it ended in included - so a player out
+in wave 6 keeps 19 for the next match. Its XP is boosted for the share of its
+waves the boost covered: all of a 6-wave match with 25 left, 19/25 of a full
+match with 19 ("Boost +100% (19 of 25 waves)" in the breakdown). A match that
+earns nothing uses none. A Supporter's boost is always on, with no ad, no
+question and no waves to use up, and Supporter adds +25% of its own. Shares add:
+both together are 1 + 1.0 + 0.25, not 2 × 1.25. Each is its own line in the
+breakdown, in purple.
 
 **The popup** (`ui/xpReport.ts`). When your match ends a card comes up over the
 end-of-match card: the lines arrive in turn and count up, then the total, then
 the bar fills from where you were to where you are now. Crossing a level is the
 moment - the bar fills to the end, the badge turns over to the new level with
 "Level N!", a burst and the wave-cleared fanfare, and the bar starts again from
-empty, as many times as it takes. A tap skips to the end. Under it is the boost
-offer, in words and a button, which is never pushed: saying no is Continue. The
-timeline is a pure function of the award (`planReport`, `reportFrame`), so the
+empty, as many times as it takes. A tap skips to the end. Under the bar, a line
+says how many boosted waves are left; the ad itself is not offered here, but
+before the next game, where saying yes changes the waves about to be played.
+The timeline is a pure function of the award (`planReport`, `reportFrame`), so the
 tests check it without a canvas, and the card shrinks as a whole on a screen too
 short for it rather than spilling off the bottom.
 
@@ -1315,12 +1335,14 @@ menu as well.
 - **The Store** has three tabs. Featured leads with the Founder's Pack - every
   builder, a title, a badge and a fortress skin, drawn as each builder's
   champion unit and the cosmetics' own icons, with what it would cost piece by
-  piece struck through beside its price - then the every-builder bundle, the ad
-  boost and Support. Builders shows each builder's roster at $2.99, struck
+  piece struck through beside its price - then the every-builder bundle and
+  Support. The ad boost is not sold here: it is offered before a game. Builders
+  shows each builder's roster at $2.99, struck
   through: every builder is free during early access. Cosmetics is the whole
   catalogue, priced or with how it is earned.
-- **Support** is one purchase, for good: bonus XP on every match, boosts
-  without the ad, a badge by your name and your name in the credits. The pitch
+- **Support** is one purchase, for good: bonus XP on every match, the XP boost
+  always on with no ads, a badge by your name and your name in the credits. The
+  pitch
   is the data file's words, and it says what the page also means: none of it
   changes who wins.
 - **The Collection** is every cosmetic by slot, with a switch for each one

@@ -87,11 +87,12 @@ import { ShowdownCountdown } from './ui/countdown.ts';
 import { GameOver } from './ui/gameOver.ts';
 import { HomeScreen, type HomeProfile, type MatchMode } from './ui/homeScreen.ts';
 import { XpReport } from './ui/xpReport.ts';
+import { BoostOffer } from './ui/boostOffer.ts';
 import { StoreScreen } from './ui/storeScreen.ts';
 import { SupportScreen } from './ui/supportScreen.ts';
 import { CollectionScreen } from './ui/collectionScreen.ts';
 import type { RewardedAds } from './ui/adPlaceholder.ts';
-import type { XpMode } from '../progression/award.ts';
+import { waveCount, type XpAward, type XpMode } from '../progression/award.ts';
 import type { ProgressStore } from '../progression/store.ts';
 import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
@@ -241,6 +242,12 @@ export class Game extends Container {
   private awarded = false;
   /** What the match earned, line by line, and the climb it bought. */
   private readonly xpReport: XpReport;
+  /** The XP boost, asked about before a game (ui/boostOffer.ts). */
+  private readonly boostOffer: BoostOffer;
+  /** The game the boost offer is holding, started once it is answered. */
+  private afterOffer: (() => void) | null = null;
+  /** The ad is up: a second Yes must not start a second one. */
+  private watchingAd = false;
   private readonly storeScreen: StoreScreen;
   private readonly supportScreen: SupportScreen;
   private readonly collectionScreen: CollectionScreen;
@@ -350,14 +357,17 @@ export class Game extends Container {
       onSupport: () => this.openSupport(),
     });
     this.xpReport = new XpReport(this.layout, {
-      onBoost: () => void this.startBoost(),
       onClose: () => this.xpReport.close(),
       onLevelUp: () => this.services.sound.play('wave.cleared'),
+    });
+    this.boostOffer = new BoostOffer(this.layout, {
+      onWatch: () => void this.watchBoostAd(),
+      onSkip: () => this.leaveOffer(true),
+      onPlay: () => this.leaveOffer(true),
     });
     this.storeScreen = new StoreScreen(this.layout, data, services.progress, {
       onClose: () => this.storeScreen.close(),
       onBuy: (id, name) => this.buy(id, name),
-      onBoost: () => void this.startBoost(),
       onSupport: () => this.openSupport(),
       onCollection: () => this.openCollection(),
     });
@@ -484,6 +494,8 @@ export class Game extends Container {
       this.storeScreen,
       this.collectionScreen,
       this.supportScreen,
+      // Over everything: it stands between a tap on a builder and the game.
+      this.boostOffer,
     );
 
     this.showScreen('home');
@@ -495,6 +507,12 @@ export class Game extends Container {
    * close the menu.
    */
   toggleMenu(): void {
+    // The boost offer first: asking, Esc backs out of starting the game at
+    // all; with the congratulations up, it goes on to the game they were for.
+    if (this.boostOffer.isOpen) {
+      if (!this.watchingAd) this.leaveOffer(!this.boostOffer.asking);
+      return;
+    }
     for (const sheet of [this.supportScreen, this.collectionScreen, this.storeScreen]) {
       if (sheet.isOpen) {
         sheet.close();
@@ -601,7 +619,8 @@ export class Game extends Container {
       level: progress.level,
       title: progress.worn('title')[0]?.name ?? null,
       badges,
-      boostMatches: progress.boost().matchesLeft,
+      boostWaves: progress.boost().wavesLeft,
+      boostAlways: progress.boost().alwaysOn,
       storeNew: !progress.profile.seenStore,
       supporter: progress.profile.supporter,
       collection: {
@@ -987,11 +1006,60 @@ export class Game extends Container {
       this.showScreen('lobby');
       return;
     }
-    this.start(builderId);
+    this.beforeGame(() => this.start(builderId));
+  }
+
+  /**
+   * Before a game that can earn XP, the boost is offered whenever fewer than
+   * `adBoost.offerBelow` boosted waves are left (award.ts) - as often as that
+   * is, with no daily limit, so boosts stack. Opt in every time: No goes
+   * straight to the game; Yes plays the ad, and once it has been watched says
+   * what it earned before going on. Asked here, before `start`, because a
+   * practice match is running from the moment it is made and a room is joined:
+   * the ad must not eat into either.
+   */
+  private beforeGame(play: () => void): void {
+    if (this.boostOffer.isOpen) return;
+    const status = this.services.progress.boost();
+    if (this.xpMode() === null || !status.offer || !this.services.ads.ready()) {
+      play();
+      return;
+    }
+    this.afterOffer = play;
+    this.boostOffer.ask(status, this.services.progress.config.adBoost);
+  }
+
+  /** Yes: the ad, and if it was watched to the end, the boost and the news. */
+  private async watchBoostAd(): Promise<void> {
+    if (this.watchingAd) return;
+    this.watchingAd = true;
+    this.boostOffer.setBusy(true);
+    const progress = this.services.progress;
+    const before = progress.boost().wavesLeft;
+    const watched = await this.services.ads.show();
+    this.watchingAd = false;
+    if (!watched || !progress.startBoost()) {
+      this.toast.showText('No boost this time: the ad was not finished');
+      this.leaveOffer(true);
+      return;
+    }
+    this.services.sound.play('wave.cleared');
+    this.progressChanged();
+    const after = progress.boost();
+    this.boostOffer.congratulate(after, progress.config.adBoost, after.wavesLeft - before);
+  }
+
+  /** Close the boost offer, and start the game it was holding - or not. */
+  private leaveOffer(play: boolean): void {
+    const next = this.afterOffer;
+    this.afterOffer = null;
+    this.boostOffer.close();
+    if (play) next?.();
   }
 
   /** Leave whatever is going on and come back to the front. */
   private goHome(): void {
+    this.leaveOffer(false);
     this.transport?.dispose();
     this.transport = null;
     this.view = null;
@@ -1093,37 +1161,20 @@ export class Game extends Container {
       mode,
       placement: view.placement,
       wavesSurvived,
+      // The wave it ended in counts as played: what a running boost covers.
+      wavesPlayed: Math.max(1, view.wave),
       reachedShowdown,
     });
-    this.xpReport.open(
-      result,
-      progress.config.levels,
-      progress.boost(),
-      progress.profile.supporter,
-      progress.config.adBoost.bonus,
-      progress.config.adBoost.matches,
-    );
+    this.xpReport.open(result, progress.config.levels, this.boostWords(result.award));
   }
 
-  /**
-   * The XP boost: watch the ad - or, for a Supporter, nothing to watch - and
-   * the next matches that earn XP earn more (award.ts).
-   */
-  private async startBoost(): Promise<void> {
-    const progress = this.services.progress;
-    const status = progress.boost();
-    if (!status.available) {
-      this.toast.showText(status.reason ?? 'No boost to start right now');
-      return;
-    }
-    const watched = progress.profile.supporter ? true : await this.services.ads.show();
-    if (!watched) return;
-    if (progress.startBoost()) {
-      const { bonus, matches } = progress.config.adBoost;
-      this.toast.showText(`+${Math.round(bonus * 100)}% XP for your next ${matches} matches`);
-      this.services.sound.play('buy');
-    }
-    this.progressChanged();
+  /** The boost in a line, under the XP bar: how much of it is left. */
+  private boostWords(award: XpAward): string {
+    const status = this.services.progress.boost();
+    if (status.alwaysOn) return 'Supporter: your XP boost is always on';
+    if (status.wavesLeft > 0) return `XP boost: ${waveCount(status.wavesLeft)} left`;
+    // Used up by this match, or never on: the offer before the next game says the rest.
+    return award.boosts.some((line) => line.id === 'adBoost') ? 'XP boost used up' : '';
   }
 
   /**
@@ -1144,7 +1195,6 @@ export class Game extends Container {
   /** Something about progress changed: every screen that shows it, redrawn. */
   private progressChanged(): void {
     if (this.screen === 'home') this.refreshHome();
-    this.xpReport.setBoost(this.services.progress.boost());
     this.storeScreen.refresh();
     this.supportScreen.refresh();
     this.collectionScreen.refresh();
@@ -1187,6 +1237,7 @@ export class Game extends Container {
     this.abilityCard.setLayout(this.layout);
     this.gameOver.setLayout(this.layout);
     this.xpReport.setLayout(this.layout);
+    this.boostOffer.setLayout(this.layout);
     this.storeScreen.setLayout(this.layout);
     this.supportScreen.setLayout(this.layout);
     this.collectionScreen.setLayout(this.layout);
@@ -1247,6 +1298,7 @@ export class Game extends Container {
     this.storeScreen.update(deltaMs);
     this.supportScreen.update(deltaMs);
     this.xpReport.update(deltaMs);
+    this.boostOffer.update(deltaMs);
 
     if (!transport) {
       // On the home screen or the picker, with no match yet. Nothing to

@@ -2,9 +2,9 @@
  * Support: becoming a Supporter. PLACEHOLDER: nothing can be bought yet.
  *
  * One purchase, for good, and the plainest thing the game sells - a thank-you
- * with a little attached (data/store.json): bonus XP on every match, boosts
- * without the ad, a badge by your name, and your name in the credits. It
- * changes nothing about who wins, and the page says so.
+ * with a little attached (data/store.json): bonus XP on every match, the ad's
+ * XP boost always on with no ad, a badge by your name, and your name in the
+ * credits. It changes nothing about who wins, and the page says so.
  *
  * The pitch is the developer's own words, from the data file, so it can be
  * rewritten without touching this. The heart beats; the button is gold.
@@ -109,8 +109,9 @@ export class SupportScreen extends Sheet {
     // number the XP is actually counted with.
     this.checks.clear();
     const bonus = percent(this.progress.config.supporter.bonus);
+    const boost = percent(this.progress.config.adBoost.bonus);
     this.perks.forEach((perk, i) => {
-      perk.text = (store.perks[i] ?? '').replaceAll('{bonus}', bonus);
+      perk.text = (store.perks[i] ?? '').replaceAll('{bonus}', bonus).replaceAll('{boost}', boost);
       perk.style.wordWrapWidth = width - 52;
       const tx = 16;
       const ty = y + 9;

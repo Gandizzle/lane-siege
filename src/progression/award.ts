@@ -15,11 +15,21 @@
  *
  * BOOSTS
  *
- * The opt-in ad adds a share of the base to the next few matches that earn
- * anything, and Supporter adds a share to all of them. They ADD, as the
- * business plan has it: both together are 1 + 1.0 + 0.25, not 2 × 1.25. A
- * match that earns nothing - practice after the day's allowance - does not use
- * up a boosted match, since there was nothing for it to boost.
+ * The opt-in ad boosts WAVES, not matches: watching one adds `adBoost.waves`
+ * boosted waves, and a match uses up as many as it had - so a player out on
+ * wave 6 keeps the rest for the next match rather than losing the lot. A
+ * match's XP is boosted for the share of its waves the boost covered: all of
+ * a 6-wave match with 25 boosted waves left, a quarter of a 20-wave match with
+ * 5. A match that earns nothing - practice after the day's allowance - uses
+ * none, since there was nothing for it to boost.
+ *
+ * The ad is offered before every game that can earn XP while fewer than
+ * `offerBelow` boosted waves are left, as often as anyone likes, so it stacks
+ * - to `maxWaves` at most. A Supporter's boost is always on: no ad, and no
+ * waves to use up.
+ *
+ * Supporter adds its own share to every match besides. Shares ADD, as the
+ * business plan has it: both together are 1 + 1.0 + 0.25, not 2 × 1.25.
  *
  * Pure: the profile in, the award and the next profile out. The day is passed
  * in rather than read, so a test can be on any day it likes.
@@ -38,6 +48,11 @@ export interface MatchResult {
   placement: number | null;
   /** Waves your lane got through. */
   wavesSurvived: number;
+  /**
+   * Waves your lane fought, the one it fell in included: what a running boost
+   * covers and uses up.
+   */
+  wavesPlayed: number;
   /** Your army reached the Final Showdown. */
   reachedShowdown: boolean;
 }
@@ -135,13 +150,18 @@ export function awardXp(
   const boosts: XpLine[] = [];
   if (base > 0) {
     const ad = config.adBoost;
-    if (next.adBoost.matchesLeft > 0 && ad.bonus > 0) {
+    const played = Math.max(1, Math.floor(result.wavesPlayed));
+    // A Supporter's covers every wave and uses none up; an ad's covers what
+    // it has left, and those are spent.
+    const covered = next.supporter ? played : Math.min(played, next.adBoost.wavesLeft);
+    if (covered > 0 && ad.bonus > 0) {
+      const share = covered < played ? ` (${covered} of ${played} waves)` : '';
       boosts.push({
         id: 'adBoost',
-        label: `Boost +${percent(ad.bonus)}`,
-        xp: Math.round(base * ad.bonus),
+        label: `Boost +${percent(ad.bonus)}${share}`,
+        xp: Math.round((base * ad.bonus * covered) / played),
       });
-      next.adBoost = { ...next.adBoost, matchesLeft: next.adBoost.matchesLeft - 1 };
+      if (!next.supporter) next.adBoost = { wavesLeft: next.adBoost.wavesLeft - covered };
     }
     const supporter = config.supporter.bonus;
     if (next.supporter && supporter > 0) {
@@ -158,53 +178,36 @@ export function awardXp(
   return { award: { lines, boosts, base, total, note }, profile: next };
 }
 
-/** Where the opt-in ad's boost stands today. */
+/** Where the opt-in ad's boost stands. */
 export interface BoostStatus {
-  /** XP-earning matches the running boost has left; 0 when none is running. */
-  matchesLeft: number;
-  /** Boosts still to be had today. */
-  leftToday: number;
-  /** Whether one can be started now. */
-  available: boolean;
-  /** Why not, in words, when it cannot. */
-  reason: string | null;
+  /** Boosted waves still to come; 0 when none are. */
+  wavesLeft: number;
+  /** A Supporter's: on for every wave, with no ad and nothing used up. */
+  alwaysOn: boolean;
+  /** Whether to offer the ad before the next game: fewer than `offerBelow` left. */
+  offer: boolean;
+  /** Boosted waves after watching one: `waves` more, to `maxWaves` at most. */
+  wavesAfter: number;
 }
 
-export function boostStatus(
-  config: ProgressionConfig,
-  profile: Profile,
-  today: string,
-): BoostStatus {
-  const watched = profile.adBoost.day === today ? profile.adBoost.watched : 0;
-  const leftToday = Math.max(0, config.adBoost.perDay - watched);
-  const running = profile.adBoost.matchesLeft;
-  if (running > 0) {
-    return {
-      matchesLeft: running,
-      leftToday,
-      available: false,
-      reason:
-        running === 1
-          ? 'Boost on for your next match'
-          : `Boost on for your next ${running} matches`,
-    };
-  }
-  if (leftToday <= 0) {
-    return {
-      matchesLeft: 0,
-      leftToday,
-      available: false,
-      reason: 'That is today’s boosts. Back tomorrow',
-    };
-  }
-  return { matchesLeft: 0, leftToday, available: true, reason: null };
-}
-
-/** Start a boost - the ad has been watched, or a Supporter has claimed one. */
-export function startBoost(config: ProgressionConfig, profile: Profile, today: string): Profile {
-  const watched = profile.adBoost.day === today ? profile.adBoost.watched : 0;
+export function boostStatus(config: ProgressionConfig, profile: Profile): BoostStatus {
+  const ad = config.adBoost;
+  const wavesLeft = profile.adBoost.wavesLeft;
+  const alwaysOn = profile.supporter;
   return {
-    ...profile,
-    adBoost: { matchesLeft: config.adBoost.matches, day: today, watched: watched + 1 },
+    wavesLeft,
+    alwaysOn,
+    offer: !alwaysOn && ad.bonus > 0 && wavesLeft < ad.offerBelow,
+    wavesAfter: Math.min(ad.maxWaves, wavesLeft + ad.waves),
   };
+}
+
+/** The ad was watched to the end: its boosted waves, on top of any left. */
+export function startBoost(config: ProgressionConfig, profile: Profile): Profile {
+  return { ...profile, adBoost: { wavesLeft: boostStatus(config, profile).wavesAfter } };
+}
+
+/** 17 → "17 waves". */
+export function waveCount(n: number): string {
+  return `${n} ${n === 1 ? 'wave' : 'waves'}`;
 }

@@ -202,12 +202,15 @@ earned by playing.
   asking a straight-line step more XP than the last (300, 400, 500…). Levels
   will unlock builders and cosmetics; which level unlocks what is still to be
   decided, and the levels on the cosmetics now are placeholders.
-- **The ad is opt-in and rewarded**: watching one adds +100% XP to the next two
-  matches that earn any, three times a day at most, offered after a match and
-  in the store and never shown unasked.
-- **Support** is one purchase, for good: +25% XP on every match, boosts without
-  the ad, a badge and a name in the credits. The bonuses add: an ad boost for a
-  Supporter is 1 + 1.0 + 0.25.
+- **The ad is opt-in and rewarded, and asked about before a game**: Yes plays
+  it and adds +100% XP for the next 25 waves, with a "Congratulations" card
+  before the game; No goes straight to the game. It is offered whenever fewer
+  than 25 boosted waves are left, with no daily limit, so boosts stack to 50.
+  Counted in waves rather than matches on purpose: a player out early keeps
+  what they did not use.
+- **Support** is one purchase, for good: +25% XP on every match, the XP boost
+  always on with no ads, a badge and a name in the credits. The bonuses add: a
+  Supporter earns 1 + 1.0 + 0.25.
 - **The store** sells builders (each, or all four together) and cosmetics (each,
   or in bundles). Every builder is free during early access, and the store says
   so beside the price it will have.
@@ -222,8 +225,9 @@ entry, is built - ARCHITECTURE.md, "Sound: cues, packs and a playlist".
 
 - Data: `data/progression.json`, `data/store.json`, `data/cosmetics.json`.
 - Built: `src/progression/` (the rules, pure), `ui/xpReport.ts` (the popup),
-  `ui/storeScreen.ts`, `ui/supportScreen.ts`, `ui/collectionScreen.ts`,
-  `ui/adPlaceholder.ts`, the level on the name card, the lobby and the opponent
+  `ui/boostOffer.ts` (the offer before a game), `ui/storeScreen.ts`,
+  `ui/supportScreen.ts`, `ui/collectionScreen.ts`, `ui/adPlaceholder.ts`
+  (`RewardedAds`), the level on the name card, the lobby and the opponent
   tabs, and on the wire (ARCHITECTURE.md, "Progression").
 - Checked: `src/progression/progression.test.ts`, `ui/xpReport.test.ts`, and the
   level's trip through the lobby and the hello in `src/net/lobby.test.ts` and
