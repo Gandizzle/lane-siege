@@ -197,7 +197,7 @@ is sold changes who wins a match, and everything that is sold can also be
 earned by playing.
 
 - **XP and levels.** Every match played to the end earns XP, mostly a normal
-  match online; practice and solo earn a little, for the first game each day.
+  match online; practice and solo earn the same way, up to 500 XP a day.
   XP adds up to a level, shown with your name, with no top level and each level
   asking a straight-line step more XP than the last (300, 400, 500…). Levels
   will unlock builders and cosmetics; which level unlocks what is still to be

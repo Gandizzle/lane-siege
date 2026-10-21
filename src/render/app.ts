@@ -71,8 +71,9 @@ export interface AppOptions {
   /** Practice only: start in the Final Showdown's arena (`?showdown=1`). */
   startInShowdown?: boolean;
   /**
-   * `?progress=test`: practice and solo earn XP as normal matches do, and the
-   * placeholder store grants what it would sell (game.ts, `progressTest`).
+   * `?progress=test`: practice and solo earn XP as normal matches do, with no
+   * daily cap, and the placeholder store grants what it would sell (game.ts,
+   * `progressTest`).
    */
   progressTest?: boolean;
 }

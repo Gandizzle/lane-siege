@@ -26,8 +26,8 @@ export interface ProgressionConfig {
   levels: LevelCurve;
   /** A normal match: see data/progression.json for what each one is for. */
   match: { played: number; perWave: number; placement: number[]; showdown: number };
-  /** Practice and solo: a little, a few games a day. */
-  casual: { xp: number; gamesPerDay: number };
+  /** Practice and solo: paid as a normal match is, up to `dailyCap` XP a day. */
+  casual: { dailyCap: number };
   /**
    * The opt-in ad's reward: `bonus` extra for the next `waves` waves that earn
    * XP. Offered before a game whenever fewer than `offerBelow` are left, so it
@@ -170,10 +170,7 @@ export function parseProgression(raw: unknown): ProgressionConfig {
       placement,
       showdown: integer(match.showdown, 'progression.match.showdown'),
     },
-    casual: {
-      xp: integer(casual.xp, 'progression.casual.xp'),
-      gamesPerDay: integer(casual.gamesPerDay, 'progression.casual.gamesPerDay'),
-    },
+    casual: { dailyCap: integer(casual.dailyCap, 'progression.casual.dailyCap') },
     adBoost: {
       bonus: number(ad.bonus, 'progression.adBoost.bonus'),
       waves: adWaves,

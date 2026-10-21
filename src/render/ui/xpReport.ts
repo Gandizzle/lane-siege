@@ -110,6 +110,12 @@ export function reportFrame(plan: ReportPlan, ms: number): ReportFrame {
 
 // ------------------------------------------------------------------ the card
 
+/** 120 → "+120"; -60 → "−60", with a real minus sign. */
+function signed(xp: number): string {
+  const digits = Math.abs(xp).toLocaleString('en-GB');
+  return xp < 0 ? `−${digits}` : `+${digits}`;
+}
+
 export interface XpReportHandlers {
   onClose(): void;
   /** A level was crossed: `level` is the new one. For the fanfare. */
@@ -226,8 +232,11 @@ export class XpReport extends Container {
     for (const row of this.rows) row.destroy({ children: true });
     this.rows.length = 0;
     for (const line of this.plan.lines) {
+      // Boosts in the boost's purple; the part over practice's daily cap,
+      // taken off, muted.
       const boosted = line.id === 'adBoost' || line.id === 'supporter';
-      const row = new Row(13, boosted ? UI.xp : UI.text, '600');
+      const color = boosted ? UI.xp : line.id === 'limit' ? UI.textMuted : UI.text;
+      const row = new Row(13, color, '600');
       row.caption.text = line.label;
       this.rows.push(row);
       this.panel.addChildAt(row, this.panel.getChildIndex(this.totalRow));
@@ -267,7 +276,7 @@ export class XpReport extends Container {
       const row = this.rows[i];
       if (!row) return;
       row.visible = line.shown;
-      row.amount.text = `+${line.value.toLocaleString('en-GB')}`;
+      row.amount.text = signed(line.value);
       row.amount.position.set(x + w - pad - row.amount.width, row.caption.y);
     });
     this.totalRow.visible = frame.total.shown;

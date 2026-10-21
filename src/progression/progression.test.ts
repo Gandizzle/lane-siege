@@ -30,7 +30,7 @@ function memory() {
 const CONFIG: ProgressionConfig = {
   levels: { first: 300, step: 100 },
   match: { played: 100, perWave: 8, placement: [150, 90, 50, 20], showdown: 50 },
-  casual: { xp: 50, gamesPerDay: 1 },
+  casual: { dailyCap: 500 },
   adBoost: { bonus: 1, waves: 25, offerBelow: 25, maxWaves: 50 },
   supporter: { bonus: 0.25 },
 };
@@ -161,24 +161,61 @@ describe('what a match earns', () => {
     expect(award.note).toBeNull();
   });
 
-  it('pays practice and solo a little, once a day', () => {
+  it('pays practice line by line, the way a normal match is paid', () => {
+    const { award, profile } = awardXp(CONFIG, fresh(), practice, today);
+    expect(award.lines.map((l) => [l.id, l.xp])).toEqual([
+      ['played', 100],
+      ['waves', 200],
+      ['placement', 90],
+      ['showdown', 50],
+    ]);
+    expect(award.total).toBe(440);
+    expect(award.note).toBe('Practice and solo XP today: 440 of 500.');
+    expect(profile.casual).toEqual({ day: today, xp: 440 });
+  });
+
+  it('pays solo for playing and for waves, with no one to place against', () => {
+    const solo: MatchResult = { ...outEarly, mode: 'solo', placement: 1 };
+    const { award } = awardXp(CONFIG, fresh(), solo, today);
+    expect(award.lines.map((l) => l.id)).toEqual(['played', 'waves']);
+    expect(award.total).toBe(100 + 5 * 8);
+  });
+
+  it("stops practice and solo at the day's cap, and starts again tomorrow", () => {
     const first = awardXp(CONFIG, fresh(), practice, today);
-    expect(first.award.lines).toEqual([{ id: 'daily', label: 'Daily practice XP', xp: 50 }]);
-    expect(first.award.total).toBe(50);
+    // 440 of 500 spent: the next match earns 60 of its 440, and says so.
+    const second = awardXp(CONFIG, first.profile, practice, today);
+    expect(second.award.lines.at(-1)).toEqual({
+      id: 'limit',
+      label: "Over today's limit",
+      xp: -380,
+    });
+    expect(second.award.total).toBe(60);
+    expect(second.award.note).toMatch(/today's 500 XP/);
+    expect(second.profile.xp).toBe(500);
 
-    const second = awardXp(CONFIG, first.profile, { ...practice, mode: 'solo' }, today);
-    expect(second.award.total).toBe(0);
-    expect(second.award.note).toMatch(/once a day/);
-    expect(second.profile.xp).toBe(50);
+    // Spent: nothing more today, not even for a boost to work on.
+    const third = awardXp(CONFIG, startBoost(CONFIG, second.profile), practice, today);
+    expect(third.award.lines).toEqual([]);
+    expect(third.award.total).toBe(0);
+    expect(third.profile.adBoost.wavesLeft).toBe(25);
 
-    const tomorrow = awardXp(CONFIG, second.profile, { ...practice, mode: 'solo' }, '2026-10-17');
-    expect(tomorrow.award.lines[0]!.label).toBe('Daily solo XP');
-    expect(tomorrow.award.total).toBe(50);
+    const tomorrow = awardXp(CONFIG, third.profile, { ...practice, mode: 'solo' }, '2026-10-17');
+    expect(tomorrow.award.total).toBeGreaterThan(0);
+    expect(tomorrow.profile.casual.day).toBe('2026-10-17');
+  });
+
+  it('adds boosts to what the cap allows, not to what it took off', () => {
+    const spentMost = { ...fresh(), casual: { day: today, xp: 450 } };
+    const { award } = awardXp(CONFIG, startBoost(CONFIG, spentMost), practice, today);
+    expect(award.base).toBe(50);
+    expect(award.boosts).toEqual([{ id: 'adBoost', label: 'Boost +100%', xp: 50 }]);
+    expect(award.total).toBe(100);
   });
 
   it('boosts the waves a match had, keeps the rest, and lets a zero go by', () => {
-    // Today's practice XP, had before the boost starts.
-    let profile = awardXp(CONFIG, fresh(), practice, today).profile;
+    // Today's practice XP already had, so practice earns nothing below.
+    let profile: Profile = { ...fresh(), casual: { day: today, xp: CONFIG.casual.dailyCap } };
     profile = startBoost(CONFIG, profile);
     expect(profile.adBoost.wavesLeft).toBe(25);
 

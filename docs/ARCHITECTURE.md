@@ -1273,13 +1273,17 @@ total is quadratic and never runs away, and there is no top level.
 people - pays for playing to the end of your match (50; eliminated counts,
 leaving does not), every wave survived (10 each), the placement
 (150, 90, 50, 20) and reaching the Final Showdown (50): a showdown win is 500,
-out on wave 6 in fourth is 120. Practice and solo pay 50 for the first game of
-the day (`casual.gamesPerDay`) and nothing after it, with a line in the popup
-saying why - enough that playing alone is not a dead end, not enough to be the
-way to level, and not enough to be worth cheating at while the device keeps the
-score. The tutorial and a hand-built showdown earn nothing. XP is counted once, the
-moment your match ends - out, or the last one standing - rather than when the
-whole table's does.
+out on wave 6 in fourth is 120. Practice and solo pay the same way, line by
+line, up to 500 XP a day between them (`casual.dailyCap`) - solo without a
+placement, since it has no one to place against. A match that crosses the cap
+shows everything it earned and then "Over today's limit" taking off the part
+past it, the note under the total keeps count ("Practice and solo XP today: 170
+of 500"), and once the cap is reached nothing more is earned until tomorrow. The
+cap is on what the matches earn; boosts are added on top. That makes playing
+alone a real way to level without being the way, and caps what a device that
+keeps its own score can claim. The tutorial and a hand-built showdown earn
+nothing. XP is counted once, the moment your match ends - out, or the last one
+standing - rather than when the whole table's does.
 
 **The XP boost is asked about before a game** (`ui/boostOffer.ts`). Before
 any game that can earn XP - picked from the builders, so before a practice

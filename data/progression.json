@@ -1,5 +1,5 @@
 {
-  "_comment": "Experience and levels (docs/ARCHITECTURE.md, Progression). XP is earned at the end of a match - mostly from a normal match against other people, a little once a day from practice or solo - and the level it adds up to is shown with your name. Levels will unlock builders and cosmetics; which level unlocks what is still to be decided. Every number here is a first guess, to tune once there are players.",
+  "_comment": "Experience and levels (docs/ARCHITECTURE.md, Progression). XP is earned at the end of a match - mostly from a normal match against other people, and the same way from practice or solo up to a daily cap - and the level it adds up to is shown with your name. Levels will unlock builders and cosmetics; which level unlocks what is still to be decided. Every number here is a first guess, to tune once there are players.",
   "levels": {
     "_comment": "XP to climb from level L to L + 1 is first + step x (L - 1): 300 to reach level 2, then 400, 500 and so on. A straight line, so every level asks a little more than the last without ever running away, and there is no top. Level 10 is 6,300 XP in all - about twenty normal matches, at the 300 or so an average one earns.",
     "first": 300,
@@ -13,9 +13,8 @@
     "showdown": 50
   },
   "casual": {
-    "_comment": "Practice and solo: the first gamesPerDay finished each day earn xp each, and the rest of that day earn nothing. Enough that playing alone is not a dead end, not enough to be the way to level. A day is the device's own calendar day.",
-    "xp": 50,
-    "gamesPerDay": 1
+    "_comment": "Practice and solo earn the way a normal match does, line by line - played, waves survived, and in practice the placement and the Final Showdown (solo has no one to place against) - up to dailyCap XP a day between them. A match that crosses the cap earns what was left of it, and the breakdown says so; after that, nothing until tomorrow. Boosts are added on top of what the cap allows. A day is the device's own calendar day.",
+    "dailyCap": 500
   },
   "adBoost": {
     "_comment": "The opt-in ad. Before any game that can earn XP, a player with fewer than offerBelow boosted waves left is asked whether to watch one. Yes plays it and adds waves boosted waves, to maxWaves at most - so 10 left and another ad makes 35; No goes straight to the game. As many a day as anyone likes. bonus is the boost: 0.5 is +50%. A boosted wave is a wave of a match that earns XP: the match's XP is boosted for the share of its waves the boost covers, and those waves are used up. A match that earns nothing uses none. A Supporter's boost is always on, with no ad and no waves used.",

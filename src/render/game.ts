@@ -1115,11 +1115,11 @@ export class Game extends Container {
   // ------------------------------------------------------------- progress
 
   /**
-   * What this kind of match earns (award.ts): a normal one online, a little
-   * once a day from practice and solo, and nothing from a tutorial or a
+   * What this kind of match earns (award.ts): a normal one online, the same
+   * from practice and solo up to a daily cap, and nothing from a tutorial or a
    * showdown set up by hand, which are lessons and experiments rather than
-   * matches. `?progress=test` counts practice and solo as normal matches, so
-   * the whole breakdown can be seen without a server.
+   * matches. `?progress=test` counts practice and solo as normal matches, cap
+   * and all, so XP can be tried at length without a server.
    */
   private xpMode(): XpMode | null {
     if (this.lesson || this.practice) return null;

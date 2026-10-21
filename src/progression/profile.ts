@@ -27,8 +27,8 @@ export interface Profile {
   xp: number;
   /** The opt-in ad's boost: how many XP-earning waves it has left. */
   adBoost: { wavesLeft: number };
-  /** Practice and solo games that have earned XP today. */
-  casual: { day: string; games: number };
+  /** XP practice and solo have earned today, against the daily cap. */
+  casual: { day: string; xp: number };
   /** Has bought Supporter (placeholder: nothing can be bought yet). */
   supporter: boolean;
   /** Store items owned: cosmetics, builders and bundles, by id. */
@@ -42,7 +42,7 @@ export interface Profile {
 export const NEW_PROFILE: Profile = {
   xp: 0,
   adBoost: { wavesLeft: 0 },
-  casual: { day: '', games: 0 },
+  casual: { day: '', xp: 0 },
   supporter: false,
   owned: [],
   cosmetics: [],
@@ -78,7 +78,9 @@ export function parseProfile(raw: unknown): Profile {
     // A save from when the boost was counted in matches has no waves, and
     // starts again from none.
     adBoost: { wavesLeft: count(ad.wavesLeft) },
-    casual: { day: day(casual.day), games: count(casual.games) },
+    // A save from when practice paid by the game has no XP counted, and
+    // starts the day afresh.
+    casual: { day: day(casual.day), xp: count(casual.xp) },
     supporter: r.supporter === true,
     owned: ids(r.owned),
     cosmetics: ids(r.cosmetics),

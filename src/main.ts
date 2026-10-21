@@ -18,8 +18,8 @@
  *                             to the ending; this one is for looking at it.
  *   `?sounds=1`               opens a panel over the game for playing every
  *                             sound and piece of music (src/audio/soundBoard.ts).
- *   `?progress=test`          practice and solo earn XP as a normal match would,
- *                             with no daily limit, and the placeholder store
+ *   `?progress=test`          practice and solo earn XP as a normal match does,
+ *                             with no daily cap, and the placeholder store
  *                             grants what it sells, free, on this device - so
  *                             levels, boosts, bundles and cosmetics can all be
  *                             tried before there is a server or a way to pay.

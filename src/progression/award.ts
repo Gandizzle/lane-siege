@@ -9,9 +9,12 @@
  * Showdown. Losing still earns: a player out on wave 6 has to come away with
  * something, or the second match never happens.
  *
- * Practice and solo pay a little, once a day (`casual.gamesPerDay`) - enough
- * that playing alone is not a dead end, not enough to be the way to level, and
- * not enough to be worth cheating at while the device is what keeps score.
+ * Practice and solo pay the same way, line by line, up to `casual.dailyCap` XP
+ * a day between them - enough that playing alone is a real way to level, not
+ * so much that it is the way, and capped because the device is what keeps
+ * score. Solo has no one to place against, so no placement. A match that
+ * crosses the cap shows everything it earned, then the part over the cap
+ * taken off; boosts are added to what is left.
  *
  * BOOSTS
  *
@@ -58,7 +61,7 @@ export interface MatchResult {
 }
 
 export type XpLineId =
-  'played' | 'waves' | 'placement' | 'showdown' | 'daily' | 'adBoost' | 'supporter';
+  'played' | 'waves' | 'placement' | 'showdown' | 'limit' | 'adBoost' | 'supporter';
 
 /** One line of the breakdown the popup shows. */
 export interface XpLine {
@@ -100,8 +103,29 @@ export function percent(share: number): string {
   return `${Math.round(share * 100)}%`;
 }
 
-function timesADay(n: number): string {
-  return n === 1 ? 'once a day' : `${n} times a day`;
+/**
+ * What a match pays for, line by line: playing it out, every wave survived,
+ * the placement and reaching the Final Showdown. `placed` is false for solo,
+ * which has no one to place against.
+ */
+function matchLines(config: ProgressionConfig, result: MatchResult, placed: boolean): XpLine[] {
+  const m = config.match;
+  const lines: XpLine[] = [{ id: 'played', label: 'Match played', xp: m.played }];
+  const waves = Math.max(0, Math.floor(result.wavesSurvived));
+  if (waves > 0 && m.perWave > 0) {
+    const noun = waves === 1 ? 'wave' : 'waves';
+    lines.push({ id: 'waves', label: `${waves} ${noun} survived`, xp: waves * m.perWave });
+  }
+  const place = result.placement;
+  if (placed && place !== null && place >= 1) {
+    // A table bigger than the list earns nothing for the places past its end.
+    const xp = m.placement[place - 1] ?? 0;
+    if (xp > 0) lines.push({ id: 'placement', label: `${ordinal(place)} place`, xp });
+  }
+  if (result.reachedShowdown && m.showdown > 0) {
+    lines.push({ id: 'showdown', label: 'Reached the Final Showdown', xp: m.showdown });
+  }
+  return lines;
 }
 
 /** The XP a finished match earns, and the profile with it added. */
@@ -116,33 +140,23 @@ export function awardXp(
   let note: string | null = null;
 
   if (result.mode === 'online') {
-    const m = config.match;
-    lines.push({ id: 'played', label: 'Match played', xp: m.played });
-    const waves = Math.max(0, Math.floor(result.wavesSurvived));
-    if (waves > 0 && m.perWave > 0) {
-      const noun = waves === 1 ? 'wave' : 'waves';
-      lines.push({ id: 'waves', label: `${waves} ${noun} survived`, xp: waves * m.perWave });
-    }
-    const place = result.placement;
-    if (place !== null && place >= 1) {
-      // A table bigger than the list earns nothing for the places past its end.
-      const xp = m.placement[place - 1] ?? 0;
-      if (xp > 0) lines.push({ id: 'placement', label: `${ordinal(place)} place`, xp });
-    }
-    if (result.reachedShowdown && m.showdown > 0) {
-      lines.push({ id: 'showdown', label: 'Reached the Final Showdown', xp: m.showdown });
-    }
+    lines.push(...matchLines(config, result, true));
   } else {
-    const c = config.casual;
-    const games = next.casual.day === today ? next.casual.games : 0;
-    if (games < c.gamesPerDay && c.xp > 0) {
-      const what = result.mode === 'solo' ? 'solo' : 'practice';
-      lines.push({ id: 'daily', label: `Daily ${what} XP`, xp: c.xp });
-      next.casual = { day: today, games: games + 1 };
+    // The same lines, to what is left of today's cap.
+    const cap = config.casual.dailyCap;
+    const spent = next.casual.day === today ? next.casual.xp : 0;
+    const left = Math.max(0, cap - spent);
+    const capped = `That is today's ${cap} XP from practice and solo. Back tomorrow, or play online for more.`;
+    if (left === 0) {
+      note = capped;
     } else {
-      note =
-        `Practice and solo earn XP ${timesADay(c.gamesPerDay)}. ` +
-        'Back tomorrow, or play online for more.';
+      const earned = matchLines(config, result, result.mode === 'practice');
+      lines.push(...earned);
+      const sum = earned.reduce((total, line) => total + line.xp, 0);
+      if (sum > left) lines.push({ id: 'limit', label: "Over today's limit", xp: left - sum });
+      const earnedToday = spent + Math.min(sum, left);
+      next.casual = { day: today, xp: earnedToday };
+      note = earnedToday >= cap ? capped : `Practice and solo XP today: ${earnedToday} of ${cap}.`;
     }
   }
 
