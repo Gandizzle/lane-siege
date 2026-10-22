@@ -136,8 +136,12 @@ export function selectsBody(selection: Selection): boolean {
 
 export interface BuildBarHandlers {
   onSelectUnitDef(unitDefId: string): void;
-  /** §11.5: the sender picks the target, which is the point of the mechanic. */
-  onSend(sendId: string, targetTeamId: string): void;
+  /**
+   * §11.5: the sender picks the target, which is the point of the mechanic.
+   * `auto` is an armed send firing itself rather than a tap: the same command,
+   * but not worth a sound every time (audio/cues.ts).
+   */
+  onSend(sendId: string, targetTeamId: string, auto: boolean): void;
   onUpgrade(unitId: number): void;
   /** §11, decided: sell a placed unit back. Build phase only. */
   onSell(unitId: number): void;
@@ -622,7 +626,7 @@ export class BuildBar extends Container {
     if (!def || !sendOpen(def, this.landsIn)) return;
     const target = this.resolveTarget();
     if (!target) return;
-    this.handlers.onSend(sendId, target);
+    this.handlers.onSend(sendId, target, false);
     this.blink(sendId);
   }
 
@@ -711,7 +715,7 @@ export class BuildBar extends Container {
       if (!target) continue;
 
       purse -= cost;
-      this.handlers.onSend(sendId, target);
+      this.handlers.onSend(sendId, target, true);
       this.blink(sendId);
       this.armed.set(sendId, this.cooldownMs(sendId));
     }
@@ -859,7 +863,21 @@ export class BuildBar extends Container {
     // size it will always be rather than one button the size of the panel.
     const fortLadders = this.features.fort === 'all';
     for (const { button } of this.fortButtons) button.visible = fortLadders;
-    const fortItems = [...this.fortButtons.map((f) => f.button), this.supplyButton];
+    // The fortress's own three (and Supply beside them), the gem pair, the
+    // aura pair - in that order, so every pair sits side by side either way
+    // up: four across upright is the fortress row over the gem and aura
+    // pairs, two across sideways is one pair to a row.
+    const fort = (id: string) => this.fortButtons.find((f) => f.id === id)!.button;
+    const fortItems = [
+      fort('weapon'),
+      fort('hp'),
+      fort('regen'),
+      this.supplyButton,
+      fort('gemOutput'),
+      fort('gemRate'),
+      fort('auraStrength'),
+      fort('auraRadius'),
+    ];
     const fortCols = wide ? 4 : 2;
     grid(
       fortLadders ? fortItems : [this.supplyButton],

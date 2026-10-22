@@ -1134,8 +1134,8 @@ views are of the same team's board.
 
 Sound follows the same rule the effects do: the simulation does not know it
 exists. Every sound is a difference between two views the renderer already has
-(`src/audio/cues.ts`), so a remote match, a practice match, auto-send and a tap
-all sound alike, and a client with the audio deleted plays the identical game.
+(`src/audio/cues.ts`), so a remote match and a practice match sound alike, and
+a client with the audio deleted plays the identical game.
 Two sources, because they change at different rates. The fight on screen, every
 blow and every death, is heard on the tick, from the same pair of views and the
 same `DeathRule` as the death pop, so a pop and its sound are one event. The
@@ -1177,6 +1177,17 @@ second. Each cue has its own voice cap and minimum gap and there is a ceiling of
 24 voices overall (`limiter.ts`). A sound refused is dropped, never queued,
 because a queued sound arrives after the thing it was about. Blows are quiet and
 pitch-jittered; anything about the player is louder and rarer.
+
+**So are the sends, which the limiter could not fix.** A late game is dozens of
+sends a wave each way, and one sound per send was one sound on repeat. Going
+out, only a send that was TAPPED is heard: the build bar says which shots
+auto-send fired (`onSend`'s `auto`), a tap marks its send in `MatchCues`, and
+the launch sound plays when that send's cooldown restarts - a mark left by a
+send that was refused lapses after three seconds. Coming in, the warning sounds
+as this wave's count of sends at you passes a landmark (`sendLandmarkPassed`):
+the first, then 10, 25, 50 and every 50 after. The log of sends at you empties
+when the wave they are for lands, so each wave counts from nothing: a trickle
+is heard once, and a flood is heard as it grows.
 
 **Browsers start silent.** Nothing is fetched and no context runs until the
 first tap or key press, which then decodes the pack's effects into memory and
@@ -2050,7 +2061,11 @@ something different:
 - **The build bar** halves its grids. A column 34% of a wide screen is narrower
   than a band across a tall one, so the tab strip goes 3 × 2 instead of 6 × 1,
   the unit and upgrade panels go two across, and the send target chips go 2 × 2.
-  Four columns of buttons in a narrow column are unreadably tall.
+  Four columns of buttons in a narrow column are unreadably tall. The Fort tab
+  is ordered so that halving it keeps its pairs: the fortress's own three
+  (Weapon, Fortress HP, Regeneration) with Supply Cap beside them, then Gem
+  Output and Gem Rate, then Aura Power and Aura Radius - a row of four over a
+  row of the two pairs upright, one pair to a row sideways.
 
 The front screens — home, roster picker, lobby — are laid out down the middle
 and have no columns to rearrange, so they get one bit instead: `layout.compact`,
@@ -2094,6 +2109,16 @@ A phone is never zoomed, so it is laid out exactly as it was. The laid-out
 side never falls below 560, the height under which the front screens switch to
 their squeezed sideways-phone arrangement, so a computer gets the roomy one.
 The most it zooms is 2.2, on the biggest screens with no system scaling.
+
+**And kept to what can be seen.** A phone's browser keeps bars of its own over
+the page - on a phone held sideways the address bar is a good share of a short
+screen - and some browsers size a box pinned to the page's edges as though they
+were not there, so its bottom ran on under them; and the page asks to reach
+the very edges of the glass, under a notch and a home indicator.
+`visibleAreaFitter` (src/render/visibleArea.ts) fits the game, every frame it
+changes, to the visual viewport - what is on the screen right now - less the
+device's safe areas, and the layout follows. On a desktop, or a browser with
+nothing over the page, that is the whole window, and nothing changes.
 
 **Why one codebase.** The match is simulated the same way everywhere and the
 rooms do not care what joined them; what differs between a phone and a

@@ -18,6 +18,19 @@
  *     against a small snapshot rather than per tick, because a purchase can
  *     land between ticks (a practice match applies it on the spot) and a
  *     snapshot compared twice finds nothing new the second time.
+ *
+ * SENDS, IN A LATE GAME
+ *
+ * A late game is dozens of sends a wave each way, and a sound for each one was
+ * one sound on repeat. So each way is thinned to what is worth knowing:
+ *
+ *   - Out: only a send TAPPED is heard. Auto-send fires the same command, but
+ *     the player armed it once and does not need telling every time it goes
+ *     (`sentByHand`).
+ *   - In: the warning sounds as this wave's count of sends at you passes a
+ *     landmark - the first, then 10, 25, 50 and every 50 after
+ *     (`sendLandmarkPassed`) - so a trickle is heard once and a flood is
+ *     heard growing, without a sound per send.
  */
 
 import { FORTRESS_ID, TICKS_PER_SECOND } from '../sim/index.ts';
@@ -30,6 +43,28 @@ export interface Cue {
   /** Where across the board, -1 left to 1 right. Absent is dead centre. */
   pan?: number;
 }
+
+/**
+ * The counts of sends at you in one wave that are worth a warning: the first,
+ * these, and every `INCOMING_EVERY` past the last of them.
+ */
+const INCOMING_LANDMARKS = [1, 10, 25, 50] as const;
+const INCOMING_EVERY = 50;
+
+/** Whether going from `was` to `now` sends at you this wave passes a landmark. */
+export function sendLandmarkPassed(was: number, now: number): boolean {
+  for (let count = was + 1; count <= now; count++) {
+    if ((INCOMING_LANDMARKS as readonly number[]).includes(count)) return true;
+    if (count > INCOMING_LANDMARKS.at(-1)! && count % INCOMING_EVERY === 0) return true;
+  }
+  return false;
+}
+
+/**
+ * How long a tapped send waits to be heard going out, in ticks: a room's round
+ * trip, with room to spare. One that has not gone by then was refused.
+ */
+const BY_HAND_TICKS = 3 * TICKS_PER_SECOND;
 
 /** How far a sound at the edge of the board is panned: wide, but never one ear. */
 const PAN_WIDTH = 0.6;
@@ -92,6 +127,7 @@ interface Snapshot {
   weapon: string;
   aura: string | null;
   cooldowns: Record<string, number>;
+  /** Sends at you queued for the coming wave: the log empties as the wave lands. */
   sendsAtMe: number;
   /** Your lane has beaten the wave in front of it (ui/waveCleared.ts, `laneIsClear`). */
   clear: boolean;
@@ -145,16 +181,34 @@ export class MatchCues {
   private last: Snapshot | null = null;
   /** The wave whose clearing has already been heard, so its end is not heard twice. */
   private chimed = -1;
+  /** Sends tapped by hand and not yet seen going out, with the tick they were tapped on. */
+  private readonly byHand = new Map<string, number>();
+  /** The match's tick at the last look, to date a tap with. */
+  private tick = 0;
 
   reset(): void {
     this.last = null;
     this.chimed = -1;
+    this.byHand.clear();
+  }
+
+  /**
+   * A send was tapped: when its cooldown restarts, the launch is heard. One
+   * fired by auto-send is never told here, and goes out in silence.
+   */
+  sentByHand(sendId: string): void {
+    this.byHand.set(sendId, this.tick);
   }
 
   observe(view: MatchView): CueId[] {
     const now = snapshot(view);
     const was = this.last;
     this.last = now;
+    this.tick = view.tick;
+    // A tap that never went out - refused, or the match moved on - is dropped.
+    for (const [sendId, tapped] of this.byHand) {
+      if (view.tick - tapped > BY_HAND_TICKS) this.byHand.delete(sendId);
+    }
     if (!was) return [];
 
     const cues = new Set<CueId>();
@@ -183,7 +237,7 @@ export class MatchCues {
     if (now.phase === 'showdown' || !view.lane) return [...cues];
 
     if (now.fortressHp < was.fortressHp) cues.add('fortress.hit');
-    if (now.sendsAtMe > was.sendsAtMe) cues.add('send.incoming');
+    if (sendLandmarkPassed(was.sendsAtMe, now.sendsAtMe)) cues.add('send.incoming');
 
     // A unit that appears as the build phase opens is one that died in the
     // wave respawning (§5.4), under its old id - not one being placed.
@@ -203,11 +257,10 @@ export class MatchCues {
     if (now.weapon !== was.weapon || now.aura !== was.aura) cues.add('ui.switch');
 
     // A cooldown only ever runs down, so one that went UP was restarted by a
-    // send going out - whether a finger or auto-send sent it.
+    // send going out. Heard only for a send that was tapped (`sentByHand`).
     for (const [sendId, ticks] of Object.entries(now.cooldowns)) {
-      if (ticks > (was.cooldowns[sendId] ?? 0)) {
+      if (ticks > (was.cooldowns[sendId] ?? 0) && this.byHand.delete(sendId)) {
         cues.add('send.launch');
-        break;
       }
     }
 

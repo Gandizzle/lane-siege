@@ -330,7 +330,10 @@ export class Game extends Container {
         this.issue({ kind: 'buyFortressUpgrade', teamId: this.teamId, upgradeId });
       },
       onBuySupply: () => this.issue({ kind: 'buySupply', teamId: this.teamId }),
-      onSend: (sendId, targetTeamId) => {
+      onSend: (sendId, targetTeamId, auto) => {
+        // A tap is heard going out; auto-send's own shots are not, or a late
+        // game of armed sends is one launch sound on repeat (audio/cues.ts).
+        if (!auto) this.matchCues.sentByHand(sendId);
         this.issue({ kind: 'send', teamId: this.teamId, targetTeamId, sendId });
       },
       onClearSelection: () => this.clearSelection(),

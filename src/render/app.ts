@@ -38,6 +38,7 @@ import {
 import { CODE_LENGTH, PUBLIC_CODE, normaliseCode } from '../net/lobby.ts';
 import { Game } from './game.ts';
 import { viewFor, type View } from './layout.ts';
+import { visibleAreaFitter } from './visibleArea.ts';
 import type { MatchMode } from './ui/homeScreen.ts';
 import type { SeatSetup } from './ui/showdownSetup.ts';
 import { computeBudget } from '../balance/budget.ts';
@@ -257,6 +258,10 @@ export async function startApp(
   const app = new Application();
   listenForButtonTaps(app, () => sound.play('ui.tap'));
 
+  // The mount kept to what is on the screen: under no browser bar, notch or
+  // home indicator (visibleArea.ts). Fitted before anything measures it.
+  const fitMount = visibleAreaFitter(mount);
+  fitMount();
   // The page's size, and how much of it the game is laid out in (layout.ts,
   // `viewFor`): all of it on a phone, a zoomed-in part on a big screen.
   const pageView = () => viewFor(mount.clientWidth, mount.clientHeight);
@@ -391,6 +396,7 @@ export async function startApp(
   let laidOut = { width: app.screen.width, height: app.screen.height, resolution: 0 };
 
   app.ticker.add(() => {
+    fitMount();
     const view = pageView();
     const resolution = resolutionFor(view);
     if (

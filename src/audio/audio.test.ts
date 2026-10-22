@@ -27,7 +27,7 @@ import {
   type CueSound,
   type MusicTrack,
 } from './catalog.ts';
-import { MatchCues, combatCues } from './cues.ts';
+import { MatchCues, combatCues, sendLandmarkPassed } from './cues.ts';
 import { MAX_VOICES, VoiceLimiter } from './limiter.ts';
 import {
   DEFAULT_AUDIO_SETTINGS,
@@ -478,15 +478,64 @@ describe('the match and your own lane', () => {
     ]);
   });
 
-  it('hears a send go out when its cooldown restarts, and not while it runs down', () => {
-    const at = (ticks: number) => {
+  it('hears a tapped send go out, and auto-send going out not at all', () => {
+    const at = (ticks: number, tick = 100) => {
       const view = match();
+      view.tick = tick;
       view.lane!.economy!.sendCooldowns = { swarmling: ticks };
       return view;
     };
-    expect(heard(match(), at(20))).toEqual(['send.launch']);
-    expect(heard(at(20), at(19))).toEqual([]);
-    expect(heard(at(3), at(20))).toEqual(['send.launch']);
+    // Tapped: heard as its cooldown restarts, and once only.
+    const cues = new MatchCues();
+    cues.observe(at(0));
+    cues.sentByHand('swarmling');
+    expect(cues.observe(at(20))).toEqual(['send.launch']);
+    expect(cues.observe(at(19))).toEqual([]);
+    expect(cues.observe(at(3))).toEqual([]);
+    // Fired by auto-send: the same restart, never told about, and silent.
+    expect(heard(match(), at(20))).toEqual([]);
+    expect(heard(at(3), at(20))).toEqual([]);
+  });
+
+  it('forgets a tapped send that never goes out', () => {
+    const at = (ticks: number, tick: number) => {
+      const view = match();
+      view.tick = tick;
+      view.lane!.economy!.sendCooldowns = { swarmling: ticks };
+      return view;
+    };
+    const cues = new MatchCues();
+    cues.observe(at(0, 100));
+    cues.sentByHand('swarmling');
+    // Refused: nothing restarts, and long after, an auto-send's restart is
+    // not taken for the tap.
+    cues.observe(at(0, 100 + 4 * TICKS_PER_SECOND));
+    expect(cues.observe(at(20, 101 + 4 * TICKS_PER_SECOND))).toEqual([]);
+  });
+
+  it('warns of sends at you at the first, then 10, 25, 50 and every 50', () => {
+    const passed = (was: number, now: number) => sendLandmarkPassed(was, now);
+    expect(passed(0, 1)).toBe(true);
+    expect([2, 3, 9].map((n) => passed(n - 1, n))).toEqual([false, false, false]);
+    expect([10, 25, 50, 100, 150, 200].map((n) => passed(n - 1, n))).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ]);
+    expect([11, 26, 51, 75, 101].map((n) => passed(n - 1, n))).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    // A jump past one in a single look is heard once, and a log emptied by
+    // the wave landing is not heard at all.
+    expect(passed(8, 12)).toBe(true);
+    expect(passed(30, 0)).toBe(false);
   });
 
   it('hears a send at you, and your fortress taking a blow', () => {
