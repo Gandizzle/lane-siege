@@ -30,6 +30,7 @@ import { RemoteTransport } from '../net/remoteTransport.ts';
 import type { Transport } from '../net/transport.ts';
 import {
   MAX_NAME_LENGTH,
+  acceptableName,
   browserStorage,
   cleanName,
   loadIdentity,
@@ -55,6 +56,12 @@ import { practiceMatch, sceneOf, tutorialMatch } from '../tutorial/match.ts';
 /** §2: four lanes. Fixed ids so a lane's name is stable across matches. */
 const LANE_IDS = ['lane1', 'lane2', 'lane3', 'lane4'];
 const OWN_LANE = LANE_IDS[0]!;
+
+/**
+ * What the name box says to a name the filter refuses (net/nameFilter.ts). The
+ * same for every refusal: saying which word only shows how to dodge it.
+ */
+const NAME_REFUSED = "That name isn't allowed. Try another.";
 
 export interface GameApp {
   app: Application;
@@ -316,9 +323,12 @@ export async function startApp(
           value: identity.name,
           maxLength: MAX_NAME_LENGTH,
           confirmLabel: 'Save',
+          // The check the server makes (identity.ts), asked here so that a
+          // refused name is fixed in the box rather than quietly replaced.
+          refuse: (value) => (cleanName(value) && !acceptableName(value) ? NAME_REFUSED : null),
         });
         if (typed === null) return null;
-        const cleaned = cleanName(typed);
+        const cleaned = acceptableName(typed);
         if (!cleaned) return null;
         identity.name = cleaned;
         saveIdentity(storage, identity);

@@ -36,6 +36,7 @@
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "colyseus.js": "^0.16.22",
+    "obscenity": "^0.4.6",
     "pixi.js": "^8.20.1"
   },
   "devDependencies": {

@@ -53,7 +53,7 @@ import {
   type SimContext,
 } from '../src/sim/index.ts';
 import { buildTables, encodeFrame, type WireHello, type WireTables } from '../src/net/protocol.ts';
-import { cleanName } from '../src/net/identity.ts';
+import { acceptableName } from '../src/net/identity.ts';
 import {
   MAX_PLAYERS,
   PUBLIC_CODE,
@@ -203,10 +203,12 @@ export class LaneSiegeRoom extends Room {
     this.onMessage('name', (client, name: string) => {
       const seat = this.seatOf(client);
       if (!seat || this.started) return;
-      // Cleaned again here: the client cleans for the player's benefit, the
-      // server cleans because the client is not trusted (§15.1, applied to
-      // text). This string is drawn on three other people's screens.
-      seat.lobby.name = cleanName(String(name ?? ''));
+      // Cleaned and checked again here: the client does it for the player's
+      // benefit, the server because the client is not trusted (§15.1, applied
+      // to text). This string is drawn on three other people's screens, and a
+      // name the filter refuses is stored empty, which every screen shows as
+      // the player's default name.
+      seat.lobby.name = acceptableName(String(name ?? ''));
       this.broadcastLobby();
     });
 
@@ -233,7 +235,7 @@ export class LaneSiegeRoom extends Room {
     const placed = seatPlayer(
       this.seats.map((s) => s.lobby),
       playerId,
-      cleanName(String(options?.name ?? '')),
+      acceptableName(String(options?.name ?? '')),
       options?.builderId ?? '',
       cleanLevel(options?.level),
     );

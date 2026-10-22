@@ -32,6 +32,12 @@ export interface TextPromptOptions {
   /** Room codes are upper case; names are not. */
   uppercase?: boolean;
   confirmLabel?: string;
+  /**
+   * Why what was typed cannot be accepted, or null if it can. Asked on confirm:
+   * a refusal is shown under the field and the prompt stays open, so the
+   * player fixes what they typed rather than starting again.
+   */
+  refuse?: (value: string) => string | null;
 }
 
 /** The colors here match palette.ts. Duplicated because that module is Pixi's. */
@@ -42,6 +48,8 @@ const STYLE = {
   text: '#dfe4ee',
   muted: '#8b93a5',
   accent: '#56b4e9',
+  /** palette.ts's amber: readable on the panel, where its red is not quite. */
+  warning: '#e69f00',
 };
 
 const FONT = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
@@ -115,6 +123,16 @@ export function textPrompt(mount: HTMLElement, options: TextPromptOptions): Prom
       .filter(Boolean)
       .join(';');
 
+    const note = document.createElement('div');
+    // Read out by a screen reader as it appears.
+    note.setAttribute('role', 'alert');
+    note.style.cssText = [
+      'display:none',
+      `color:${STYLE.warning}`,
+      'font-size:13px',
+      'margin-top:8px',
+    ].join(';');
+
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:10px;margin-top:14px';
 
@@ -122,7 +140,7 @@ export function textPrompt(mount: HTMLElement, options: TextPromptOptions): Prom
     const confirm = button(options.confirmLabel ?? 'OK', STYLE.accent, STYLE.background);
     row.append(cancel, confirm);
 
-    panel.append(title, input, row);
+    panel.append(title, input, note, row);
     backdrop.append(panel);
     mount.append(backdrop);
 
@@ -134,7 +152,24 @@ export function textPrompt(mount: HTMLElement, options: TextPromptOptions): Prom
       resolve(value);
     };
 
-    confirm.addEventListener('click', () => close(input.value));
+    const submit = () => {
+      const refusal = options.refuse?.(input.value) ?? null;
+      if (refusal === null) {
+        close(input.value);
+        return;
+      }
+      note.textContent = refusal;
+      note.style.display = 'block';
+      input.setAttribute('aria-invalid', 'true');
+      input.focus();
+    };
+    // The refusal is about what was typed, so it goes once the typing changes.
+    input.addEventListener('input', () => {
+      note.style.display = 'none';
+      input.removeAttribute('aria-invalid');
+    });
+
+    confirm.addEventListener('click', submit);
     cancel.addEventListener('click', () => close(null));
     // Tapping the darkened area outside the panel backs out, which is what
     // every other dialog on the device does.
@@ -142,7 +177,7 @@ export function textPrompt(mount: HTMLElement, options: TextPromptOptions): Prom
       if (event.target === backdrop) close(null);
     });
     input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') close(input.value);
+      if (event.key === 'Enter') submit();
       if (event.key === 'Escape') close(null);
     });
 

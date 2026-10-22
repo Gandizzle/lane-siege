@@ -176,6 +176,15 @@ async function main(): Promise<void> {
     bo.lobby?.seats[0]?.name === 'Ann Lee',
     bo.lobby?.seats[0]?.name,
   );
+  // As a client that skips its own check would send it: stored empty, which
+  // every screen shows as the player's default name.
+  ann.room.send('name', 'Big Ass');
+  await wait(300);
+  check(
+    'a name the filter refuses is refused by the server too',
+    bo.lobby?.seats[0]?.name === '',
+    bo.lobby?.seats[0]?.name,
+  );
 
   check('the match has not started while nobody is ready', ann.lobby?.started === false);
   ann.room.send('ready', true);

@@ -184,10 +184,29 @@ dropped connection costs the time you were gone rather than the match. A bot
 taking over was considered and rejected: it would play somebody's lane for them,
 and play it differently from how they would.
 
+**Names are filtered, by a library rather than a list of our own.** A name is
+checked by `obscenity` (MIT), which already handles the hard parts: look-alike
+letters, leetspeak, stretched letters, and innocent words with a bad one inside
+(the Scunthorpe problem). On top of it a name is read three ways - as typed,
+pulled apart at capitals ("BigAss"), and closed up where letters were spaced
+out ("f u c k") - because a name welds the words a sentence would space. Tested
+against 11,000 first names, 69,000 surnames and 188,000 first and last names
+welded together, it refuses 0.15%, 0.2% and 0.06% of them, each because it
+really does contain a word on the list ("Dick", "VinceStone"). A refused name
+gets "That name isn't allowed. Try another." in the name box, and the server
+refuses it again and shows the default name instead.
+
+Not built yet: words in other languages (the dataset is English only;
+LDNOOBW's lists cover many, under CC BY 4.0), reserved names against
+impersonation ("Admin", "Moderator"), and reporting and muting, which need
+server-side accounts.
+
 - Built: `src/net/lobby.ts` (the rules, as pure functions), `src/net/identity.ts`,
-  `server/room.ts`, `src/render/ui/homeScreen.ts` and `lobbyScreen.ts`.
-- Checked: `src/net/lobby.test.ts` and `identity.test.ts` without a network;
-  `npm run lobby` with real sockets, including a drop and a reclaim.
+  `src/net/nameFilter.ts`, `server/room.ts`, `src/render/ui/homeScreen.ts` and
+  `lobbyScreen.ts`.
+- Checked: `src/net/lobby.test.ts`, `identity.test.ts` and `nameFilter.test.ts`
+  without a network; `npm run lobby` with real sockets, including a drop and a
+  reclaim, and a refused name.
 
 ### 11. Monetisation, if any (§18) → **an opt-in ad that boosts XP, a Supporter purchase, and builders and cosmetics for sale that can all be earned by playing**
 

@@ -28,8 +28,13 @@
  *
  * A name is typed by one player and drawn on three other people's screens, so
  * the client cleans it for the player's benefit and the server cleans it again
- * because the client is not trusted (§15.1's rule, applied to text).
+ * because the client is not trusted (§15.1's rule, applied to text). Cleaning
+ * is two steps: `cleanName` makes it safe to draw, and the name filter
+ * (nameFilter.ts) decides whether its words are fit to show. `acceptableName`
+ * is both, and a name that fails either becomes the default.
  */
+
+import { nameAllowed } from './nameFilter.ts';
 
 /** The smallest thing this module needs from `localStorage`. */
 export interface KeyValueStore {
@@ -65,9 +70,8 @@ export function makePlayerId(random: () => number): string {
  * A name safe to draw on somebody else's screen: no control characters, no
  * runs of whitespace, no leading or trailing space, and short.
  *
- * Deliberately not a profanity filter. One would need a word list per language
- * and would still be wrong; reporting and muting are the answer, and both need
- * the server-side account this version does not have.
+ * Says nothing about the words in it; that is the name filter's job
+ * (`acceptableName`).
  */
 export function cleanName(typed: string): string {
   let kept = '';
@@ -94,11 +98,29 @@ export function cleanName(typed: string): string {
 }
 
 /**
+ * A typed name cleaned and checked: what a seat or a save may hold. Empty when
+ * nothing is left or the name filter refuses it, which every reader of a name
+ * already takes as "use the default" (`displayName`).
+ */
+export function acceptableName(typed: string): string {
+  const cleaned = cleanName(typed);
+  return cleaned && nameAllowed(cleaned) ? cleaned : '';
+}
+
+/**
  * The name a player gets before they choose one. Derived from their id, so two
  * unnamed players in one lobby are still told apart.
+ *
+ * An id is random letters and digits, and now and then four of them spell
+ * something ("Player SH1T"). Then the next four along are the tag instead -
+ * still from the id, so every screen in the lobby picks the same one.
  */
 export function defaultName(playerId: string): string {
-  return `Player ${playerId.slice(0, 4).toUpperCase()}`;
+  for (let start = 0; start < playerId.length; start += 4) {
+    const name = `Player ${playerId.slice(start, start + 4).toUpperCase()}`;
+    if (nameAllowed(name)) return name;
+  }
+  return 'Player';
 }
 
 /** The name to show for a seat, falling back through every empty case. */
@@ -143,7 +165,9 @@ export function loadIdentity(storage: KeyValueStore | null, random: () => number
       const record = parsed as { playerId?: unknown; name?: unknown };
       const playerId = typeof record.playerId === 'string' ? record.playerId : '';
       if (playerId) {
-        const name = typeof record.name === 'string' ? cleanName(record.name) : '';
+        // Checked again on the way in: a name saved before the filter existed,
+        // or edited into storage by hand, goes back to the default.
+        const name = typeof record.name === 'string' ? acceptableName(record.name) : '';
         return { playerId, name: name || defaultName(playerId) };
       }
     }

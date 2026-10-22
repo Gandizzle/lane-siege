@@ -489,6 +489,28 @@ are cleaned on both sides, the server's pass being the one that counts, because
 a name is drawn on three other people's screens and the client is not trusted
 with text any more than with rules.
 
+**Names are filtered by a library, read three ways.** Cleaning makes a name
+safe to draw (`cleanName`); the name filter decides whether its words are fit to
+show (`src/net/nameFilter.ts`), and `acceptableName` is both. The filter is
+`obscenity` (MIT): its English dataset, in which each word comes with the
+innocent words around it already allowed (Scunthorpe, Dickens, Assassin), and
+its transformers, which see through look-alike letters, leetspeak and
+stretched letters. A sentence spaces its words and a name welds them, so a name
+is checked as typed, pulled apart at capitals and underscores ("BigAss"), and
+closed up where letters were spaced out ("f u c k"), after folding accents,
+styled letters and invisible characters away. The dataset is fitted to names
+by testing against lists of real ones: a few slurs and hate references added,
+"anal" counted only at the start of a word (welded, it refused "SeanAllen"),
+and a short list of common names allowed.
+
+A refused name stays in the name box with "That name isn't allowed. Try
+another." - the same words every time, since naming the word only shows how to
+dodge it. The server checks again and stores a refused name empty, which every
+screen draws as the default "Player ABCD"; a default skips any four-character
+tag that spells something, and a saved name is checked again on start. English
+only, and words only: reporting and muting are the next line, and need
+server-side accounts.
+
 **Reconnection** holds a seat for ninety seconds after kickoff. While its player
 is away the lane keeps taking waves with nobody defending it, which is what §13
 already describes for a player who leaves, so a drop costs the time you were
