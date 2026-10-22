@@ -51,7 +51,11 @@ export const SILENT: Sound = { play() {} };
 /** What a settings menu needs: the choices in force, and a way to change them. */
 export interface SoundSystem extends Sound {
   readonly settings: Readonly<AudioSettings>;
-  /** The piece playing now, or null between pieces. */
+  /**
+   * The piece playing now - or, in the pause after one ends or is skipped, the
+   * one that comes next, so a menu names a piece rather than the silence
+   * between two. Null only with nothing to play.
+   */
   readonly nowPlaying: MusicTrack | null;
   /** Apply and save a change to any settings. */
   configure(change: Partial<AudioSettings>): void;
@@ -93,6 +97,8 @@ export class AudioEngine implements SoundSystem {
   private unlocked = false;
   private hidden = false;
   private playing: Playing | null = null;
+  /** Chosen when the last piece ended or was skipped, to start after the pause. */
+  private upcoming: MusicTrack | null = null;
   private previousTrackId: string | null = null;
   private nextTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -124,9 +130,9 @@ export class AudioEngine implements SoundSystem {
     return this.current;
   }
 
-  /** What is playing now, for a menu to show. Null between pieces. */
+  /** What is playing now, or plays next after the pause, for a menu to show. */
   get nowPlaying(): MusicTrack | null {
-    return this.playing?.track ?? null;
+    return this.playing?.track ?? this.upcoming;
   }
 
   /**
@@ -292,12 +298,8 @@ export class AudioEngine implements SoundSystem {
     const ctx = this.context;
     // Before the first touch nothing starts: the unlock will start it.
     if (!ctx || !this.musicBus || this.playing || !this.unlocked) return;
-    const track = nextTrack(
-      MUSIC_TRACKS,
-      this.current.musicChoice,
-      this.previousTrackId,
-      this.random,
-    );
+    const track = this.upcoming ?? this.chooseNext();
+    this.upcoming = null;
     if (!track) return;
 
     const element = new Audio();
@@ -360,8 +362,18 @@ export class AudioEngine implements SoundSystem {
     setTimeout(stop, fade * 1000);
   }
 
+  /** The next piece by the setting: the chosen one, or a shuffle that avoids a repeat. */
+  private chooseNext(): MusicTrack | null {
+    return nextTrack(MUSIC_TRACKS, this.current.musicChoice, this.previousTrackId, this.random);
+  }
+
+  /**
+   * Start the next piece after `delay` seconds - chosen now, not then, so the
+   * menu can name it through the pause (`nowPlaying`).
+   */
   private scheduleNext(delay: number): void {
     if (this.nextTimer !== null) clearTimeout(this.nextTimer);
+    this.upcoming = this.chooseNext();
     this.nextTimer = setTimeout(() => {
       this.nextTimer = null;
       this.startMusic();

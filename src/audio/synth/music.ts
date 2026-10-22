@@ -2,16 +2,19 @@
  * The game's own music, composed as data and rendered offline (dsp.ts,
  * src/headless/makeAudio.ts).
  *
- * Placeholder music, honestly labelled: two short pieces so the playlist has a
- * real choice to make (catalog.ts, settings.ts), written so that nobody has to
- * be credited or asked. Each is a complete piece with a beginning and an
+ * Five pieces, each a minute and a half or so, in five moods, so the playlist
+ * has a real choice to make (catalog.ts, settings.ts): a drive ("Hold the
+ * Line"), a breather ("Between Waves"), a march ("Iron Tide"), a night piece
+ * ("Moonlit Ramparts") and a charge ("Charge of the Line"). Every one was
+ * written for the game - the tunes, the harmony and the sounds - so nobody has
+ * to be credited or asked. Each is a complete piece with a beginning and an
  * ending rather than a seamless loop - the player takes the next one from the
  * list when a piece ends, which is also how a list of downloaded tracks would
  * be played, and nothing depends on a file looping without a gap.
  *
  * A song is an `Arrangement`: parts, each an instrument with a level, a pan and
  * how much of it goes to the reverb and the echo; and notes, placed in beats.
- * The two songs below are written against that with a few helpers for chords,
+ * The songs below are written against that with a few helpers for chords,
  * bass lines, arpeggios and drum patterns.
  */
 
@@ -184,6 +187,28 @@ const bellLead: Instrument = (note, seconds, v) => {
     [mul(fm(len, f, 3.5, glide(2.5, 0.3, 0.8)), perc(len, 0.002, len * 0.9)), 0.6 * v],
     [mul(osc('sine', len, f * 2), perc(len, 0.002, len * 0.4)), 0.3 * v],
     [mul(osc('sine', len, f * 4.02), perc(len, 0.001, 0.25)), 0.1 * v],
+  );
+};
+
+/** Brass: three detuned saws, the filter opening on each note like a breath, then easing. */
+const brass: Instrument = (note, seconds, v) => {
+  const f = hz(note);
+  const len = seconds + 0.25;
+  const vibrato = { depth: 0.1, rate: 5, delay: 0.3 };
+  const voices = sum(
+    [osc('saw', len, f * Math.pow(2, -0.08 / 12), { phase: 0.2 }), 0.4],
+    [osc('saw', len, f, { phase: 0.6 }), 0.4],
+    [osc('saw', len, f * Math.pow(2, 0.08 / 12), { phase: 0.9, vibrato }), 0.35],
+  );
+  const shaped = filter(
+    voices,
+    'lowpass',
+    (t) => 500 + 2200 * Math.min(1, t / 0.12) * Math.exp(-t * 1.5),
+    1,
+  );
+  return scaleCopy(
+    mul(shaped, adsr(seconds, { attack: 0.04, decay: 0.25, sustain: 0.75, release: 0.2 })),
+    v,
   );
 };
 
@@ -566,6 +591,334 @@ function betweenWaves(): Arrangement {
   return a;
 }
 
+/**
+ * "Iron Tide": C minor, 96bpm, thirty-two bars. A march - toms to open, then
+ * kick and snare on the beat, the bass treading root, fifth and octave, and a
+ * brass tune that turns to the major on the dominant, the way a march does.
+ */
+function ironTide(): Arrangement {
+  const a = new Arrangement(96);
+  a.part('pad', { instrument: pad, gain: 0.1, reverb: 0.5 });
+  a.part('bass', { instrument: bass, gain: 0.24 });
+  a.part('brass', { instrument: brass, gain: 0.2, pan: -0.1, reverb: 0.4, echo: 0.15 });
+  a.part('horn', { instrument: brass, gain: 0.15, pan: 0.25, reverb: 0.45 });
+  a.part('kick', { instrument: kick, gain: 0.42 });
+  a.part('snare', { instrument: snare, gain: 0.36, reverb: 0.3 });
+  a.part('tom', { instrument: tom, gain: 0.4, reverb: 0.25 });
+  a.part('crash', { instrument: crash, gain: 0.16, pan: 0.2, reverb: 0.2 });
+
+  const Cm = chord(36, MINOR);
+  const Ab = chord(32, MAJOR);
+  const Eb = chord(39, MAJOR);
+  const Bb = chord(34, MAJOR);
+  const Fm = chord(41, MINOR);
+  const G = chord(31, MAJOR);
+
+  const verse = [Cm, Ab, Eb, Bb, Cm, Ab, Fm, G];
+  const bridge = [Ab, Bb, Cm, Cm, Fm, Ab, G, G];
+
+  // One bar to a line: [beat in the section, beats held, MIDI note].
+  // prettier-ignore
+  const melody: Line = [
+    [0, 2, 67], [2, 1, 72], [3, 1, 74],
+    [4, 2, 75], [6, 1, 74], [7, 1, 72],
+    [8, 1.5, 70], [9.5, 0.5, 67], [10, 1, 70], [11, 1, 75],
+    [12, 3, 74], [15, 1, 77],
+    [16, 2, 79], [18, 1, 77], [19, 1, 75],
+    [20, 2, 72], [22, 1, 75], [23, 1, 74],
+    [24, 1, 72], [25, 1, 68], [26, 1, 65], [27, 1, 68],
+    [28, 2, 71], [30, 1, 74], [31, 1, 67],
+  ];
+  // One bar to a line: [beat in the section, beats held, MIDI note].
+  // prettier-ignore
+  const counter: Line = [
+    [0, 4, 72],
+    [4, 2, 74], [6, 2, 77],
+    [8, 4, 75],
+    [12, 2, 79], [14, 2, 75],
+    [16, 2, 77], [18, 2, 80],
+    [20, 4, 75],
+    [24, 2, 74], [26, 2, 71],
+    [28, 4, 67],
+  ];
+
+  let bar = 0;
+  type Drums = 'toms' | 'march' | 'half';
+  const section = (
+    chords: Chord[],
+    opts: {
+      bass?: 'tread' | 'held';
+      drums: Drums;
+      crash?: boolean;
+      line?: Line;
+      voice?: 'brass' | 'horn';
+    },
+  ) => {
+    chords.forEach((c, i) => {
+      const b = (bar + i) * 4;
+      spread(c, 55, 70).forEach((n, k) => a.note('pad', b, 4, n, 0.75, k % 2 === 0 ? -0.35 : 0.35));
+      if (opts.bass === 'tread') {
+        // Root on the beat, the fifth and the octave between: a march's tread.
+        for (const [beat, step] of [
+          [0, 0],
+          [1, 7],
+          [2, 0],
+          [2.5, 12],
+          [3, 7],
+        ] as const) {
+          a.note('bass', b + beat, 0.45, c.root + step, beat === 0 ? 0.9 : 0.7);
+        }
+      } else if (opts.bass === 'held') {
+        a.note('bass', b, 3.8, c.root, 0.8);
+      }
+      if (opts.drums === 'toms') {
+        a.note('tom', b, 0.5, 45, 0.9, -0.2);
+        a.note('tom', b + 1.5, 0.5, 45, 0.6, -0.2);
+        a.note('tom', b + 2, 0.5, 40, 0.9, 0.2);
+        a.note('tom', b + 3, 0.5, 40, 0.6, 0.2);
+      }
+      if (opts.drums === 'march') {
+        a.note('kick', b, 1, 0, 0.95);
+        a.note('kick', b + 2, 1, 0, 0.8);
+        a.note('snare', b + 1, 1, 0, 0.8);
+        a.note('snare', b + 3, 1, 0, 0.85);
+        a.note('tom', b + 2.5, 0.5, 43, 0.5, 0.3);
+        // A roll into every fourth bar's turn.
+        if (i % 4 === 3) for (const t of [3.5, 3.75]) a.note('snare', b + t, 1, 0, 0.5);
+      }
+      if (opts.drums === 'half') {
+        a.note('kick', b, 1, 0, 0.9);
+        a.note('snare', b + 2, 1, 0, 0.75);
+        a.note('tom', b + 3, 0.5, 40, 0.5);
+      }
+    });
+    if (opts.crash) a.note('crash', bar * 4, 4, 0, 0.85);
+    for (const [beat, beats, midi] of opts.line ?? [])
+      a.note(opts.voice ?? 'brass', bar * 4 + beat, beats, midi, 0.8);
+    bar += chords.length;
+  };
+
+  section([Cm, Ab, Fm, G], { drums: 'toms' });
+  section(verse, { bass: 'tread', drums: 'march', crash: true, line: melody });
+  section(bridge, { bass: 'held', drums: 'half', line: counter, voice: 'horn' });
+  section(verse, { bass: 'tread', drums: 'march', crash: true, line: melody });
+  // The ending: the turn once more, then C minor held out over a last drum.
+  section([Fm, G], { bass: 'tread', drums: 'march' });
+  const b = bar * 4;
+  spread(Cm, 48, 72).forEach((n, k) => a.note('pad', b, 6, n, 0.9, k % 2 === 0 ? -0.35 : 0.35));
+  a.note('bass', b, 5, 36, 0.9);
+  a.note('brass', b, 5, 72, 0.85);
+  a.note('horn', b, 5, 67, 0.7);
+  a.note('kick', b, 1, 0, 1);
+  a.note('tom', b, 0.5, 40, 0.9);
+  a.note('crash', b, 4, 0, 1);
+  return a;
+}
+
+/**
+ * "Moonlit Ramparts": A minor, 76bpm, twenty-nine bars. A night watch - a harp
+ * turning over a broken chord, a soft bass, a bell tune that leans on the
+ * major third of E at the end of each phrase, and barely any drums.
+ */
+function moonlitRamparts(): Arrangement {
+  const a = new Arrangement(76);
+  a.part('pad', { instrument: pad, gain: 0.1, reverb: 0.6 });
+  a.part('bass', { instrument: softBass, gain: 0.2 });
+  a.part('harp', { instrument: harp, gain: 0.28, pan: 0.2, reverb: 0.35, echo: 0.3 });
+  a.part('bell', { instrument: bellLead, gain: 0.22, pan: -0.15, reverb: 0.5, echo: 0.2 });
+  a.part('kick', { instrument: softKick, gain: 0.34 });
+  a.part('rim', { instrument: rim, gain: 0.22, pan: 0.3, reverb: 0.35 });
+  a.part('shaker', { instrument: shaker, gain: 0.14, pan: -0.35 });
+
+  const Am = chord(45, MINOR);
+  const F = chord(41, MAJOR);
+  const C = chord(36, MAJOR);
+  const G = chord(43, MAJOR);
+  const Dm = chord(38, MINOR);
+  const E = chord(40, MAJOR);
+
+  const verse = [Am, F, C, G, Am, F, Dm, E];
+  const turn = [F, G, Am, Am, Dm, F, E, E];
+
+  // One bar to a line: [beat in the section, beats held, MIDI note].
+  // prettier-ignore
+  const melody: Line = [
+    [0, 2, 76], [2, 2, 81],
+    [4, 1, 79], [5, 1, 77], [6, 2, 76],
+    [8, 2, 72], [10, 1, 76], [11, 1, 79],
+    [12, 3, 74], [15, 1, 71],
+    [16, 1, 72], [17, 1, 76], [18, 1, 81], [19, 1, 83],
+    [20, 2, 84], [22, 2, 81],
+    [24, 1, 77], [25, 1, 76], [26, 2, 74],
+    [28, 2, 80], [30, 1, 83], [31, 1, 76],
+  ];
+  // One bar to a line: [beat in the section, beats held, MIDI note].
+  // prettier-ignore
+  const counter: Line = [
+    [0, 2, 81], [2, 2, 77],
+    [4, 4, 79],
+    [8, 2, 76], [10, 2, 72],
+    [12, 4, 69],
+    [16, 2, 74], [18, 2, 77],
+    [20, 2, 81], [22, 2, 77],
+    [24, 4, 80],
+    [28, 2, 76], [30, 2, 71],
+  ];
+
+  let bar = 0;
+  const section = (chords: Chord[], opts: { bass?: boolean; drums?: boolean; line?: Line }) => {
+    chords.forEach((c, i) => {
+      const b = (bar + i) * 4;
+      spread(c, 52, 67).forEach((n, k) => a.note('pad', b, 4, n, 0.65, k % 2 === 0 ? -0.4 : 0.4));
+      if (opts.bass) {
+        a.note('bass', b, 3.6, c.root, 0.8);
+      }
+      // A broken chord in eighths: out and back, never straight up.
+      const tones = spread(c, 57, 84).slice(0, 5);
+      [0, 2, 4, 2, 1, 3, 4, 3].forEach((t, k) =>
+        a.note('harp', b + k * 0.5, 0.5, tones[t % tones.length]!, k === 0 ? 0.85 : 0.55),
+      );
+      if (opts.drums) {
+        // Half time: the kick on one, the rim on three, a shaker breathing.
+        a.note('kick', b, 1, 0, 0.8);
+        a.note('rim', b + 2, 1, 0, 0.7);
+        for (let k = 0; k < 4; k++) a.note('shaker', b + k + 0.5, 0.1, 0, 0.7);
+      }
+    });
+    for (const [beat, beats, midi] of opts.line ?? [])
+      a.note('bell', bar * 4 + beat, beats, midi, 0.75);
+    bar += chords.length;
+  };
+
+  section([Am, F, C, G], {});
+  section(verse, { bass: true });
+  section(verse, { bass: true, drums: true, line: melody });
+  section(turn, { bass: true, drums: true, line: counter });
+  section([Am, F, E], { bass: true });
+  const b = bar * 4;
+  spread(Am, 52, 72).forEach((n, k) => a.note('pad', b, 6, n, 0.8, k % 2 === 0 ? -0.4 : 0.4));
+  a.note('bass', b, 5, 45, 0.8);
+  a.note('bell', b, 4, 81, 0.75);
+  a.note('harp', b, 1, 69, 0.8);
+  return a;
+}
+
+/**
+ * "Charge of the Line": E minor, 128bpm, thirty-nine bars. The fast one - a
+ * kick on every beat, the bass leaping octaves, a sixteenth-note arpeggio
+ * under a lead that runs up the chord and lands, and a build that climbs to
+ * the major chord of B before the tune comes back.
+ */
+function chargeOfTheLine(): Arrangement {
+  const a = new Arrangement(128);
+  a.part('pad', { instrument: pad, gain: 0.09, reverb: 0.4 });
+  a.part('bass', { instrument: bass, gain: 0.24 });
+  a.part('arp', { instrument: arpSynth, gain: 0.2, pan: -0.25, reverb: 0.2, echo: 0.3 });
+  a.part('lead', { instrument: lead, gain: 0.18, pan: 0.1, reverb: 0.3, echo: 0.2 });
+  a.part('kick', { instrument: kick, gain: 0.44 });
+  a.part('snare', { instrument: snare, gain: 0.36, reverb: 0.2 });
+  a.part('hat', { instrument: hat, gain: 0.45, pan: 0.3 });
+  a.part('crash', { instrument: crash, gain: 0.16, pan: -0.2, reverb: 0.2 });
+
+  const Em = chord(40, MINOR);
+  const C = chord(36, MAJOR);
+  const G = chord(43, MAJOR);
+  const D = chord(38, MAJOR);
+  const Am = chord(45, MINOR);
+  const B = chord(35, MAJOR);
+
+  const verse = [Em, C, G, D, Em, C, G, D];
+  const build = [C, D, Em, Em, Am, C, B, B];
+
+  // One bar to a line: [beat in the section, beats held, MIDI note].
+  // prettier-ignore
+  const melody: Line = [
+    [0, 0.5, 71], [0.5, 0.5, 76], [1, 1, 79], [2, 0.5, 78], [2.5, 0.5, 76], [3, 1, 74],
+    [4, 1.5, 76], [5.5, 0.5, 79], [6, 1, 76], [7, 1, 72],
+    [8, 0.5, 74], [8.5, 0.5, 79], [9, 1, 83], [10, 0.5, 81], [10.5, 0.5, 79], [11, 1, 78],
+    [12, 2, 81], [14, 1, 78], [15, 1, 74],
+    [16, 1, 79], [17, 0.5, 78], [17.5, 0.5, 76], [18, 2, 83],
+    [20, 1, 84], [21, 0.5, 83], [21.5, 0.5, 79], [22, 2, 76],
+    [24, 1, 74], [25, 1, 79], [26, 1, 83], [27, 1, 86],
+    [28, 1, 81], [29, 1, 78], [30, 2, 74],
+  ];
+  // One bar to a line: [beat in the section, beats held, MIDI note].
+  // prettier-ignore
+  const counter: Line = [
+    [0, 2, 79], [2, 2, 76],
+    [4, 2, 78], [6, 2, 81],
+    [8, 4, 83],
+    [12, 2, 79], [14, 2, 76],
+    [16, 2, 81], [18, 2, 84],
+    [20, 4, 79],
+    [24, 2, 78], [26, 2, 75],
+    [28, 4, 71],
+  ];
+
+  let bar = 0;
+  type Drums = 'pulse' | 'drive' | 'half';
+  const section = (
+    chords: Chord[],
+    opts: { bass?: 'leap' | 'held'; drums: Drums; crash?: boolean; line?: Line },
+  ) => {
+    chords.forEach((c, i) => {
+      const b = (bar + i) * 4;
+      spread(c, 52, 67).forEach((n, k) => a.note('pad', b, 4, n, 0.7, k % 2 === 0 ? -0.3 : 0.3));
+      if (opts.bass === 'leap') {
+        // Root and octave in eighths, with a fifth on the way back.
+        [0, 12, 0, 12, 7, 12, 0, 12].forEach((step, k) =>
+          a.note('bass', b + k * 0.5, 0.42, c.root + step, k % 2 === 0 ? 0.9 : 0.65),
+        );
+      } else if (opts.bass === 'held') {
+        a.note('bass', b, 3.8, c.root, 0.85);
+      }
+      // Sixteenths over two octaves, in a turning order rather than a climb.
+      const tones = spread(c, 64, 88).slice(0, 5);
+      [0, 2, 1, 3, 2, 4, 3, 1].forEach((t, k) => {
+        for (const half of [0, 2]) {
+          a.note('arp', b + half + k * 0.25, 0.25, tones[t % tones.length]!, k === 0 ? 0.85 : 0.55);
+        }
+      });
+      if (opts.drums === 'pulse') {
+        for (let k = 0; k < 4; k++) a.note('kick', b + k, 1, 0, 0.7);
+      }
+      if (opts.drums === 'drive') {
+        for (let k = 0; k < 4; k++) a.note('kick', b + k, 1, 0, k === 0 ? 0.95 : 0.8);
+        a.note('snare', b + 1, 1, 0, 0.8);
+        a.note('snare', b + 3, 1, 0, 0.85);
+        // Hats on the off-beats, the last of the bar left open.
+        for (let k = 0; k < 4; k++) a.note('hat', b + k + 0.5, k === 3 ? 0.5 : 0.1, 0, 0.75);
+      }
+      if (opts.drums === 'half') {
+        a.note('kick', b, 1, 0, 0.9);
+        a.note('kick', b + 1.5, 1, 0, 0.6);
+        a.note('snare', b + 2, 1, 0, 0.8);
+        for (let k = 0; k < 8; k++) a.note('hat', b + k * 0.5, 0.1, 0, k % 2 === 1 ? 0.7 : 0.4);
+      }
+    });
+    if (opts.crash) a.note('crash', bar * 4, 4, 0, 0.85);
+    for (const [beat, beats, midi] of opts.line ?? [])
+      a.note('lead', bar * 4 + beat, beats, midi, 0.8);
+    bar += chords.length;
+  };
+
+  section([Em, C, G, D], { drums: 'pulse' });
+  section(verse, { bass: 'leap', drums: 'drive', crash: true });
+  section(verse, { bass: 'leap', drums: 'drive', crash: true, line: melody });
+  section(build, { bass: 'held', drums: 'half', line: counter });
+  section(verse, { bass: 'leap', drums: 'drive', crash: true, line: melody });
+  // The ending: E minor and C, the B chord, then E minor held out.
+  section([Em, C], { bass: 'leap', drums: 'drive' });
+  section([B], { bass: 'held', drums: 'half' });
+  const b = bar * 4;
+  spread(Em, 52, 72).forEach((n, k) => a.note('pad', b, 6, n, 0.9, k % 2 === 0 ? -0.3 : 0.3));
+  a.note('bass', b, 5, 40, 0.9);
+  a.note('lead', b, 5, 76, 0.8);
+  a.note('kick', b, 1, 0, 1);
+  a.note('crash', b, 4, 0, 1);
+  return a;
+}
+
 export const SONGS: readonly Song[] = [
   {
     id: 'hold-the-line',
@@ -576,5 +929,20 @@ export const SONGS: readonly Song[] = [
     id: 'between-waves',
     title: 'Between Waves',
     render: (random) => betweenWaves().render(random, 4),
+  },
+  {
+    id: 'iron-tide',
+    title: 'Iron Tide',
+    render: (random) => ironTide().render(random, 4),
+  },
+  {
+    id: 'moonlit-ramparts',
+    title: 'Moonlit Ramparts',
+    render: (random) => moonlitRamparts().render(random, 4),
+  },
+  {
+    id: 'charge-of-the-line',
+    title: 'Charge of the Line',
+    render: (random) => chargeOfTheLine().render(random, 4),
   },
 ];

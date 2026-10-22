@@ -37,9 +37,16 @@ import {
   saveAudioSettings,
 } from './settings.ts';
 import { seeded } from './synth/dsp.ts';
-import { SFX } from './synth/sfx.ts';
+import { ARCADE_SFX } from './synth/arcade.ts';
+import { SFX, type SfxRecipe } from './synth/sfx.ts';
 
 const PUBLIC_AUDIO = join(import.meta.dirname, '..', '..', 'public', 'audio');
+
+/** Each pack made from recipes: its folder under sfx/ (and its id), and the recipes. */
+const RECIPE_PACKS: readonly (readonly [string, readonly SfxRecipe[]])[] = [
+  ['synth', SFX],
+  ['arcade', ARCADE_SFX],
+];
 const { data } = loadDataFromDisk();
 const defs = buildDefIndex(data);
 
@@ -169,15 +176,23 @@ describe('the catalog', () => {
     for (const type of DAMAGE_TYPES) expect(CUES).toContain(attackCue(type));
   });
 
-  it('ships no synth file that nothing plays, and plays none it does not ship', () => {
-    const shipped = readdirSync(join(PUBLIC_AUDIO, 'sfx', 'synth')).sort();
-    const recipes = SFX.map((r) => `${r.id}.wav`).sort();
-    const synth = SOUND_PACKS.find((p) => p.id === 'synth')!;
-    const used = [...new Set(Object.values(synth.cues).flatMap((c) => c.files))]
-      .map((f) => f.replace('sfx/synth/', ''))
-      .sort();
-    expect(shipped).toEqual(recipes);
-    expect(used).toEqual(recipes);
+  it('ships no recipe file that nothing plays, and plays none it does not ship', () => {
+    for (const [folder, recipeSet] of RECIPE_PACKS) {
+      const shipped = readdirSync(join(PUBLIC_AUDIO, 'sfx', folder)).sort();
+      const recipes = recipeSet.map((r) => `${r.id}.wav`).sort();
+      const pack = SOUND_PACKS.find((p) => p.id === folder)!;
+      const used = [...new Set(Object.values(pack.cues).flatMap((c) => c.files))]
+        .map((f) => f.replace(`sfx/${folder}/`, ''))
+        .sort();
+      expect(shipped, folder).toEqual(recipes);
+      expect(used, folder).toEqual(recipes);
+    }
+  });
+
+  it('offers more than one sound pack, each under its own name', () => {
+    expect(SOUND_PACKS.length).toBeGreaterThan(1);
+    expect(new Set(SOUND_PACKS.map((p) => p.id)).size).toBe(SOUND_PACKS.length);
+    expect(new Set(SOUND_PACKS.map((p) => p.name)).size).toBe(SOUND_PACKS.length);
   });
 
   it('lists music that exists, under ids that are unique', () => {
@@ -190,7 +205,7 @@ describe('the catalog', () => {
   });
 
   it('renders every effect the same way twice, with nothing but finite samples', () => {
-    for (const recipe of SFX) {
+    for (const recipe of RECIPE_PACKS.flatMap(([, recipes]) => recipes)) {
       const a = recipe.render(seeded(7));
       const b = recipe.render(seeded(7));
       expect(a.length, recipe.id).toBeGreaterThan(0);

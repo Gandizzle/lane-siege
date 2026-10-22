@@ -9,10 +9,11 @@ Everything currently in this folder was made for the game, from code in the
 repository, and is dedicated to the public domain (CC0). Nobody needs crediting
 and nothing needs asking.
 
-| Folder       | What                                     | Made by                                                 |
-| ------------ | ---------------------------------------- | ------------------------------------------------------- |
-| `sfx/synth/` | 23 sound effects, the `synth` sound pack | `src/audio/synth/sfx.ts`, rendered by `npm run audio`   |
-| `music/`     | "Hold the Line", "Between Waves"         | `src/audio/synth/music.ts`, rendered by `npm run audio` |
+| Folder        | What                                                                                    | Made by                                                  |
+| ------------- | --------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `sfx/synth/`  | 23 sound effects, the `synth` sound pack                                                | `src/audio/synth/sfx.ts`, rendered by `npm run audio`    |
+| `sfx/arcade/` | 23 sound effects, the `arcade` sound pack                                               | `src/audio/synth/arcade.ts`, rendered by `npm run audio` |
+| `music/`      | "Hold the Line", "Between Waves", "Iron Tide", "Moonlit Ramparts", "Charge of the Line" | `src/audio/synth/music.ts`, rendered by `npm run audio`  |
 
 To change one, edit its recipe and run `npm run audio`. The output is
 deterministic, so a regenerated file only differs if its recipe did.

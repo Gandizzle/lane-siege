@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeLayout, screenToTile, tileToScreen } from './layout.ts';
+import { computeLayout, isCompact, screenToTile, tileToScreen, viewFor } from './layout.ts';
 import type { LaneFile } from '../data/schema.ts';
 import type { Rect } from './layout.ts';
 
@@ -202,6 +202,39 @@ describe('the effects legend button', () => {
       expect(overlaps(b, l.menuButton), `${at} menu`).toBe(false);
       expect(overlaps(b, l.lane), `${at} lane`).toBe(false);
       expect(overlaps(b, l.buildBar), `${at} bar`).toBe(false);
+    }
+  });
+});
+
+describe('the view on a page', () => {
+  it('leaves a phone exactly as it is, either way up', () => {
+    for (const [w, h] of [
+      [390, 844],
+      [844, 390],
+      [360, 640],
+    ] as const) {
+      expect(viewFor(w, h)).toEqual({ width: w, height: h, zoom: 1 });
+    }
+  });
+
+  it('draws a computer larger, the bigger the screen the more', () => {
+    const laptop = viewFor(1366, 650);
+    const hd = viewFor(1920, 950);
+    const qhd = viewFor(2560, 1300);
+    expect(laptop.zoom).toBeGreaterThan(1);
+    expect(hd.zoom).toBeGreaterThan(laptop.zoom);
+    expect(qhd.zoom).toBeGreaterThan(hd.zoom);
+    expect(hd.zoom).toBeCloseTo(1.53, 2);
+    // The whole page is used: laid out, then zoomed back to the page's size.
+    expect(Math.abs(hd.width * hd.zoom - 1920)).toBeLessThan(2);
+    expect(Math.abs(hd.height * hd.zoom - 950)).toBeLessThan(2);
+  });
+
+  it('never lays a big screen out squeezed, and never zooms past the cap', () => {
+    for (let side = 560; side <= 4000; side += 37) {
+      const view = viewFor(side * 1.8, side);
+      expect(isCompact(view.height), `${side}`).toBe(false);
+      expect(view.zoom).toBeLessThanOrEqual(2.2);
     }
   });
 });

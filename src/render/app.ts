@@ -37,6 +37,7 @@ import {
 } from '../net/identity.ts';
 import { CODE_LENGTH, PUBLIC_CODE, normaliseCode } from '../net/lobby.ts';
 import { Game } from './game.ts';
+import { viewFor, type View } from './layout.ts';
 import type { MatchMode } from './ui/homeScreen.ts';
 import type { SeatSetup } from './ui/showdownSetup.ts';
 import { computeBudget } from '../balance/budget.ts';
@@ -256,16 +257,25 @@ export async function startApp(
   const app = new Application();
   listenForButtonTaps(app, () => sound.play('ui.tap'));
 
+  // The page's size, and how much of it the game is laid out in (layout.ts,
+  // `viewFor`): all of it on a phone, a zoomed-in part on a big screen.
+  const pageView = () => viewFor(mount.clientWidth, mount.clientHeight);
+  // Cap the device pixel ratio: shapes are vector, so the extra resolution
+  // buys little and costs fill rate on a phone (§15.3). Times the zoom, so a
+  // zoomed screen is drawn at its own density rather than enlarged after.
+  const resolutionFor = (view: View) => Math.min(globalThis.devicePixelRatio || 1, 2) * view.zoom;
+  const firstView = pageView();
   await app.init({
     background: UI.background,
-    resizeTo: mount,
+    width: firstView.width,
+    height: firstView.height,
     antialias: true,
-    // Cap the device pixel ratio: shapes are vector, so the extra resolution
-    // buys little and costs fill rate on a phone (§15.3).
-    resolution: Math.min(globalThis.devicePixelRatio || 1, 2),
-    autoDensity: true,
+    resolution: resolutionFor(firstView),
   });
 
+  // The canvas always fills the page; the view decides how much game is in it.
+  app.canvas.style.width = '100%';
+  app.canvas.style.height = '100%';
   mount.appendChild(app.canvas);
 
   // The game starts on the home screen and asks for a transport once the player
@@ -362,30 +372,36 @@ export async function startApp(
   let last = performance.now();
 
   /**
-   * The layout follows the RENDERER's size, checked at the top of every frame.
+   * The layout follows the PAGE's size, checked at the top of every frame.
    *
    * It used to be driven from a `window` 'resize' listener, and that listener
-   * was always a frame behind. Pixi's own resize plugin listens to the same
-   * event and only QUEUES the new size - it applies it inside a
-   * `requestAnimationFrame` - so anything reading `app.screen` from a listener
-   * added after it gets the size the canvas had a moment ago. Rotating a phone
-   * therefore laid the game out for the orientation it was just in, and
-   * rotating back laid landscape out inside a portrait canvas: the board across
-   * the left half of the screen and the build bar off the bottom of it.
+   * was always a frame behind: a resize event arrives before the page has its
+   * new size everywhere, so rotating a phone laid the game out for the
+   * orientation it was just in, and rotating back laid landscape out inside a
+   * portrait canvas - the board across the left half of the screen and the
+   * build bar off the bottom of it.
    *
    * Comparing the numbers instead of trusting an event fixes the ordering and
    * covers everything else that can change them with one rule - browser chrome
-   * appearing and disappearing, a soft keyboard, a desktop window drag, a
-   * resize observer firing late - with no guessing about when the viewport has
-   * settled. `computeLayout` runs only when the numbers actually differ.
+   * appearing and disappearing, a soft keyboard, a desktop window drag, the
+   * window moved to a screen of another density - with no guessing about when
+   * the viewport has settled. The renderer and `computeLayout` are only
+   * touched when the numbers actually differ.
    */
-  let laidOut = { width: app.screen.width, height: app.screen.height };
+  let laidOut = { width: app.screen.width, height: app.screen.height, resolution: 0 };
 
   app.ticker.add(() => {
-    if (app.screen.width !== laidOut.width || app.screen.height !== laidOut.height) {
-      laidOut = { width: app.screen.width, height: app.screen.height };
+    const view = pageView();
+    const resolution = resolutionFor(view);
+    if (
+      view.width !== laidOut.width ||
+      view.height !== laidOut.height ||
+      resolution !== laidOut.resolution
+    ) {
+      laidOut = { width: view.width, height: view.height, resolution };
+      app.renderer.resize(view.width, view.height, resolution);
       // Fixed camera (§14.1): a resize only recomputes the layout.
-      game.resize(laidOut.width, laidOut.height);
+      game.resize(view.width, view.height);
     }
 
     const now = performance.now();

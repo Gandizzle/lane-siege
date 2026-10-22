@@ -97,57 +97,71 @@ export interface MusicTrack {
   credit: string;
 }
 
-/** A cue in the synth pack: one file, named after the cue. */
-function synth(
-  file: string,
-  volume: number,
-  maxVoices: number,
-  minGapMs: number,
-  pitchJitter = 0,
-): CueSound {
-  return { files: [`sfx/synth/${file}.wav`], volume, maxVoices, minGapMs, pitchJitter };
+/**
+ * A pack drawn from the game's own recipes (src/audio/synth/, `npm run audio`):
+ * every cue one file, named after the cue, in `folder` under sfx/.
+ *
+ * The packs share this one table - how loud each cue plays, how many at once
+ * and how often - because that is about the GAME, not the sound: at the height
+ * of a late wave the lane lands dozens of blows a second, so attacks are quiet,
+ * capped at a few voices and spaced out, and pitch-jittered so a run of the same
+ * one does not machine-gun, while anything about you - a sale, an alarm, the
+ * fortress - is louder and rarer. How loud each file is written is the recipe's
+ * own `loudness`, which is where a pack is balanced against itself.
+ */
+function recipePack(id: string, name: string, folder: string): SoundPack {
+  const cue = (
+    file: string,
+    volume: number,
+    maxVoices: number,
+    minGapMs: number,
+    pitchJitter = 0,
+  ): CueSound => ({
+    files: [`sfx/${folder}/${file}.wav`],
+    volume,
+    maxVoices,
+    minGapMs,
+    pitchJitter,
+  });
+  return {
+    id,
+    name,
+    credit: 'Original, made for Lane Siege (public domain)',
+    cues: {
+      'attack.impact': cue('attack-impact', 0.32, 3, 55, 0.08),
+      'attack.pierce': cue('attack-pierce', 0.3, 3, 55, 0.1),
+      'attack.blast': cue('attack-blast', 0.35, 2, 90, 0.08),
+      'attack.arcane': cue('attack-arcane', 0.28, 3, 60, 0.08),
+      'death.monster': cue('death-monster', 0.5, 4, 40, 0.12),
+      'death.unit': cue('death-unit', 0.75, 2, 80, 0.06),
+      'death.boss': cue('death-boss', 1, 1, 400),
+      'fortress.hit': cue('fortress-hit', 0.8, 1, 500, 0.05),
+      'wave.start': cue('wave-start', 0.85, 1, 1000),
+      'wave.cleared': cue('wave-cleared', 0.8, 1, 1000),
+      'send.incoming': cue('send-incoming', 0.7, 1, 1500),
+      'send.launch': cue('send-launch', 0.45, 2, 150, 0.05),
+      'build.place': cue('build-place', 0.7, 2, 40, 0.05),
+      'build.upgrade': cue('build-upgrade', 0.7, 1, 100),
+      'build.sell': cue('build-sell', 0.7, 1, 80),
+      buy: cue('buy', 0.7, 1, 100),
+      'ui.switch': cue('ui-switch', 0.7, 1, 40),
+      'ui.tap': cue('ui-tap', 0.6, 2, 30),
+      'ui.denied': cue('ui-denied', 0.7, 1, 250),
+      'match.victory': cue('match-victory', 1, 1, 3000),
+      'match.defeat': cue('match-defeat', 1, 1, 3000),
+      'showdown.start': cue('showdown-start', 1, 1, 2000),
+      'showdown.tick': cue('showdown-tick', 0.8, 1, 400),
+    },
+  };
 }
 
-/**
- * The game's own sounds (src/audio/synth/sfx.ts, `npm run audio`).
- *
- * The fight is the busy part: at the height of a late wave the lane lands
- * dozens of blows a second, so attacks are quiet, capped at a few voices and
- * spaced out, and pitch-jittered so a run of the same one does not machine-gun.
- * Anything about you - a sale, an alarm, the fortress - is louder and rarer.
- */
-const SYNTH: SoundPack = {
-  id: 'synth',
-  name: 'Synth',
-  credit: 'Original, made for Lane Siege (public domain)',
-  cues: {
-    'attack.impact': synth('attack-impact', 0.32, 3, 55, 0.08),
-    'attack.pierce': synth('attack-pierce', 0.3, 3, 55, 0.1),
-    'attack.blast': synth('attack-blast', 0.35, 2, 90, 0.08),
-    'attack.arcane': synth('attack-arcane', 0.28, 3, 60, 0.08),
-    'death.monster': synth('death-monster', 0.5, 4, 40, 0.12),
-    'death.unit': synth('death-unit', 0.75, 2, 80, 0.06),
-    'death.boss': synth('death-boss', 1, 1, 400),
-    'fortress.hit': synth('fortress-hit', 0.8, 1, 500, 0.05),
-    'wave.start': synth('wave-start', 0.85, 1, 1000),
-    'wave.cleared': synth('wave-cleared', 0.8, 1, 1000),
-    'send.incoming': synth('send-incoming', 0.7, 1, 1500),
-    'send.launch': synth('send-launch', 0.45, 2, 150, 0.05),
-    'build.place': synth('build-place', 0.7, 2, 40, 0.05),
-    'build.upgrade': synth('build-upgrade', 0.7, 1, 100),
-    'build.sell': synth('build-sell', 0.7, 1, 80),
-    buy: synth('buy', 0.7, 1, 100),
-    'ui.switch': synth('ui-switch', 0.7, 1, 40),
-    'ui.tap': synth('ui-tap', 0.6, 2, 30),
-    'ui.denied': synth('ui-denied', 0.7, 1, 250),
-    'match.victory': synth('match-victory', 1, 1, 3000),
-    'match.defeat': synth('match-defeat', 1, 1, 3000),
-    'showdown.start': synth('showdown-start', 1, 1, 2000),
-    'showdown.tick': synth('showdown-tick', 0.8, 1, 400),
-  },
-};
+/** Smooth and roomy: filtered noise, falling sines (src/audio/synth/sfx.ts). */
+const SYNTH = recipePack('synth', 'Synth', 'synth');
 
-export const SOUND_PACKS: readonly SoundPack[] = [SYNTH];
+/** An old console's sound chip: squares, a triangle, stepped noise (synth/arcade.ts). */
+const ARCADE = recipePack('arcade', 'Arcade', 'arcade');
+
+export const SOUND_PACKS: readonly SoundPack[] = [SYNTH, ARCADE];
 
 export const MUSIC_TRACKS: readonly MusicTrack[] = [
   {
@@ -160,6 +174,24 @@ export const MUSIC_TRACKS: readonly MusicTrack[] = [
     id: 'between-waves',
     title: 'Between Waves',
     file: 'music/between-waves.mp3',
+    credit: 'Original, made for Lane Siege (public domain)',
+  },
+  {
+    id: 'iron-tide',
+    title: 'Iron Tide',
+    file: 'music/iron-tide.mp3',
+    credit: 'Original, made for Lane Siege (public domain)',
+  },
+  {
+    id: 'moonlit-ramparts',
+    title: 'Moonlit Ramparts',
+    file: 'music/moonlit-ramparts.mp3',
+    credit: 'Original, made for Lane Siege (public domain)',
+  },
+  {
+    id: 'charge-of-the-line',
+    title: 'Charge of the Line',
+    file: 'music/charge-of-the-line.mp3',
     credit: 'Original, made for Lane Siege (public domain)',
   },
 ];

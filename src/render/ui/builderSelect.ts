@@ -167,6 +167,9 @@ class BuilderCard extends Container {
   }
 }
 
+/** A card's widest: on a desktop, a grid in the middle rather than bars from edge to edge. */
+const CARD_MAX_WIDTH = 420;
+
 export class BuilderSelect extends Container {
   private readonly scrim = new Graphics();
   private readonly heading: Text;
@@ -174,12 +177,16 @@ export class BuilderSelect extends Container {
   private readonly cards: BuilderCard[] = [];
   private readonly startButton = new Container();
   private readonly startLabel: Text;
+  /** Back to wherever the picker was opened from: home, or a lobby. */
+  private readonly backButton = new Container();
+  private readonly backLabel: Text;
   private chosen: string;
 
   constructor(
     layout: LaneLayout,
     data: GameData,
     private readonly onStart: (builderId: string) => void,
+    private readonly onBack: () => void,
   ) {
     super();
 
@@ -190,6 +197,7 @@ export class BuilderSelect extends Container {
       UI.textMuted,
     );
     this.startLabel = label('Start', 14, UI.background, '700');
+    this.backLabel = label('Back', 14, UI.text, '700');
 
     const builders = data.units.builders;
     this.chosen = builders[0]?.id ?? '';
@@ -206,8 +214,19 @@ export class BuilderSelect extends Container {
     this.startButton.cursor = 'pointer';
     this.startButton.addChild(new Graphics(), this.startLabel);
     this.startButton.on('pointertap', () => this.onStart(this.chosen));
+    this.backButton.eventMode = 'static';
+    this.backButton.cursor = 'pointer';
+    this.backButton.addChild(new Graphics(), this.backLabel);
+    this.backButton.on('pointertap', () => this.onBack());
 
-    this.addChild(this.scrim, this.heading, this.subheading, ...this.cards, this.startButton);
+    this.addChild(
+      this.scrim,
+      this.heading,
+      this.subheading,
+      ...this.cards,
+      this.backButton,
+      this.startButton,
+    );
     this.setLayout(layout);
   }
 
@@ -223,33 +242,48 @@ export class BuilderSelect extends Container {
     centreOn(this.heading, l.width / 2, headTop);
     centreOn(this.subheading, l.width / 2, headTop + 34);
 
-    // Four cards in one column upright, two-by-two sideways: the same cards
-    // and the same height each, using the width a short screen has instead of
-    // the height it does not (layout.ts, `isCompact`).
+    // Four cards in one column on a phone held upright, two-by-two wherever
+    // there is the width for it - sideways, or on a desktop - using the width
+    // a short screen has instead of the height it does not (layout.ts,
+    // `isCompact`). Never wider than `CARD_MAX_WIDTH`: on a big screen the
+    // grid sits in the middle instead of stretching cards from edge to edge.
     const cardHeight = 74;
     const gap = 10;
     const top = headTop + 68;
-    const cols = layout.compact ? 2 : 1;
+    const cols = layout.compact || l.width >= 2 * 340 + gap + 32 ? 2 : 1;
     const rows = Math.ceil(this.cards.length / cols);
-    const cardWidth = (l.width - 32 - gap * (cols - 1)) / cols;
+    const cardWidth = Math.min(CARD_MAX_WIDTH, (l.width - 32 - gap * (cols - 1)) / cols);
+    const gridX = (l.width - (cardWidth * cols + gap * (cols - 1))) / 2;
     this.cards.forEach((card, i) => {
       card.layout(
-        16 + (i % cols) * (cardWidth + gap),
+        gridX + (i % cols) * (cardWidth + gap),
         top + Math.floor(i / cols) * (cardHeight + gap),
         cardWidth,
         cardHeight,
       );
     });
 
+    // Back and Start side by side under the cards, Start the bigger.
     const buttonY = top + rows * (cardHeight + gap) + 16;
-    const buttonWidth = 180;
-    const buttonX = (l.width - buttonWidth) / 2;
+    const startWidth = 180;
+    const backWidth = 110;
+    const backX = (l.width - (backWidth + 12 + startWidth)) / 2;
+    const startX = backX + backWidth + 12;
+
+    const back = this.backButton.children[0] as Graphics;
+    back.clear();
+    back
+      .roundRect(backX, buttonY, backWidth, 46, 10)
+      .fill({ color: UI.panel })
+      .stroke({ width: 1, color: UI.panelEdge });
+    this.backButton.hitArea = new Rectangle(backX, buttonY, backWidth, 46);
+    centreOn(this.backLabel, backX + backWidth / 2, buttonY + 15);
 
     const g = this.startButton.children[0] as Graphics;
     g.clear();
-    g.roundRect(buttonX, buttonY, buttonWidth, 46, 10).fill({ color: UI.accent });
-    this.startButton.hitArea = new Rectangle(buttonX, buttonY, buttonWidth, 46);
-    centreOn(this.startLabel, l.width / 2, buttonY + 15);
+    g.roundRect(startX, buttonY, startWidth, 46, 10).fill({ color: UI.accent });
+    this.startButton.hitArea = new Rectangle(startX, buttonY, startWidth, 46);
+    centreOn(this.startLabel, startX + startWidth / 2, buttonY + 15);
 
     this.refresh();
   }

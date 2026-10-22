@@ -542,7 +542,7 @@ export class Menu extends Container {
     this.effectsLevel.show(s.effects);
     this.mute.show(s.muted);
     this.musicChoice.show(this.musicLabel(s.musicChoice), MUSIC_TRACKS.length + 1);
-    this.nowPlaying.show(this.sound.nowPlaying?.title ?? (s.muted ? 'Muted' : 'Between pieces'));
+    this.nowPlaying.show(this.sound.nowPlaying?.title ?? (s.muted ? 'Muted' : '-'));
     this.soundPack.show(
       SOUND_PACKS.find((p) => p.id === s.soundPack)?.name ?? s.soundPack,
       SOUND_PACKS.length,

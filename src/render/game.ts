@@ -345,9 +345,12 @@ export class Game extends Container {
         if (this.practice) this.startLesson(this.practice.index);
       },
     });
-    this.builderSelect = new BuilderSelect(this.layout, data, (builderId) => {
-      this.chooseBuilder(builderId);
-    });
+    this.builderSelect = new BuilderSelect(
+      this.layout,
+      data,
+      (builderId) => this.chooseBuilder(builderId),
+      () => this.leaveBuilders(),
+    );
     this.home = new HomeScreen(this.layout, {
       onChoose: (mode) => this.chooseMode(mode),
       onEditName: () => void this.editName(),
@@ -1055,6 +1058,18 @@ export class Game extends Container {
     this.afterOffer = null;
     this.boostOffer.close();
     if (play) next?.();
+  }
+
+  /**
+   * Back from the builders: to the lobby they were opened from, to change a
+   * roster without giving up the seat; otherwise to the front.
+   */
+  private leaveBuilders(): void {
+    if (this.transport?.hasLobby && !this.transport.matchStarted) {
+      this.showScreen('lobby');
+      return;
+    }
+    this.goHome();
   }
 
   /** Leave whatever is going on and come back to the front. */

@@ -179,6 +179,59 @@ export interface LaneLayout extends Camera {
   textScale: number;
 }
 
+/**
+ * The short side a big page is laid out as, in CSS pixels, before anything is
+ * added for its being bigger still. Not below `COMPACT_HEIGHT`, so a desktop
+ * gets the front screens' roomy arrangement rather than the squeezed one made
+ * for a phone on its side.
+ */
+const LAID_OUT_SIDE = 560;
+/** How much of a page's short side past `LAID_OUT_SIDE` is laid out rather than zoomed. */
+const LAID_OUT_SHARE = 0.15;
+/** The most the interface is drawn larger, on the biggest screens with no system scaling. */
+const ZOOM_MAX = 2.2;
+
+/** How much of the page the game lays itself out in, and how much larger it is drawn. */
+export interface View {
+  /** The size every layout in the game is computed for. */
+  width: number;
+  height: number;
+  /** Page pixels per laid-out pixel: 1 on a phone, more on a big screen. */
+  zoom: number;
+}
+
+/**
+ * The game's size on a page this size.
+ *
+ * Every screen was written for a phone: text in phone-sized points, cards in
+ * phone-sized columns. On a desktop monitor that left the text tiny and the
+ * cards lost in the middle of the window, or stretched across all of it. So a
+ * page bigger than a phone is ZOOMED: the game is laid out as if the page's
+ * short side were `LAID_OUT_SIDE`, plus a little of whatever it has beyond
+ * that, and drawn larger by the difference - everything at once, text
+ * included. A phone is never zoomed, and is laid out exactly as before; a
+ * laptop is drawn about an eighth larger, a desktop at 1080p about half
+ * again, a bigger one up to `ZOOM_MAX`.
+ *
+ * It is the drawing that is zoomed, not a picture of it: the renderer draws
+ * at the page's own pixel density times the zoom (app.ts), so text and shapes
+ * stay as sharp as they are on a phone. One codebase, one layout system, the
+ * same game on every screen - which is what lets phones and computers share
+ * the same rooms.
+ */
+export function viewFor(pageWidth: number, pageHeight: number): View {
+  const short = Math.min(pageWidth, pageHeight);
+  const laidOut =
+    short <= LAID_OUT_SIDE ? short : LAID_OUT_SIDE + (short - LAID_OUT_SIDE) * LAID_OUT_SHARE;
+  // Rounded down, so the laid-out side never falls below `laidOut`.
+  const zoom = Math.floor(Math.max(1, Math.min(ZOOM_MAX, short / laidOut)) * 100) / 100;
+  return {
+    width: Math.round(pageWidth / zoom),
+    height: Math.round(pageHeight / zoom),
+    zoom,
+  };
+}
+
 /** The short side of the phone the text sizes are written for, in CSS pixels. */
 const TEXT_REFERENCE_SIDE = 390;
 

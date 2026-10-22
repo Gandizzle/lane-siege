@@ -1,5 +1,6 @@
 /**
- * Renders the game's own sounds and music into public/audio/.
+ * Renders the game's own sounds - both recipe packs, Synth and Arcade - and its
+ * music into public/audio/.
  *
  *     npm run audio              everything
  *     npm run audio -- sfx       sound effects only
@@ -34,11 +35,16 @@ import {
   trimTail,
   wav,
 } from '../audio/synth/dsp.ts';
-import { SFX } from '../audio/synth/sfx.ts';
+import { SFX, type SfxRecipe } from '../audio/synth/sfx.ts';
+import { ARCADE_SFX } from '../audio/synth/arcade.ts';
 import { SONGS } from '../audio/synth/music.ts';
 
 const ROOT = join(import.meta.dirname, '..', '..', 'public', 'audio');
-const SFX_DIR = join(ROOT, 'sfx', 'synth');
+/** Each sound pack made from recipes, and the folder under sfx/ it is written to. */
+const PACKS: readonly { folder: string; recipes: readonly SfxRecipe[] }[] = [
+  { folder: 'synth', recipes: SFX },
+  { folder: 'arcade', recipes: ARCADE_SFX },
+];
 const MUSIC_DIR = join(ROOT, 'music');
 const MP3_KBPS = 96;
 /** No sound effect peaks above -1dBFS, whatever its loudness target asks. */
@@ -59,9 +65,15 @@ function row(cells: (string | number)[]): string {
 }
 
 function makeSfx(): void {
-  mkdirSync(SFX_DIR, { recursive: true });
+  for (const { folder, recipes } of PACKS) makePack(folder, recipes);
+}
+
+function makePack(folder: string, recipes: readonly SfxRecipe[]): void {
+  const dir = join(ROOT, 'sfx', folder);
+  mkdirSync(dir, { recursive: true });
+  console.log(`\n${folder}/`);
   console.log(row(['sound', 'seconds', 'peak dB', 'loudness', 'bytes']));
-  for (const recipe of SFX) {
+  for (const recipe of recipes) {
     let sound = dcBlock(recipe.render(seeded(seedFor(recipe.id))));
     // Cut the tail where it drops out of earshot under the game, and fade the
     // cut so it is not heard as one.
@@ -73,7 +85,7 @@ function makeSfx(): void {
     const limited = peak(sound) > CEILING;
     if (limited) scale(sound, CEILING / peak(sound));
     const file = wav([sound], RATE / 2);
-    writeFileSync(join(SFX_DIR, `${recipe.id}.wav`), file);
+    writeFileSync(join(dir, `${recipe.id}.wav`), file);
     console.log(
       row([
         recipe.id,

@@ -1160,6 +1160,10 @@ music is a list of tracks; the setting names one to repeat, or `shuffle`, which
 picks at random each time a piece ends and never picks the one that just
 finished. The pieces have endings rather than seamless loops, so nothing
 depends on an MP3 looping without a gap, which browsers do not do reliably.
+Between two pieces there is a four-second pause, and a skip fades the old one
+out first; the next piece is chosen the moment the last one ends or is skipped,
+so the menu's "Now playing" names it straight away rather than naming the
+silence.
 
 **Settings are what a menu will edit.** Levels (master, music, effects), mute,
 the music choice and the pack live in `settings.ts`, saved to `localStorage`
@@ -1183,7 +1187,15 @@ backgrounded app suspends the lot.
 
 **The sounds are our own.** Every file under `public/audio/` is rendered from a
 recipe in `src/audio/synth/` by `npm run audio`: a small offline synthesizer
-(oscillators, filters, envelopes, a Freeverb) and a two-song score. Effects
+(oscillators, filters, envelopes, a Freeverb), two effects packs and a
+five-song score. The packs are two characters for the same 23 cues - Synth
+(sfx.ts), smooth and roomy, and Arcade (arcade.ts), an old console's sound chip
+of squares, a triangle, coin-flip noise and volume in sixteen steps - read from
+one table of volumes and limits in catalog.ts, so a pack is only a sound and
+never a change to how often anything plays. The songs are five moods: "Hold
+the Line" (a drive), "Between Waves" (a breather), "Iron Tide" (a march),
+"Moonlit Ramparts" (a night piece) and "Charge of the Line" (a charge), each a
+minute and a half or so, every tune and chord written for the game. Effects
 ship as 22.05kHz mono WAV, levelled by the loudness of their loudest 50ms rather
 than by peak, since a square-wave alarm and a click with the same peak are
 twenty decibels apart to listen to. Music ships as 96kbps MP3, levelled to one
@@ -1202,8 +1214,9 @@ top band's floor is 102 and it holds three rows of text and the tabs; its hit
 area reaches six pixels past the drawing to make up the rest of a thumb.
 
 What is in it is what exists to be set. Sound: three levels, mute, which music
-plays (one piece or shuffle), skip to the next piece, and which effects pack is
-in use, shown even while there is only one so the option is visible. Then the
+plays (one piece or shuffle), the piece playing - or, in the pause between two,
+the one coming next - with a button to skip to it, and which effects pack is in
+use, Synth or Arcade. Then the
 game: your name, the game speed, whether status markers are drawn (below), the
 battlefield underfoot (below), the effects guide and the damage chart side by side, the Store and Support side
 by side (Progression, below), leaving the match, and closing the menu. Upright it is one
@@ -2041,14 +2054,54 @@ something different:
 
 The front screens — home, roster picker, lobby — are laid out down the middle
 and have no columns to rearrange, so they get one bit instead: `layout.compact`,
-true under 560 pixels of height. It moves the seat cards and the roster cards
-into 2 × 2 grids and tightens the vertical rhythm, which is the difference
-between a lobby that fits a sideways phone and one whose Ready button is off
-the bottom of it.
+true under 560 pixels of height. It moves the seat cards into a 2 × 2 grid and
+tightens the vertical rhythm, which is the difference between a lobby that
+fits a sideways phone and one whose Ready button is off the bottom of it. The
+roster cards go 2 × 2 wherever there is the width for two, sideways or on a
+computer, and are never wider than 420 pixels, so on a big screen they sit as
+a grid in the middle instead of bars from one edge to the other. Under them,
+Back sits beside Start: home, or the lobby the picker was opened from to
+change a roster without giving up the seat.
 
 The Final Showdown needed nothing. Its camera already fits the arena's side to
 the screen's LONGER edge and scrolls the other (`arenaCamera`), which is a rule
 about the arena and the viewport rather than about orientation.
+
+### A computer screen: the same game, drawn larger
+
+Every screen was written for a phone, in phone-sized type and phone-sized
+columns. On a desktop monitor that left the text tiny and the cards either lost
+in the middle or stretched across the whole window. The answer is not a second
+version of the interface: it is one zoom for the whole thing (`viewFor` in
+layout.ts, applied in app.ts).
+
+**A big page is laid out as a smaller one and drawn larger.** The game is laid
+out as if the page's short side were 560 pixels plus 15% of whatever it has
+beyond that, and the renderer draws it at the page's own pixel density
+TIMES the zoom - so nothing is a picture scaled up; text and shapes are drawn
+at the size they appear and stay as sharp as a phone's. Pixi maps a tap
+through the same ratio, so a button is hit where it is drawn.
+
+| page (CSS pixels)           | zoom | laid out as |
+| --------------------------- | ---- | ----------- |
+| a phone, either way up      | 1    | itself      |
+| a tablet, 768 × 1024        | 1.29 | 595 × 794   |
+| a laptop window, 1366 × 650 | 1.13 | 1209 × 575  |
+| a 1080p window, 1920 × 950  | 1.53 | 1255 × 621  |
+| a 1440p window, 2560 × 1300 | 1.93 | 1326 × 674  |
+
+A phone is never zoomed, so it is laid out exactly as it was. The laid-out
+side never falls below 560, the height under which the front screens switch to
+their squeezed sideways-phone arrangement, so a computer gets the roomy one.
+The most it zooms is 2.2, on the biggest screens with no system scaling.
+
+**Why one codebase.** The match is simulated the same way everywhere and the
+rooms do not care what joined them; what differs between a phone and a
+computer is only how big the pixels are. A layout that answers that with one
+number keeps Android, iPhone and a browser on a PC in the same rooms, on the
+same version, with nothing to keep in step between two interfaces. The
+in-match text scale (below) still applies, on top: it sizes the bar's type to
+its panels, and the zoom sizes the whole picture to the page.
 
 ### Gold, gems and supply are pictures
 
@@ -2263,7 +2316,8 @@ there, and building beside a line is most of what the build phase is.
 side of the screen: about 1 on a phone either way up (0.92 on the smallest,
 where the panels have least room), and up to 1.4 on a tablet or a desktop
 window, where the bar's buttons are many times a phone's and phone-sized type
-was lost in them. It is on the layout as `textScale`, and every panel in the bar
+was lost in them. On a big screen the side it reads is the laid-out one, after
+the zoom above, and the zoom then draws the whole thing larger again. It is on the layout as `textScale`, and every panel in the bar
 sizes its type from it — the grid buttons, the tabs, the page number, the
 selected-body panel, its ability chips and the damage panel — so a name is the
 same size on every tab. Sideways the HUD column grows with it too; upright the
