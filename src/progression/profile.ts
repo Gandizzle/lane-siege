@@ -1,14 +1,14 @@
 /**
- * What a player has earned and owns across matches: their XP, the boosts they
- * have going, how much of today's practice allowance is spent, and what they
- * have bought and switched on.
+ * What a player has earned across matches: their XP, the boosts they have
+ * going, how much of today's practice allowance is spent, Supporter or
+ * Founder, what their keys have unlocked, and what they have switched on.
  *
  * Kept on the device for now (store.ts), which makes all of it a claim rather
  * than a fact - exactly as strong as the player id it sits beside
- * (net/identity.ts). That is fine while the only thing a level buys is the
- * right to show it off, and it is why the shape is plain data: when there is a
- * server to award XP and record purchases, this record moves there unchanged
- * and the device keeps a copy.
+ * (net/identity.ts). That is fine while what a level buys is a builder that
+ * is no stronger than the starter and the right to show it off, and it is why
+ * the shape is plain data: when there is a server to award XP and record a
+ * purchase, this record moves there unchanged and the device keeps a copy.
  *
  * Read back field by field, like the preferences, so a field added later
  * defaults in rather than throwing an old save away.
@@ -31,12 +31,18 @@ export interface Profile {
   casual: { day: string; xp: number };
   /** Has bought Supporter (placeholder: nothing can be bought yet). */
   supporter: boolean;
-  /** Store items owned: cosmetics, builders and bundles, by id. */
-  owned: string[];
+  /**
+   * One of the first players to claim it at launch (store.json, founders):
+   * everything a Supporter has, free. Placeholder until there is a server to
+   * count the claims.
+   */
+  founder: boolean;
+  /** What keys have unlocked: a cosmetic by its id, a builder as `builder:<id>`. */
+  unlocked: string[];
+  /** Keys spent. What is left is what the levels have paid, less these. */
+  keysSpent: number;
   /** Cosmetics switched on, by id. Only an unlocked one counts. */
   cosmetics: string[];
-  /** Has opened the store, so its button stops saying NEW. */
-  seenStore: boolean;
 }
 
 export const NEW_PROFILE: Profile = {
@@ -44,10 +50,16 @@ export const NEW_PROFILE: Profile = {
   adBoost: { wavesLeft: 0 },
   casual: { day: '', xp: 0 },
   supporter: false,
-  owned: [],
+  founder: false,
+  unlocked: [],
+  keysSpent: 0,
   cosmetics: [],
-  seenStore: false,
 };
+
+/** A Supporter's perks: bought, or a Founder's for free. */
+export function hasSupporterPerks(profile: Profile): boolean {
+  return profile.supporter || profile.founder;
+}
 
 function count(value: unknown): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
@@ -82,8 +94,11 @@ export function parseProfile(raw: unknown): Profile {
     // starts the day afresh.
     casual: { day: day(casual.day), xp: count(casual.xp) },
     supporter: r.supporter === true,
-    owned: ids(r.owned),
+    founder: r.founder === true,
+    // A save from when things were bought has an `owned` list instead. Only
+    // the test build could fill it, and it is left behind.
+    unlocked: ids(r.unlocked),
+    keysSpent: count(r.keysSpent),
     cosmetics: ids(r.cosmetics),
-    seenStore: r.seenStore === true,
   };
 }

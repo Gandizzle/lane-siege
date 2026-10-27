@@ -1,10 +1,11 @@
 /**
- * The little pictures the Store and the Collection draw their items with.
+ * The little pictures the Collection and the builder picker draw with.
  *
  * Shapes, like everything else in the game (§14.2): a builder is shown by its
  * own six units, a badge by its own glyph, a title by its own words, and the
  * slots nobody has made yet - fortress skins, trails, floors, flourishes - by
- * an icon that says what kind of thing is coming.
+ * an icon that says what kind of thing is coming. And the key that unlocks
+ * them, beside the padlock on what is still locked.
  */
 
 import type { Graphics, StrokeInput } from 'pixi.js';
@@ -38,28 +39,6 @@ export function drawRoster(
       radius,
     );
   });
-}
-
-/** A builder's dearest unit at its highest mark, larger: what a builder grows into. */
-export function drawChampion(
-  g: Graphics,
-  data: GameData,
-  builderId: string,
-  cx: number,
-  cy: number,
-  radius: number,
-): void {
-  const top = data.units.units
-    .filter((u) => u.builderId === builderId)
-    .sort((a, b) => b.rung - a.rung || b.mark - a.mark)[0];
-  if (!top) return;
-  drawEntity(
-    g,
-    { shape: top.shape, damageType: top.damageType, mark: top.mark, outlined: false },
-    cx,
-    cy,
-    radius,
-  );
 }
 
 /**
@@ -139,51 +118,20 @@ export function drawPadlock(g: Graphics, cx: number, cy: number, color: number):
 }
 
 /**
- * The Store's bag, centred on (`cx`, `cy`), about `size` across: a body, a
- * handle, a glint crossing it every few seconds, and two sparkles twinkling
- * out of step. `clock` is in seconds and moves the glint and the sparkles.
+ * A key, centred on (`cx`, `cy`), about `size` across: a ring, a shaft and two
+ * teeth. What every level pays, and what opens a padlock.
  */
-export function drawStoreBag(
-  g: Graphics,
-  cx: number,
-  cy: number,
-  size: number,
-  clock: number,
-): void {
-  const w = size * 0.9;
-  const h = size * 0.8;
-  const top = cy - h / 2 + size * 0.1;
-  g.roundRect(cx - w / 2, top, w, h, size * 0.15).fill({ color: UI.level });
-  strokeArc(g, cx, top, w * 0.28, Math.PI, 0, {
-    width: Math.max(1.5, size * 0.1),
-    color: UI.level,
-  });
-  const sweep = (clock % 3.2) / 0.6;
-  if (sweep < 1) {
-    const gx = cx - w / 2 + sweep * w;
-    g.moveTo(gx - size * 0.12, top + h)
-      .lineTo(gx + size * 0.05, top + h)
-      .lineTo(gx + size * 0.25, top)
-      .lineTo(gx + size * 0.08, top)
-      .closePath()
-      .fill({ color: 0xffffff, alpha: 0.55 });
-  }
-  for (const [dx, dy, phase] of [
-    [0.75, -0.55, 0],
-    [-0.8, -0.35, 1.3],
-  ] as const) {
-    const tw = Math.max(0, Math.sin((clock + phase) * 2.6));
-    if (tw <= 0.05) continue;
-    const sx = cx + dx * size;
-    const sy = cy + dy * size;
-    const r = size * 0.22 * tw;
-    g.poly([sx, sy - r, sx + r * 0.3, sy, sx, sy + r, sx - r * 0.3, sy]).fill({
-      color: UI.level,
-    });
-    g.poly([sx - r, sy, sx, sy - r * 0.3, sx + r, sy, sx, sy + r * 0.3]).fill({
-      color: UI.level,
-    });
-  }
+export function drawKey(g: Graphics, cx: number, cy: number, size: number, color: number): void {
+  const r = size * 0.24;
+  const ringX = cx - size * 0.5 + r;
+  g.circle(ringX, cy, r).fill({ color });
+  g.circle(ringX, cy, r * 0.45).cut();
+  const shaft = size * 0.13;
+  const end = cx + size * 0.5;
+  g.rect(ringX + r * 0.8, cy - shaft / 2, end - (ringX + r * 0.8), shaft).fill({ color });
+  const tooth = size * 0.1;
+  g.rect(end - tooth, cy, tooth, size * 0.2).fill({ color });
+  g.rect(end - tooth * 2.8, cy, tooth, size * 0.15).fill({ color });
 }
 
 /**

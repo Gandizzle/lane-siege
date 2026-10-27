@@ -208,50 +208,61 @@ server-side accounts.
   without a network; `npm run lobby` with real sockets, including a drop and a
   reclaim, and a refused name.
 
-### 11. Monetisation, if any (§18) → **an opt-in ad that boosts XP, a Supporter purchase, and builders and cosmetics for sale that can all be earned by playing**
+### 11. Monetisation, if any (§18) → **one purchase, Supporter, and an opt-in ad that boosts XP; every builder and cosmetic is earned with the keys levels pay**
 
-Decided by the business plan, and built as placeholders until there is a
-payment provider and an ad network. The principle under all of it: nothing that
-is sold changes who wins a match, and everything that is sold can also be
-earned by playing.
+Decided with the developer, replacing the business plan's store of builders,
+cosmetics and bundles: nothing is locked behind money. The one thing for sale
+is Supporter, which changes nothing about who wins; the money otherwise comes
+from an ad nobody has to watch. Built as placeholders until there is a payment
+provider and an ad network.
 
 - **XP and levels.** Every match played to the end earns XP, mostly a normal
   match online; practice and solo earn the same way, up to 500 XP a day.
   XP adds up to a level, shown with your name, with no top level and each level
-  asking a straight-line step more XP than the last (300, 400, 500…). Levels
-  will unlock builders and cosmetics; which level unlocks what is still to be
-  decided, and the levels on the cosmetics now are placeholders.
+  asking a straight-line step more XP than the last (300, 400, 500…).
+- **Every level pays a key, and keys unlock everything.** Ironvow is
+  everyone's; the other three builders cost 3 keys each, so all four are open
+  by level 10. Decorative cosmetics cost 1 or 2 keys. Titles stay tied to the
+  level, and the badges that mean something to what they mean (Veteran at
+  level 10, Supporter, Founder). Keys are spent in the Collection, which is
+  also where everything earned is switched on and off, or on a locked builder
+  in the builder picker. A cosmetic the game does not draw yet cannot be
+  unlocked: it says what it will cost, and waits.
 - **The ad is opt-in and rewarded, and asked about before a game**: Yes plays
   it and adds +50% XP for the next 25 waves, with a "Congratulations" card
   before the game; No goes straight to the game. It is offered whenever fewer
   than 25 boosted waves are left, with no daily limit, so boosts stack to 50.
   Counted in waves rather than matches on purpose: a player out early keeps
   what they did not use.
-- **Support** is one purchase, for good: +75% XP on every match, the ad's +50%
-  XP boost always on with no ads, a badge and a name in the credits. The bonuses
-  add: a Supporter earns 1 + 0.5 + 0.75.
-- **The store** sells builders (each, or all four together) and cosmetics (each,
-  or in bundles). Every builder is free during early access, and the store says
-  so beside the price it will have.
-- **Cosmetics** are unlocked by being free, reaching a level, being a Supporter
-  or owning them, and once unlocked each can be switched on or off.
+- **Supporter** is one purchase, for good: +75% XP on every match and the ad's
+  +50% boost always on with no ads, +125% in all; a badge and a name in the
+  credits. Its button says "Supporter" and, under it, "+125% XP · no ads": the
+  name says it is support, so it is not a purchase in disguise, and the line
+  says what it is worth, so it is not passed over as a donation.
+- **Founders.** At launch, the first 50 players to claim it get everything a
+  Supporter has, free and for good, with a Founder badge and title nobody else
+  can get.
 
 Not built yet: real ads and payments - AdMob through a Capacitor plugin and
-in-app purchases through RevenueCat, by the business plan - and real prices. In
-data/store.json the builder and Supporter prices are the business plan's
-ballparks and the rest are there for the layout. Audio, which shared this
+in-app purchases through RevenueCat, by the business plan - and the Founders'
+claim, which needs a server to count the first 50 and accounts to tie each
+claim to (RevenueCat can grant the entitlement once a server says yes). Until
+then the claim is only in the `?progress=test` build. The Supporter price in
+data/store.json is the business plan's ballpark. Audio, which shared this
 entry, is built - ARCHITECTURE.md, "Sound: cues, packs and a playlist".
 
-- Data: `data/progression.json`, `data/store.json`, `data/cosmetics.json`.
-- Built: `src/progression/` (the rules, pure), `ui/xpReport.ts` (the popup),
-  `ui/boostOffer.ts` (the offer before a game), `ui/storeScreen.ts`,
-  `ui/supportScreen.ts`, `ui/collectionScreen.ts`, `ui/adPlaceholder.ts`
-  (`RewardedAds`), the level on the name card, the lobby and the opponent
-  tabs, and on the wire (ARCHITECTURE.md, "Progression").
-- Checked: `src/progression/progression.test.ts`, `ui/xpReport.test.ts`, and the
-  level's trip through the lobby and the hello in `src/net/lobby.test.ts` and
-  `protocol.test.ts`. `?progress=test` makes the placeholders work on the
-  device.
+- Data: `data/progression.json` (`keys`), `data/store.json` (Supporter and the
+  Founders), `data/cosmetics.json` (what each costs or comes with).
+- Built: `src/progression/` (the rules, pure), `ui/xpReport.ts` (the popup,
+  with the key each level pays), `ui/boostOffer.ts` (the offer before a game),
+  `ui/collectionScreen.ts`, `ui/supportScreen.ts`, the locks in
+  `ui/builderSelect.ts`, `ui/adPlaceholder.ts` (`RewardedAds`), the level on
+  the name card, the lobby and the opponent tabs, and on the wire
+  (ARCHITECTURE.md, "Progression").
+- Checked: `src/progression/progression.test.ts` (keys, unlocks, Founder
+  perks), `ui/xpReport.test.ts`, and the level's trip through the lobby and the
+  hello in `src/net/lobby.test.ts` and `protocol.test.ts`. `?progress=test`
+  makes the placeholders work on the device.
 
 ### 12. Can a unit be sold, and for how much? (§11) → **yes: full price inside the build phase that bought it, half afterwards, and the rate applies per purchase**
 

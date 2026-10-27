@@ -1,16 +1,26 @@
 /**
- * Support: becoming a Supporter. PLACEHOLDER: nothing can be bought yet.
+ * Supporter: the one thing the game sells. PLACEHOLDER: nothing can be bought
+ * yet.
  *
- * One purchase, for good, and the plainest thing the game sells - a thank-you
- * with a little attached (data/store.json): bonus XP on every match, the ad's
- * XP boost always on with no ad, a badge by your name, and your name in the
- * credits. It changes nothing about who wins, and the page says so.
+ * One purchase, for good (data/store.json). Everything else - every builder,
+ * every cosmetic - is earned by playing, with the keys each level pays, so
+ * this is a thank-you with a little attached: bonus XP on every match, the
+ * ad's XP boost always on with no ad, a badge by your name, and your name in
+ * the credits. It changes nothing about who wins, and the page says so.
  *
- * The pitch is the developer's own words, from the data file, so it can be
- * rewritten without touching this. The heart beats; the button is gold.
- * Until there is a payment provider the button says purchases are not open
- * yet (the game's `onBuy`), except in the `?progress=test` build, which grants
- * it on the device - and offers a way to take every test purchase back.
+ * It leads with what it is worth, "+125% XP", worked out from the numbers the
+ * XP is counted with: a page that only said "support" would be skipped by
+ * people who never learned it also boosts their XP, and one that only said
+ * "boost" would be selling something without saying so. The pitch is the
+ * developer's own words, from the data file, so it can be rewritten without
+ * touching this. The heart beats.
+ *
+ * And the Founders: at launch the first players to claim it get all of this
+ * free, with a Founder badge and title. Counting them needs a server, so for
+ * now only the `?progress=test` build shows the claim, and grants it on the
+ * device. Until there is a payment provider the buy button says purchases are
+ * not open yet (the game's `buySupporter`), except in that build, which
+ * grants it too - and offers a way to take both back.
  */
 
 import { Graphics } from 'pixi.js';
@@ -19,26 +29,39 @@ import { percent } from '../../progression/award.ts';
 import type { ProgressStore } from '../../progression/store.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
-import { drawBadgeGlyph } from './levelBadge.ts';
+import { badgeColor, drawBadgeGlyph } from './levelBadge.ts';
 import type { PanelButton } from './menu.ts';
 import { Sheet } from './sheet.ts';
 import { centreOn, label, wrapped } from './text.ts';
 
 export interface SupportHandlers {
   onClose(): void;
-  onBuy(itemId: string, name: string): void;
-  /** `?progress=test` only: undo every test purchase. */
+  onBuy(): void;
+  /** `?progress=test` only, until there is a server to count the claims. */
+  onClaimFounder(): void;
+  /** `?progress=test` only: undo Supporter and Founder. */
   onResetTest(): void;
+}
+
+/** What a Supporter earns on top, in all: the ad's boost always on, and their own. */
+export function supporterBonus(progress: ProgressStore): string {
+  return percent(progress.config.adBoost.bonus + progress.config.supporter.bonus);
 }
 
 export class SupportScreen extends Sheet {
   private readonly heart = new Graphics();
   private readonly checks = new Graphics();
   private readonly headline: Text;
+  private readonly worth: Text;
+  private readonly worthNote: Text;
   private readonly pitch: Text;
   private readonly perks: Text[];
   private readonly buy: PanelButton;
   private readonly footnote: Text;
+  private readonly founderCard = new Graphics();
+  private readonly founderTitle: Text;
+  private readonly founderPitch: Text;
+  private readonly claim: PanelButton;
   private readonly reset: PanelButton;
   private clock = 0;
   private heartAt = { cx: 0, cy: 0 };
@@ -49,22 +72,37 @@ export class SupportScreen extends Sheet {
     private readonly testMode: boolean,
     private readonly handlers: SupportHandlers,
   ) {
-    super(layout, 'Support', '', () => handlers.onClose());
-    const supporter = progress.store.supporter;
+    super(layout, 'Supporter', '', () => handlers.onClose());
+    const store = progress.store;
     this.headline = label('', 18, UI.text, '700');
-    this.pitch = wrapped(supporter.pitch, 12, UI.textMuted);
-    this.perks = supporter.perks.map((perk) => wrapped(perk, 13, UI.text));
-    this.buy = this.button('', () => this.handlers.onBuy('supporter', 'Supporter'), 15);
+    this.worth = label('', 30, UI.level, '700');
+    this.worthNote = label('on every match, for good, with no ads', 12, UI.textMuted, '600');
+    this.pitch = wrapped(store.supporter.pitch, 12, UI.textMuted);
+    this.perks = store.supporter.perks.map((perk) => wrapped(perk, 13, UI.text));
+    this.buy = this.button('', () => this.handlers.onBuy(), 15);
     this.footnote = wrapped('', 10, UI.textMuted);
+    this.founderTitle = label('Founders', 15, UI.text, '700');
+    this.founderPitch = wrapped(
+      store.founders.pitch.replaceAll('{count}', String(store.founders.count)),
+      12,
+      UI.textMuted,
+    );
+    this.claim = this.button('', () => this.handlers.onClaimFounder(), 13);
     this.reset = this.button('Reset test purchases', () => this.handlers.onResetTest(), 11);
     this.body.addChild(
       this.heart,
       this.headline,
+      this.worth,
+      this.worthNote,
       this.pitch,
       this.checks,
       ...this.perks,
       this.buy,
       this.footnote,
+      this.founderCard,
+      this.founderTitle,
+      this.founderPitch,
+      this.claim,
       this.reset,
     );
   }
@@ -89,7 +127,7 @@ export class SupportScreen extends Sheet {
   }
 
   protected layoutBody(width: number): number {
-    const supporter = this.progress.profile.supporter;
+    const { supporter, founder } = this.progress.profile;
     const store = this.progress.store.supporter;
     const cx = width / 2;
     let y = 6;
@@ -97,9 +135,19 @@ export class SupportScreen extends Sheet {
     this.update(0);
     y += 96;
 
-    this.headline.text = supporter ? 'You are a Supporter. Thank you!' : 'Become a Supporter';
+    this.headline.text = founder
+      ? 'You are a Founder. Thank you!'
+      : supporter
+        ? 'You are a Supporter. Thank you!'
+        : 'Become a Supporter';
     centreOn(this.headline, cx, y);
     y += 30;
+    // What it is worth, first and biggest.
+    this.worth.text = `+${supporterBonus(this.progress)} XP`;
+    centreOn(this.worth, cx, y);
+    y += 38;
+    centreOn(this.worthNote, cx, y);
+    y += 26;
     this.pitch.style.wordWrapWidth = width - 16;
     this.pitch.style.align = 'center';
     centreOn(this.pitch, cx, y);
@@ -110,6 +158,7 @@ export class SupportScreen extends Sheet {
     this.checks.clear();
     const bonus = percent(this.progress.config.supporter.bonus);
     const boost = percent(this.progress.config.adBoost.bonus);
+    const perks = supporter || founder;
     this.perks.forEach((perk, i) => {
       perk.text = (store.perks[i] ?? '').replaceAll('{bonus}', bonus).replaceAll('{boost}', boost);
       perk.style.wordWrapWidth = width - 52;
@@ -121,7 +170,7 @@ export class SupportScreen extends Sheet {
         .lineTo(tx + 14, ty - 5)
         .stroke({
           width: 2.5,
-          color: supporter ? UI.healthGood : UI.level,
+          color: perks ? UI.healthGood : UI.level,
           cap: 'round',
           join: 'round',
         });
@@ -132,19 +181,31 @@ export class SupportScreen extends Sheet {
 
     this.buy.place(0, y, width, 48);
     this.buy.set(
-      supporter ? 'Supporter · thank you' : `Become a Supporter · ${store.price}`,
+      supporter
+        ? 'Supporter · thank you'
+        : founder
+          ? 'Founder · all of this is yours'
+          : `Become a Supporter · ${store.price}`,
       'primary',
-      !supporter,
+      !perks,
     );
     y += 58;
 
     this.footnote.text = this.testMode
       ? 'Test build: buying here grants it on this device, and nothing is charged.'
-      : 'Purchases are not open yet. This is what the page will offer when they are.';
+      : 'One purchase, yours for good. Purchases are not open yet: this is what the page will offer when they are.';
     this.footnote.style.wordWrapWidth = width - 16;
     this.footnote.style.align = 'center';
     centreOn(this.footnote, cx, y);
-    y += this.footnote.height + 12;
+    y += this.footnote.height + 16;
+
+    // The Founders, while there are claims to make - for now, in the test
+    // build - and always for a Founder, whose page it is.
+    const founders = this.testMode || founder;
+    for (const piece of [this.founderCard, this.founderTitle, this.founderPitch, this.claim]) {
+      piece.visible = founders;
+    }
+    if (founders) y = this.layoutFounders(y, width, founder);
 
     this.reset.visible = this.testMode;
     if (this.testMode) {
@@ -153,5 +214,28 @@ export class SupportScreen extends Sheet {
       y += 40;
     }
     return y;
+  }
+
+  /** A card under the rest: the star, what a Founder gets, and the claim. */
+  private layoutFounders(y: number, width: number, founder: boolean): number {
+    const pad = 14;
+    this.founderTitle.position.set(pad + 30, y + pad);
+    this.founderPitch.style.wordWrapWidth = width - pad * 2 - 30;
+    this.founderPitch.position.set(pad + 30, y + pad + 22);
+    const buttonY = this.founderPitch.y + this.founderPitch.height + 10;
+    const h = buttonY + 32 + pad - y;
+    this.founderCard.clear();
+    this.founderCard
+      .roundRect(0, y, width, h, 12)
+      .fill({ color: UI.panel })
+      .stroke({ width: 1.5, color: badgeColor('star') });
+    drawBadgeGlyph(this.founderCard, 'star', pad + 11, y + pad + 10, 22, badgeColor('star'));
+    this.claim.place(pad + 30, buttonY, width - pad * 2 - 30, 32);
+    this.claim.set(
+      founder ? 'You are a Founder' : 'Claim it (test)',
+      founder ? 'plain' : 'primary',
+      !founder,
+    );
+    return y + h + 14;
   }
 }

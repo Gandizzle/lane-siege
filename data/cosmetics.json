@@ -1,5 +1,5 @@
 {
-  "_comment": "Cosmetics (docs/ARCHITECTURE.md, Cosmetics). SCAFFOLDING: the slots and the way an unlocked cosmetic is switched on and off are real; most of the items are placeholders, and which level unlocks which item is still to be decided - the levels below are only there so the unlock rule has something to read. A cosmetic never changes anything §14.2 spends on information: silhouette is armor, fill is damage type, size and pips are mark, and none of those are for sale.",
+  "_comment": "Cosmetics (docs/ARCHITECTURE.md, Cosmetics). SCAFFOLDING: the slots, unlocking and switching on and off are real; most of the items are placeholders for art to come. Titles, and the badges that mean something, are earned by what they mean - a level, being a Supporter or a Founder. Everything else costs keys, which every level pays (progression.json, keys). A cosmetic in a slot the game does not draw yet (live: false) cannot be unlocked: nobody spends keys on something they cannot see. A cosmetic never changes anything §14.2 spends on information: silhouette is armor, fill is damage type, size and pips are mark, and none of those are for sale.",
   "slots": [
     {
       "id": "title",
@@ -46,7 +46,7 @@
   ],
   "cosmetics": [
     {
-      "_comment": "unlock: free (everyone has it), level (reach it), supporter (be one), store (buy it, alone or in a bundle). Any one of them unlocks it.",
+      "_comment": "unlock: free (everyone has it), level (reach it), supporter (be one), founder (be one), keys (spend them). Any one of them unlocks it.",
       "id": "title_recruit",
       "slot": "title",
       "name": "Recruit",
@@ -69,8 +69,7 @@
       "id": "title_founder",
       "slot": "title",
       "name": "Founder",
-      "unlock": { "store": true },
-      "price": null
+      "unlock": { "founder": true }
     },
     {
       "id": "badge_supporter",
@@ -91,62 +90,56 @@
       "slot": "badge",
       "name": "Founder",
       "glyph": "star",
-      "unlock": { "store": true },
-      "price": null
+      "unlock": { "founder": true }
     },
     {
       "id": "fortress_granite",
       "slot": "fortress",
       "name": "Granite Keep",
-      "unlock": { "level": 8 }
+      "unlock": { "keys": 1 }
     },
     {
       "id": "fortress_obsidian",
       "slot": "fortress",
       "name": "Obsidian Keep",
-      "unlock": { "store": true },
-      "price": "$1.99"
+      "unlock": { "keys": 2 }
     },
     {
       "id": "fortress_gilded",
       "slot": "fortress",
       "name": "Gilded Keep",
-      "unlock": { "store": true },
-      "price": "$1.99"
+      "unlock": { "keys": 2 }
     },
     {
       "id": "trail_ember",
       "slot": "trail",
       "name": "Ember Trail",
-      "unlock": { "store": true },
-      "price": "$0.99"
+      "unlock": { "keys": 1 }
     },
-    { "id": "trail_frost", "slot": "trail", "name": "Frost Trail", "unlock": { "level": 12 } },
+    { "id": "trail_frost", "slot": "trail", "name": "Frost Trail", "unlock": { "keys": 1 } },
     {
       "id": "floor_checker",
       "slot": "floor",
       "name": "Checkered Spoke",
-      "unlock": { "level": 20 }
+      "unlock": { "keys": 1 }
     },
     {
       "id": "floor_starfield",
       "slot": "floor",
       "name": "Starfield Spoke",
-      "unlock": { "store": true },
-      "price": "$1.99"
+      "unlock": { "keys": 2 }
     },
     {
       "id": "victory_fireworks",
       "slot": "victory",
       "name": "Fireworks",
-      "unlock": { "store": true },
-      "price": "$1.99"
+      "unlock": { "keys": 2 }
     },
     {
       "id": "victory_confetti",
       "slot": "victory",
       "name": "Confetti Storm",
-      "unlock": { "level": 25 }
+      "unlock": { "keys": 2 }
     }
   ]
 }

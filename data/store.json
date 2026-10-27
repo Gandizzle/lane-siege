@@ -1,39 +1,19 @@
 {
-  "_comment": "PLACEHOLDERS. Nothing can be bought yet: there is no payment provider and no server to record a purchase, and every button that would take money says so instead. These are the shapes the store and the Support page will have, and the prices are first guesses from the business plan. Everything here is also earnable by playing, except Supporter, which is a thank-you rather than an unlock.",
-  "builderPrice": "$2.99",
-  "builderNote": "Free during early access",
-  "bundles": [
-    {
-      "_comment": "Featured: the banner at the top of the store.",
-      "id": "founders",
-      "name": "Founder's Pack",
-      "blurb": "Every builder, the Founder title and badge, and the Gilded Keep fortress",
-      "price": "$9.99",
-      "was": "$16.95",
-      "builders": "all",
-      "cosmetics": ["title_founder", "badge_founder", "fortress_gilded"],
-      "featured": true
-    },
-    {
-      "id": "all_builders",
-      "name": "Every Builder",
-      "blurb": "All four builders at once",
-      "price": "$7.99",
-      "was": "$11.96",
-      "builders": "all",
-      "cosmetics": [],
-      "featured": false
-    }
-  ],
+  "_comment": "What money buys: one thing, Supporter. Everything else - every builder, every cosmetic, every title - is earned by playing, with the keys each level pays (progression.json, keys), and Supporter changes nothing about who wins. PLACEHOLDER: nothing can be bought yet. There is no payment provider and no server to record a purchase, and the button says so.",
   "supporter": {
-    "_comment": "One purchase, for good. The Support page shows the pitch and lists the perks; {bonus} in a perk is filled in from progression.json's supporter.bonus and {boost} from its adBoost.bonus, so the page and the XP it pays cannot disagree.",
+    "_comment": "One purchase, for good. The Supporter page leads with what it is worth in all - {bonus} plus {boost} - and lists the perks; {bonus} in a perk is filled in from progression.json's supporter.bonus and {boost} from its adBoost.bonus, so the page and the XP it pays cannot disagree.",
     "price": "$4.99",
-    "pitch": "Lane Siege is made by one developer. If you are enjoying it, becoming a Supporter is the most direct way to keep it going - and it changes nothing about who wins.",
+    "pitch": "Lane Siege is made by one developer, and Supporter is the only thing it sells - every builder and every cosmetic is earned by playing. If you are enjoying it, this is the most direct way to keep it going, and it changes nothing about who wins.",
     "perks": [
       "+{bonus} XP on every match, for good",
       "The +{boost} XP boost always on, no ads",
       "A Supporter badge by your name",
       "Your name in the credits"
     ]
+  },
+  "founders": {
+    "_comment": "At launch, the first players to claim it - count of them - are Founders: everything a Supporter has, free, for good, with a Founder badge and title (cosmetics.json) nobody else can get. {count} in the pitch is filled in from count. PLACEHOLDER: counting claims needs a server to count them on and accounts to count, and neither exists yet - so for now only the ?progress=test build offers the claim, and it grants it on that device.",
+    "count": 50,
+    "pitch": "The first {count} players to claim it are Founders: everything a Supporter gets, free and for good, with a Founder badge and title nobody else will ever have."
   }
 }

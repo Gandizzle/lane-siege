@@ -13,11 +13,17 @@
  * HAVING ONE, AND WEARING IT
  *
  * A cosmetic is unlocked by any one of the ways its data lists (`Unlock`):
- * everybody has it, a level reached, Supporter, or bought. Once unlocked it
- * can be switched on or off. In a slot that holds one at a time (a title, a
- * fortress) switching one on switches the others off; badges are worn
- * together. A cosmetic switched on and later locked again - Supporter undone,
- * say - simply stops counting, and comes back with the unlock.
+ * everybody has it, a level reached, Supporter, Founder, or keys spent on it.
+ * Titles, and the badges that mean something, come by what they mean; the
+ * rest cost keys, which every level pays (progression.json) - and nothing is
+ * bought with money. Once unlocked a cosmetic can be switched on or off. In a
+ * slot that holds one at a time (a title, a fortress) switching one on
+ * switches the others off; badges are worn together. A cosmetic switched on
+ * and later locked again - Supporter undone, say - simply stops counting, and
+ * comes back with the unlock.
+ *
+ * Keys are only spent on what the game can draw: a slot it does not draw yet
+ * is "coming soon", and nothing in it can be unlocked until it is (`forSale`).
  */
 
 import type { Cosmetic, CosmeticSlot, CosmeticsConfig } from './config.ts';
@@ -25,9 +31,11 @@ import type { Cosmetic, CosmeticSlot, CosmeticsConfig } from './config.ts';
 /** What unlocking reads off a player. */
 export interface Holder {
   level: number;
+  /** Has a Supporter's perks: bought, or as a Founder. */
   supporter: boolean;
-  /** Store items owned: cosmetics directly, or a bundle that contains them. */
-  owned: readonly string[];
+  founder: boolean;
+  /** What keys have unlocked, by id. */
+  unlocked: readonly string[];
 }
 
 export function slotOf(config: CosmeticsConfig, cosmetic: Cosmetic): CosmeticSlot | null {
@@ -43,18 +51,30 @@ export function isUnlocked(cosmetic: Cosmetic, holder: Holder): boolean {
   if (u.free) return true;
   if (u.level !== null && holder.level >= u.level) return true;
   if (u.supporter && holder.supporter) return true;
-  if (u.store && holder.owned.includes(cosmetic.id)) return true;
+  if (u.founder && holder.founder) return true;
+  if (u.keys !== null && holder.unlocked.includes(cosmetic.id)) return true;
   return false;
 }
 
-/** How to get one, in a few words, for a locked card. The first way listed wins. */
+/** Whether keys can unlock it now: it has a cost, and its slot is drawn. */
+export function forSale(config: CosmeticsConfig, cosmetic: Cosmetic): boolean {
+  return cosmetic.unlock.keys !== null && (slotOf(config, cosmetic)?.live ?? false);
+}
+
+/** "1 key", "3 keys". */
+export function keyCount(n: number): string {
+  return `${n} ${n === 1 ? 'key' : 'keys'}`;
+}
+
+/** How to get one, in a few words, for a locked card. */
 export function howToUnlock(cosmetic: Cosmetic): string {
   const u = cosmetic.unlock;
   const ways: string[] = [];
   if (u.free) ways.push('Everyone has this');
   if (u.level !== null) ways.push(`Reach level ${u.level}`);
   if (u.supporter) ways.push('For Supporters');
-  if (u.store) ways.push(cosmetic.price ? `In the store, ${cosmetic.price}` : 'In a store bundle');
+  if (u.founder) ways.push('For Founders');
+  if (u.keys !== null) ways.push(keyCount(u.keys));
   return ways.join(' · ');
 }
 

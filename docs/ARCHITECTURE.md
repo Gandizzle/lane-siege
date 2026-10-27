@@ -1251,8 +1251,8 @@ plays (one piece or shuffle), the piece playing - or, in the pause between two,
 the one coming next - with a button to skip to it, and which effects pack is in
 use, Synth or Arcade. Then the
 game: your name, the game speed, whether status markers are drawn (below), the
-battlefield underfoot (below), the effects guide and the damage chart side by side, the Store and Support side
-by side (Progression, below), leaving the match, and closing the menu. Upright it is one
+battlefield underfoot (below), the effects guide and the damage chart side by side, the Collection and
+Supporter side by side (Progression, below), leaving the match, and closing the menu. Upright it is one
 column; on a short screen the two sections sit side by side, since one column
 of every row would run off the bottom.
 
@@ -1291,17 +1291,16 @@ not new layout. Esc opens and closes it.
 **A player levels up by playing, and the level is shown with their name.**
 Every match a player plays to the end earns XP, the XP adds up to a level, and
 the level sits beside the name on the home screen, in the lobby's seats and on
-the opponent tabs. It is for show: nothing in a match reads it. Later, levels
-will unlock builders and cosmetics, so that everything for sale can also be
-earned by playing; which level unlocks what is still to be decided (the
-numbers on the cosmetics in `data/cosmetics.json` are placeholders).
+the opponent tabs. Nothing in a match reads it; what it buys is outside the
+match: every level climbed pays a key, and keys unlock builders and cosmetics
+(below). Money buys none of them - the one thing for sale is Supporter.
 
-**None of it is the simulation's.** XP, levels, purchases and cosmetics live in
-`src/progression/` and three data files - `data/progression.json`,
+**None of it is the simulation's.** XP, levels, keys, Supporter and cosmetics
+live in `src/progression/` and three data files - `data/progression.json`,
 `data/store.json` and `data/cosmetics.json` - read and checked strictly at
 start-up (`config.ts`), and kept out of `GameData` on purpose: a match plays out
-the same whoever is in it and whatever they own, and leaving these out of what
-the simulation is built from makes that true by construction.
+the same whoever is in it and whatever they have unlocked, and leaving these
+out of what the simulation is built from makes that true by construction.
 
 **The curve.** XP from level L to L + 1 is `first + step × (L − 1)` - 300 to
 reach level 2, then 400, 500 and so on (`levels.ts`). Each level asks a little
@@ -1314,6 +1313,28 @@ total is quadratic and never runs away, and there is no top level.
 | 10    | 6,300     | 21                          |
 | 20    | 22,800    | 76                          |
 | 30    | 49,300    | 164                         |
+
+**Keys: what levels pay, and what they unlock** (`progression/store.ts`). Every
+level climbed pays a key (`keys.perLevel`), so level L has paid L - 1, and keys
+are the only way anything is unlocked:
+
+- **Builders.** Ironvow is everyone's from the start (`keys.starter`); the other
+  three cost 3 keys each (`keys.builder`), so all four are open by level 10 -
+  about 21 normal matches, 14 with the ad's boost kept going, 10 as a
+  Supporter, or 13 days of practice and solo at the daily cap.
+- **Cosmetics** that decorate - fortress skins, trails, floors, flourishes -
+  cost 1 or 2 keys each (`unlock.keys` in cosmetics.json), 14 in all today.
+  Titles, and the badges that mean something, are not for keys: they come with
+  what they mean - a level, Supporter, Founder.
+- **Nothing the game does not draw yet.** A slot that is "coming soon" shows
+  what its cosmetics will cost, and cannot be unlocked until it is drawn:
+  nobody spends keys on something they cannot see.
+
+What is left is what the levels have paid less what has been spent
+(`keysSpent`, with what it went on in `unlocked`), so a key is never paid twice
+or lost. Keys are spent in the Collection, or in the builder picker, where a
+locked builder's card shows a padlock and its price and Start turns into
+Unlock - its own tap, so nobody spends keys meaning to start a match.
 
 **What a match earns** (`award.ts`). A normal match - online, against other
 people - pays for playing to the end of your match (50; eliminated counts,
@@ -1357,8 +1378,8 @@ breakdown, in purple.
 end-of-match card: the lines arrive in turn and count up, then the total, then
 the bar fills from where you were to where you are now. Crossing a level is the
 moment - the bar fills to the end, the badge turns over to the new level with
-"Level N!", a burst and the wave-cleared fanfare, and the bar starts again from
-empty, as many times as it takes. A tap skips to the end. Under the bar, a line
+"Level N! +1 key", a burst and the wave-cleared fanfare, and the bar starts
+again from empty, as many times as it takes. A tap skips to the end. Under the bar, a line
 says how many boosted waves are left; the ad itself is not offered here, but
 before the next game, where saying yes changes the waves about to be played.
 The timeline is a pure function of the award (`planReport`, `reportFrame`), so the
@@ -1374,45 +1395,52 @@ in the hello (`teamLevels`), from where it reaches `Team.level` and the view
 (`OpponentView.level`, `MatchView.teamLevel`). Like the name, it is a claim
 rather than a proof - which is why it is only ever shown.
 
-**The Store, Support and the Collection** are sheets over the home screen
-(`ui/sheet.ts`: a scrim, a title, a body that scrolls by drag or wheel). They
-are reached from three buttons under the ways to play, dressed to be noticed
-without shouting: the Store's border is gold, a glint crosses its bag every few
-seconds and a NEW ribbon stays until it is first opened; Support's heart beats;
-the Collection says how much of it you have. The Store and Support are in the
-menu as well.
+**The Collection and Supporter** are sheets over the home screen
+(`ui/sheet.ts`: a scrim, a title, a body that scrolls by drag or wheel), reached
+from two buttons under the ways to play and from the menu. Each is dressed to be
+noticed without shouting. The Collection's edge turns gold and a tag on its
+corner counts the keys while they would unlock something ("3 KEYS"); otherwise
+it says how many are saved, or how much is unlocked. Supporter's heart beats,
+and under its name it says what it is worth - "+125% XP · no ads" - because a
+button that only said "Support" would be skipped by players who never learned
+it boosts XP, and one that only said "Boost" would be a purchase in disguise.
+On a narrow phone the two stand in the right column's spare room.
 
-- **The Store** has three tabs. Featured leads with the Founder's Pack - every
-  builder, a title, a badge and a fortress skin, drawn as each builder's
-  champion unit and the cosmetics' own icons, with what it would cost piece by
-  piece struck through beside its price - then the every-builder bundle and
-  Support. The ad boost is not sold here: it is offered before a game. Builders
-  shows each builder's roster at $2.99, struck
-  through: every builder is free during early access. Cosmetics is the whole
-  catalogue, priced or with how it is earned.
-- **Support** is one purchase, for good: bonus XP on every match, the XP boost
-  always on with no ads, a badge by your name and your name in the credits. The
-  pitch
-  is the data file's words, and it says what the page also means: none of it
-  changes who wins.
-- **The Collection** is every cosmetic by slot, with a switch for each one
-  unlocked and a padlock and how to get it for the rest.
+- **The Collection** is everything there is to earn: the keys there are and the
+  level that pays the next, then the builders, each shown by its six units, then
+  every cosmetic by slot. Something unlocked has a switch (cosmetics) or a tick
+  (builders); the rest says what it costs in keys, or what it comes with, and
+  how far off that is. Spending takes two taps - the first says "Tap again to
+  spend 3 keys", the second within three seconds spends them, as the menu's
+  Leave does - since a key takes a level to earn and a list being scrolled is a
+  list being tapped by accident. A cosmetic is switched on as it is unlocked.
+- **Supporter** is the one purchase, for good: +75% XP on every match and the
+  +50% boost always on with no ads - +125% in all, which the page leads with -
+  a badge by your name and your name in the credits. The pitch is the data
+  file's words, and says what the page also means: none of it changes who wins,
+  and everything else is earned by playing. The ad offer before a game says it
+  once, in passing: Supporters have this boost always on, with no ads.
+- **Founders.** At launch, the first 50 players to claim it get everything a
+  Supporter has, free, for good, with a Founder badge and title nobody else
+  can get (`store.json`, `founders`). Counting the first 50 needs a server to
+  count on and accounts to count, so for now the claim is only in the test
+  build.
 
 **Cosmetics are switched, not equipped.** Each sits in a slot, and a slot
 holds one at a time (a title, a fortress skin) or any number (badges); switching
 one on in a one-at-a-time slot switches the others off (`cosmetics.ts`). A
 cosmetic is unlocked by any one of: being free, reaching a level, being a
-Supporter, or owning it - alone or in a bundle. The switches are saved with the
+Supporter or a Founder, or keys spent on it. The switches are saved with the
 profile. Titles and badges are drawn today, with your name; fortress skins,
 attack trails, arena floors and victory effects are in the Collection marked
-"coming soon", and their switches work and are remembered, so what a player
-chooses now is what they see the day the game learns to draw it.
+"coming soon", with what they will cost.
 
 **Nothing can be bought yet.** There is no payment provider and no ad SDK, so
-every buy button says so. `?progress=test` turns the placeholders into
-something to try: buying grants the item on the device, Support offers a way to
-take every test purchase back, and practice and solo earn XP as a normal match
-would, so the popup and the level-ups can be seen without a server.
+the buy button says so. `?progress=test` turns the placeholders into something
+to try: Supporter and the Founders' claim are granted on the device, with a way
+to take both back; the Collection has a button that climbs a level, keys and
+all; and practice and solo earn XP as a normal match would, so the popup and
+the level-ups can be seen without a server.
 
 ### Status markers: what is happening to a body
 
@@ -1490,7 +1518,7 @@ something carries it.
 
 The lane and the arena can be drawn on a ground other than the flat dark one:
 Meadow, Dunes, Cobblestone or Molten (`src/render/battlefield.ts`). They are
-cosmetic and meant one day to be earned or bought; for now every one is open,
+cosmetic and meant one day to be earned; for now every one is open,
 and `unlockedBattlefields` is the single place that rule will live.
 `battlefieldInUse` is what the renderer draws — the choice, if it is still
 unlocked, and the plain ground otherwise — so a saved choice that stops being
@@ -3092,15 +3120,15 @@ Thornweald now wears all four armors.
   generated, which is what seats and reconnection need and no more. A ladder or
   anything purchasable needs a credential a server holds, and that needs the
   server first. XP, levels and purchases are kept on the device until then.
-- **Payments and real ads** — the Store, Support and the XP boost's ad are
+- **Payments and real ads** — Supporter and the XP boost's ad are
   placeholders (Progression, above). Each is one implementation behind a seam
-  that exists: `RewardedAds` for the ad, the game's `buy` for a purchase.
+  that exists: `RewardedAds` for the ad, the game's `buySupporter` for the
+  purchase.
+- **The Founders' claim** — the first 50 at launch need a server that counts
+  claims and accounts to tie them to; until then only the test build offers it.
 - **Cosmetics past titles and badges** — fortress skins, attack trails, arena
-  floors and victory effects are in the data and the Collection, with working
-  switches, but nothing draws them yet.
-- **What levels unlock** — the level on each cosmetic is a placeholder and
-  every builder is free; tying builders and cosmetics to levels is a decision
-  still to make.
+  floors and victory effects are in the data and the Collection, priced in
+  keys, but nothing draws them yet, so nothing can unlock them yet.
 - **Client-side prediction** — deliberately absent, see the netcode section. The
   cheap version, predicting the wallet rather than the simulation, is the one to
   build if the round trip turns out to feel bad.

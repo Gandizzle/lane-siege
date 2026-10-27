@@ -1,5 +1,5 @@
 {
-  "_comment": "Experience and levels (docs/ARCHITECTURE.md, Progression). XP is earned at the end of a match - mostly from a normal match against other people, and the same way from practice or solo up to a daily cap - and the level it adds up to is shown with your name. Levels will unlock builders and cosmetics; which level unlocks what is still to be decided. Every number here is a first guess, to tune once there are players.",
+  "_comment": "Experience and levels (docs/ARCHITECTURE.md, Progression). XP is earned at the end of a match - mostly from a normal match against other people, and the same way from practice or solo up to a daily cap - and the level it adds up to is shown with your name. Every level climbed pays a key, and keys unlock builders and cosmetics (keys, below). Every number here is a first guess, to tune once there are players.",
   "levels": {
     "_comment": "XP to climb from level L to L + 1 is first + step x (L - 1): 300 to reach level 2, then 400, 500 and so on. A straight line, so every level asks a little more than the last without ever running away, and there is no top. Level 10 is 6,300 XP in all - about twenty normal matches, at the 300 or so an average one earns.",
     "first": 300,
@@ -24,7 +24,13 @@
     "maxWaves": 50
   },
   "supporter": {
-    "_comment": "A Supporter earns bonus more on every match, for good, and has the ad's boost always on besides (adBoost). Boosts add rather than multiply: the two together are 1 + 0.5 + 0.75 = 2.25 times.",
+    "_comment": "A Supporter earns bonus more on every match, for good, and has the ad's boost always on besides (adBoost). Boosts add rather than multiply: the two together are 1 + 0.5 + 0.75 = 2.25 times, +125%. A Founder (store.json, founders) has everything a Supporter has.",
     "bonus": 0.75
+  },
+  "keys": {
+    "_comment": "What levels pay, and what builders and cosmetics are unlocked with - nothing in the game is bought with money but Supporter. perLevel keys for every level climbed, none for level 1, so level L has paid (L - 1) x perLevel. Every builder but the starter costs builder keys: three of them at 3 keys is all four builders by level 10. A cosmetic's cost is in cosmetics.json; titles and the badges that mean something are earned by what they mean instead.",
+    "perLevel": 1,
+    "builder": 3,
+    "starter": "ironvow"
   }
 }

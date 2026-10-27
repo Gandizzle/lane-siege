@@ -88,11 +88,11 @@ import { GameOver } from './ui/gameOver.ts';
 import { HomeScreen, type HomeProfile, type MatchMode } from './ui/homeScreen.ts';
 import { XpReport } from './ui/xpReport.ts';
 import { BoostOffer } from './ui/boostOffer.ts';
-import { StoreScreen } from './ui/storeScreen.ts';
-import { SupportScreen } from './ui/supportScreen.ts';
+import { SupportScreen, supporterBonus } from './ui/supportScreen.ts';
 import { CollectionScreen } from './ui/collectionScreen.ts';
 import type { RewardedAds } from './ui/adPlaceholder.ts';
 import { waveCount, type XpAward, type XpMode } from '../progression/award.ts';
+import { forSale } from '../progression/cosmetics.ts';
 import type { ProgressStore } from '../progression/store.ts';
 import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
@@ -142,14 +142,15 @@ export interface GameServices {
   sound: SoundSystem;
   /** Status markers and game speed, which the menu edits too (preferences.ts). */
   preferences: PreferenceStore;
-  /** XP, levels, boosts, what is owned and worn (src/progression). */
+  /** XP, levels, boosts, keys, what is unlocked and worn (src/progression). */
   progress: ProgressStore;
   /** The opt-in ad behind the XP boost. A placeholder for now (ui/adPlaceholder.ts). */
   ads: RewardedAds;
   /**
-   * `?progress=test`: practice and solo count as normal matches for XP, and
-   * the store's placeholder buttons grant what they would sell - so the whole
-   * loop can be tried without a server or a payment provider.
+   * `?progress=test`: practice and solo count as normal matches for XP, the
+   * Supporter button and the Founders' claim grant what they would, and the
+   * Collection has a button that climbs a level - so the whole loop can be
+   * tried without a server or a payment provider.
    */
   progressTest: boolean;
 }
@@ -248,7 +249,6 @@ export class Game extends Container {
   private afterOffer: (() => void) | null = null;
   /** The ad is up: a second Yes must not start a second one. */
   private watchingAd = false;
-  private readonly storeScreen: StoreScreen;
   private readonly supportScreen: SupportScreen;
   private readonly collectionScreen: CollectionScreen;
   /** Where the legend button was last put, so it is only moved when that changes. */
@@ -348,9 +348,20 @@ export class Game extends Container {
         if (this.practice) this.startLesson(this.practice.index);
       },
     });
+    const progress = services.progress;
     this.builderSelect = new BuilderSelect(
       this.layout,
       data,
+      {
+        owns: (id) => progress.ownsBuilder(id),
+        cost: (id) => progress.builderCost(id),
+        keysLeft: () => progress.keys.left,
+        unlock: (id) => {
+          const done = progress.unlockBuilder(id);
+          if (done) this.unlocked(data.units.builders.find((b) => b.id === id)?.name ?? id);
+          return done;
+        },
+      },
       (builderId) => this.chooseBuilder(builderId),
       () => this.leaveBuilders(),
     );
@@ -358,9 +369,8 @@ export class Game extends Container {
       onChoose: (mode) => this.chooseMode(mode),
       onEditName: () => void this.editName(),
       onPrivateRoom: () => void this.askRoomCode(),
-      onStore: () => this.openStore(),
       onCollection: () => this.openCollection(),
-      onSupport: () => this.openSupport(),
+      onSupporter: () => this.openSupport(),
     });
     this.xpReport = new XpReport(this.layout, {
       onClose: () => this.xpReport.close(),
@@ -371,26 +381,27 @@ export class Game extends Container {
       onSkip: () => this.leaveOffer(true),
       onPlay: () => this.leaveOffer(true),
     });
-    this.storeScreen = new StoreScreen(this.layout, data, services.progress, {
-      onClose: () => this.storeScreen.close(),
-      onBuy: (id, name) => this.buy(id, name),
-      onSupport: () => this.openSupport(),
-      onCollection: () => this.openCollection(),
-    });
-    this.supportScreen = new SupportScreen(this.layout, services.progress, services.progressTest, {
+    this.supportScreen = new SupportScreen(this.layout, progress, services.progressTest, {
       onClose: () => this.supportScreen.close(),
-      onBuy: (id, name) => this.buy(id, name),
+      onBuy: () => this.buySupporter(),
+      onClaimFounder: () => this.claimFounder(),
       onResetTest: () => {
         this.services.progress.clearPurchases();
         this.toast.showText('Test purchases taken back');
         this.progressChanged();
       },
     });
-    this.collectionScreen = new CollectionScreen(this.layout, services.progress, {
-      onClose: () => this.collectionScreen.close(),
-      onStore: () => this.openStore(),
-      onChanged: () => this.progressChanged(),
-    });
+    this.collectionScreen = new CollectionScreen(
+      this.layout,
+      data,
+      progress,
+      services.progressTest,
+      {
+        onClose: () => this.collectionScreen.close(),
+        onChanged: () => this.progressChanged(),
+        onUnlocked: (name) => this.unlocked(name),
+      },
+    );
     this.lobbyScreen = new LobbyScreen(this.layout, data, {
       onReady: (ready) => this.transport?.setReady(ready),
       onChangeBuilder: () => this.showScreen('builder'),
@@ -425,8 +436,8 @@ export class Game extends Container {
       },
       // Over the menu rather than instead of it: closing it goes back there.
       onBattlefields: () => this.battlefieldPicker.open(),
-      onStore: () => this.openStore(),
-      onSupport: () => this.openSupport(),
+      onCollection: () => this.openCollection(),
+      onSupporter: () => this.openSupport(),
     });
     this.tutorialScreen = new TutorialScreen(this.layout, LESSONS.map(lessonEntry), {
       onStart: (index) => this.startLesson(index),
@@ -495,9 +506,7 @@ export class Game extends Container {
       // Over the menu, which is one of the two ways into it.
       this.effectsPanel,
       this.damageChart,
-      // From the home screen or the menu, so over both; the store opens the
-      // other two, so they come after it.
-      this.storeScreen,
+      // From the home screen or the menu, so over both.
       this.collectionScreen,
       this.supportScreen,
       // Over everything: it stands between a tap on a builder and the game.
@@ -519,7 +528,7 @@ export class Game extends Container {
       if (!this.watchingAd) this.leaveOffer(!this.boostOffer.asking);
       return;
     }
-    for (const sheet of [this.supportScreen, this.collectionScreen, this.storeScreen]) {
+    for (const sheet of [this.supportScreen, this.collectionScreen]) {
       if (sheet.isOpen) {
         sheet.close();
         return;
@@ -607,6 +616,8 @@ export class Game extends Container {
     this.screen = screen;
     this.home.visible = screen === 'home';
     this.builderSelect.visible = screen === 'builder';
+    // The Collection may have unlocked a builder since the picker was last up.
+    if (screen === 'builder') this.builderSelect.refresh();
     this.showdownSetup.visible = screen === 'showdownSetup';
     this.tutorialScreen.visible = screen === 'tutorial';
     if (screen === 'home') this.refreshHome();
@@ -627,12 +638,38 @@ export class Game extends Container {
       badges,
       boostWaves: progress.boost().wavesLeft,
       boostAlways: progress.boost().alwaysOn,
-      storeNew: !progress.profile.seenStore,
-      supporter: progress.profile.supporter,
-      collection: {
-        unlocked: progress.cosmetics.cosmetics.filter((c) => progress.isUnlocked(c)).length,
-        total: progress.cosmetics.cosmetics.length,
-      },
+      supporter: progress.supporter,
+      founder: progress.profile.founder,
+      supporterBonus: supporterBonus(progress),
+      collection: this.collectionCount(),
+    };
+  }
+
+  /**
+   * The Collection's count for its button: builders and cosmetics unlocked, of
+   * how many, the keys there are, and whether they would unlock anything now.
+   */
+  private collectionCount(): HomeProfile['collection'] {
+    const progress = this.services.progress;
+    const builders = this.data.units.builders;
+    const cosmetics = progress.cosmetics.cosmetics;
+    const keys = progress.keys.left;
+    const builderWaiting = builders.some(
+      (b) => !progress.ownsBuilder(b.id) && progress.builderCost(b.id) <= keys,
+    );
+    const cosmeticWaiting = cosmetics.some(
+      (c) =>
+        !progress.isUnlocked(c) &&
+        forSale(progress.cosmetics, c) &&
+        (c.unlock.keys ?? Infinity) <= keys,
+    );
+    return {
+      unlocked:
+        builders.filter((b) => progress.ownsBuilder(b.id)).length +
+        cosmetics.filter((c) => progress.isUnlocked(c)).length,
+      total: builders.length + cosmetics.length,
+      keys,
+      canSpend: keys > 0 && (builderWaiting || cosmeticWaiting),
     };
   }
 
@@ -1183,7 +1220,12 @@ export class Game extends Container {
       wavesPlayed: Math.max(1, view.wave),
       reachedShowdown,
     });
-    this.xpReport.open(result, progress.config.levels, this.boostWords(result.award));
+    this.xpReport.open(
+      result,
+      progress.config.levels,
+      this.boostWords(result.award),
+      progress.config.keys.perLevel,
+    );
   }
 
   /** The boost in a line, under the XP bar: how much of it is left. */
@@ -1196,44 +1238,57 @@ export class Game extends Container {
   }
 
   /**
-   * Buy something. PLACEHOLDER: there is no payment provider yet, so this says
-   * so - except in the `?progress=test` build, which grants it on the device.
+   * Become a Supporter. PLACEHOLDER: there is no payment provider yet, so this
+   * says so - except in the `?progress=test` build, which grants it on the
+   * device.
    */
-  private buy(itemId: string, name: string): void {
+  private buySupporter(): void {
     if (!this.services.progressTest) {
-      this.toast.showText('The store opens soon. Nothing can be bought yet.');
+      this.toast.showText('Purchases open soon. Nothing can be bought yet.');
       return;
     }
-    this.services.progress.grant(itemId);
-    this.toast.showText(`Test purchase: ${name}`);
+    this.services.progress.grantSupporter();
+    this.toast.showText('Test purchase: Supporter');
     this.services.sound.play('buy');
+    this.progressChanged();
+  }
+
+  /**
+   * Claim a Founder's place. PLACEHOLDER: counting the first claims needs a
+   * server, so only the `?progress=test` build offers it, and grants it here.
+   */
+  private claimFounder(): void {
+    if (!this.services.progressTest) return;
+    this.services.progress.grantFounder();
+    this.toast.showText('Test claim: Founder');
+    this.services.sound.play('buy');
+    this.progressChanged();
+  }
+
+  /** Keys were spent on `name`: heard, and said. */
+  private unlocked(name: string): void {
+    this.services.sound.play('buy');
+    this.toast.showText(`Unlocked ${name}`);
     this.progressChanged();
   }
 
   /** Something about progress changed: every screen that shows it, redrawn. */
   private progressChanged(): void {
     if (this.screen === 'home') this.refreshHome();
-    this.storeScreen.refresh();
+    if (this.screen === 'builder') this.builderSelect.refresh();
     this.supportScreen.refresh();
     this.collectionScreen.refresh();
   }
 
-  private openStore(): void {
-    this.setMenu(false);
-    this.collectionScreen.close();
-    this.supportScreen.close();
-    this.services.progress.markStoreSeen();
-    this.storeScreen.open();
-    if (this.screen === 'home') this.refreshHome();
-  }
-
   private openSupport(): void {
     this.setMenu(false);
+    this.collectionScreen.close();
     this.supportScreen.open();
   }
 
   private openCollection(): void {
     this.setMenu(false);
+    this.supportScreen.close();
     this.collectionScreen.open();
   }
 
@@ -1256,7 +1311,6 @@ export class Game extends Container {
     this.gameOver.setLayout(this.layout);
     this.xpReport.setLayout(this.layout);
     this.boostOffer.setLayout(this.layout);
-    this.storeScreen.setLayout(this.layout);
     this.supportScreen.setLayout(this.layout);
     this.collectionScreen.setLayout(this.layout);
     this.arena.setLayout(this.layout.screen, this.layout.tileSize);
@@ -1313,8 +1367,8 @@ export class Game extends Container {
     this.effectsPanel.render(this.statusLog, this.statusClock, deltaMs);
     this.battlefieldPicker.render(deltaMs);
     this.home.update(deltaMs);
-    this.storeScreen.update(deltaMs);
     this.supportScreen.update(deltaMs);
+    this.collectionScreen.update(deltaMs);
     this.xpReport.update(deltaMs);
     this.boostOffer.update(deltaMs);
 

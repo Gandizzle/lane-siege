@@ -1,9 +1,9 @@
 /**
- * The Store's and the Collection's little pictures, built the way the GPU
- * gets them: every corner a real number, and every corner on the picture.
+ * The Collection's little pictures, built the way the GPU gets them: every
+ * corner a real number, and every corner on the picture.
  *
  * The padlock's shackle came with a line to the top-left corner of the
- * screen, twice (storeArt.ts, `strokeArc`): first because the arc joined on
+ * screen, twice (collectionArt.ts, `strokeArc`): first because the arc joined on
  * to the path the fill before it left behind, then because a stroke that
  * starts with a step of no length builds NaN corners - which some GPUs draw
  * as a spike to the corner, and others, the test browser's among them,
@@ -14,7 +14,7 @@ import { buildContextBatches, GpuGraphicsContext, Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { BADGE_GLYPHS, COSMETICS } from '../../progression/config.ts';
 import { drawBadgeGlyph, drawXpBar } from './levelBadge.ts';
-import { drawCosmeticIcon, drawPadlock, drawStoreBag } from './storeArt.ts';
+import { drawCosmeticIcon, drawKey, drawPadlock } from './collectionArt.ts';
 
 /** Every vertex `draw` makes, as the renderer builds them. */
 function vertices(draw: (g: Graphics) => void): number[] {
@@ -34,7 +34,7 @@ function reach(v: number[], cx: number, cy: number): number {
   return far;
 }
 
-describe('the store and collection icons', () => {
+describe('the collection icons', () => {
   it('draw a padlock with real corners, every one of them on the lock', () => {
     const v = vertices((g) => drawPadlock(g, 300, 210, 0xffffff));
     expect(v.length).toBeGreaterThan(0);
@@ -42,12 +42,12 @@ describe('the store and collection icons', () => {
     expect(reach(v, 300, 210)).toBeLessThan(13);
   });
 
-  it('draw the bag the same way, through a whole turn of its glint and sparkles', () => {
-    for (let clock = 0; clock < 3.2; clock += 0.05) {
-      const v = vertices((g) => drawStoreBag(g, 120, 640, 20, clock));
-      const at = `at ${clock.toFixed(2)}s`;
-      expect(v.every(Number.isFinite), at).toBe(true);
-      expect(reach(v, 120, 640), at).toBeLessThan(25);
+  it('draw a key the same way, its ring cut through, at every size it is drawn', () => {
+    for (const size of [12, 16, 22, 40]) {
+      const v = vertices((g) => drawKey(g, 120, 640, size, 0xffffff));
+      expect(v.length, `${size}`).toBeGreaterThan(0);
+      expect(v.every(Number.isFinite), `${size}`).toBe(true);
+      expect(reach(v, 120, 640), `${size}`).toBeLessThanOrEqual(size / 2 + 0.01);
     }
   });
 

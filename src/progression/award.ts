@@ -39,7 +39,7 @@
  */
 
 import type { ProgressionConfig } from './config.ts';
-import type { Profile } from './profile.ts';
+import { hasSupporterPerks, type Profile } from './profile.ts';
 
 /** How the match was played, which decides what it can earn. */
 export type XpMode = 'online' | 'practice' | 'solo';
@@ -166,8 +166,9 @@ export function awardXp(
     const ad = config.adBoost;
     const played = Math.max(1, Math.floor(result.wavesPlayed));
     // A Supporter's covers every wave and uses none up; an ad's covers what
-    // it has left, and those are spent.
-    const covered = next.supporter ? played : Math.min(played, next.adBoost.wavesLeft);
+    // it has left, and those are spent. A Founder's is a Supporter's.
+    const perks = hasSupporterPerks(next);
+    const covered = perks ? played : Math.min(played, next.adBoost.wavesLeft);
     if (covered > 0 && ad.bonus > 0) {
       const share = covered < played ? ` (${covered} of ${played} waves)` : '';
       boosts.push({
@@ -175,13 +176,13 @@ export function awardXp(
         label: `Boost +${percent(ad.bonus)}${share}`,
         xp: Math.round((base * ad.bonus * covered) / played),
       });
-      if (!next.supporter) next.adBoost = { wavesLeft: next.adBoost.wavesLeft - covered };
+      if (!perks) next.adBoost = { wavesLeft: next.adBoost.wavesLeft - covered };
     }
     const supporter = config.supporter.bonus;
-    if (next.supporter && supporter > 0) {
+    if (perks && supporter > 0) {
       boosts.push({
         id: 'supporter',
-        label: `Supporter +${percent(supporter)}`,
+        label: `${next.founder ? 'Founder' : 'Supporter'} +${percent(supporter)}`,
         xp: Math.round(base * supporter),
       });
     }
@@ -207,7 +208,7 @@ export interface BoostStatus {
 export function boostStatus(config: ProgressionConfig, profile: Profile): BoostStatus {
   const ad = config.adBoost;
   const wavesLeft = profile.adBoost.wavesLeft;
-  const alwaysOn = profile.supporter;
+  const alwaysOn = hasSupporterPerks(profile);
   return {
     wavesLeft,
     alwaysOn,

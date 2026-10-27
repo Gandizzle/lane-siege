@@ -14,6 +14,10 @@
  * fewer than 25 are left, as often as the player likes, so boosts stack - to
  * 50 waves at most. The numbers in every sentence come from the data file.
  *
+ * And one quiet line under the buttons: Supporters have this always on, with
+ * no ads. This is where a player is thinking about the boost, so it is where
+ * Supporter is worth a mention - once, in passing, without a button to press.
+ *
  * Nothing here decides anything: the game says when to ask, plays the ad and
  * starts the boost (game.ts, `beforeGame`). This is the card.
  */
@@ -56,6 +60,8 @@ export class BoostOffer extends Container {
   private readonly title: Text;
   private readonly body: Text;
   private readonly note: Text;
+  /** Under the buttons while asking: what a Supporter has instead. */
+  private readonly supporterNote: Text;
   private readonly yes: PanelButton;
   private readonly no: PanelButton;
   private readonly play: PanelButton;
@@ -84,6 +90,12 @@ export class BoostOffer extends Container {
     this.note = wrapped('', 12, UI.xp);
     this.note.style.fontWeight = '700';
     this.note.style.align = 'center';
+    this.supporterNote = wrapped(
+      'Supporters have this boost always on, with no ads.',
+      11,
+      UI.textMuted,
+    );
+    this.supporterNote.style.align = 'center';
     this.yes = new PanelButton(
       'Yes, watch an ad',
       () => {
@@ -114,6 +126,7 @@ export class BoostOffer extends Container {
       this.title,
       this.body,
       this.note,
+      this.supporterNote,
       this.yes,
       this.no,
       this.play,
@@ -217,14 +230,17 @@ export class BoostOffer extends Container {
     const asking = this.face === 'ask';
 
     // Measure the words at this width first: the card is as tall as they are.
-    for (const text of [this.title, this.body, this.note]) text.style.wordWrapWidth = inner;
+    for (const text of [this.title, this.body, this.note, this.supporterNote]) {
+      text.style.wordWrapWidth = inner;
+    }
     this.body.style.fontSize = asking ? 14 : 18;
     this.body.style.fontWeight = asking ? '500' : '700';
     this.body.style.fill = asking ? UI.text : UI.level;
     this.body.style.lineHeight = asking ? 19 : 24;
     const titleH = this.title.text ? this.title.height + 8 : 0;
     const noteH = this.note.text ? this.note.height + 10 : 0;
-    const buttonsH = asking ? 46 + 10 + 40 : 46;
+    const supporterH = asking ? this.supporterNote.height + 12 : 0;
+    const buttonsH = (asking ? 46 + 10 + 40 : 46) + supporterH;
     const h =
       PAD + EMBLEM_R * 2 + 16 + titleH + this.body.height + 10 + noteH + 10 + buttonsH + PAD;
 
@@ -269,12 +285,14 @@ export class BoostOffer extends Container {
 
     this.yes.visible = asking;
     this.no.visible = asking;
+    this.supporterNote.visible = asking;
     this.play.visible = !asking;
     if (asking) {
       this.yes.place(x + PAD, ty, inner, 46);
       this.yes.set('Yes, watch an ad', 'primary', !this.busy);
       this.no.place(x + PAD, ty + 56, inner, 40);
       this.no.set('No, just play', 'plain', !this.busy);
+      centreOn(this.supporterNote, cx, ty + 56 + 40 + 12);
     } else {
       this.play.place(x + PAD, ty, inner, 46);
       this.play.set('Play', 'primary');

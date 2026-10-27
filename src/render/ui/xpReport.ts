@@ -6,7 +6,8 @@
  * arrives in turn and counts up; then the total; then the bar fills from where
  * you were towards where you are now. Crossing a level is the moment: the bar
  * fills to the end, the badge turns over to the new level with a burst and a
- * fanfare, and the bar starts again from empty - as many times as it takes.
+ * fanfare and the key it pays ("Level 7! +1 key", for the Collection), and the
+ * bar starts again from empty - as many times as it takes.
  *
  * A tap on the card skips to the end, so nobody has to sit through it twice.
  * Continue closes it and leaves the end-of-match card underneath.
@@ -20,6 +21,7 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { XpLine } from '../../progression/award.ts';
 import type { LevelCurve } from '../../progression/config.ts';
+import { keyCount } from '../../progression/cosmetics.ts';
 import { levelOf } from '../../progression/levels.ts';
 import type { AwardResult } from '../../progression/store.ts';
 import type { LaneLayout } from '../layout.ts';
@@ -169,6 +171,7 @@ export class XpReport extends Container {
 
   private plan: ReportPlan | null = null;
   private curve: LevelCurve = { first: 1, step: 0 };
+  private keysPerLevel = 0;
   private ms = 0;
   /** The level the bar has reached, to notice it turning over. */
   private shownLevel = 0;
@@ -220,10 +223,14 @@ export class XpReport extends Container {
     return this.visible;
   }
 
-  /** `boost` is the line on the boost under the bar: how much is left. */
-  open(result: AwardResult, curve: LevelCurve, boost: string): void {
+  /**
+   * `boost` is the line on the boost under the bar: how much is left.
+   * `keysPerLevel` is what each level crossed pays, said as it is crossed.
+   */
+  open(result: AwardResult, curve: LevelCurve, boost: string, keysPerLevel = 0): void {
     this.plan = planReport(result);
     this.curve = curve;
+    this.keysPerLevel = keysPerLevel;
     this.ms = 0;
     this.shownLevel = result.before.level;
     this.poppedMs = -1;
@@ -291,7 +298,10 @@ export class XpReport extends Container {
     if (at.level > this.shownLevel) {
       this.shownLevel = at.level;
       this.poppedMs = 0;
-      this.levelUp.text = `Level ${at.level}!`;
+      this.levelUp.text =
+        this.keysPerLevel > 0
+          ? `Level ${at.level}! +${keyCount(this.keysPerLevel)}`
+          : `Level ${at.level}!`;
       this.handlers.onLevelUp(at.level);
     } else if (this.poppedMs >= 0) {
       this.poppedMs += deltaMs;

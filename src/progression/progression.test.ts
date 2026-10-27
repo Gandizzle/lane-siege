@@ -1,9 +1,11 @@
 /**
- * XP, levels, boosts, the store's placeholders and cosmetics (src/progression).
+ * XP, levels, boosts, keys and what they unlock, Supporter and Founder, and
+ * cosmetics (src/progression).
  */
 
 import { describe, expect, it } from 'vitest';
 import { awardXp, boostStatus, ordinal, startBoost, type MatchResult } from './award.ts';
+import unitsJson from '../../data/units.json' with { type: 'json' };
 import {
   COSMETICS,
   PROGRESSION,
@@ -12,7 +14,7 @@ import {
   parseProgression,
   type ProgressionConfig,
 } from './config.ts';
-import { howToUnlock, isUnlocked, setEnabled } from './cosmetics.ts';
+import { forSale, howToUnlock, isUnlocked, setEnabled } from './cosmetics.ts';
 import { levelOf, xpToNext, xpToReach } from './levels.ts';
 import { NEW_PROFILE, dayKey, parseProfile, type Profile } from './profile.ts';
 import { ProgressStore } from './store.ts';
@@ -33,6 +35,7 @@ const CONFIG: ProgressionConfig = {
   casual: { dailyCap: 500 },
   adBoost: { bonus: 1, waves: 25, offerBelow: 25, maxWaves: 50 },
   supporter: { bonus: 0.25 },
+  keys: { perLevel: 1, builder: 3, starter: 'ironvow' },
 };
 
 const won: MatchResult = {
@@ -66,20 +69,23 @@ describe('the data', () => {
   it('reads the shipped files', () => {
     expect(PROGRESSION.levels.first).toBeGreaterThan(0);
     expect(PROGRESSION.match.placement.length).toBeGreaterThanOrEqual(4);
-    expect(STORE.bundles.some((b) => b.featured)).toBe(true);
+    expect(PROGRESSION.keys.perLevel).toBeGreaterThan(0);
+    expect(STORE.supporter.perks.length).toBeGreaterThan(0);
+    expect(STORE.founders.count).toBeGreaterThan(0);
     expect(COSMETICS.slots.length).toBeGreaterThan(0);
   });
 
-  it('puts every bundled cosmetic in the catalogue, and makes every store cosmetic buyable', () => {
-    const ids = new Set(COSMETICS.cosmetics.map((c) => c.id));
-    for (const bundle of STORE.bundles) {
-      for (const id of bundle.cosmetics) expect(ids.has(id), `${bundle.id}: ${id}`).toBe(true);
-    }
-    // A store cosmetic with no price of its own has to come in a bundle, or
-    // nothing would ever sell it.
-    const bundled = new Set(STORE.bundles.flatMap((b) => b.cosmetics));
+  it('starts everyone with a builder, and opens the rest by level 10', () => {
+    const builders = unitsJson.builders.map((b) => b.id);
+    expect(builders).toContain(PROGRESSION.keys.starter);
+    const toUnlockAll = (builders.length - 1) * PROGRESSION.keys.builder;
+    expect(toUnlockAll).toBeLessThanOrEqual((10 - 1) * PROGRESSION.keys.perLevel);
+  });
+
+  it('ties titles to what they mean, and prices the decorations in keys', () => {
     for (const c of COSMETICS.cosmetics) {
-      if (c.unlock.store && c.price === null) expect(bundled.has(c.id), c.id).toBe(true);
+      if (c.slot === 'title') expect(c.unlock.keys, c.id).toBeNull();
+      if (c.unlock.keys !== null) expect([1, 2], c.id).toContain(c.unlock.keys);
     }
   });
 
@@ -97,6 +103,12 @@ describe('the data', () => {
         cosmetics: [{ id: 'x', slot: 'title', name: 'X', unlock: {} }],
       }),
     ).toThrow(/nothing unlocks it/);
+    expect(() =>
+      parseCosmetics({
+        slots: [{ id: 'title', name: 'T', blurb: 'b', exclusive: true, live: true }],
+        cosmetics: [{ id: 'x', slot: 'title', name: 'X', unlock: { keys: 0 } }],
+      }),
+    ).toThrow(/unlock\.keys/);
   });
 });
 
@@ -254,6 +266,13 @@ describe('what a match earns', () => {
     expect(awardXp(CONFIG, profile, won, today).award.total).toBe(1125);
   });
 
+  it('gives a Founder everything a Supporter gets, under their own name', () => {
+    const founder = { ...fresh(), founder: true };
+    const { award } = awardXp(CONFIG, founder, won, today);
+    expect(award.total).toBe(1125);
+    expect(award.boosts.map((b) => b.label)).toEqual(['Boost +100%', 'Founder +25%']);
+  });
+
   it('pays nothing for a place past the end of the list', () => {
     const { award } = awardXp(CONFIG, fresh(), { ...outEarly, placement: 6 }, today);
     expect(award.lines.some((l) => l.id === 'placement')).toBe(false);
@@ -314,10 +333,12 @@ describe('the ad boost', () => {
     expect(startBoost(generous, profile).adBoost.wavesLeft).toBe(50);
   });
 
-  it('is never offered to a Supporter, whose boost is always on', () => {
-    const status = boostStatus(CONFIG, { ...fresh(), supporter: true });
-    expect(status.alwaysOn).toBe(true);
-    expect(status.offer).toBe(false);
+  it('is never offered to a Supporter or a Founder, whose boost is always on', () => {
+    for (const perks of [{ supporter: true }, { founder: true }]) {
+      const status = boostStatus(CONFIG, { ...fresh(), ...perks });
+      expect(status.alwaysOn).toBe(true);
+      expect(status.offer).toBe(false);
+    }
   });
 });
 
@@ -328,11 +349,11 @@ describe('the saved profile', () => {
     expect(parseProfile({ adBoost: { matchesLeft: 2, day: '2026-10-16', watched: 1 } })).toEqual(
       NEW_PROFILE,
     );
-    expect(parseProfile({ xp: 450.7, owned: ['a', 'a', 3], casual: { day: 'today' } })).toEqual({
-      ...NEW_PROFILE,
-      xp: 450,
-      owned: ['a'],
-    });
+    expect(
+      parseProfile({ xp: 450.7, unlocked: ['a', 'a', 3], keysSpent: 2.9, casual: { day: 'x' } }),
+    ).toEqual({ ...NEW_PROFILE, xp: 450, unlocked: ['a'], keysSpent: 2 });
+    // What the test build bought, from before there were keys, is left behind.
+    expect(parseProfile({ owned: ['fortress_gilded'], seenStore: true })).toEqual(NEW_PROFILE);
   });
 
   it('names the day the way daily limits compare it', () => {
@@ -358,20 +379,111 @@ describe('the saved profile', () => {
   });
 });
 
+describe('keys', () => {
+  /** A store at `level`, with nothing spent. */
+  function at(level: number, cosmetics = COSMETICS) {
+    const store = new ProgressStore(memory(), () => new Date(2026, 9, 16), CONFIG, cosmetics);
+    while (store.level.level < level) store.testLevelUp();
+    return store;
+  }
+
+  /** A drawn slot and one coming soon, each with something for keys in it. */
+  const shop = parseCosmetics({
+    slots: [
+      { id: 'badge', name: 'B', blurb: 'b', exclusive: false, live: true },
+      { id: 'trail', name: 'T', blurb: 't', exclusive: true, live: false },
+    ],
+    cosmetics: [
+      { id: 'badge_x', slot: 'badge', name: 'X', glyph: 'star', unlock: { keys: 2 } },
+      { id: 'trail_y', slot: 'trail', name: 'Y', unlock: { keys: 1 } },
+    ],
+  });
+
+  it('pays one for every level climbed, none for the first', () => {
+    expect(at(1).keys).toEqual({ earned: 0, spent: 0, left: 0, nextAt: 2 });
+    expect(at(2).keys.left).toBe(1);
+    expect(at(10).keys.left).toBe(9);
+  });
+
+  it('unlocks a builder once, with enough of them, and never the starter', () => {
+    const store = at(3);
+    expect(store.ownsBuilder('ironvow')).toBe(true);
+    expect(store.unlockBuilder('ironvow')).toBe(false);
+    expect(store.ownsBuilder('pyre')).toBe(false);
+    expect(store.unlockBuilder('pyre')).toBe(false);
+    expect(store.keys.left).toBe(2);
+
+    store.testLevelUp();
+    expect(store.unlockBuilder('pyre')).toBe(true);
+    expect(store.ownsBuilder('pyre')).toBe(true);
+    expect(store.keys).toMatchObject({ earned: 3, spent: 3, left: 0 });
+    expect(store.unlockBuilder('pyre')).toBe(false);
+  });
+
+  it('opens every builder by level 10', () => {
+    const store = at(10);
+    for (const id of ['pyre', 'thornweald', 'gloomtide'])
+      expect(store.unlockBuilder(id)).toBe(true);
+    expect(store.keys.left).toBe(0);
+  });
+
+  it('unlocks a cosmetic the game draws, and switches it on', () => {
+    const store = at(2, shop);
+    const badge = shop.cosmetics[0]!;
+    expect(store.unlockCosmetic('badge_x')).toBe(false);
+    store.testLevelUp();
+    expect(store.unlockCosmetic('badge_x')).toBe(true);
+    expect(store.isOn(badge)).toBe(true);
+    expect(store.keys.left).toBe(0);
+    expect(store.unlockCosmetic('badge_x')).toBe(false);
+  });
+
+  it('spends nothing on a slot that is still to come', () => {
+    const store = at(5, shop);
+    expect(forSale(shop, shop.cosmetics[1]!)).toBe(false);
+    expect(store.unlockCosmetic('trail_y')).toBe(false);
+    expect(store.keys.spent).toBe(0);
+  });
+
+  it('keeps what was spent, and on what, across a reload', () => {
+    const storage = memory();
+    const now = () => new Date(2026, 9, 16);
+    const store = new ProgressStore(storage, now, CONFIG);
+    for (let i = 0; i < 3; i++) store.testLevelUp();
+    store.unlockBuilder('gloomtide');
+    const again = new ProgressStore(storage, now, CONFIG);
+    expect(again.ownsBuilder('gloomtide')).toBe(true);
+    expect(again.keys).toMatchObject({ spent: 3, left: 0 });
+  });
+
+  it('never has fewer than none left', () => {
+    const storage = memory();
+    storage.setItem('lane-siege.profile', JSON.stringify({ xp: 0, keysSpent: 9 }));
+    expect(new ProgressStore(storage, () => new Date(), CONFIG).keys.left).toBe(0);
+  });
+});
+
 describe('cosmetics', () => {
   const [title, other] = COSMETICS.cosmetics.filter((c) => c.slot === 'title' && c.unlock.free);
   const badges = COSMETICS.cosmetics.filter((c) => c.slot === 'badge');
   const leveled = COSMETICS.cosmetics.find((c) => c.unlock.level !== null && !c.unlock.free)!;
   const supporterOnly = COSMETICS.cosmetics.find((c) => c.unlock.supporter)!;
+  const founderOnly = COSMETICS.cosmetics.filter((c) => c.unlock.founder);
+  const forKeys = COSMETICS.cosmetics.find((c) => c.unlock.keys !== null)!;
 
   it('unlocks by any one of the ways listed', () => {
-    const nobody = { level: 1, supporter: false, owned: [] };
+    const nobody = { level: 1, supporter: false, founder: false, unlocked: [] };
     expect(isUnlocked(title!, nobody)).toBe(true);
     expect(isUnlocked(leveled, nobody)).toBe(false);
     expect(isUnlocked(leveled, { ...nobody, level: leveled.unlock.level! })).toBe(true);
     expect(isUnlocked(supporterOnly, nobody)).toBe(false);
     expect(isUnlocked(supporterOnly, { ...nobody, supporter: true })).toBe(true);
+    expect(isUnlocked(founderOnly[0]!, { ...nobody, supporter: true })).toBe(false);
+    expect(isUnlocked(founderOnly[0]!, { ...nobody, founder: true })).toBe(true);
+    expect(isUnlocked(forKeys, nobody)).toBe(false);
+    expect(isUnlocked(forKeys, { ...nobody, unlocked: [forKeys.id] })).toBe(true);
     expect(howToUnlock(leveled)).toContain(`Reach level ${leveled.unlock.level}`);
+    expect(howToUnlock(forKeys)).toMatch(/^\d keys?$/);
   });
 
   it('wears one title at a time, and any number of badges', () => {
@@ -392,24 +504,22 @@ describe('cosmetics', () => {
     store.setCosmetic(supporterOnly.id, true);
     expect(store.profile.cosmetics).toEqual([]);
 
-    store.grant('supporter');
+    store.grantSupporter();
     store.setCosmetic(supporterOnly.id, true);
     expect(store.worn('badge').map((c) => c.id)).toEqual([supporterOnly.id]);
 
     store.clearPurchases();
     expect(store.worn('badge')).toEqual([]);
     // Still switched on, and back the moment it is unlocked again.
-    store.grant('supporter');
+    store.grantSupporter();
     expect(store.worn('badge').map((c) => c.id)).toEqual([supporterOnly.id]);
   });
 
-  it('gives a bundle its cosmetics', () => {
+  it("gives a Founder the Founder's badge and title, and a Supporter's", () => {
     const store = new ProgressStore(memory(), () => new Date(2026, 9, 16), CONFIG);
-    const bundle = STORE.bundles.find((b) => b.cosmetics.length > 0)!;
-    store.grant(bundle.id);
-    for (const id of bundle.cosmetics) {
-      const cosmetic = COSMETICS.cosmetics.find((c) => c.id === id)!;
-      expect(store.isUnlocked(cosmetic), id).toBe(true);
-    }
+    store.grantFounder();
+    expect(store.supporter).toBe(true);
+    for (const c of [...founderOnly, supporterOnly]) expect(store.isUnlocked(c), c.id).toBe(true);
+    expect(founderOnly.map((c) => c.slot).sort()).toEqual(['badge', 'title']);
   });
 });

@@ -3,9 +3,9 @@
  * data/cosmetics.json, read and checked once.
  *
  * Not part of `GameData` (src/data), on purpose. The simulation never sees any
- * of this: XP, levels, the store and cosmetics are about a player ACROSS
- * matches, and a match plays out the same whoever is in it and whatever they
- * own. Keeping them out of the bundle the simulation is built from is what
+ * of this: XP, levels, keys, Supporter and cosmetics are about a player
+ * ACROSS matches, and a match plays out the same whoever is in it and
+ * whatever they have unlocked. Keeping them out of the bundle the simulation is built from is what
  * makes that true by construction rather than by care.
  *
  * Checked strictly, and loudly: a typo in a price file is a crash at start-up
@@ -35,28 +35,18 @@ export interface ProgressionConfig {
    */
   adBoost: { bonus: number; waves: number; offerBelow: number; maxWaves: number };
   supporter: { bonus: number };
+  /**
+   * What levels pay: `perLevel` keys for every level climbed. Every builder
+   * but `starter` costs `builder` of them; a cosmetic's cost is its own.
+   */
+  keys: { perLevel: number; builder: number; starter: string };
 }
 
-export interface Bundle {
-  id: string;
-  name: string;
-  blurb: string;
-  price: string;
-  /** What it would cost bought piece by piece, struck through beside the price. */
-  was: string | null;
-  /** Every builder, or these. */
-  builders: 'all' | string[];
-  cosmetics: string[];
-  /** The banner at the top of the store. */
-  featured: boolean;
-}
-
+/** What money buys - Supporter, and nothing else - and the Founders' free one. */
 export interface StoreConfig {
-  builderPrice: string;
-  /** Said under a builder's price while every builder is free. */
-  builderNote: string;
-  bundles: Bundle[];
   supporter: { price: string; pitch: string; perks: string[] };
+  /** The first `count` players to claim it at launch get a Supporter's perks free. */
+  founders: { count: number; pitch: string };
 }
 
 /** The little shapes a badge is drawn as (ui/nameCard.ts). */
@@ -69,10 +59,12 @@ export interface Unlock {
   free: boolean;
   /** Reach this level. */
   level: number | null;
-  /** Be a Supporter. */
+  /** Be a Supporter (a Founder is one). */
   supporter: boolean;
-  /** Buy it, alone or in a bundle. */
-  store: boolean;
+  /** Be a Founder. */
+  founder: boolean;
+  /** Spend this many keys on it. */
+  keys: number | null;
 }
 
 export interface CosmeticSlot {
@@ -92,8 +84,6 @@ export interface Cosmetic {
   /** A badge's shape; null for anything that is not a badge. */
   glyph: BadgeGlyph | null;
   unlock: Unlock;
-  /** Its own price in the store, or null when it only comes in a bundle or by playing. */
-  price: string | null;
 }
 
 export interface CosmeticsConfig {
@@ -150,6 +140,7 @@ export function parseProgression(raw: unknown): ProgressionConfig {
   const casual = object(r.casual, 'progression.casual');
   const ad = object(r.adBoost, 'progression.adBoost');
   const supporter = object(r.supporter, 'progression.supporter');
+  const keys = object(r.keys, 'progression.keys');
   const adWaves = integer(ad.waves, 'progression.adBoost.waves', 1);
   const maxWaves = integer(ad.maxWaves, 'progression.adBoost.maxWaves', 1);
   if (maxWaves < adWaves) {
@@ -178,41 +169,29 @@ export function parseProgression(raw: unknown): ProgressionConfig {
       maxWaves,
     },
     supporter: { bonus: number(supporter.bonus, 'progression.supporter.bonus') },
+    keys: {
+      perLevel: integer(keys.perLevel, 'progression.keys.perLevel'),
+      builder: integer(keys.builder, 'progression.keys.builder'),
+      starter: text(keys.starter, 'progression.keys.starter'),
+    },
   };
 }
 
 export function parseStore(raw: unknown): StoreConfig {
   const r = object(raw, 'store');
   const supporter = object(r.supporter, 'store.supporter');
+  const founders = object(r.founders, 'store.founders');
   return {
-    builderPrice: text(r.builderPrice, 'store.builderPrice'),
-    builderNote: text(r.builderNote, 'store.builderNote'),
-    bundles: list(r.bundles, 'store.bundles').map((value, i) => {
-      const at = `store.bundles[${i}]`;
-      const b = object(value, at);
-      const builders =
-        b.builders === 'all'
-          ? 'all'
-          : list(b.builders, `${at}.builders`).map((id, j) => text(id, `${at}.builders[${j}]`));
-      return {
-        id: text(b.id, `${at}.id`),
-        name: text(b.name, `${at}.name`),
-        blurb: text(b.blurb, `${at}.blurb`),
-        price: text(b.price, `${at}.price`),
-        was: b.was === null || b.was === undefined ? null : text(b.was, `${at}.was`),
-        builders,
-        cosmetics: list(b.cosmetics, `${at}.cosmetics`).map((id, j) =>
-          text(id, `${at}.cosmetics[${j}]`),
-        ),
-        featured: bool(b.featured, `${at}.featured`, false),
-      };
-    }),
     supporter: {
       price: text(supporter.price, 'store.supporter.price'),
       pitch: text(supporter.pitch, 'store.supporter.pitch'),
       perks: list(supporter.perks, 'store.supporter.perks').map((perk, i) =>
         text(perk, `store.supporter.perks[${i}]`),
       ),
+    },
+    founders: {
+      count: integer(founders.count, 'store.founders.count', 1),
+      pitch: text(founders.pitch, 'store.founders.pitch'),
     },
   };
 }
@@ -246,9 +225,16 @@ export function parseCosmetics(raw: unknown): CosmeticsConfig {
       free: bool(u.free, `${at}.unlock.free`, false),
       level: u.level === undefined ? null : integer(u.level, `${at}.unlock.level`, 1),
       supporter: bool(u.supporter, `${at}.unlock.supporter`, false),
-      store: bool(u.store, `${at}.unlock.store`, false),
+      founder: bool(u.founder, `${at}.unlock.founder`, false),
+      keys: u.keys === undefined ? null : integer(u.keys, `${at}.unlock.keys`, 1),
     };
-    if (!unlock.free && unlock.level === null && !unlock.supporter && !unlock.store) {
+    if (
+      !unlock.free &&
+      unlock.level === null &&
+      !unlock.supporter &&
+      !unlock.founder &&
+      unlock.keys === null
+    ) {
       throw new Error(`${at}.unlock: nothing unlocks it`);
     }
     let glyph: BadgeGlyph | null = null;
@@ -265,7 +251,6 @@ export function parseCosmetics(raw: unknown): CosmeticsConfig {
       name: text(c.name, `${at}.name`),
       glyph,
       unlock,
-      price: c.price === null || c.price === undefined ? null : text(c.price, `${at}.price`),
     };
   });
   return { slots, cosmetics };

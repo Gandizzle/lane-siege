@@ -29,11 +29,13 @@
  * nothing about why; disabled with a reason underneath says what the game can
  * do and what it needs to do it.
  *
- * Under the ways to play, three ways to spend the game's own time and money:
- * the **Store**, your **Collection** of cosmetics, and **Support**. Each
- * dresses the part a little - the store glints and says NEW until it has been
- * opened, the heart beats - because a button nobody notices sells nothing,
- * and none of them is in the way of the button that starts a match.
+ * Under the ways to play, two more: your **Collection**, where the keys every
+ * level pays unlock builders and cosmetics, and **Supporter**, the one thing
+ * the game sells. Each dresses the part a little - the Collection wears a gold
+ * tag with the count while there are keys to spend, the heart beats, and
+ * Supporter says what it is worth, "+125% XP", under its name - because a
+ * button nobody notices sells nothing, and neither is in the way of the
+ * button that starts a match.
  *
  * And who you are, at the top: the name card (nameCard.ts), with the level
  * you have reached and how far it is to the next.
@@ -45,7 +47,6 @@ import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { drawBadgeGlyph } from './levelBadge.ts';
 import { NameCard, type NameCardState } from './nameCard.ts';
-import { drawStoreBag } from './storeArt.ts';
 import { centreOn, fit, label } from './text.ts';
 
 /** How a match is found. Chosen here, carried through the builder picker. */
@@ -75,18 +76,22 @@ export interface HomeHandlers {
   onEditName(): void;
   /** Asks for a room code, then joins or opens that room. */
   onPrivateRoom(): void;
-  onStore(): void;
   onCollection(): void;
-  onSupport(): void;
+  onSupporter(): void;
 }
 
 /** What the home screen shows about the player's progress. */
 export interface HomeProfile extends NameCardState {
-  /** The store has never been opened: its button says NEW. */
-  storeNew: boolean;
+  /** Has a Supporter's perks: bought, or as a Founder. */
   supporter: boolean;
-  /** Cosmetics unlocked, of how many. */
-  collection: { unlocked: number; total: number };
+  founder: boolean;
+  /** What a Supporter earns on top in all, "125%": the button says it. */
+  supporterBonus: string;
+  /**
+   * Builders and cosmetics unlocked, of how many; the keys there are; and
+   * whether any of them would unlock something now.
+   */
+  collection: { unlocked: number; total: number; keys: number; canSpend: boolean };
 }
 
 interface Button {
@@ -135,9 +140,8 @@ export class HomeScreen extends Container {
     // buildBar.ts), and rebuilding on every redraw is how that happens.
     this.nameCard = new NameCard(() => this.handlers.onEditName());
     this.extras = [
-      new ExtraButton('store', 'Store', () => this.handlers.onStore()),
       new ExtraButton('collection', 'Collection', () => this.handlers.onCollection()),
-      new ExtraButton('support', 'Support', () => this.handlers.onSupport()),
+      new ExtraButton('supporter', 'Supporter', () => this.handlers.onSupporter()),
     ];
 
     this.buttons.push(
@@ -210,7 +214,7 @@ export class HomeScreen extends Container {
     this.redraw();
   }
 
-  /** The glint on the store and the beat of the heart. Nothing while hidden. */
+  /** The beat of the heart. Nothing while hidden. */
   update(deltaMs: number): void {
     if (!this.visible) return;
     for (const extra of this.extras) extra.animate(deltaMs);
@@ -299,24 +303,51 @@ export class HomeScreen extends Container {
       button.note.position.set(x + 16, y + (compact ? 31 : 36));
     }
 
-    // Store, Collection, Support: a row of three under the ways to play, or -
-    // two columns, sideways - in the room the right column has to spare, since
-    // the left one is the longer. A small phone held upright gets two narrow
-    // columns, and three in one of those would not hold their own names: there
-    // the row goes under both columns instead.
-    const beside = !oneColumn && (columnWidth - gap * 2) / 3 >= 84;
-    const extrasW = oneColumn ? rowWidth : beside ? columnWidth : columnWidth * 2 + gap;
-    const extrasX = oneColumn ? rowX : beside ? blockX + columnWidth + gap : blockX;
-    const extrasY = beside ? rightBottom : bottom;
-    const each = (extrasW - gap * 2) / 3;
+    // Collection and Supporter: a row under the ways to play, or - two
+    // columns, sideways - in the room the right column has to spare, since the
+    // left one is the longer. A small phone held upright gets two narrow
+    // columns, too narrow for a row: there they stand one above the other in
+    // that spare room, or failing that go under both columns.
+    const n = this.extras.length;
+    const beside = !oneColumn && (columnWidth - gap * (n - 1)) / n >= 84;
+    const stacked = !oneColumn && !beside && rightBottom + n * (extraH + gap) <= bottom;
+    const inRight = beside || stacked;
+    const extrasW = oneColumn ? rowWidth : inRight ? columnWidth : columnWidth * 2 + gap;
+    const extrasX = oneColumn ? rowX : inRight ? blockX + columnWidth + gap : blockX;
+    const extrasY = inRight ? rightBottom : bottom;
+    const each = stacked ? extrasW : (extrasW - gap * (n - 1)) / n;
     const p = this.profile;
-    this.extras[0]!.setNote(p?.storeNew ? 'New bundles' : 'Bundles & looks', p?.storeNew ?? false);
-    this.extras[1]!.setNote(p ? `${p.collection.unlocked} of ${p.collection.total}` : '', false);
-    this.extras[2]!.setNote(p?.supporter ? 'Thank you!' : 'Back the game', false);
+    const c = p?.collection;
+    // Keys waiting to be spent on something they would unlock: the tag says
+    // how many. Keys with nothing to spend them on are just counted.
+    const keys = c && c.keys > 0 ? `${c.keys} ${c.keys === 1 ? 'key' : 'keys'}` : '';
+    this.extras[0]!.setNote(
+      c?.canSpend
+        ? `${keys} to spend`
+        : keys
+          ? `${keys} saved`
+          : c
+            ? `${c.unlocked} of ${c.total}`
+            : '',
+      c?.canSpend ? keys.toUpperCase() : null,
+    );
+    this.extras[1]!.setNote(
+      p?.founder
+        ? 'Founder · thank you!'
+        : p?.supporter
+          ? 'Thank you!'
+          : p
+            ? `+${p.supporterBonus} XP · no ads`
+            : '',
+      null,
+      // Where the whole of it will not fit, what it is worth still does.
+      p && !p.supporter ? `+${p.supporterBonus} XP` : undefined,
+    );
     this.extras.forEach((extra, i) => {
-      extra.place(extrasX + i * (each + gap), extrasY, each, extraH);
+      if (stacked) extra.place(extrasX, extrasY + i * (extraH + gap), each, extraH);
+      else extra.place(extrasX + i * (each + gap), extrasY, each, extraH);
     });
-    bottom = Math.max(bottom, extrasY + extraH + gap);
+    bottom = Math.max(bottom, extrasY + (stacked ? n : 1) * (extraH + gap));
     const y = bottom;
 
     this.footnote.text = this.online
@@ -330,12 +361,12 @@ export class HomeScreen extends Container {
 }
 
 /**
- * A small button under the ways to play: the Store, the Collection, Support.
+ * A small button under the ways to play: the Collection, Supporter.
  *
- * Each has a drawn icon, and the two that ask for money are dressed for it -
- * the store's border is gold and a glint crosses its bag every few seconds,
- * with a NEW ribbon until it has been opened; Support's heart beats. Drawn
- * every frame only in the few pixels that move.
+ * Each has a drawn icon and is dressed for what it is: the Collection's edge
+ * turns gold and a tag on its corner counts the keys while there are keys to
+ * spend; Supporter's heart beats. Drawn every frame only in the few pixels
+ * that move.
  */
 class ExtraButton extends Container {
   private readonly bg = new Graphics();
@@ -346,43 +377,49 @@ class ExtraButton extends Container {
   private readonly ribbonText: Text;
   private clock = 0;
   private noteText = '';
-  private isNew = false;
+  /** The note cut short, for a button too narrow for all of it. */
+  private shortNote = '';
+  /** The tag on the corner, or null for none. */
+  private tag: string | null = null;
 
   constructor(
-    private readonly kind: 'store' | 'collection' | 'support',
+    private readonly kind: 'collection' | 'supporter',
     caption: string,
     onTap: () => void,
   ) {
     super();
     this.title = label(caption, 13, UI.text, '700');
     this.note = label('', 9, UI.textMuted, '600');
-    this.ribbonText = label('NEW', 8, UI.background, '700');
+    this.ribbonText = label('', 8, UI.background, '700');
     this.addChild(this.bg, this.icon, this.title, this.note, this.ribbon, this.ribbonText);
     this.eventMode = 'static';
     this.cursor = 'pointer';
     this.on('pointertap', onTap);
   }
 
-  setNote(text: string, isNew: boolean): void {
+  setNote(text: string, tag: string | null, short = text): void {
     this.noteText = text;
-    this.isNew = isNew;
+    this.shortNote = short;
+    this.tag = tag;
   }
 
   place(x: number, y: number, width: number, height: number): void {
     this.hitArea = new Rectangle(x, y, width, height);
-    const edge = this.kind === 'store' ? UI.level : this.kind === 'support' ? UI.support : UI.xp;
+    const edge = this.kind === 'supporter' ? UI.support : this.tag ? UI.level : UI.xp;
     this.bg.clear();
     this.bg
       .roundRect(x, y, width, height, 10)
       .fill({ color: UI.panel })
-      .stroke({ width: this.kind === 'collection' ? 1 : 1.5, color: edge, alpha: 0.85 });
+      .stroke({ width: this.kind === 'supporter' || this.tag ? 1.5 : 1, color: edge, alpha: 0.85 });
 
     // Icon above or beside the words, whichever the button has room for.
     const stacked = width < 120;
     const iconSize = Math.min(20, height * (stacked ? 0.3 : 0.4));
     const textX = stacked ? x + width / 2 : x + 12 + iconSize + 8;
     this.title.style.fontSize = width < 90 ? 11 : 13;
-    this.note.text = fit(this.noteText, stacked ? width - 8 : width - (textX - x) - 6, 9);
+    const room = stacked ? width - 8 : width - (textX - x) - 6;
+    const whole = fit(this.noteText, room, 9);
+    this.note.text = whole === this.noteText ? whole : fit(this.shortNote, room, 9);
     if (stacked) {
       // Icon, name and note as one block, centred top to bottom.
       const block = iconSize + 4 + this.title.height + this.note.height - 2;
@@ -396,10 +433,11 @@ class ExtraButton extends Container {
       this.iconAt = { cx: x + 12 + iconSize / 2, cy: y + height / 2, size: iconSize };
     }
 
-    // NEW, across the top right corner.
+    // The tag, across the top right corner.
     this.ribbon.clear();
-    this.ribbonText.visible = this.isNew;
-    if (this.isNew) {
+    this.ribbonText.text = this.tag ?? '';
+    this.ribbonText.visible = this.tag !== null;
+    if (this.tag !== null) {
       const rw = this.ribbonText.width + 10;
       const rh = this.ribbonText.height + 2;
       this.ribbon
@@ -414,7 +452,7 @@ class ExtraButton extends Container {
 
   animate(deltaMs: number): void {
     this.clock += deltaMs / 1000;
-    if (this.kind !== 'collection') this.drawIcon();
+    if (this.kind === 'supporter') this.drawIcon();
   }
 
   private drawIcon(): void {
@@ -422,7 +460,7 @@ class ExtraButton extends Container {
     const { cx, cy, size } = this.iconAt;
     g.clear();
     if (size <= 0) return;
-    if (this.kind === 'support') {
+    if (this.kind === 'supporter') {
       // A heartbeat: two quick swells, then rest.
       const t = this.clock % 1.4;
       const beat = t < 0.15 ? t / 0.15 : t < 0.3 ? 1 - (t - 0.15) / 0.15 : 0;
@@ -430,10 +468,6 @@ class ExtraButton extends Container {
         t >= 0.35 && t < 0.5 ? (t - 0.35) / 0.15 : t >= 0.5 && t < 0.65 ? 1 - (t - 0.5) / 0.15 : 0;
       const scale = 1 + 0.14 * Math.max(beat, beat2 * 0.7);
       drawBadgeGlyph(g, 'heart', cx, cy, size * scale, UI.support);
-      return;
-    }
-    if (this.kind === 'store') {
-      drawStoreBag(g, cx, cy, size, this.clock);
       return;
     }
     // The collection: four tiles, one of them gold.

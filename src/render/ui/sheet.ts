@@ -1,12 +1,12 @@
 /**
  * A full-screen panel with a title, a way out, and a body that scrolls when it
- * is taller than the screen: the Store, Support and the Collection are all
+ * is taller than the screen: the Collection and the Supporter page are both
  * one of these.
  *
- * Every other panel in the game fits its screen by design. These three are
- * catalogues, and a catalogue on a small phone does not fit: seventeen
- * cosmetics in six slots is taller than a 640-pixel screen however small the
- * cards are drawn. So the body scrolls - by drag, as the arena's camera does,
+ * Every other panel in the game fits its screen by design. These are
+ * catalogues, or long, and a catalogue on a small phone does not fit: four
+ * builders and seventeen cosmetics in six slots is taller than a 640-pixel
+ * screen however small the rows are drawn. So the body scrolls - by drag, as the arena's camera does,
  * and by the mouse wheel - inside a mask, with a thin bar on the right saying
  * how much more there is.
  *
