@@ -11,9 +11,11 @@
  * It leads with what it is worth, "+125% XP", worked out from the numbers the
  * XP is counted with: a page that only said "support" would be skipped by
  * people who never learned it also boosts their XP, and one that only said
- * "boost" would be selling something without saying so. The pitch is the
- * developer's own words, from the data file, so it can be rewritten without
- * touching this. The heart beats.
+ * "boost" would be selling something without saying so. At the top level
+ * (store.ts), where no XP counts until new content raises it, it says that
+ * too, under the number, rather than sell a boost with nothing to boost. The
+ * pitch is the developer's own words, from the data file, so it can be
+ * rewritten without touching this. The heart beats.
  *
  * And the Founders: at launch the first players to claim it get all of this
  * free, with a Founder badge and title. Counting them needs a server, so for
@@ -54,6 +56,8 @@ export class SupportScreen extends Sheet {
   private readonly headline: Text;
   private readonly worth: Text;
   private readonly worthNote: Text;
+  /** At the top level: why the XP is waiting. */
+  private readonly topNote: Text;
   private readonly pitch: Text;
   private readonly perks: Text[];
   private readonly buy: PanelButton;
@@ -77,6 +81,9 @@ export class SupportScreen extends Sheet {
     this.headline = label('', 18, UI.text, '700');
     this.worth = label('', 30, UI.level, '700');
     this.worthNote = label('on every match, for good, with no ads', 12, UI.textMuted, '600');
+    this.topNote = wrapped('', 11, UI.xp);
+    this.topNote.style.fontWeight = '700';
+    this.topNote.style.align = 'center';
     this.pitch = wrapped(store.supporter.pitch, 12, UI.textMuted);
     this.perks = store.supporter.perks.map((perk) => wrapped(perk, 13, UI.text));
     this.buy = this.button('', () => this.handlers.onBuy(), 15);
@@ -94,6 +101,7 @@ export class SupportScreen extends Sheet {
       this.headline,
       this.worth,
       this.worthNote,
+      this.topNote,
       this.pitch,
       this.checks,
       ...this.perks,
@@ -148,6 +156,16 @@ export class SupportScreen extends Sheet {
     y += 38;
     centreOn(this.worthNote, cx, y);
     y += 26;
+    const { level, atTop } = this.progress.level;
+    this.topNote.visible = atTop;
+    if (atTop) {
+      this.topNote.text =
+        `You are at level ${level}, the top for now: XP counts again, boost and all, ` +
+        'when new builders and cosmetics raise it.';
+      this.topNote.style.wordWrapWidth = width - 32;
+      centreOn(this.topNote, cx, y - 4);
+      y += this.topNote.height + 14;
+    }
     this.pitch.style.wordWrapWidth = width - 16;
     this.pitch.style.align = 'center';
     centreOn(this.pitch, cx, y);

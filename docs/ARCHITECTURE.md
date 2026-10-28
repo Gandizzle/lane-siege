@@ -1377,14 +1377,15 @@ out of what the simulation is built from makes that true by construction.
 **The curve.** XP from level L to L + 1 is `first + step × (L − 1)` - 300 to
 reach level 2, then 400, 500 and so on (`levels.ts`). Each level asks a little
 more than the last, in a straight line rather than a growing multiple, so the
-total is quadratic and never runs away, and there is no top level.
+total is quadratic and never runs away. The curve has no top of its own; the
+game puts one on it, where the content runs out (below).
 
 | level | XP in all | normal matches at ~300 each |
 | ----- | --------- | --------------------------- |
 | 5     | 1,800     | 6                           |
 | 10    | 6,300     | 21                          |
-| 20    | 22,800    | 76                          |
-| 30    | 49,300    | 164                         |
+| 15    | 13,300    | 44                          |
+| 24    | 32,200    | 107                         |
 
 **Keys: what levels pay, and what they unlock** (`progression/store.ts`). Every
 level climbed pays a key (`keys.perLevel`), so level L has paid L - 1, and keys
@@ -1395,7 +1396,8 @@ are the only way anything is unlocked:
   about 21 normal matches, 14 with the ad's boost kept going, 10 as a
   Supporter, or 13 days of practice and solo at the daily cap.
 - **Cosmetics** that decorate - fortress skins, trails, floors, flourishes -
-  cost 1 or 2 keys each (`unlock.keys` in cosmetics.json), 14 in all today.
+  cost 1 or 2 keys each (`unlock.keys` in cosmetics.json), 14 in all today,
+  every one of them in a slot still to come.
   Titles, and the badges that mean something, are not for keys: they come with
   what they mean - a level, Supporter, Founder.
 - **Nothing the game does not draw yet.** A slot that is "coming soon" shows
@@ -1407,6 +1409,38 @@ What is left is what the levels have paid less what has been spent
 or lost. Keys are spent in the Collection, or in the builder picker, where a
 locked builder's card shows a padlock and its price and Start turns into
 Unlock - its own tap, so nobody spends keys meaning to start a match.
+
+**The top level: no keys banked ahead of the content** (`levels.ts`,
+`store.ts`). Levels stop at the one that pays the last key there is anything to
+spend on: one more than what every builder but the starter costs and every
+cosmetic keys can unlock now (`keysForEverything`, `topLevel`). Today that is
+the three builders, 9 keys, so the top is level 10; the four slots still to
+come add 5, 2, 3 and 4 keys as each is drawn, which makes it 24 once all of
+them are. It is worked out from the data, so a new builder, a new cosmetic or a
+slot going live raises it with nothing else to change, and a player who has
+played through everything has unlocked everything, with no pile of keys
+waiting for whatever comes next. At the top:
+
+- **XP stops.** The match that reaches it shows everything it earned and then
+  "Past the top level" taking off the rest, as the daily cap does, with a note
+  that level N is the top for now and that new builders and cosmetics raise
+  it. After that a match earns nothing and uses up nothing - no boosted waves,
+  none of the day's practice allowance - and brings up no XP card.
+- **The ad is not offered**: there is no XP for it to boost. Boosted waves
+  already watched are kept for when the top goes up.
+- **It says so where the XP is shown.** The name card reads "Top level for
+  now" over a full bar, the Collection's header says the same where it would
+  say "next at level N", a title tied to a level past the top says "(the top
+  is 10 for now)", and the Supporter page says under "+125% XP" that the XP
+  counts again when new content raises it - rather than sell a boost with
+  nothing to boost.
+- **Nothing past it is kept**, not even from a save made before there was a
+  top: a raised top would pay it all out at once. A raised top starts the next
+  level from empty.
+
+Titles tied to a level stay within the top as it will be once everything
+listed is out - a test holds every one to it - which is why Last One Standing
+is level 24.
 
 **What a match earns** (`award.ts`). A normal match - online, against other
 people - pays for playing to the end of your match (50; eliminated counts,
@@ -1451,7 +1485,8 @@ end-of-match card: the lines arrive in turn and count up, then the total, then
 the bar fills from where you were to where you are now. Crossing a level is the
 moment - the bar fills to the end, the badge turns over to the new level with
 "Level N! +1 key", a burst and the wave-cleared fanfare, and the bar starts
-again from empty, as many times as it takes. A tap skips to the end. Under the bar, a line
+again from empty, as many times as it takes; at the top level it stops full
+and says so. A tap skips to the end. Under the bar, a line
 says how many boosted waves are left; the ad itself is not offered here, but
 before the next game, where saying yes changes the waves about to be played.
 The timeline is a pure function of the award (`planReport`, `reportFrame`), so the

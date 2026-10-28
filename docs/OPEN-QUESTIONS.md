@@ -230,8 +230,15 @@ provider and an ad network.
 
 - **XP and levels.** Every match played to the end earns XP, mostly a normal
   match online; practice and solo earn the same way, up to 500 XP a day.
-  XP adds up to a level, shown with your name, with no top level and each level
-  asking a straight-line step more XP than the last (300, 400, 500…).
+  XP adds up to a level, shown with your name, each level asking a
+  straight-line step more XP than the last (300, 400, 500…).
+- **The top level is where the content runs out**: the level that pays the
+  last key there is anything to spend on, worked out from the data - 10 today,
+  when keys can only unlock the three builders, and 24 once every cosmetic
+  listed is drawn. XP past it does not count and the ad is not offered there,
+  so nobody banks keys ahead of new content, and every new builder or cosmetic
+  starts the climb again. The ceiling this puts on what one player's ads can
+  earn is deliberate; what lifts it is content.
 - **Every level pays a key, and keys unlock everything.** Ironvow is
   everyone's; the other three builders cost 3 keys each, so all four are open
   by level 10. Decorative cosmetics cost 1 or 2 keys. Titles stay tied to the

@@ -110,26 +110,29 @@ export class NameCard extends Container {
     }
 
     // Line two: the title being worn, and on the right either the running
-    // boost - something worth knowing before a match - or how to edit.
+    // boost - something worth knowing before a match - or how to edit. At the
+    // top level there is no XP for a boost to add to, so it goes unsaid.
     this.titleText.text = s.title ? fit(s.title, width / 2, 11) : '';
     this.titleText.position.set(x + pad, y + 31);
-    const boosted = s.boostAlways || s.boostWaves > 0;
-    this.hint.text = s.boostAlways
-      ? 'XP boost: always on'
-      : boosted
-        ? `XP boost: ${waveCount(s.boostWaves)}`
-        : 'tap to change';
+    const boosted = !s.level.atTop && (s.boostAlways || s.boostWaves > 0);
+    this.hint.text = !boosted
+      ? 'tap to change'
+      : s.boostAlways
+        ? 'XP boost: always on'
+        : `XP boost: ${waveCount(s.boostWaves)}`;
     this.hint.style.fill = boosted ? UI.xp : UI.textMuted;
     this.hint.style.fontWeight = boosted ? '700' : '500';
     this.hint.position.set(x + width - pad - this.hint.width, y + 31);
 
-    // Line three: the climb to the next level.
-    const { into, needed } = s.level;
-    this.xpText.text = `${into.toLocaleString('en-GB')} / ${needed.toLocaleString('en-GB')} XP`;
+    // Line three: the climb to the next level - full, at the top.
+    const { into, needed, atTop } = s.level;
+    this.xpText.text = atTop
+      ? 'Top level for now'
+      : `${into.toLocaleString('en-GB')} / ${needed.toLocaleString('en-GB')} XP`;
     const barY = y + height - 18;
     const barW = width - pad * 2 - this.xpText.width - 10;
     this.bar.clear();
-    drawXpBar(this.bar, x + pad, barY, barW, 8, needed > 0 ? into / needed : 0);
+    drawXpBar(this.bar, x + pad, barY, barW, 8, atTop ? 1 : needed > 0 ? into / needed : 0);
     this.xpText.position.set(x + width - pad - this.xpText.width, barY - 3);
   }
 }

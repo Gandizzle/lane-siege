@@ -63,7 +63,7 @@
       "id": "title_last_standing",
       "slot": "title",
       "name": "Last One Standing",
-      "unlock": { "level": 30 }
+      "unlock": { "level": 24 }
     },
     {
       "id": "title_founder",

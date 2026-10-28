@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { levelOf } from '../../progression/levels.ts';
+import { levelOf, xpToReach } from '../../progression/levels.ts';
 import type { AwardResult } from '../../progression/store.ts';
 import { planReport, reportFrame } from './xpReport.ts';
 
@@ -18,11 +18,13 @@ function result(fromXp: number, lines: number[], boosts: number[] = []): AwardRe
       lines: lines.map((xp, i) => ({ id: 'played', label: `line ${i}`, xp })),
       boosts: boosts.map((xp) => ({ id: 'adBoost', label: 'Boost', xp })),
       base: lines.reduce((a, b) => a + b, 0),
+      overTop: null,
       total,
       note: null,
     },
     before: levelOf(fromXp, curve),
     after: levelOf(fromXp + total, curve),
+    top: Infinity,
   };
 }
 
@@ -71,5 +73,28 @@ describe('the XP popup', () => {
     const plan = planReport(result(500, []));
     expect(plan.barMs).toBe(0);
     expect(reportFrame(plan, plan.endAt).barXp).toBe(500);
+  });
+
+  it('takes off what is past the top level last, and stops the bar at the top', () => {
+    const top = 10;
+    const from = xpToReach(top, curve) - 100;
+    const plan = planReport({
+      award: {
+        lines: [{ id: 'played', label: 'Match played', xp: 300 }],
+        boosts: [{ id: 'adBoost', label: 'Boost', xp: 300 }],
+        overTop: { id: 'top', label: 'Past the top level', xp: -500 },
+        base: 300,
+        total: 100,
+        note: null,
+      },
+      before: levelOf(from, curve, top),
+      after: levelOf(from + 100, curve, top),
+      top,
+    });
+    expect(plan.lines.map((l) => l.id)).toEqual(['played', 'adBoost', 'top']);
+    const end = reportFrame(plan, plan.endAt);
+    expect(end.lines.map((l) => l.value)).toEqual([300, 300, -500]);
+    expect(end.total.value).toBe(100);
+    expect(levelOf(end.barXp, curve, top)).toMatchObject({ level: top, into: 0, atTop: true });
   });
 });

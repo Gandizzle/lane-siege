@@ -34,11 +34,21 @@
  * Supporter adds its own share to every match besides. Shares ADD, as the
  * business plan has it: both together are 1 + 0.5 + 0.75, not 1.5 × 1.75.
  *
+ * THE TOP LEVEL
+ *
+ * XP stops at the top level (levels.ts). The match that reaches it shows
+ * everything it earned, boosts and all, then the part past the top taken off,
+ * as the daily cap does. A match played at the top earns nothing and spends
+ * nothing - no boosted waves, none of the day's allowance - so all of it is
+ * still there when new builders or cosmetics raise the top. The ad is not
+ * offered at the top: there is no XP for it to boost.
+ *
  * Pure: the profile in, the award and the next profile out. The day is passed
  * in rather than read, so a test can be on any day it likes.
  */
 
 import type { ProgressionConfig } from './config.ts';
+import { xpCeiling } from './levels.ts';
 import { hasSupporterPerks, type Profile } from './profile.ts';
 
 /** How the match was played, which decides what it can earn. */
@@ -61,7 +71,7 @@ export interface MatchResult {
 }
 
 export type XpLineId =
-  'played' | 'waves' | 'placement' | 'showdown' | 'limit' | 'adBoost' | 'supporter';
+  'played' | 'waves' | 'placement' | 'showdown' | 'limit' | 'adBoost' | 'supporter' | 'top';
 
 /** One line of the breakdown the popup shows. */
 export interface XpLine {
@@ -75,9 +85,11 @@ export interface XpAward {
   lines: XpLine[];
   /** What the boosts added on top. */
   boosts: XpLine[];
+  /** The part past the top level, taken off: only on the match that reaches it. */
+  overTop: XpLine | null;
   /** The sum of `lines`. */
   base: number;
-  /** Everything: `lines` and `boosts`. */
+  /** Everything: `lines`, `boosts` and `overTop`. */
   total: number;
   /** Said under the breakdown when something wants explaining - usually why it is zero. */
   note: string | null;
@@ -128,14 +140,40 @@ function matchLines(config: ProgressionConfig, result: MatchResult, placed: bool
   return lines;
 }
 
-/** The XP a finished match earns, and the profile with it added. */
+/** Said once the top level is reached: why the XP stops, and what starts it again. */
+export function topNote(top: number): string {
+  return (
+    `Level ${top} is the top for now. New builders and cosmetics raise it, ` +
+    'and XP counts again from there.'
+  );
+}
+
+/**
+ * The XP a finished match earns, and the profile with it added. `top` is the
+ * top level (store.ts): XP past the start of it does not count.
+ */
 export function awardXp(
   config: ProgressionConfig,
   profile: Profile,
   result: MatchResult,
   today: string,
+  top = Infinity,
 ): { award: XpAward; profile: Profile } {
   const next = structuredClone(profile);
+  const ceiling = xpCeiling(top, config.levels);
+  if (profile.xp >= ceiling) {
+    // At the top already: nothing counts, so nothing is used up either.
+    next.xp = ceiling;
+    const award: XpAward = {
+      lines: [],
+      boosts: [],
+      overTop: null,
+      base: 0,
+      total: 0,
+      note: topNote(top),
+    };
+    return { award, profile: next };
+  }
   const lines: XpLine[] = [];
   let note: string | null = null;
 
@@ -188,9 +226,17 @@ export function awardXp(
     }
   }
 
-  const total = base + boosts.reduce((sum, line) => sum + line.xp, 0);
+  let total = base + boosts.reduce((sum, line) => sum + line.xp, 0);
+  // The match that reaches the top: what is past it, taken off.
+  let overTop: XpLine | null = null;
+  const room = ceiling - profile.xp;
+  if (total > room) {
+    overTop = { id: 'top', label: 'Past the top level', xp: room - total };
+    total = room;
+  }
+  if (total >= room) note = topNote(top);
   next.xp = profile.xp + total;
-  return { award: { lines, boosts, base, total, note }, profile: next };
+  return { award: { lines, boosts, overTop, base, total, note }, profile: next };
 }
 
 /** Where the opt-in ad's boost stands. */
@@ -199,20 +245,27 @@ export interface BoostStatus {
   wavesLeft: number;
   /** A Supporter's: on for every wave, with no ad and nothing used up. */
   alwaysOn: boolean;
-  /** Whether to offer the ad before the next game: fewer than `offerBelow` left. */
+  /**
+   * Whether to offer the ad before the next game: fewer than `offerBelow`
+   * left, and below the top level, where there is no XP for it to boost.
+   */
   offer: boolean;
   /** Boosted waves after watching one: `waves` more, to `maxWaves` at most. */
   wavesAfter: number;
 }
 
-export function boostStatus(config: ProgressionConfig, profile: Profile): BoostStatus {
+export function boostStatus(
+  config: ProgressionConfig,
+  profile: Profile,
+  atTop = false,
+): BoostStatus {
   const ad = config.adBoost;
   const wavesLeft = profile.adBoost.wavesLeft;
   const alwaysOn = hasSupporterPerks(profile);
   return {
     wavesLeft,
     alwaysOn,
-    offer: !alwaysOn && ad.bonus > 0 && wavesLeft < ad.offerBelow,
+    offer: !alwaysOn && !atTop && ad.bonus > 0 && wavesLeft < ad.offerBelow,
     wavesAfter: Math.min(ad.maxWaves, wavesLeft + ad.waves),
   };
 }

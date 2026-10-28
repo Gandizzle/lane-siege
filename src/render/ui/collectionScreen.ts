@@ -6,7 +6,9 @@
  * spent: three on a builder, one or two on a cosmetic. Nothing here is bought
  * with money (store.json) - Supporter is the one purchase, and the only thing
  * it adds here is its own badge. Titles, and the badges that mean something,
- * come with what they mean - a level, Supporter, Founder - and say so.
+ * come with what they mean - a level, Supporter, Founder - and say so. Levels
+ * stop where the keys for everything here are paid (store.ts, the top level),
+ * and the header says when that is where a player stands.
  *
  * Spending takes two taps: the first says what it will cost, the second, within
  * a few seconds, spends it - as the menu's Leave does - because a key takes a
@@ -218,12 +220,17 @@ export class CollectionScreen extends Sheet {
     drawKey(this.keysIcon, x + 11, y + 12, 22, UI.level);
     this.keysText.text = keyCount(keys.left);
     this.keysText.position.set(x + 28, y + 3);
-    this.keysNext.text = `· next at level ${keys.nextAt}`;
-    this.keysNext.position.set(x + 28 + this.keysText.width + 6, y + 6);
+    const nextX = x + 28 + this.keysText.width + 6;
+    // Short of the test button, in the build that has one.
+    const room = (this.testMode ? width - 128 : width) - (nextX - x);
+    this.keysNext.text =
+      keys.nextAt === null ? '· top level for now' : `· next at level ${keys.nextAt}`;
+    if (keys.nextAt === null && this.keysNext.width > room) this.keysNext.text = '· top level';
+    this.keysNext.position.set(nextX, y + 6);
     this.testLevel.visible = this.testMode;
     if (this.testMode) {
       this.testLevel.place(x + width - 120, y - 2, 120, 28);
-      this.testLevel.set('Test: +1 level', 'plain');
+      this.testLevel.set('Test: +1 level', 'plain', keys.nextAt !== null);
     }
   }
 
@@ -327,8 +334,17 @@ export class CollectionScreen extends Sheet {
     } else if (cost !== null) {
       how = `${keyCount(cost)} · you have ${left}`;
     } else {
-      how = howToUnlock(cosmetic);
-      if (cosmetic.unlock.level !== null) how += ` (you are level ${level})`;
+      const need = cosmetic.unlock.level;
+      const top = this.progress.topLevel;
+      // A level past the top waits for what raises it, and says so - short
+      // enough for a small phone's row.
+      if (need !== null && need > top) {
+        how = `Level ${need} · top is ${top} for now`;
+        if (fit(how, width - 120, 10) !== how) how = `Level ${need} · top is ${top}`;
+      } else {
+        how = howToUnlock(cosmetic);
+        if (need !== null) how += ` (you are level ${level})`;
+      }
     }
     this.placeHow(row, how, color, 48, y, width - 120);
     row.alpha = unlocked || this.affordable(cosmetic) ? 1 : 0.55;

@@ -7,7 +7,9 @@
  * you were towards where you are now. Crossing a level is the moment: the bar
  * fills to the end, the badge turns over to the new level with a burst and a
  * fanfare and the key it pays ("Level 7! +1 key", for the Collection), and the
- * bar starts again from empty - as many times as it takes.
+ * bar starts again from empty - as many times as it takes. At the top level
+ * (store.ts) it stops full, says so, and the note under the total says what
+ * raises it. A match played at the top earns nothing, and there is no card.
  *
  * A tap on the card skips to the end, so nobody has to sit through it twice.
  * Continue closes it and leaves the end-of-match card underneath.
@@ -57,7 +59,8 @@ export interface ReportPlan {
 }
 
 export function planReport(result: AwardResult): ReportPlan {
-  const lines = [...result.award.lines, ...result.award.boosts];
+  const { overTop } = result.award;
+  const lines = [...result.award.lines, ...result.award.boosts, ...(overTop ? [overTop] : [])];
   const totalAt = START_MS + lines.length * LINE_MS + 100;
   const barAt = totalAt + TOTAL_COUNT_MS + 200;
   const levels = result.after.level - result.before.level;
@@ -171,6 +174,8 @@ export class XpReport extends Container {
 
   private plan: ReportPlan | null = null;
   private curve: LevelCurve = { first: 1, step: 0 };
+  /** The top level the XP was counted against: the bar stops there. */
+  private top = Infinity;
   private keysPerLevel = 0;
   private ms = 0;
   /** The level the bar has reached, to notice it turning over. */
@@ -230,6 +235,7 @@ export class XpReport extends Container {
   open(result: AwardResult, curve: LevelCurve, boost: string, keysPerLevel = 0): void {
     this.plan = planReport(result);
     this.curve = curve;
+    this.top = result.top;
     this.keysPerLevel = keysPerLevel;
     this.ms = 0;
     this.shownLevel = result.before.level;
@@ -239,10 +245,11 @@ export class XpReport extends Container {
     for (const row of this.rows) row.destroy({ children: true });
     this.rows.length = 0;
     for (const line of this.plan.lines) {
-      // Boosts in the boost's purple; the part over practice's daily cap,
-      // taken off, muted.
+      // Boosts in the boost's purple; the part over practice's daily cap or
+      // past the top level, taken off, muted.
       const boosted = line.id === 'adBoost' || line.id === 'supporter';
-      const color = boosted ? UI.xp : line.id === 'limit' ? UI.textMuted : UI.text;
+      const cut = line.id === 'limit' || line.id === 'top';
+      const color = boosted ? UI.xp : cut ? UI.textMuted : UI.text;
       const row = new Row(13, color, '600');
       row.caption.text = line.label;
       this.rows.push(row);
@@ -293,8 +300,9 @@ export class XpReport extends Container {
       this.totalRow.caption.y,
     );
 
-    // The bar: the level the XP shown so far reaches, and how far into it.
-    const at = levelOf(frame.barXp, this.curve);
+    // The bar: the level the XP shown so far reaches, and how far into it -
+    // or full, with no next level beside it, at the top.
+    const at = levelOf(frame.barXp, this.curve, this.top);
     if (at.level > this.shownLevel) {
       this.shownLevel = at.level;
       this.poppedMs = 0;
@@ -311,9 +319,13 @@ export class XpReport extends Container {
     this.toBadge.set(at.level + 1, 20);
     this.toBadge.position.set(barX + barW + 8, barY - 6);
     this.toBadge.alpha = 0.55;
+    this.toBadge.visible = !at.atTop;
     this.bar.clear();
-    drawXpBar(this.bar, barX, barY, barW, 9, at.needed > 0 ? at.into / at.needed : 0);
-    this.barText.text = `${at.into.toLocaleString('en-GB')} / ${at.needed.toLocaleString('en-GB')} XP`;
+    const fill = at.atTop ? 1 : at.needed > 0 ? at.into / at.needed : 0;
+    drawXpBar(this.bar, barX, barY, barW, 9, fill);
+    this.barText.text = at.atTop
+      ? 'Top level for now'
+      : `${at.into.toLocaleString('en-GB')} / ${at.needed.toLocaleString('en-GB')} XP`;
     centreOn(this.barText, barX + barW / 2, barY + 14);
 
     // A level crossed: the words pop and the confetti goes up from the badge.
@@ -341,7 +353,10 @@ export class XpReport extends Container {
     const pad = 18;
     const lineH = compact ? 21 : 24;
     const count = this.rows.length;
-    const noteH = this.note.text ? 34 : 0;
+    // As tall as the note wraps to - the top level's takes three lines on a
+    // small phone - with room under it for "Level N!".
+    this.note.style.wordWrapWidth = w - pad * 2;
+    const noteH = this.note.text ? Math.max(34, Math.ceil(this.note.height) + 14) : 0;
     // No boost to speak of, no line for it.
     const boostH = this.boostLine.text ? BOOST_H : 8;
     // Top to bottom, the same steps the layout below takes.
@@ -394,7 +409,6 @@ export class XpReport extends Container {
     this.totalRow.caption.position.set(x + pad, rule + 8);
     this.totalRow.amount.position.set(x + w - pad - this.totalRow.amount.width, rule + 8);
     ty += TOTAL_H;
-    this.note.style.wordWrapWidth = w - pad * 2;
     this.note.position.set(x + pad, ty);
     ty += noteH;
 

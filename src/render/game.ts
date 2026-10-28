@@ -1224,7 +1224,9 @@ export class Game extends Container {
   /**
    * Count the match's XP the moment YOUR match ends - out, or the last one
    * standing - once, and show what it came to. Saved before anything is
-   * shown, so leaving straight away keeps it.
+   * shown, so leaving straight away keeps it. At the top level a match earns
+   * nothing (award.ts), and there is no card to say so after every one: the
+   * name card says "Top level", and the match that reached it said why.
    */
   private awardXp(view: MatchView): void {
     if (this.awarded || !(view.eliminated || view.finished)) return;
@@ -1249,6 +1251,7 @@ export class Game extends Container {
       wavesPlayed: Math.max(1, view.wave),
       reachedShowdown,
     });
+    if (result.before.atTop) return;
     this.xpReport.open(
       result,
       progress.config.levels,
@@ -1259,7 +1262,14 @@ export class Game extends Container {
 
   /** The boost in a line, under the XP bar: how much of it is left. */
   private boostWords(award: XpAward): string {
-    const status = this.services.progress.boost();
+    const progress = this.services.progress;
+    const status = progress.boost();
+    if (progress.level.atTop) {
+      // Nothing for it to boost until the top goes up; waves wait till then.
+      return status.wavesLeft > 0 && !status.alwaysOn
+        ? `XP boost: ${waveCount(status.wavesLeft)} kept for later`
+        : '';
+    }
     if (status.alwaysOn) return 'Supporter: your XP boost is always on';
     if (status.wavesLeft > 0) return `XP boost: ${waveCount(status.wavesLeft)} left`;
     // Used up by this match, or never on: the offer before the next game says the rest.

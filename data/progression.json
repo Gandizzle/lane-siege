@@ -1,7 +1,7 @@
 {
   "_comment": "Experience and levels (docs/ARCHITECTURE.md, Progression). XP is earned at the end of a match - mostly from a normal match against other people, and the same way from practice or solo up to a daily cap - and the level it adds up to is shown with your name. Every level climbed pays a key, and keys unlock builders and cosmetics (keys, below). Every number here is a first guess, to tune once there are players.",
   "levels": {
-    "_comment": "XP to climb from level L to L + 1 is first + step x (L - 1): 300 to reach level 2, then 400, 500 and so on. A straight line, so every level asks a little more than the last without ever running away, and there is no top. Level 10 is 6,300 XP in all - about twenty normal matches, at the 300 or so an average one earns.",
+    "_comment": "XP to climb from level L to L + 1 is first + step x (L - 1): 300 to reach level 2, then 400, 500 and so on. A straight line, so every level asks a little more than the last without ever running away. The curve has no top of its own: levels stop at the top level (keys, below). Level 10 is 6,300 XP in all - about twenty normal matches, at the 300 or so an average one earns.",
     "first": 300,
     "step": 100
   },
@@ -28,7 +28,7 @@
     "bonus": 0.75
   },
   "keys": {
-    "_comment": "What levels pay, and what builders and cosmetics are unlocked with - nothing in the game is bought with money but Supporter. perLevel keys for every level climbed, none for level 1, so level L has paid (L - 1) x perLevel. Every builder but the starter costs builder keys: three of them at 3 keys is all four builders by level 10. A cosmetic's cost is in cosmetics.json; titles and the badges that mean something are earned by what they mean instead.",
+    "_comment": "What levels pay, and what builders and cosmetics are unlocked with - nothing in the game is bought with money but Supporter. perLevel keys for every level climbed, none for level 1, so level L has paid (L - 1) x perLevel. Every builder but the starter costs builder keys: three of them at 3 keys is all four builders by level 10. A cosmetic's cost is in cosmetics.json; titles and the badges that mean something are earned by what they mean instead. Levels stop at the TOP LEVEL, the one that pays the last key there is anything to spend on: every builder but the starter, and every cosmetic keys can unlock now (a slot still to come counts once it is drawn). Worked out from the data, never written here: 10 today, 24 once every slot is drawn, and higher with each new builder or cosmetic. XP past it does not count and the ad is not offered there, so nobody banks keys ahead of new content.",
     "perLevel": 1,
     "builder": 3,
     "starter": "ironvow"

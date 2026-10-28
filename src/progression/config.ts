@@ -10,11 +10,16 @@
  *
  * Checked strictly, and loudly: a typo in a price file is a crash at start-up
  * with the field named, not a store that quietly shows "undefined".
+ *
+ * It does read one thing of the simulation's: which builders there are, from
+ * data/units.json. Every one but the starter is unlocked with keys, so the
+ * roster is part of what sets the top level (store.ts).
  */
 
 import progressionJson from '../../data/progression.json' with { type: 'json' };
 import storeJson from '../../data/store.json' with { type: 'json' };
 import cosmeticsJson from '../../data/cosmetics.json' with { type: 'json' };
+import unitsJson from '../../data/units.json' with { type: 'json' };
 
 /** XP to climb from level L to L + 1 is `first + step × (L − 1)`. */
 export interface LevelCurve {
@@ -259,3 +264,5 @@ export function parseCosmetics(raw: unknown): CosmeticsConfig {
 export const PROGRESSION = parseProgression(progressionJson);
 export const STORE = parseStore(storeJson);
 export const COSMETICS = parseCosmetics(cosmeticsJson);
+/** Every builder there is, by id: the starter and the ones keys unlock. */
+export const ROSTER: readonly string[] = unitsJson.builders.map((b) => b.id);

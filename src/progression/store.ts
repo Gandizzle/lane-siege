@@ -15,6 +15,16 @@
  * left is what the levels have paid less what has been spent, so a key is
  * never lost and never paid twice: the level is the record of what was
  * earned, and `keysSpent` of what went on what is in `unlocked`.
+ *
+ * THE TOP LEVEL
+ *
+ * Levels stop at the one that pays the last key there is anything to spend on
+ * (`keysForEverything`): every builder but the starter, and every cosmetic
+ * keys can unlock now - a slot still to come counts once the game draws it.
+ * So a player who has played through everything has unlocked everything,
+ * with no pile of keys waiting for whatever comes next, and every new builder
+ * or cosmetic raises the top and starts the climb again. XP past the top is
+ * not kept (award.ts), not even from a save made before there was one.
  */
 
 import type { KeyValueStore } from '../net/identity.ts';
@@ -29,6 +39,7 @@ import {
 import {
   COSMETICS,
   PROGRESSION,
+  ROSTER,
   STORE,
   type Cosmetic,
   type CosmeticsConfig,
@@ -36,7 +47,7 @@ import {
   type StoreConfig,
 } from './config.ts';
 import { cosmeticById, forSale, isUnlocked, setEnabled, wornIn, type Holder } from './cosmetics.ts';
-import { levelOf, xpToReach, type LevelProgress } from './levels.ts';
+import { levelOf, topLevel, xpCeiling, xpToReach, type LevelProgress } from './levels.ts';
 import { dayKey, hasSupporterPerks, parseProfile, type Profile } from './profile.ts';
 
 const STORAGE_KEY = 'lane-siege.profile';
@@ -46,6 +57,8 @@ export interface AwardResult {
   award: XpAward;
   before: LevelProgress;
   after: LevelProgress;
+  /** The top level it was counted against. */
+  top: number;
 }
 
 /** The keys the levels have paid, and what is left of them. */
@@ -54,8 +67,8 @@ export interface Keys {
   spent: number;
   /** Earned less spent, and never below none. */
   left: number;
-  /** The level that pays the next ones. */
-  nextAt: number;
+  /** The level that pays the next ones; null at the top level, where none are coming. */
+  nextAt: number | null;
 }
 
 /** How a builder is unlocked in `unlocked`, apart from the cosmetics. */
@@ -63,8 +76,32 @@ export function builderUnlockId(builderId: string): string {
   return `builder:${builderId}`;
 }
 
+/** What a builder costs to unlock: nothing for the starter everyone has. */
+function builderCost(config: ProgressionConfig, builderId: string): number {
+  return builderId === config.keys.starter ? 0 : config.keys.builder;
+}
+
+/**
+ * The keys it takes to unlock everything keys can unlock now: every builder in
+ * `roster` but the starter, and every cosmetic for keys in a slot the game
+ * draws. The top level is the one that pays the last of them.
+ */
+export function keysForEverything(
+  config: ProgressionConfig,
+  cosmetics: CosmeticsConfig,
+  roster: readonly string[],
+): number {
+  const builders = roster.reduce((sum, id) => sum + builderCost(config, id), 0);
+  const looks = cosmetics.cosmetics
+    .filter((c) => forSale(cosmetics, c))
+    .reduce((sum, c) => sum + (c.unlock.keys ?? 0), 0);
+  return builders + looks;
+}
+
 export class ProgressStore {
   private current: Profile;
+  /** The top level for now: the one that pays the last key there is anything to spend on. */
+  readonly topLevel: number;
 
   constructor(
     private readonly storage: KeyValueStore | null,
@@ -73,6 +110,8 @@ export class ProgressStore {
     readonly config: ProgressionConfig = PROGRESSION,
     readonly cosmetics: CosmeticsConfig = COSMETICS,
     readonly store: StoreConfig = STORE,
+    /** The builders there are, by id. */
+    roster: readonly string[] = ROSTER,
   ) {
     let saved: unknown;
     try {
@@ -81,7 +120,12 @@ export class ProgressStore {
     } catch {
       // Corrupt or blocked: a new player, rather than no game.
     }
+    this.topLevel = topLevel(keysForEverything(config, cosmetics, roster), config.keys.perLevel);
     this.current = parseProfile(saved);
+    // XP past the top is let go, whenever it was earned - a save from before
+    // there was a top, say - or the next new builder would pay it all out.
+    const ceiling = xpCeiling(this.topLevel, config.levels);
+    if (this.current.xp > ceiling) this.save({ ...this.current, xp: ceiling });
   }
 
   get profile(): Readonly<Profile> {
@@ -89,7 +133,7 @@ export class ProgressStore {
   }
 
   get level(): LevelProgress {
-    return levelOf(this.current.xp, this.config.levels);
+    return levelOf(this.current.xp, this.config.levels, this.topLevel);
   }
 
   /** A Supporter's perks, bought or a Founder's. */
@@ -116,13 +160,14 @@ export class ProgressStore {
   /** Count a finished match, save it, and say what it earned. */
   award(result: MatchResult): AwardResult {
     const before = this.level;
-    const { award, profile } = awardXp(this.config, this.current, result, this.today);
+    const top = this.topLevel;
+    const { award, profile } = awardXp(this.config, this.current, result, this.today, top);
     this.save(profile);
-    return { award, before, after: this.level };
+    return { award, before, after: this.level, top };
   }
 
   boost(): BoostStatus {
-    return boostStatus(this.config, this.current);
+    return boostStatus(this.config, this.current, this.level.atTop);
   }
 
   /** The ad was watched to the end: add its waves. False if no ad was due. */
@@ -135,10 +180,15 @@ export class ProgressStore {
   // ---------------------------------------------------------------- keys
 
   get keys(): Keys {
-    const level = this.level.level;
+    const { level, atTop } = this.level;
     const earned = (level - 1) * this.config.keys.perLevel;
     const spent = this.current.keysSpent;
-    return { earned, spent, left: Math.max(0, earned - spent), nextAt: level + 1 };
+    return {
+      earned,
+      spent,
+      left: Math.max(0, earned - spent),
+      nextAt: atTop ? null : level + 1,
+    };
   }
 
   /** Spend `cost` keys on `unlockId`. False, and nothing spent, if they are not there. */
@@ -154,7 +204,7 @@ export class ProgressStore {
 
   /** What a builder costs to unlock: nothing for the starter everyone has. */
   builderCost(builderId: string): number {
-    return builderId === this.config.keys.starter ? 0 : this.config.keys.builder;
+    return builderCost(this.config, builderId);
   }
 
   ownsBuilder(builderId: string): boolean {
@@ -232,10 +282,11 @@ export class ProgressStore {
     this.save({ ...this.current, supporter: false, founder: false });
   }
 
-  /** Climb straight to the next level, keys and all (`?progress=test`). */
+  /** Climb straight to the next level, keys and all (`?progress=test`). Not past the top. */
   testLevelUp(): void {
-    const next = this.level.level + 1;
-    this.save({ ...this.current, xp: xpToReach(next, this.config.levels) });
+    const { level, atTop } = this.level;
+    if (atTop) return;
+    this.save({ ...this.current, xp: xpToReach(level + 1, this.config.levels) });
   }
 
   private save(next: Profile): void {
