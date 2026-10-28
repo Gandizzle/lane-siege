@@ -99,8 +99,12 @@ npm run server     # authoritative Colyseus room on :2567, up to 4 players
 npm run dev        # then open the URL with ?server=ws://localhost:2567
 ```
 
-The room starts when it is full, or after 20 seconds with whoever has turned up;
-any lane nobody took is played by a scripted builder. Without `?server=` the
+The room starts once everyone in it is ready (after at least 10 seconds unless it
+is full), or after 60 seconds regardless. In a quick match, any lane nobody took
+is played by another player's saved build - the build they chose to keep from a
+quick match of their own - or by a scripted builder when there are none. Saved
+builds are kept on the server's disk under `GHOST_DIR` (default `./ghosts`);
+`npm run ghosts` checks the whole loop against a real server. Without `?server=` the
 game is a practice match simulated in the browser — which is what the deployed
 build serves, since GitHub Pages is static and cannot host a room.
 

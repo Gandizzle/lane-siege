@@ -15,6 +15,7 @@ function opponent(teamId: string, eliminated = false): OpponentView {
     teamId,
     name: '',
     level: 0,
+    recorded: false,
     eliminated,
     placement: null,
     fortressHp: 100,

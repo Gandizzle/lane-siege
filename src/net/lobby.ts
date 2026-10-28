@@ -32,8 +32,9 @@
  * A player who has not readied is still seated and still plays; they simply did
  * not confirm a roster, and get the one their lane was created with.
  *
- * Empty seats are played by a scripted builder from kickoff (server/room.ts),
- * so a two-player match is still the four-lane match §17 describes.
+ * Empty seats are played from kickoff (server/room.ts) - in a quick match by
+ * other players' saved builds first and scripted builders after - so a
+ * two-player match is still the four-lane match §17 describes.
  */
 
 /**
@@ -74,6 +75,11 @@ export interface LobbySeat {
   ready: boolean;
   /** Holds the seat but the socket is gone - reconnecting, or gone for good. */
   connected: boolean;
+  /**
+   * Played by a saved build rather than a live player (src/bot/ghost.ts):
+   * seated at kickoff, into a quick match's empty seat.
+   */
+  recorded: boolean;
 }
 
 /** What one client is told about the lobby. Their own seat is marked. */
@@ -106,6 +112,7 @@ export function createSeats(teamIds: readonly string[]): LobbySeat[] {
     builderId: '',
     ready: false,
     connected: false,
+    recorded: false,
   }));
 }
 
@@ -142,6 +149,7 @@ export function seatPlayer(
   free.builderId = builderId;
   free.ready = false;
   free.connected = true;
+  free.recorded = false;
   return free;
 }
 
@@ -153,6 +161,7 @@ export function releaseSeat(seat: LobbySeat): void {
   seat.builderId = '';
   seat.ready = false;
   seat.connected = false;
+  seat.recorded = false;
 }
 
 /**

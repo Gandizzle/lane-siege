@@ -131,18 +131,24 @@ class OpponentTab extends Container {
     // The second line says something only when there is something to say:
     // out and where they placed, or how long you can see inside - and when
     // there is nothing else, the level they have reached (src/progression),
-    // which is there to be seen. The HP PERCENTAGE used to live here and does
-    // not need to - the bar under it is the same number, read faster, and two
-    // of one fact is one too many.
+    // which is there to be seen, and "saved" for a seat a saved build plays
+    // rather than a person (src/bot/ghost.ts). The HP PERCENTAGE used to live
+    // here and does not need to - the bar under it is the same number, read
+    // faster, and two of one fact is one too many.
     const level = opponent ? opponent.level : ownLevel;
+    const who = opponent?.recorded
+      ? level > 0
+        ? `saved · Lv ${level}`
+        : 'saved'
+      : level > 0
+        ? `Lv ${level}`
+        : '';
     const detail = eliminated
       ? `out · ${ordinal(opponent?.placement ?? 0)}`
       : opponent
         ? opponent.watching
           ? watchingLabel(opponent)
-          : level > 0
-            ? `Lv ${level}`
-            : ''
+          : who
         : level > 0
           ? `you · Lv ${level}`
           : 'you';

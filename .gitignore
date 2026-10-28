@@ -15,3 +15,4 @@ android/
 # records and the JSON summary are hundreds of KB of machine output and are
 # reproducible from the seed in the report.
 reports/*.json
+/ghosts/

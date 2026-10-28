@@ -13,7 +13,7 @@ export default tseslint.config(
     languageOptions: { globals: { console: 'readonly', process: 'readonly' } },
   },
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'server/**/*.ts'],
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],

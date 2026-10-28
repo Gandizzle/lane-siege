@@ -457,8 +457,9 @@ A mistyped code opens an empty room of that name instead of erroring, because
 "nobody is here yet" and "you typed it wrong" want the same next action from
 the player.
 
-There is no lobby server, no room list and no database. None of them add
-anything a four-player game with a shareable code needs.
+There is no lobby server and no room list. Neither adds anything a four-player
+game with a shareable code needs. The one thing the server keeps between
+matches is each player's saved build (below).
 
 **A seat belongs to a player, not to a connection.** Colyseus hands out a new
 session id every time a socket opens, so a player who drops and comes back
@@ -522,6 +523,77 @@ The client keeps its reconnection token in `sessionStorage`, which survives a
 reload of the page but not a new tab — a new tab is a different player as far as
 anyone can tell. Connecting tries the token first and falls back to a normal
 join, so a stale one costs a failed round trip and nothing else.
+
+### Saved builds: other players' play in the empty seats
+
+Early on there will rarely be four people looking for a match at once, and a
+long wait is worse than a match. So a quick match's empty seats are played by
+other players' **saved builds**: what somebody did in a quick match of their
+own, played back. A player who arrives to an empty room still plays three
+people's play rather than three scripted builders, and a player with a good
+build gets to watch it beat strangers (`src/bot/ghost.ts`, `server/`).
+
+**What is kept.** Every command a quick-match lane has accepted passes through
+the room, which keeps them as actions that mean the same in another match: a
+unit is named by its tile rather than its id, a send's target by how many seats
+round the table it sat, and each action is dated by the wave, and the half of
+it, it was taken in (`portable`, `moment`). A unit placed and sold in the same
+build phase was a slip with a whole refund, and is kept as nothing. When a
+player's match ends - out, or the last one standing - the room stores it as
+their **last** build. Save this build, on the card after a quick match, makes
+it their **saved** one: one a player, replacing the one before, its record
+started again. One each keeps the pool the size of the player base rather than
+of the matches ever played, and each player is in it with the build they chose.
+
+**Seating** (`server/room.ts`, `seatSavedBuilds`). At kickoff a quick match's
+empty seats go to saved builds - drawn at random from the ones nearest the
+room's level, never a build of anyone in the room, never the same one twice -
+and only what is left to scripted builders. A private room is the people in
+it, as before. A saved build plays the builder it was saved with, under its
+player's name and level.
+
+**Playing it back keeps the order, not the clock** (`GhostPlayer`). The waves,
+the sends coming in and so the gold are all different the second time, so each
+action falls due at the moment it was taken and is made as soon as the lane can
+make it, through the same `applyCommand` a tap goes through:
+
+- short of gold, gems or supply, it waits, and so does everything after it -
+  money is spent in the order the player spent it;
+- a ladder still cooling, a send on its cooldown or not open yet, a unit to
+  place while a wave is fought: that one waits, and the rest go on;
+- anything that cannot happen here - a tile taken, a unit not there to
+  upgrade - is let go, and a send at a seat already out goes to the next one
+  round still standing.
+
+Replayed in the match it came from, a build is rebuilt exactly
+(`src/bot/ghost.test.ts`); in another it opens the same way and catches up as
+the gold comes. When its recording runs out it stands with its last army. It
+never reacts to what a match throws at it - that is the difference between a
+saved build and a person - so nobody is told otherwise: the tab says
+"saved · Lv 12" under the name, and a note at kickoff says how many saved
+builds fill the seats.
+
+**Where a build placed is counted** for the player who saved it, at the moment
+its lane's match ends: last standing is first. The home screen asks how it has
+done as the game opens and, when there is news since this device last showed
+it, says so - "It played 7 matches since you last looked", first to fourth, and
+the record since it was saved (`ui/savedBuildNews.ts`, `net/ghostApi.ts`).
+
+**Kept on the server's disk**, one small JSON file a build under `GHOST_DIR`
+(default `./ghosts`), named by a hash of the player id so no id can name a path
+and written beside its place and renamed in, so a crash never leaves half a
+file (`server/ghostStore.ts`). Saved builds are read in at start-up, since a
+kickoff picks from them mid-tick; last builds are read when asked for. The two
+questions a player asks - how has it done, keep my last one - are plain HTTP on
+the game's own port (`server/ghostRoutes.ts`): Colyseus answers its own
+matchmaking requests there and hands every other request on. They are asked by
+player id, which is a claim (identity.ts), so the worst a forged one can do is
+keep somebody's last build for them. Every build in the store was played on the
+server through its own simulation: nothing a client sends becomes a build.
+
+Checked by `src/bot/ghost.test.ts`, `server/ghostStore.test.ts`,
+`src/net/ghostApi.test.ts`, and `npm run ghosts`, which stands up a real server
+with saved builds in it and plays a quick match into it.
 
 ### The two pieces of DOM
 
@@ -1572,8 +1644,8 @@ one block over its bounding box and cut to its outline by a mask.
 
 ### The practice bots: seven ways to play
 
-The three opponents in a practice match, and the empty seats of an online room,
-are `src/bot/autoBuilder.ts`. Each one plays a **style** (`src/bot/style.ts`):
+The three opponents in a practice match, and the empty seats of an online room
+that no saved build fills (above), are `src/bot/autoBuilder.ts`. Each one plays a **style** (`src/bot/style.ts`):
 one of seven archetypes, rolled from the match seed without repeats, with every
 number jittered inside that archetype's ranges. So two Raiders are not the same
 Raider, and the same `?seed=` always seats the same bots. The opponent tabs are

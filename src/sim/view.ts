@@ -296,6 +296,8 @@ export interface OpponentView {
   name: string;
   /** Their level, shown with the name; 0 when nobody has said (a bot). */
   level: number;
+  /** A saved build's seat rather than a live player's (`Team.recorded`). */
+  recorded: boolean;
   eliminated: boolean;
   /** Locked in at elimination (§13). */
   placement: number | null;
@@ -662,6 +664,7 @@ export function viewFor(
       teamId: team.id,
       name: team.name,
       level: team.level,
+      recorded: team.recorded,
       eliminated: team.eliminated,
       placement: team.placement,
       // §12's suggested minimum, and the whole of it.

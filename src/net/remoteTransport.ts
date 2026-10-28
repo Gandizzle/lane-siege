@@ -244,6 +244,7 @@ export class RemoteTransport implements Transport {
         hello.seed,
         hello.teamNames ?? [],
         hello.teamLevels ?? [],
+        hello.teamRecorded ?? [],
       );
       this.status = 'ready';
 

@@ -52,6 +52,13 @@ export interface Team {
    * a bot, or an older client. Never read by the simulation.
    */
   level: number;
+  /**
+   * Played by a saved build - another player's recorded play, seated in an
+   * empty quick-match seat (src/bot/ghost.ts) - rather than by anyone live.
+   * Shown with the name, so nobody takes it for a person; never read by the
+   * simulation.
+   */
+  recorded: boolean;
   eliminated: boolean;
   /** Locked in at the moment of elimination (§13). */
   placement: number | null;

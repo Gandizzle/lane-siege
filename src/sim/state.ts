@@ -169,6 +169,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     playerIds: [...setup.playerIds],
     name: setup.name ?? '',
     level: setup.level ?? 0,
+    recorded: false,
     eliminated: false,
     placement: null,
     vision: {},

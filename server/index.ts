@@ -20,8 +20,18 @@
  *     visible on screen and fixed by retyping - better than an error, because
  *     "nobody is here yet" and "you typed it wrong" want the same next action.
  *
- * There is no separate lobby server, no room list and no database, because none
- * of those add anything a four-player game with a shareable code needs.
+ * There is no separate lobby server and no room list, because neither adds
+ * anything a four-player game with a shareable code needs.
+ *
+ * SAVED BUILDS
+ *
+ * The one thing kept between matches: each player's saved build, which fills
+ * empty quick-match seats in other people's games (src/bot/ghost.ts), and
+ * their last one, for them to keep or not. They are files under `GHOST_DIR`
+ * (default `./ghosts`), read in at start-up (ghostStore.ts), and the two
+ * questions a player asks about theirs - how has it done, keep my last one -
+ * are plain HTTP on this same port (ghostRoutes.ts), since Colyseus answers its
+ * own matchmaking requests here and hands every other request on.
  *
  * Note what is NOT deployed: the GitHub Pages build (§15.2) is static, so it
  * cannot run this. Multiplayer therefore means running this process somewhere
@@ -29,11 +39,15 @@
  * of M6 that money rather than code buys.
  */
 
+import { createServer } from 'node:http';
+import { join } from 'node:path';
 import { Server } from 'colyseus';
 import { WebSocketTransport } from '@colyseus/ws-transport';
 import { loadDataFromDisk } from '../src/data/loadNode.ts';
 import { formatReport } from '../src/data/validate.ts';
 import { ROOM_NAME } from '../src/net/protocol.ts';
+import { FileGhostStore } from './ghostStore.ts';
+import { ghostRoutes } from './ghostRoutes.ts';
 import { LaneSiegeRoom, MAX_PLAYERS } from './room.ts';
 
 const port = Number(process.env.PORT ?? 2567);
@@ -43,14 +57,18 @@ const autoStartSeconds = Number(process.env.AUTO_START_SECONDS ?? 60);
 const minWaitSeconds = Number(process.env.MIN_WAIT_SECONDS ?? 10);
 /** How long a dropped player's seat is kept for them. */
 const reconnectSeconds = Number(process.env.RECONNECT_SECONDS ?? 90);
+/** Where saved builds are kept. */
+const ghostDir = process.env.GHOST_DIR ?? join(process.cwd(), 'ghosts');
 
 const { data, report } = loadDataFromDisk();
 if (report.errors.length > 0 || report.missing.length > 0) {
   console.info('[lane-siege] balance data status\n%s', formatReport(report));
 }
 
+const ghosts = new FileGhostStore(ghostDir);
+
 const server = new Server({
-  transport: new WebSocketTransport(),
+  transport: new WebSocketTransport({ server: createServer(ghostRoutes(ghosts)) }),
 });
 
 server
@@ -59,6 +77,7 @@ server
     autoStartSeconds,
     minWaitSeconds,
     reconnectSeconds,
+    ghosts,
   })
   // The one line of matchmaking: a room only ever meets clients that asked for
   // its code. See the note above.
@@ -72,6 +91,7 @@ server
       `[lane-siege] up to ${MAX_PLAYERS} players; a room starts ${minWaitSeconds}s after everyone in it is ready, or after ${autoStartSeconds}s regardless`,
     );
     console.log(`[lane-siege] a dropped player has ${reconnectSeconds}s to come back`);
+    console.log(`[lane-siege] saved builds are kept in ${ghostDir}`);
     console.log(
       `[lane-siege] point a client at it: http://localhost:5173/lane-siege/?server=ws://localhost:${port}`,
     );

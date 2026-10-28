@@ -36,6 +36,15 @@
  * one. Two players buying in the same 50ms therefore resolve in a defined
  * order rather than wherever the packets landed, which is what keeps a replay
  * of the command log reproducible.
+ *
+ * SAVED BUILDS (src/bot/ghost.ts, ghostStore.ts)
+ *
+ * In a quick match the room also keeps what each player's lane did, and when
+ * their match ends - out, or the last one standing - hands it to the store as
+ * their last build, for them to keep or not. At kickoff, a quick match's empty
+ * seats go to saved builds first and to scripted builders after, so a player
+ * who arrives to an empty room still plays three other people's play - and
+ * where each of those builds placed is counted for the player who saved it.
  */
 
 import { Room, type Client } from 'colyseus';
@@ -68,8 +77,10 @@ import {
   type LobbyTiming,
 } from '../src/net/lobby.ts';
 import { AutoBuilder } from '../src/bot/autoBuilder.ts';
+import { GhostPlayer, GhostRecorder, portable } from '../src/bot/ghost.ts';
 import { rollSeats } from '../src/bot/style.ts';
 import { FixedTimestep, MS_PER_TICK } from '../src/util/loop.ts';
+import type { GhostStore } from './ghostStore.ts';
 
 export { MAX_PLAYERS };
 
@@ -97,6 +108,8 @@ export interface RoomOptions extends Partial<LobbyTiming> {
    * so a private code only ever meets rooms opened with the same one.
    */
   code?: string;
+  /** Where saved builds are kept. Without one, a quick match neither keeps nor uses them. */
+  ghosts?: GhostStore;
 }
 
 /** What the join call carries: who you are and what you brought. */
@@ -113,8 +126,12 @@ interface Seat {
   /** The part clients are shown, and the part lobby.ts reasons about. */
   lobby: LobbySeat;
   client: Client | null;
-  /** Seated at kickoff if nobody took this lane. */
+  /** Seated at kickoff if nobody took this lane and no saved build did. */
   bot: AutoBuilder | null;
+  /** A saved build seated at kickoff, and whose it is. */
+  ghost: { player: GhostPlayer; ownerId: string; savedAt: string } | null;
+  /** This lane's match is over, and what follows from that has been done. */
+  ended: boolean;
 }
 
 /** A command and who to tell if the simulation refuses it. */
@@ -141,10 +158,13 @@ export class LaneSiegeRoom extends Room {
   private timing: LobbyTiming = { minWaitSeconds: 0, autoStartSeconds: 0 };
   private reconnectSeconds = DEFAULT_RECONNECT_SECONDS;
   private code = PUBLIC_CODE;
+  private ghosts: GhostStore | null = null;
+  private readonly recorder = new GhostRecorder();
 
   override onCreate(options: RoomOptions): void {
     this.data = options.data;
     this.code = options.code ?? PUBLIC_CODE;
+    this.ghosts = options.ghosts ?? null;
     this.reconnectSeconds = options.reconnectSeconds ?? DEFAULT_RECONNECT_SECONDS;
     this.timing = {
       // A room that is not full waits this long before starting, so that the
@@ -168,7 +188,13 @@ export class LaneSiegeRoom extends Room {
     });
     this.ctx = createContext(this.data);
     this.tables = buildTables(this.data, LANE_IDS, this.match.seed);
-    this.seats = createSeats(LANE_IDS).map((lobby) => ({ lobby, client: null, bot: null }));
+    this.seats = createSeats(LANE_IDS).map((lobby) => ({
+      lobby,
+      client: null,
+      bot: null,
+      ghost: null,
+      ended: false,
+    }));
 
     this.onMessage('command', (client, message: Command) => {
       const seat = this.seatOf(client);
@@ -308,6 +334,11 @@ export class LaneSiegeRoom extends Room {
     return this.waitingTicks / TICKS_PER_SECOND;
   }
 
+  /** A quick match with somewhere to keep builds: it keeps them, and seats them. */
+  private get keepsBuilds(): boolean {
+    return this.ghosts !== null && this.code === PUBLIC_CODE;
+  }
+
   /** One lobby message per client, each with their own seat marked. */
   private broadcastLobby(): void {
     this.sinceLobbyBroadcast = 0;
@@ -344,12 +375,23 @@ export class LaneSiegeRoom extends Room {
       // sent back to the client that asked for it. `step` applies commands
       // first in any case, so this is the same order.
       for (const { command, client } of this.queued) {
+        // Made portable before it is applied: a sale removes the unit it names.
+        const kept = this.keepsBuilds ? portable(command, this.match, LANE_IDS) : null;
         const result = applyCommand(this.ctx, this.match, command);
         if (!result.ok && result.rejection) client.send('rejected', result.rejection);
+        if (result.ok && kept) this.recorder.add(command.teamId, this.match, kept);
       }
       this.queued = [];
 
+      // Saved builds play the way a tap does, and hear whether it was taken.
+      for (const seat of this.seats) {
+        seat.ghost?.player.act(this.match, (command) =>
+          applyCommand(this.ctx, this.match, command),
+        );
+      }
+
       step(this.ctx, this.match, this.botCommands());
+      this.settleEnds();
     });
 
     for (const seat of this.seats) this.sendFrame(seat);
@@ -357,6 +399,44 @@ export class LaneSiegeRoom extends Room {
     if (this.match.finished) {
       this.broadcast('finished', {});
       this.disconnect().catch(() => {});
+    }
+  }
+
+  /**
+   * Lanes whose match has just ended - out, or the match over. A player's
+   * build becomes their last one, to keep or not; a saved build's place is
+   * counted for whoever saved it. Each once.
+   */
+  private settleEnds(): void {
+    const store = this.ghosts;
+    if (!store || !this.keepsBuilds) return;
+    for (const seat of this.seats) {
+      if (seat.ended) continue;
+      const team = this.match.teams.find((t) => t.id === seat.lobby.teamId);
+      if (!team || !(team.eliminated || this.match.finished)) continue;
+      seat.ended = true;
+      // The one left standing when the match ends is first, whether or not
+      // the simulation wrote it down.
+      const placement = team.placement ?? (team.eliminated ? null : 1);
+      try {
+        if (seat.ghost && placement !== null) {
+          store.recordResult(seat.ghost.ownerId, seat.ghost.savedAt, placement);
+        } else if (!seat.ghost && seat.lobby.playerId && !seat.bot) {
+          store.setLast({
+            playerId: seat.lobby.playerId,
+            name: seat.lobby.name,
+            level: seat.lobby.level,
+            builderId: this.match.lanes[seat.lobby.teamId]?.builderId ?? seat.lobby.builderId,
+            wave: this.match.wave,
+            placement,
+            playedAt: new Date().toISOString(),
+            actions: this.recorder.actionsOf(seat.lobby.teamId),
+          });
+        }
+      } catch (error) {
+        // A store that cannot write loses a build; it never stops a match.
+        console.error('[lane-siege] could not keep a build:', error);
+      }
     }
   }
 
@@ -376,6 +456,7 @@ export class LaneSiegeRoom extends Room {
       seed: this.match.seed,
       teamNames: this.seats.map((seat) => seat.lobby.name),
       teamLevels: this.seats.map((seat) => seat.lobby.level),
+      teamRecorded: this.seats.map((seat) => seat.ghost !== null),
     };
   }
 
@@ -386,6 +467,7 @@ export class LaneSiegeRoom extends Room {
   private kickOff(): void {
     this.started = true;
     this.lock().catch(() => {});
+    this.seatSavedBuilds();
 
     // Who everybody is, now that it is settled: the lobby is about to become
     // history, and the names in it are what the four tabs across the top of
@@ -395,6 +477,7 @@ export class LaneSiegeRoom extends Room {
       if (team) {
         team.name = seat.lobby.name;
         team.level = seat.lobby.level;
+        team.recorded = seat.ghost !== null;
       }
     }
     this.tables = buildTables(
@@ -403,6 +486,7 @@ export class LaneSiegeRoom extends Room {
       this.match.seed,
       this.seats.map((seat) => seat.lobby.name),
       this.seats.map((seat) => seat.lobby.level),
+      this.seats.map((seat) => seat.ghost !== null),
     );
     for (const seat of this.seats) {
       if (seat.client) seat.client.send('hello', this.helloFor(seat.lobby.teamId));
@@ -439,6 +523,51 @@ export class LaneSiegeRoom extends Room {
     });
 
     this.broadcastLobby();
+  }
+
+  /**
+   * A quick match's empty seats, given to saved builds: other players' play,
+   * picked near the room's level and never the room's own players' builds.
+   * Whatever seats are left go to scripted builders, as before. A build
+   * plays the builder it was saved with, under its player's name and level.
+   */
+  private seatSavedBuilds(): void {
+    if (!this.ghosts || !this.keepsBuilds) return;
+    const empty = this.seats.filter((seat) => !seat.lobby.playerId);
+    const humans = this.seats.filter((seat) => seat.lobby.playerId);
+    if (empty.length === 0) return;
+    const level =
+      humans.reduce((sum, seat) => sum + seat.lobby.level, 0) / Math.max(1, humans.length);
+    let picked: ReturnType<GhostStore['pick']> = [];
+    try {
+      picked = this.ghosts.pick(empty.length, {
+        exclude: new Set(humans.map((seat) => seat.lobby.playerId!)),
+        level,
+        random: Math.random,
+      });
+    } catch (error) {
+      console.error('[lane-siege] could not pick saved builds:', error);
+    }
+    picked.forEach((ghost, i) => {
+      const seat = empty[i]!;
+      if (!this.data.units.builders.some((b) => b.id === ghost.builderId)) return;
+      Object.assign(seat.lobby, {
+        // Never a real player's id, so nobody can reclaim it as their seat.
+        playerId: `ghost:${ghost.playerId}`,
+        name: acceptableName(ghost.name),
+        level: cleanLevel(ghost.level),
+        builderId: ghost.builderId,
+        ready: true,
+        // Present, with no socket to lose: never shown as reconnecting.
+        connected: true,
+        recorded: true,
+      });
+      seat.ghost = {
+        player: new GhostPlayer(seat.lobby.teamId, ghost.actions, LANE_IDS),
+        ownerId: ghost.playerId,
+        savedAt: ghost.savedAt,
+      };
+    });
   }
 
   /**

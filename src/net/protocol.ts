@@ -255,6 +255,8 @@ export interface WireHello {
   teamNames?: string[];
   /** Levels, parallel to `teamIds`, 0 where nobody has said. Like the names. */
   teamLevels?: number[];
+  /** Which seats a saved build plays (`Team.recorded`), parallel to `teamIds`. Like the names. */
+  teamRecorded?: boolean[];
 }
 
 /**
@@ -267,6 +269,8 @@ export interface WireTables {
   teamNames: string[];
   /** Levels, parallel to `teamIds`. See `WireHello.teamLevels`. */
   teamLevels: number[];
+  /** Saved builds' seats, parallel to `teamIds`. See `WireHello.teamRecorded`. */
+  teamRecorded: boolean[];
   /**
    * The match seed. Public and constant (§9.2), so it arrives once with the
    * hello rather than 20 times a second in every frame.
@@ -302,6 +306,7 @@ export function buildTables(
   seed = 0,
   teamNames: readonly string[] = [],
   teamLevels: readonly number[] = [],
+  teamRecorded: readonly boolean[] = [],
 ): WireTables {
   const unitIds = data.units.units.map((u) => u.id);
   const monsterIds = [
@@ -324,6 +329,7 @@ export function buildTables(
     teamIds: [...teamIds],
     teamNames: teamIds.map((_, i) => teamNames[i] ?? ''),
     teamLevels: teamIds.map((_, i) => teamLevels[i] ?? 0),
+    teamRecorded: teamIds.map((_, i) => teamRecorded[i] === true),
     seed,
     unitIds,
     monsterIds,
@@ -775,6 +781,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
         // the hello (`WireHello.teamNames`).
         name: tables.teamNames[teamIndex] ?? '',
         level: tables.teamLevels[teamIndex] ?? 0,
+        recorded: tables.teamRecorded[teamIndex] ?? false,
         fortressHp: hp,
         fortressMaxHp: maxHp,
         eliminated: eliminated === 1,

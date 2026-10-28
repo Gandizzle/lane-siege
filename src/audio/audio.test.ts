@@ -126,6 +126,7 @@ function match(
         teamId: 'lane2',
         name: 'Bot 2',
         level: 0,
+        recorded: false,
         eliminated: false,
         placement: null,
         fortressHp: 1000,

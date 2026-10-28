@@ -84,16 +84,18 @@ import { AbilityCard } from './ui/abilityCard.ts';
 import { BuildBar, type Selection } from './ui/buildBar.ts';
 import { BuilderSelect } from './ui/builderSelect.ts';
 import { ShowdownCountdown } from './ui/countdown.ts';
-import { GameOver } from './ui/gameOver.ts';
+import { GameOver, type KeepOffer } from './ui/gameOver.ts';
 import { HomeScreen, type HomeProfile, type MatchMode } from './ui/homeScreen.ts';
 import { XpReport } from './ui/xpReport.ts';
 import { BoostOffer } from './ui/boostOffer.ts';
 import { SupportScreen, supporterBonus } from './ui/supportScreen.ts';
 import { CollectionScreen } from './ui/collectionScreen.ts';
+import { SavedBuildNews } from './ui/savedBuildNews.ts';
 import type { RewardedAds } from './ui/adPlaceholder.ts';
 import { waveCount, type XpAward, type XpMode } from '../progression/award.ts';
 import { forSale } from '../progression/cosmetics.ts';
 import type { ProgressStore } from '../progression/store.ts';
+import type { SavedBuilds } from '../net/ghostApi.ts';
 import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Menu, MenuButton } from './ui/menu.ts';
@@ -153,6 +155,11 @@ export interface GameServices {
    * tried without a server or a payment provider.
    */
   progressTest: boolean;
+  /**
+   * The player's saved build on the server (net/ghostApi.ts): how it has done,
+   * and keeping the last one. Null with no server to keep one on.
+   */
+  savedBuilds: SavedBuilds | null;
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
@@ -241,6 +248,17 @@ export class Game extends Container {
   private soloResult: { best: number; newBest: boolean } | null = null;
   /** This match's XP has been counted: once, as your match ends (src/progression). */
   private awarded = false;
+  /**
+   * A quick match's Save this build, as far as it has got; null until it is
+   * pressed. Reset with each match.
+   */
+  private keepState: KeepOffer | null = null;
+  /** The player has a saved build already: keeping this one replaces it. */
+  private hasSavedBuild = false;
+  /** This match's saved-build seats have been mentioned, or there were none. */
+  private savedBuildsNoted = false;
+  /** What the player's saved build did while they were away (ui/savedBuildNews.ts). */
+  private readonly savedBuildNews: SavedBuildNews;
   /** What the match earned, line by line, and the climb it bought. */
   private readonly xpReport: XpReport;
   /** The XP boost, asked about before a game (ui/boostOffer.ts). */
@@ -344,6 +362,7 @@ export class Game extends Container {
       onRestart: () => this.chooseAgain(),
       onSpectate: () => this.spectateFirstAvailable(),
       onNextLesson: () => this.continueLesson(),
+      onKeepBuild: () => void this.keepBuild(),
       onRetryLesson: () => {
         if (this.practice) this.startLesson(this.practice.index);
       },
@@ -372,6 +391,7 @@ export class Game extends Container {
       onCollection: () => this.openCollection(),
       onSupporter: () => this.openSupport(),
     });
+    this.savedBuildNews = new SavedBuildNews(this.layout, () => this.savedBuildNews.close());
     this.xpReport = new XpReport(this.layout, {
       onClose: () => this.xpReport.close(),
       onLevelUp: () => this.services.sound.play('wave.cleared'),
@@ -511,9 +531,12 @@ export class Game extends Container {
       this.supportScreen,
       // Over everything: it stands between a tap on a builder and the game.
       this.boostOffer,
+      // Over the home screen, the moment the game opens.
+      this.savedBuildNews,
     );
 
     this.showScreen('home');
+    void this.checkSavedBuild();
   }
 
   /**
@@ -526,6 +549,10 @@ export class Game extends Container {
     // all; with the congratulations up, it goes on to the game they were for.
     if (this.boostOffer.isOpen) {
       if (!this.watchingAd) this.leaveOffer(!this.boostOffer.asking);
+      return;
+    }
+    if (this.savedBuildNews.isOpen) {
+      this.savedBuildNews.close();
       return;
     }
     for (const sheet of [this.supportScreen, this.collectionScreen]) {
@@ -748,6 +775,8 @@ export class Game extends Container {
     this.waveCleared.reset();
     this.statusLog.reset();
     this.gameOver.reset();
+    this.keepState = null;
+    this.savedBuildsNoted = false;
     this.buildBar.reset();
     this.leaveShowdown();
     this.lesson = null;
@@ -1265,6 +1294,59 @@ export class Game extends Container {
     this.progressChanged();
   }
 
+  // ------------------------------------------------------------ saved builds
+
+  /**
+   * What the player's saved build has done since this device last showed it,
+   * shown over the home screen when there is news. Asked once, as the game
+   * opens; no server, or no answer, is no news.
+   */
+  private async checkSavedBuild(): Promise<void> {
+    const builds = this.services.savedBuilds;
+    if (!builds) return;
+    const report = await builds.report();
+    if (!report) return;
+    this.hasSavedBuild = report.saved !== null;
+    const news = builds.news(report);
+    // Only over the home screen: news that would land on a match waits for
+    // the next time the game opens.
+    if (!news || this.screen !== 'home') return;
+    this.savedBuildNews.open(news);
+    builds.markSeen(report);
+  }
+
+  /** The end-of-match card's Save this build: only after a quick match, with a server to keep it. */
+  private keepOffer(): KeepOffer | null {
+    if (this.mode.kind !== 'quick' || !this.services.savedBuilds) return null;
+    return this.keepState ?? (this.hasSavedBuild ? 'replace' : 'offer');
+  }
+
+  /** Keep this match's build: it becomes the one other people's quick matches play. */
+  private async keepBuild(): Promise<void> {
+    const builds = this.services.savedBuilds;
+    if (!builds || this.keepState === 'saving') return;
+    this.keepState = 'saving';
+    const report = await builds.keep();
+    this.keepState = report ? 'saved' : 'failed';
+    if (!report) return;
+    this.hasSavedBuild = true;
+    // Its record starts here: nothing it does from now on is old news.
+    builds.markSeen(report);
+    this.toast.showText("Saved. It will play in other people's quick matches.");
+  }
+
+  /** Once a match: say so when saved builds fill some of its seats. */
+  private noteSavedBuilds(view: MatchView): void {
+    if (this.savedBuildsNoted || view.opponents.length === 0) return;
+    this.savedBuildsNoted = true;
+    const saved = view.opponents.filter((o) => o.recorded).length;
+    if (saved > 0) {
+      this.toast.showText(
+        `${saved} saved ${saved === 1 ? 'build' : 'builds'} from other players ${saved === 1 ? 'fills' : 'fill'} the empty seats`,
+      );
+    }
+  }
+
   /** Keys were spent on `name`: heard, and said. */
   private unlocked(name: string): void {
     this.services.sound.play('buy');
@@ -1311,6 +1393,7 @@ export class Game extends Container {
     this.gameOver.setLayout(this.layout);
     this.xpReport.setLayout(this.layout);
     this.boostOffer.setLayout(this.layout);
+    this.savedBuildNews.setLayout(this.layout);
     this.supportScreen.setLayout(this.layout);
     this.collectionScreen.setLayout(this.layout);
     this.arena.setLayout(this.layout.screen, this.layout.tileSize);
@@ -1542,7 +1625,8 @@ export class Game extends Container {
     this.showEffectsButton();
     this.recordSolo(view);
     this.awardXp(view);
-    this.gameOver.render(view, this.soloResult, this.practiceEnding());
+    this.noteSavedBuilds(view);
+    this.gameOver.render(view, this.soloResult, this.practiceEnding(), this.keepOffer());
     // Last, so it points at where everything was drawn this frame.
     this.drawCoach(view, deltaMs);
     this.chapterComplete.render(deltaMs);

@@ -11,6 +11,10 @@
  * §13 says nobody is held hostage - a player who wants to watch their killer
  * get killed should not have to be talked out of leaving first.
  *
+ * After a quick match it has a fourth: keeping this match's build, which then
+ * plays in the empty seats of other people's quick matches (src/bot/ghost.ts).
+ * Last, because it is a choice about other people's games, not this one.
+ *
  * It draws once per outcome rather than per frame: an overlay that rebuilds
  * itself sixty times a second would also rebuild its buttons, and a rebuilt
  * button never receives a tap (see the note at the top of buildBar.ts).
@@ -31,7 +35,16 @@ export interface GameOverHandlers {
   onNextLesson(): void;
   /** After a tutorial practice match: the same match again, from the start. */
   onRetryLesson(): void;
+  /** After a quick match: keep this match's build as the player's saved one. */
+  onKeepBuild(): void;
 }
+
+/**
+ * Keeping a quick match's build, and how far it has got: offered (`replace`
+ * when there is a saved build it would take the place of), being kept, kept,
+ * or failed and offered again.
+ */
+export type KeepOffer = 'offer' | 'replace' | 'saving' | 'saved' | 'failed';
 
 /**
  * A tutorial practice match is ending (tutorial/lessons.ts): what comes after
@@ -48,6 +61,8 @@ export class GameOver extends Container {
   private shown: Shown = 'none';
   /** Whether what is drawn was drawn for the arena. Part of the redraw key. */
   private shownInArena = false;
+  /** The keep button as drawn. Part of the redraw key. */
+  private shownKeep: KeepOffer | null = null;
   private dismissed = false;
 
   constructor(
@@ -68,6 +83,7 @@ export class GameOver extends Container {
   reset(): void {
     this.shown = 'none';
     this.shownInArena = false;
+    this.shownKeep = null;
     this.dismissed = false;
     this.visible = false;
     this.removeChildren();
@@ -82,6 +98,7 @@ export class GameOver extends Container {
     view: MatchView,
     solo: { best: number; newBest: boolean } | null = null,
     practice: PracticeEnding | null = null,
+    keep: KeepOffer | null = null,
   ): void {
     const outcome = classify(view);
     // §3.3, replaced: the same three outcomes, reached a different way. Nobody loses a
@@ -94,9 +111,10 @@ export class GameOver extends Container {
     }
 
     this.visible = true;
-    if (outcome === this.shown && arena === this.shownInArena) return;
+    if (outcome === this.shown && arena === this.shownInArena && keep === this.shownKeep) return;
     this.shown = outcome;
     this.shownInArena = arena;
+    this.shownKeep = keep;
     this.removeChildren();
 
     const l = this.layout;
@@ -201,6 +219,30 @@ export class GameOver extends Container {
         this.handlers.onRestart();
       }),
     );
+
+    if (keep) {
+      const words: Record<KeepOffer, string> = {
+        offer: 'Save this build for others to play',
+        replace: 'Save this build (replaces your saved one)',
+        saving: 'Saving…',
+        saved: 'Saved: others will play your build',
+        failed: 'Could not save it. Tap to try again',
+      };
+      const live = keep === 'offer' || keep === 'replace' || keep === 'failed';
+      this.addChild(
+        this.button(
+          cx,
+          y + 56,
+          words[keep],
+          UI.panel,
+          keep === 'saved' ? UI.healthGood : UI.level,
+          () => {
+            if (live) this.handlers.onKeepBuild();
+          },
+          Math.min(l.screen.width - 32, 340),
+        ),
+      );
+    }
   }
 
   /**

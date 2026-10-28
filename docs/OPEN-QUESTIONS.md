@@ -161,7 +161,19 @@ does not take a four-player room to themselves; or after sixty seconds
 regardless. That last one is the **AFK rule**, and it is the same principle
 §3.2 already applies to waves — one slow player may not hold three others up. A
 player who has not readied still plays; they simply did not confirm a roster.
-Empty seats are played by a scripted builder from kickoff, as they already were.
+Empty seats are played from kickoff: in a quick match by other players' saved
+builds first and scripted builders after, in a private room by scripted
+builders, as they already were.
+
+**Empty quick-match seats go to other players' saved builds.** Early on there
+will rarely be four people looking for a match at once, so instead of a long
+wait, a quick match fills its empty seats with what other players did in quick
+matches of their own, played back. Each player may keep one saved build - Save
+this build, after a quick match - which replaces the one before; one each keeps
+the pool the size of the player base rather than of the matches ever played.
+A saved build is shown as one ("saved" on its tab, a note at kickoff), and
+where it places is counted for the player who saved it, who is told how it has
+done the next time they open the game (ARCHITECTURE.md, "Saved builds").
 
 **"Accounts" means an identity, not a credential.** A player id generated once
 on the device and kept, plus a display name. That is what the game actually
