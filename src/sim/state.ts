@@ -10,7 +10,17 @@
 import type { GameData } from '../data/schema.ts';
 import { secondsToTicks } from './constants.ts';
 import { Rng } from './rng.ts';
-import type { Lane, MatchMode, MatchState, PlayerId, Team, TeamId, WaveTally } from './types.ts';
+import { NO_LOOKS } from './types.ts';
+import type {
+  Lane,
+  Looks,
+  MatchMode,
+  MatchState,
+  PlayerId,
+  Team,
+  TeamId,
+  WaveTally,
+} from './types.ts';
 
 export class MissingDataError extends Error {
   constructor(public readonly paths: string[]) {
@@ -62,6 +72,8 @@ export interface TeamSetup {
   name?: string;
   /** The player's level, shown with the name. Absent for a bot (`Team.level`). */
   level?: number;
+  /** What the player is seen in. Absent for a bot (`Team.looks`). */
+  looks?: Looks;
   /**
    * Which roster this team builds from (§7.1). Defaults to the first builder in
    * `units.json` so that a caller with no opinion - a test, the headless runner
@@ -170,6 +182,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     name: setup.name ?? '',
     level: setup.level ?? 0,
     recorded: false,
+    looks: { ...(setup.looks ?? NO_LOOKS) },
     eliminated: false,
     placement: null,
     vision: {},

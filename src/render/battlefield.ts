@@ -1,11 +1,13 @@
 /**
  * Battlefield backgrounds: what the ground under the fight looks like.
  *
- * A cosmetic choice, picked from previews in its own panel off the menu
- * (ui/battlefieldPicker.ts) and kept in preferences. The plain ground is the
- * default and always there; the others are meant one day to be earned or
- * bought. For now every one is open, and `unlockedBattlefields` is the one
- * place the rule for which are will go.
+ * A look like any other, unlocked with keys in the Collection and switched on
+ * there (data/cosmetics.json, the battlefield slot). The plain ground is
+ * everyone's, and is what is painted when no other is switched on; each
+ * painted one is a cosmetic named for its ground, `battlefield_meadow`
+ * (`battlefieldOf`). It paints the lane and the arena on this player's own
+ * screen: it is how they like the board to look, and the others' screens are
+ * painted with theirs.
  *
  * SEEN, BUT NEVER THE POINT
  *
@@ -36,43 +38,23 @@
 import { Container, Graphics } from 'pixi.js';
 import type { Rect } from './layout.ts';
 
-export const BATTLEFIELDS = [
-  { id: 'plain', name: 'Plain', note: 'The flat dark ground' },
-  { id: 'meadow', name: 'Meadow', note: 'Short grass' },
-  { id: 'dunes', name: 'Dunes', note: 'Rippled sand' },
-  { id: 'cobbles', name: 'Cobblestone', note: 'An old road' },
-  { id: 'molten', name: 'Molten', note: 'Lava, and it moves' },
-] as const;
+/** Every ground there is: the plain one first, then the painted ones. */
+export const BATTLEFIELD_IDS = ['plain', 'meadow', 'dunes', 'cobbles', 'molten'] as const;
 
-export type BattlefieldId = (typeof BATTLEFIELDS)[number]['id'];
+export type BattlefieldId = (typeof BATTLEFIELD_IDS)[number];
 
-export const BATTLEFIELD_IDS: readonly BattlefieldId[] = BATTLEFIELDS.map((b) => b.id);
-
-/**
- * The battlefields this player may choose. Every one, for now: earning and
- * buying them is a later feature, and this is where it will be decided.
- */
-export function unlockedBattlefields(): readonly BattlefieldId[] {
-  return BATTLEFIELD_IDS;
-}
-
-/** A battlefield's name, for the menu. */
-export function battlefieldName(id: BattlefieldId): string {
-  return BATTLEFIELDS.find((b) => b.id === id)?.name ?? 'Plain';
-}
-
-/** A few words on what it is, under its preview. */
-export function battlefieldNote(id: BattlefieldId): string {
-  return BATTLEFIELDS.find((b) => b.id === id)?.note ?? '';
+/** The Collection's cosmetic for a ground: `battlefield_meadow`. */
+export function battlefieldCosmetic(id: BattlefieldId): string {
+  return `battlefield_${id}`;
 }
 
 /**
- * The battlefield actually drawn: the one chosen, if this player may have it,
- * and the plain ground otherwise - a saved choice that stops being available
- * falls back rather than drawing something not theirs.
+ * The ground a battlefield cosmetic paints, or the plain one for none - and
+ * for one this build has no painting for, rather than drawing nothing.
  */
-export function battlefieldInUse(chosen: BattlefieldId): BattlefieldId {
-  return unlockedBattlefields().includes(chosen) ? chosen : 'plain';
+export function battlefieldOf(cosmeticId: string | null): BattlefieldId {
+  const id = BATTLEFIELD_IDS.find((ground) => battlefieldCosmetic(ground) === cosmeticId);
+  return id ?? 'plain';
 }
 
 /** Whether this battlefield is painted at all, or is the flat colors alone. */

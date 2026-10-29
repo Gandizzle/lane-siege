@@ -41,10 +41,11 @@
 import type { GameData } from '../data/schema.ts';
 import type { ArmorType, DamageType } from '../data/schema.ts';
 import { SUPPLY_LADDER_ID, upgradeLadderIds } from '../data/schema.ts';
-import { ARENA_LAYOUTS, FORTRESS_UPGRADE_IDS, LEGS } from '../sim/index.ts';
+import { ARENA_LAYOUTS, FORTRESS_UPGRADE_IDS, LEGS, NO_LOOKS } from '../sim/index.ts';
 import type {
   AttackView,
   LaneView,
+  Looks,
   MatchView,
   EntityView,
   ShowdownView,
@@ -257,6 +258,8 @@ export interface WireHello {
   teamLevels?: number[];
   /** Which seats a saved build plays (`Team.recorded`), parallel to `teamIds`. Like the names. */
   teamRecorded?: boolean[];
+  /** What each seat is seen in (`Team.looks`), parallel to `teamIds`. Like the names. */
+  teamLooks?: Looks[];
 }
 
 /**
@@ -271,6 +274,8 @@ export interface WireTables {
   teamLevels: number[];
   /** Saved builds' seats, parallel to `teamIds`. See `WireHello.teamRecorded`. */
   teamRecorded: boolean[];
+  /** What each seat is seen in, parallel to `teamIds`. See `WireHello.teamLooks`. */
+  teamLooks: Looks[];
   /**
    * The match seed. Public and constant (§9.2), so it arrives once with the
    * hello rather than 20 times a second in every frame.
@@ -307,6 +312,7 @@ export function buildTables(
   teamNames: readonly string[] = [],
   teamLevels: readonly number[] = [],
   teamRecorded: readonly boolean[] = [],
+  teamLooks: readonly Looks[] = [],
 ): WireTables {
   const unitIds = data.units.units.map((u) => u.id);
   const monsterIds = [
@@ -330,6 +336,7 @@ export function buildTables(
     teamNames: teamIds.map((_, i) => teamNames[i] ?? ''),
     teamLevels: teamIds.map((_, i) => teamLevels[i] ?? 0),
     teamRecorded: teamIds.map((_, i) => teamRecorded[i] === true),
+    teamLooks: teamIds.map((_, i) => ({ ...(teamLooks[i] ?? NO_LOOKS) })),
     seed,
     unitIds,
     monsterIds,
@@ -764,6 +771,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
     teamId: tables.teamIds[frame.me] ?? '',
     teamName: tables.teamNames[frame.me] ?? '',
     teamLevel: tables.teamLevels[frame.me] ?? 0,
+    teamLooks: tables.teamLooks[frame.me] ?? NO_LOOKS,
     seed: tables.seed,
     lateWaves: frame.lw ?? null,
     tick: frame.tk,
@@ -782,6 +790,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
         name: tables.teamNames[teamIndex] ?? '',
         level: tables.teamLevels[teamIndex] ?? 0,
         recorded: tables.teamRecorded[teamIndex] ?? false,
+        looks: tables.teamLooks[teamIndex] ?? NO_LOOKS,
         fortressHp: hp,
         fortressMaxHp: maxHp,
         eliminated: eliminated === 1,

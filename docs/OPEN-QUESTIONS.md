@@ -233,20 +233,23 @@ provider and an ad network.
   XP adds up to a level, shown with your name, each level asking a
   straight-line step more XP than the last (300, 400, 500…).
 - **The top level is where the content runs out**: the level that pays the
-  last key there is anything to spend on, worked out from the data - 10 today,
-  when keys can only unlock the three builders, and 24 once every cosmetic
-  listed is drawn. XP past it does not count and the ad is not offered there,
+  last key there is anything to spend on, worked out from the data - 32 today,
+  for 31 keys: 9 for the builders, 8 for the battlefields, 14 for the rest -
+  and lower by its keys for any slot held back for a later release. XP past it does not count and the ad is not offered there,
   so nobody banks keys ahead of new content, and every new builder or cosmetic
   starts the climb again. The ceiling this puts on what one player's ads can
   earn is deliberate; what lifts it is content.
 - **Every level pays a key, and keys unlock everything.** Ironvow is
   everyone's; the other three builders cost 3 keys each, so all four are open
-  by level 10. Decorative cosmetics cost 1 or 2 keys. Titles stay tied to the
-  level, and the badges that mean something to what they mean (Veteran at
-  level 10, Supporter, Founder). Keys are spent in the Collection, which is
-  also where everything earned is switched on and off, or on a locked builder
-  in the builder picker. A cosmetic the game does not draw yet cannot be
-  unlocked: it says what it will cost, and waits.
+  by level 10. Looks cost 1 or 2 keys: the battlefields 2 each, fortress
+  skins, attack trails, arena floors and victory effects 1 or 2 - every one
+  drawn, and all but the battlefield seen by everyone in the match. Titles
+  stay tied to the level, and the badges that mean something to what they
+  mean (Veteran at level 10, Supporter, Founder). Keys are spent in the
+  Collection, which is also where everything earned is switched on and off -
+  the battlefield included, which used to have a panel of its own off the
+  menu - or on a locked builder in the builder picker. A slot can be finished
+  and held back (`live: false`): it says what it will cost, and waits.
 - **The ad is opt-in and rewarded, and asked about before a game**: Yes plays
   it and adds +50% XP for the next 25 waves, with a "Congratulations" card
   before the game; No goes straight to the game. It is offered whenever fewer

@@ -16,12 +16,14 @@ import {
   type GhostStore,
 } from './ghostStore.ts';
 import { ghostRoutes } from './ghostRoutes.ts';
+import { NO_LOOKS } from '../src/sim/index.ts';
 
 function build(playerId: string, level = 5, wave = 12): GhostBuild {
   return {
     playerId,
     name: `Player ${playerId}`,
     level,
+    looks: { ...NO_LOOKS, fortress: 'fortress_granite' },
     builderId: 'ironvow',
     wave,
     placement: 2,
@@ -113,6 +115,11 @@ describe('saved builds on disk', () => {
 
     const again = new FileGhostStore(dir);
     expect(again.report('../../etc/passwd').saved?.results).toEqual([0, 1, 0, 0]);
+    // Its player's looks go with it, to be seen in other people's matches.
+    expect(again.pick(1, { exclude: new Set(), level: 0, random: first })[0]?.looks).toEqual({
+      ...NO_LOOKS,
+      fortress: 'fortress_granite',
+    });
     expect(again.pick(1, { exclude: new Set(), level: 0, random: first })[0]?.actions).toHaveLength(
       1,
     );

@@ -19,6 +19,7 @@ import { fortressShape, screenToTilePoint } from './layout.ts';
 import { DAMAGE_COLORS, UI } from './palette.ts';
 import { drawEntity } from './shapes.ts';
 import { GroundView, gridAlpha, isTextured, type BattlefieldId } from './battlefield.ts';
+import { drawFortress } from './looks.ts';
 import { clock, label } from './ui/text.ts';
 
 /**
@@ -69,6 +70,8 @@ export class LaneView extends Container {
   private readonly bands = new Graphics();
   private readonly grid = new Graphics();
   private battlefield: BattlefieldId = 'plain';
+  /** The skin the wall on screen is drawn in: its owner's (looks.ts). */
+  private fortressSkin: string | null = null;
   private readonly furniture = new Graphics();
   private readonly overlay = new Container();
   private readonly touch = new Container();
@@ -109,6 +112,16 @@ export class LaneView extends Container {
     this.battlefield = id;
     this.drawBands();
     this.drawGrid();
+  }
+
+  /**
+   * The skin to draw the wall in: whoever's lane is on screen, theirs (looks.ts).
+   * Cheap to call every frame: it redraws only when it has changed.
+   */
+  setFortressSkin(id: string | null): void {
+    if (id === this.fortressSkin) return;
+    this.fortressSkin = id;
+    this.drawFurniture();
   }
 
   /**
@@ -189,28 +202,15 @@ export class LaneView extends Container {
    * disc of `fortressRadius` swept along a horizontal spine, and the rule that
    * what you see is what you hit applies to it too. It spans the lane, so a
    * wave meets a wall across the whole end of it rather than a target it has to
-   * queue for.
+   * queue for. A stadium - the exact set of points within `radius` of the
+   * spine - in the skin its owner wears, which paints inside it and never moves
+   * its edge (looks.ts).
    */
   private drawFurniture(): void {
     const g = this.furniture;
-    const l = this.layout;
-    const lane = this.data.lane;
     g.clear();
-
-    const { cx, cy, halfWidth, radius } = fortressShape(l, lane);
-
-    // A stadium: the exact set of points within `radius` of the spine.
-    g.roundRect(cx - halfWidth - radius, cy - radius, (halfWidth + radius) * 2, radius * 2, radius)
-      .fill({ color: UI.fortressStone })
-      .stroke({ width: 1.5, color: UI.textMuted });
-
-    // Battlements along the top edge, so the wall reads as masonry rather than
-    // as a bar. Decoration, drawn inside the body: nothing here moves the edge
-    // monsters actually hit.
-    const merlon = radius * 0.5;
-    for (let x = cx - halfWidth + merlon; x <= cx + halfWidth; x += merlon * 2.8) {
-      g.rect(x - merlon / 2, cy - radius, merlon, radius * 0.4).fill({ color: UI.fortressZone });
-    }
+    const { cx, cy, halfWidth, radius } = fortressShape(this.layout, this.data.lane);
+    drawFortress(g, this.fortressSkin, cx, cy, halfWidth, radius);
   }
 
   /**

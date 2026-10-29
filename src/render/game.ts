@@ -68,7 +68,8 @@ import type { SoundSystem } from '../audio/engine.ts';
 import type { DeathRule } from './deaths.ts';
 import type { PreferenceStore } from './preferences.ts';
 import { ArenaStage, arenaAsLane } from './arena.ts';
-import { battlefieldInUse, type BattlefieldId } from './battlefield.ts';
+import { battlefieldOf, type BattlefieldId } from './battlefield.ts';
+import { VictoryShow, looksOf, victoryOf, winnerOf } from './looks.ts';
 import { AuraLayer } from './aura.ts';
 import { EntityLayer } from './entities.ts';
 import { EffectsLayer } from './effects.ts';
@@ -101,7 +102,6 @@ import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Menu, MenuButton } from './ui/menu.ts';
 import { EffectsButton, EffectsPanel } from './ui/effectsPanel.ts';
 import { DamageChart } from './ui/damageChart.ts';
-import { BattlefieldPicker } from './ui/battlefieldPicker.ts';
 import { WaveCleared } from './ui/waveCleared.ts';
 import { UpgradeBursts } from './upgradeBursts.ts';
 import { StatusLog } from './statusLog.ts';
@@ -222,7 +222,6 @@ export class Game extends Container {
   private readonly effectsPanel: EffectsPanel;
   /** Every damage type against every armor: from the menu, and the tutorial. */
   private readonly damageChart: DamageChart;
-  private readonly battlefieldPicker: BattlefieldPicker;
   /** Which kinds of marker have been on screen, for the legend. */
   private readonly statusLog = new StatusLog();
   /** The chapter list, and the coach over a chapter's match. */
@@ -261,6 +260,10 @@ export class Game extends Container {
   private readonly savedBuildNews: SavedBuildNews;
   /** What the match earned, line by line, and the climb it bought. */
   private readonly xpReport: XpReport;
+  /** The winner's flourish (looks.ts), over the end of a match. Paint only. */
+  private readonly victoryShow = new VictoryShow();
+  /** The match's winner has been celebrated, or there was nobody to celebrate. */
+  private celebrated = false;
   /** The XP boost, asked about before a game (ui/boostOffer.ts). */
   private readonly boostOffer: BoostOffer;
   /** The game the boost offer is holding, started once it is answered. */
@@ -454,8 +457,6 @@ export class Game extends Container {
         this.setMenu(false);
         this.damageChart.open();
       },
-      // Over the menu rather than instead of it: closing it goes back there.
-      onBattlefields: () => this.battlefieldPicker.open(),
       onCollection: () => this.openCollection(),
       onSupporter: () => this.openSupport(),
     });
@@ -475,9 +476,6 @@ export class Game extends Container {
     this.effectsButton.visible = false;
     this.effectsPanel = new EffectsPanel(this.layout, data, () => this.effectsPanel.close());
     this.damageChart = new DamageChart(this.layout, data, () => this.damageChart.close());
-    this.battlefieldPicker = new BattlefieldPicker(this.layout, data, services.preferences, () =>
-      this.battlefieldPicker.close(),
-    );
 
     this.addChild(
       // The arena replaces the lane stack rather than sitting over it: in the
@@ -504,6 +502,8 @@ export class Game extends Container {
       this.gameOver,
       // Over the end-of-match card it pops up on: what the match earned.
       this.xpReport,
+      // Over both: a winner's flourish goes off over the whole end of a match.
+      this.victoryShow,
       // Over the board and under the front screens: it is a cut to a card, but
       // it must not cover the home screen if a match is abandoned under it.
       this.countdown,
@@ -521,8 +521,6 @@ export class Game extends Container {
       this.menuButton,
       this.effectsButton,
       this.menu,
-      // Over the menu it is opened from.
-      this.battlefieldPicker,
       // Over the menu, which is one of the two ways into it.
       this.effectsPanel,
       this.damageChart,
@@ -560,10 +558,6 @@ export class Game extends Container {
         sheet.close();
         return;
       }
-    }
-    if (this.battlefieldPicker.isOpen) {
-      this.battlefieldPicker.close();
-      return;
     }
     if (this.effectsPanel.isOpen) {
       this.effectsPanel.close();
@@ -775,6 +769,8 @@ export class Game extends Container {
     this.waveCleared.reset();
     this.statusLog.reset();
     this.gameOver.reset();
+    this.victoryShow.stop();
+    this.celebrated = false;
     this.keepState = null;
     this.savedBuildsNoted = false;
     this.buildBar.reset();
@@ -1156,6 +1152,8 @@ export class Game extends Container {
     this.damageChart.close();
     this.gameOver.reset();
     this.xpReport.close();
+    this.victoryShow.stop();
+    this.celebrated = false;
     this.awarded = false;
     this.entities.reset();
     this.effectsLayer.reset();
@@ -1402,6 +1400,7 @@ export class Game extends Container {
     this.abilityCard.setLayout(this.layout);
     this.gameOver.setLayout(this.layout);
     this.xpReport.setLayout(this.layout);
+    this.victoryShow.resize(this.layout.screen.width, this.layout.screen.height);
     this.boostOffer.setLayout(this.layout);
     this.savedBuildNews.setLayout(this.layout);
     this.supportScreen.setLayout(this.layout);
@@ -1420,7 +1419,6 @@ export class Game extends Container {
     this.menu.setLayout(this.layout);
     this.effectsPanel.setLayout(this.layout);
     this.damageChart.setLayout(this.layout);
-    this.battlefieldPicker.setLayout(this.layout);
     this.effectsButtonAt = '';
   }
 
@@ -1458,11 +1456,11 @@ export class Game extends Container {
     // stopped so the player can look, and a flame is easier to point out lit.
     this.statusClock += (paused && !reading ? deltaMs : matchDelta) / 1000;
     this.effectsPanel.render(this.statusLog, this.statusClock, deltaMs);
-    this.battlefieldPicker.render(deltaMs);
     this.home.update(deltaMs);
     this.supportScreen.update(deltaMs);
     this.collectionScreen.update(deltaMs);
     this.xpReport.update(deltaMs);
+    this.victoryShow.update(deltaMs);
     this.boostOffer.update(deltaMs);
 
     if (!transport) {
@@ -1510,9 +1508,15 @@ export class Game extends Container {
       const phase = this.view?.phase;
       const deaths: DeathRule =
         phase === 'combat' ? 'all' : phase === 'build' ? 'monsters' : 'none';
-      if (incoming) this.effectsLayer.spawn(incoming, outgoing, deaths);
+      if (incoming) {
+        // A lane's shots are all its owner's: its units' and its wall's.
+        const trail = looksOf(this.view, incoming.teamId).trail;
+        this.effectsLayer.spawn(incoming, outgoing, deaths, () => trail);
+      }
       const incomingArena = this.arenaLane();
-      if (incomingArena) this.arena.spawnEffects(incomingArena, outgoingArena);
+      if (incomingArena) {
+        this.arena.spawnEffects(incomingArena, outgoingArena, this.arenaTrails());
+      }
       // What the markers on that board are, for the legend.
       this.statusLog.observe(incomingArena ?? incoming, this.statusClock);
       // The same fight, heard: whichever board is on screen, and only that one.
@@ -1598,6 +1602,8 @@ export class Game extends Container {
     this.auraLayer.read(lane);
     if (lane) {
       this.laneLayer.setBattlefield(this.battlefield());
+      // The wall on screen in its owner's skin: yours, or the lane you are watching.
+      this.laneLayer.setFortressSkin(looksOf(view, lane.teamId).fortress);
       // A chapter step can put a key in the preview strip (tutorial/types.ts).
       const runner = this.lesson?.runner;
       this.laneLayer.setShowcase(
@@ -1637,6 +1643,7 @@ export class Game extends Container {
     this.awardXp(view);
     this.noteSavedBuilds(view);
     this.gameOver.render(view, this.soloResult, this.practiceEnding(), this.keepOffer());
+    this.celebrate(view);
     // Last, so it points at where everything was drawn this frame.
     this.drawCoach(view, deltaMs);
     this.chapterComplete.render(deltaMs);
@@ -1701,13 +1708,27 @@ export class Game extends Container {
     return this.services.preferences.settings.statusEffects ? this.statusClock : null;
   }
 
-  /** The ground to paint the board on: the player's choice, if it is theirs to make. */
+  /**
+   * The ground to paint the board on: the battlefield switched on in the
+   * Collection, and the plain ground when none is.
+   */
   private battlefield(): BattlefieldId {
-    return battlefieldInUse(this.services.preferences.settings.battlefield);
+    return battlefieldOf(this.services.progress.worn('battlefield')[0]?.id ?? null);
   }
 
   private arenaLane(): LaneView | null {
     return this.view ? arenaAsLane(this.view) : null;
+  }
+
+  /** In the arena, whose shot is whose: each unit's army's player's trail. */
+  private arenaTrails(): (attackerId: number) => string | null {
+    const view = this.view;
+    const byUnit = new Map<number, string | null>();
+    for (const army of view?.showdown?.armies ?? []) {
+      const trail = looksOf(view, army.teamId).trail;
+      for (const unit of army.units) byUnit.set(unit.id, trail);
+    }
+    return (attackerId) => byUnit.get(attackerId) ?? null;
   }
 
   private renderShowdown(view: MatchView, alpha: number, deltaMs: number): void {
@@ -1725,6 +1746,21 @@ export class Game extends Container {
     this.runPractice(view);
     this.awardXp(view);
     this.gameOver.render(view, this.soloResult, this.practiceEnding());
+    this.celebrate(view);
+  }
+
+  /**
+   * The winner's flourish, once, the moment the match is won (looks.ts): on
+   * the winner's own screen, and on anyone's still watching - it is theirs to
+   * show. A match nobody wins (solo, whose wall always falls) has none.
+   */
+  private celebrate(view: MatchView): void {
+    if (this.celebrated || !view.finished) return;
+    this.celebrated = true;
+    const winner = winnerOf(view);
+    if (winner === null) return;
+    const kind = victoryOf(looksOf(view, winner).victory);
+    if (kind) this.victoryShow.play(kind, this.layout.screen.width, this.layout.screen.height);
   }
 
   /** The lane currently on screen: somebody else's if watching, else your own. */

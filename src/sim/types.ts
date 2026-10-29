@@ -30,6 +30,25 @@ export interface Vec2 {
 }
 
 /**
+ * What a player has chosen to be seen in, by cosmetic id (src/progression):
+ * the stonework of their fortress, what their shots leave behind them, their
+ * spoke of the Final Showdown, and the flourish when they win. Null where
+ * nothing is worn, which is the game's own look.
+ *
+ * Purely to be seen, like the name and the level, and never read by the
+ * simulation: a match plays out the same whatever anybody is wearing.
+ */
+export interface Looks {
+  fortress: string | null;
+  trail: string | null;
+  floor: string | null;
+  victory: string | null;
+}
+
+/** Nothing worn: a bot, a player who has chosen nothing, or an older client. */
+export const NO_LOOKS: Looks = { fortress: null, trail: null, floor: null, victory: null };
+
+/**
  * §2: model a lane as owned by a team of one or more players from day one, so
  * 2v2 is configuration rather than a rewrite. v1 fills these with one player.
  */
@@ -59,6 +78,8 @@ export interface Team {
    * simulation.
    */
   recorded: boolean;
+  /** What the player behind this team is seen in (`Looks`). Never read by the simulation. */
+  looks: Looks;
   eliminated: boolean;
   /** Locked in at the moment of elimination (§13). */
   placement: number | null;

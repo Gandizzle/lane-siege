@@ -25,6 +25,7 @@
 
 import { Application, Point, type Container } from 'pixi.js';
 import type { GameData } from '../data/schema.ts';
+import { NO_LOOKS, type Looks } from '../sim/index.ts';
 import { LocalTransport } from '../net/localTransport.ts';
 import { RemoteTransport } from '../net/remoteTransport.ts';
 import type { Transport } from '../net/transport.ts';
@@ -103,6 +104,8 @@ function newTransport(
   identity: { playerId: string; name: string },
   /** The player's level, shown with their name (src/progression). */
   level: number,
+  /** What the player is seen in (src/progression, `ProgressStore.looks`). */
+  looks: Looks,
 ): Transport {
   // §3.3, solo: your lane and nobody else's. No scripted lanes - a send has
   // nowhere to go but home - and the match is local whatever the server.
@@ -110,7 +113,7 @@ function newTransport(
     return new LocalTransport(
       data,
       options.seed ?? Math.floor(Math.random() * 0x7fffffff),
-      [{ id: OWN_LANE, playerIds: ['you'], name: identity.name, level, builderId }],
+      [{ id: OWN_LANE, playerIds: ['you'], name: identity.name, level, looks, builderId }],
       OWN_LANE,
       [],
       {
@@ -126,6 +129,7 @@ function newTransport(
       builderId,
       code: mode.kind === 'private' ? mode.code : PUBLIC_CODE,
       level,
+      looks,
     });
   }
 
@@ -138,6 +142,7 @@ function newTransport(
     // way each one plays, which the transport rolls and fills in.
     name: id === OWN_LANE ? identity.name : '',
     level: id === OWN_LANE ? level : 0,
+    looks: id === OWN_LANE ? looks : NO_LOOKS,
     builderId:
       id === OWN_LANE ? builderId : (others[(index - 1) % Math.max(1, others.length)] ?? builderId),
   }));
@@ -298,7 +303,15 @@ export async function startApp(
     data,
     {
       createTransport: (mode, builderId) =>
-        newTransport(data, options, mode, builderId, identity, progress.level.level),
+        newTransport(
+          data,
+          options,
+          mode,
+          builderId,
+          identity,
+          progress.level.level,
+          progress.looks,
+        ),
       createShowdown: (seats) => newShowdown(data, options, seats, identity),
       createTutorial: (chapter) => {
         const transport = tutorialMatch(data, chapter, identity.name);

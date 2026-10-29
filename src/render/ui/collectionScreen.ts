@@ -18,6 +18,9 @@
  * a time - a title, a fortress - switches the others off as one goes on. Slots
  * the game does not draw yet are marked "coming soon", and nothing in them can
  * be unlocked until it does: nobody spends keys on something they cannot see.
+ *
+ * Every look is shown by itself (collectionArt.ts): a battlefield by a swatch
+ * of its own ground, painted here, and Molten's moving as it does on the board.
  */
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
@@ -26,6 +29,7 @@ import type { BuilderDef, GameData } from '../../data/schema.ts';
 import type { Cosmetic, CosmeticSlot } from '../../progression/config.ts';
 import { forSale, howToUnlock, keyCount } from '../../progression/cosmetics.ts';
 import type { ProgressStore } from '../../progression/store.ts';
+import { battlefieldOf, GroundView } from '../battlefield.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { drawCosmeticIcon, drawKey, drawPadlock, drawRoster } from './collectionArt.ts';
@@ -47,24 +51,32 @@ const ARM_MS = 3000;
 
 class Row extends Container {
   readonly bg = new Graphics();
+  /** A battlefield's swatch of its own ground; null for anything else. */
+  readonly ground: GroundView | null;
   readonly icon = new Graphics();
   readonly pill = new Graphics();
   readonly title: Text;
   readonly how: Text;
   readonly words: Text;
 
-  constructor(caption: string, isTitle: boolean, onTap: () => void) {
+  constructor(caption: string, isTitle: boolean, onTap: () => void, isGround = false) {
     super();
     this.title = label(caption, 13, UI.text, '700');
     this.how = label('', 10, UI.textMuted, '600');
     // A title's picture is its own words.
     this.words = label(isTitle ? 'Aa' : '', 13, UI.level, '700');
-    this.addChild(this.bg, this.icon, this.words, this.title, this.how, this.pill);
+    this.ground = isGround ? new GroundView() : null;
+    this.addChild(this.bg);
+    if (this.ground) this.addChild(this.ground);
+    this.addChild(this.icon, this.words, this.title, this.how, this.pill);
     this.eventMode = 'static';
     this.cursor = 'pointer';
     this.on('pointertap', onTap);
   }
 }
+
+/** A battlefield's swatch, beside its name: the size of a few tiles of it. */
+const SWATCH = { x: 6, inset: 7, width: 36, tile: 12 };
 
 export class CollectionScreen extends Sheet {
   private readonly keysIcon = new Graphics();
@@ -77,6 +89,8 @@ export class CollectionScreen extends Sheet {
   private readonly rows: { cosmetic: Cosmetic; row: Row }[];
   /** Tapped once to unlock: what, and how long the second tap has left. */
   private armed: { id: string; ms: number } | null = null;
+  /** The swatches' own clock, for the ground that moves. */
+  private clock = 0;
 
   constructor(
     layout: LaneLayout,
@@ -127,7 +141,12 @@ export class CollectionScreen extends Sheet {
     }));
     this.rows = progress.cosmetics.cosmetics.map((cosmetic) => ({
       cosmetic,
-      row: new Row(cosmetic.name, cosmetic.slot === 'title', () => this.tapCosmetic(cosmetic)),
+      row: new Row(
+        cosmetic.name,
+        cosmetic.slot === 'title',
+        () => this.tapCosmetic(cosmetic),
+        cosmetic.slot === 'battlefield',
+      ),
     }));
     this.body.addChild(
       this.builderHead.name,
@@ -147,9 +166,12 @@ export class CollectionScreen extends Sheet {
     if (this.visible) this.arrange();
   }
 
-  /** The second tap's few seconds running out. */
+  /** The second tap's few seconds running out, and Molten's swatch moving. */
   update(deltaMs: number): void {
-    if (!this.visible || !this.armed) return;
+    if (!this.visible) return;
+    this.clock += deltaMs / 1000;
+    for (const { row } of this.rows) row.ground?.animate(this.clock);
+    if (!this.armed) return;
     this.armed.ms -= deltaMs;
     if (this.armed.ms <= 0) {
       this.armed = null;
@@ -308,6 +330,20 @@ export class CollectionScreen extends Sheet {
     const iconX = 24;
     if (cosmetic.slot === 'title') {
       row.words.position.set(iconX - row.words.width / 2, y + (ROW_H - row.words.height) / 2);
+    } else if (row.ground) {
+      // A few tiles of the ground itself, framed.
+      const area = {
+        x: SWATCH.x,
+        y: y + SWATCH.inset,
+        width: SWATCH.width,
+        height: ROW_H - SWATCH.inset * 2,
+      };
+      // The plain ground under it, as on the board, on the row's own background.
+      row.bg.rect(area.x, area.y, area.width, area.height).fill({ color: UI.buildZone });
+      row.ground.paint(battlefieldOf(cosmetic.id), [area], SWATCH.tile);
+      row.icon
+        .roundRect(area.x, area.y, area.width, area.height, 3)
+        .stroke({ width: 1, color: UI.panelEdge });
     } else {
       drawCosmeticIcon(row.icon, cosmetic, iconX, y + ROW_H / 2, 24);
     }
@@ -321,7 +357,7 @@ export class CollectionScreen extends Sheet {
     let how: string;
     let color: number = UI.textMuted;
     if (unlocked) {
-      how = on ? 'Wearing' : 'Unlocked';
+      how = on ? (cosmetic.slot === 'battlefield' ? 'In use' : 'Wearing') : 'Unlocked';
       color = on ? UI.level : UI.healthGood;
     } else if (cost !== null && !forSale(this.progress.cosmetics, cosmetic)) {
       how = `${keyCount(cost)} when it arrives`;

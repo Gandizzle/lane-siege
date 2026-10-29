@@ -2,15 +2,27 @@
  * The little pictures the Collection and the builder picker draw with.
  *
  * Shapes, like everything else in the game (§14.2): a builder is shown by its
- * own six units, a badge by its own glyph, a title by its own words, and the
- * slots nobody has made yet - fortress skins, trails, floors, flourishes - by
- * an icon that says what kind of thing is coming. And the key that unlocks
- * them, beside the padlock on what is still locked.
+ * own six units, a badge by its own glyph, a title by its own words, and every
+ * look by the look itself, drawn by the same code the board draws it with
+ * (looks.ts) - a wall in its skin, a shot leaving its trail, a patch of its
+ * floor, a flourish going off - so what is unlocked is what is seen. A
+ * battlefield is a swatch of its own ground, painted by the Collection itself
+ * (battlefield.ts). And the key that unlocks them, beside the padlock on what
+ * is still locked.
  */
 
 import type { Graphics, StrokeInput } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
 import type { Cosmetic } from '../../progression/config.ts';
+import {
+  drawFloor,
+  drawFortress,
+  drawTrailBit,
+  drawVictoryIcon,
+  floorOf,
+  trailOf,
+  victoryOf,
+} from '../looks.ts';
 import { UI } from '../palette.ts';
 import { drawEntity } from '../shapes.ts';
 import { badgeColor, drawBadgeGlyph } from './levelBadge.ts';
@@ -53,59 +65,70 @@ export function drawCosmeticIcon(
   size: number,
 ): void {
   const s = size / 2;
-  const tint = tintOf(cosmetic.id);
   switch (cosmetic.slot) {
     case 'badge':
       if (cosmetic.glyph)
         drawBadgeGlyph(g, cosmetic.glyph, cx, cy, size * 0.8, badgeColor(cosmetic.glyph));
       return;
-    case 'fortress': {
-      // A wall with three merlons.
-      const w = s * 1.7;
-      const h = s * 0.9;
-      const top = cy - h / 2 + s * 0.2;
-      g.rect(cx - w / 2, top, w, h).fill({ color: tint });
-      const m = w / 5;
-      for (let i = 0; i < 3; i++) {
-        g.rect(cx - w / 2 + m * (i * 2), top - s * 0.35, m, s * 0.35).fill({ color: tint });
-      }
+    case 'fortress':
+      // The wall itself, in miniature, battlements and all.
+      drawFortress(g, cosmetic.id, cx, cy + s * 0.1, s * 0.95, s * 0.5);
       return;
-    }
     case 'trail': {
-      // A shot and the streak it leaves.
-      g.moveTo(cx - s, cy + s * 0.5)
-        .lineTo(cx + s * 0.35, cy - s * 0.1)
-        .lineTo(cx + s * 0.2, cy + s * 0.25)
-        .closePath()
-        .fill({ color: tint, alpha: 0.65 });
-      g.circle(cx + s * 0.45, cy - s * 0.1, s * 0.3).fill({ color: tint });
+      // A shot on its way up and across, and what it has left behind it.
+      const kind = trailOf(cosmetic.id);
+      const from = { x: cx - s * 1.05, y: cy + s * 0.55 };
+      const to = { x: cx + s * 0.8, y: cy - s * 0.45 };
+      const head = s * 0.34;
+      if (kind) {
+        for (let i = 1; i <= 5; i++) {
+          const f = i / 6;
+          drawTrailBit(
+            g,
+            kind,
+            from.x + (to.x - from.x) * f,
+            from.y + (to.y - from.y) * f,
+            head * 1.2,
+            (1 - f) * 230,
+            i,
+          );
+        }
+      }
+      g.circle(to.x, to.y, head).fill({ color: UI.outline });
       return;
     }
     case 'floor': {
-      // A patch of patterned ground.
-      const t = s * 0.6;
-      for (let i = 0; i < 3; i++) {
-        for (let j = 0; j < 3; j++) {
-          if ((i + j) % 2 === 0) continue;
-          g.rect(cx - t * 1.5 + i * t, cy - t * 1.5 + j * t, t, t).fill({ color: tint });
-        }
+      // A patch of it, framed.
+      const kind = floorOf(cosmetic.id);
+      const unit = (s * 2) / 3;
+      if (kind) {
+        drawFloor(
+          g,
+          kind,
+          {
+            origin: { x: 0, y: 1.5 },
+            dir: { x: 1, y: 0 },
+            from: 0,
+            to: 3,
+            half: 1.5,
+            unit,
+            toPixel: (x, y) => [cx - s + x * unit, cy - s + y * unit],
+          },
+          7,
+          kind === 'checker' ? 4 : 1.8,
+          4,
+        );
       }
-      g.rect(cx - t * 1.5, cy - t * 1.5, t * 3, t * 3).stroke({ width: 1, color: tint });
+      g.roundRect(cx - s, cy - s, s * 2, s * 2, 3).stroke({ width: 1, color: UI.panelEdge });
       return;
     }
     case 'victory': {
-      // A burst.
-      const points: number[] = [];
-      for (let i = 0; i < 16; i++) {
-        const r = i % 2 === 0 ? s : s * 0.45;
-        const a = (i * Math.PI) / 8;
-        points.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
-      }
-      g.poly(points).fill({ color: tint });
+      const kind = victoryOf(cosmetic.id);
+      if (kind) drawVictoryIcon(g, kind, cx, cy, size);
       return;
     }
     default:
-      g.circle(cx, cy, s * 0.6).fill({ color: tint });
+      g.circle(cx, cy, s * 0.6).fill({ color: UI.accent });
   }
 }
 
@@ -156,24 +179,4 @@ function strokeArc(
   style: StrokeInput,
 ): void {
   g.beginPath().arc(x, y, radius, start, end).stroke(style);
-}
-
-/**
- * A color for an item with no art yet, from its id, so two items in a slot
- * do not look identical: a handful of colors the fight does not lean on.
- */
-function tintOf(id: string): number {
-  const named: [string, number][] = [
-    ['gilded', UI.level],
-    ['obsidian', 0x6b5b95],
-    ['granite', 0x8b93a5],
-    ['ember', 0xe69f00],
-    ['frost', 0x7fd3f0],
-    ['starfield', 0x5865c8],
-    ['checker', 0xc9d1e0],
-    ['fireworks', 0xf0708a],
-    ['confetti', UI.xp],
-  ];
-  for (const [word, color] of named) if (id.includes(word)) return color;
-  return UI.accent;
 }

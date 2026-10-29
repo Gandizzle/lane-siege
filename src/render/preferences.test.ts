@@ -28,7 +28,6 @@ describe('preferences', () => {
       practiceSpeed: 1,
       tutorialDone: [],
       soloBest: 0,
-      battlefield: 'plain',
     });
   });
 
@@ -49,7 +48,6 @@ describe('preferences', () => {
       practiceSpeed: 3,
       tutorialDone: [],
       soloBest: 0,
-      battlefield: 'plain',
     });
   });
 
@@ -70,12 +68,9 @@ describe('preferences', () => {
     expect(parsePreferences({ soloBest: '99' }).soloBest).toBe(0);
   });
 
-  it('keeps the battlefield chosen, and only one that exists', () => {
-    const storage = memory();
-    new PreferenceStore(storage).configure({ battlefield: 'dunes' });
-    expect(new PreferenceStore(storage).settings.battlefield).toBe('dunes');
-    expect(parsePreferences({ battlefield: 'lava' }).battlefield).toBe('plain');
-    expect(parsePreferences({ battlefield: 3 }).battlefield).toBe('plain');
+  it('lets go of a battlefield picked here before the Collection had them', () => {
+    // It is worn from the Collection now (battlefield.ts), like every look.
+    expect(parsePreferences({ battlefield: 'dunes' })).toEqual(DEFAULT_PREFERENCES);
   });
 
   it('carries the marker switch over from where it was saved before', () => {

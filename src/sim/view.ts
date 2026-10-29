@@ -59,11 +59,13 @@ import { bossBatchSize, endlessStep } from './endless.ts';
 import type { SimContext } from './context.ts';
 import { modifiersOf } from './status.ts';
 import { statusMarks } from './statusMarks.ts';
+import { NO_LOOKS } from './types.ts';
 import type {
   Attack,
   DefensiveUnit,
   EntityId,
   Lane,
+  Looks,
   MatchState,
   Phase,
   Showdown,
@@ -298,6 +300,8 @@ export interface OpponentView {
   level: number;
   /** A saved build's seat rather than a live player's (`Team.recorded`). */
   recorded: boolean;
+  /** What they are seen in (`Team.looks`). Always public, like the name. */
+  looks: Looks;
   eliminated: boolean;
   /** Locked in at elimination (§13). */
   placement: number | null;
@@ -385,6 +389,8 @@ export interface MatchView {
   teamName: string;
   /** Your own level, as the match was told it (`Team.level`). */
   teamLevel: number;
+  /** What you are seen in, as the match was told it (`Team.looks`). */
+  teamLooks: Looks;
   /** Public and identical for everyone: every lane faces the same wave (§9.2). */
   seed: number;
   /**
@@ -665,6 +671,7 @@ export function viewFor(
       name: team.name,
       level: team.level,
       recorded: team.recorded,
+      looks: team.looks,
       eliminated: team.eliminated,
       placement: team.placement,
       // §12's suggested minimum, and the whole of it.
@@ -682,6 +689,7 @@ export function viewFor(
     teamId,
     teamName: self?.name ?? '',
     teamLevel: self?.level ?? 0,
+    teamLooks: self?.looks ?? NO_LOOKS,
     seed: state.seed,
     lateWaves: state.lateWaves,
     tick: state.tick,

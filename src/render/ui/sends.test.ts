@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../../data/loadNode.ts';
 import { pickSendTarget, sendIcon, sendIconKey } from './sends.ts';
-import type { OpponentView } from '../../sim/index.ts';
+import { NO_LOOKS, type OpponentView } from '../../sim/index.ts';
 import { SHAPE_IDS } from '../shapes.ts';
 
 const { data } = loadDataFromDisk();
@@ -16,6 +16,7 @@ function opponent(teamId: string, eliminated = false): OpponentView {
     name: '',
     level: 0,
     recorded: false,
+    looks: NO_LOOKS,
     eliminated,
     placement: null,
     fortressHp: 100,

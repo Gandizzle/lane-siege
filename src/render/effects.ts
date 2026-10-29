@@ -37,6 +37,14 @@
  * time, so a resize mid-flight moves it with everything else rather than
  * leaving it at a stale pixel address.
  *
+ * TRAILS
+ *
+ * A shot fired by a player's own - a unit, or the fortress's gun - may leave a
+ * trail behind it, if that player wears one (looks.ts). The trail is bits left
+ * where the head has been, fading for a moment after it lands, so the shot
+ * lives that much longer; the head, its dots and its arrival are exactly as
+ * they were without one. Monsters' blows never trail: they are nobody's look.
+ *
  * WHERE THE ENDS OF AN ATTACK COME FROM
  *
  * An attack names two ids. Both are resolved against the lane view it arrived
@@ -57,6 +65,7 @@ import { attackStyle, type AttackStyle } from './attackStyle.ts';
 import { findDeaths, type DeathRule } from './deaths.ts';
 import { DAMAGE_COLORS } from './palette.ts';
 import { drawEntity, type EntityStyle } from './shapes.ts';
+import { TRAIL_LINGER_MS, drawTrailBit, trailOf, type TrailKind } from './looks.ts';
 
 /**
  * Melee happens ON TOP of the bodies, and an attacker's own color is the
@@ -130,7 +139,15 @@ interface Projectile extends BaseEffect {
   style: AttackStyle;
   /** Set once the head arrives, so the impact is spawned exactly once. */
   landed: boolean;
+  /** The trail its shooter's player wears (looks.ts), or null. */
+  trail: TrailKind | null;
+  /** Varies one shot's trail from the next: the shooter's id. */
+  seed: number;
 }
+
+/** Bits of trail along a shot: one every so many tiles, and no more than this many. */
+const TRAIL_SPACING_TILES = 0.3;
+const TRAIL_MAX_BITS = 10;
 
 interface Impact extends BaseEffect {
   kind: 'impact';
@@ -205,9 +222,16 @@ export class EffectsLayer extends Container {
    * Turn this tick's blows into effects.
    *
    * `incoming` is the lane as it is now; `outgoing` is the lane it replaced,
-   * consulted only for bodies that have since died.
+   * consulted only for bodies that have since died. `wornBy` names the trail
+   * cosmetic a player's own shot leaves - a unit's, or the fortress's - by who
+   * fired it.
    */
-  spawn(incoming: LaneView, outgoing: LaneView | null, deaths: DeathRule = 'all'): void {
+  spawn(
+    incoming: LaneView,
+    outgoing: LaneView | null,
+    deaths: DeathRule = 'all',
+    wornBy: (attackerId: number) => string | null = () => null,
+  ): void {
     this.spawnDeaths(incoming, outgoing, deaths);
     for (const attack of incoming.attacks) {
       if (this.live.length >= MAX_EFFECTS) return;
@@ -226,6 +250,8 @@ export class EffectsLayer extends Container {
       const angle = Math.atan2(dy, dx);
 
       if (style.ranged) {
+        const own =
+          attack.attackerId === FORTRESS_ID || this.isUnit(attack.attackerId, incoming, outgoing);
         this.live.push({
           kind: 'projectile',
           age: 0,
@@ -237,6 +263,8 @@ export class EffectsLayer extends Container {
           to: { x: to.x, y: to.y },
           style,
           landed: false,
+          trail: own ? trailOf(wornBy(attack.attackerId)) : null,
+          seed: attack.attackerId,
         });
         continue;
       }
@@ -324,7 +352,9 @@ export class EffectsLayer extends Container {
         }
       }
 
-      if (effect.age >= effect.life) this.live.splice(i, 1);
+      // A shot with a trail stays a moment past landing while its trail fades.
+      const linger = effect.kind === 'projectile' && effect.trail ? TRAIL_LINGER_MS : 0;
+      if (effect.age >= effect.life + linger) this.live.splice(i, 1);
     }
   }
 
@@ -361,12 +391,16 @@ export class EffectsLayer extends Container {
   private drawProjectile(effect: Projectile): void {
     const t = Math.min(1, effect.age / effect.life);
     const tile = this.layout.tileSize;
+    const r = Math.max(1.5, effect.style.size * tile);
+    // The trail under everything, so the head and its dots draw over it; and
+    // after the head has landed, the trail alone.
+    if (effect.trail) this.drawTrail(effect, effect.trail, r);
+    if (effect.age >= effect.life) return;
     const head = this.toPixel({
       x: effect.from.x + (effect.to.x - effect.from.x) * t,
       y: effect.from.y + (effect.to.y - effect.from.y) * t,
     });
     const angle = Math.atan2(effect.to.y - effect.from.y, effect.to.x - effect.from.x);
-    const r = Math.max(1.5, effect.style.size * tile);
     const g = this.graphics;
 
     // The trail first, so the head draws over it. Dots are spaced behind the
@@ -435,6 +469,33 @@ export class EffectsLayer extends Container {
         g.circle(head.x, head.y, d * 1.5).fill({ color: effect.color, alpha: 0.18 });
         break;
       }
+    }
+  }
+
+  /**
+   * What a shot leaves behind it: bits at even steps along its line, each
+   * appearing as the head passes and fading where it was left. Worked out
+   * from the shot's age alone, so nothing is spawned and nothing is kept.
+   */
+  private drawTrail(effect: Projectile, kind: TrailKind, headRadius: number): void {
+    const dx = effect.to.x - effect.from.x;
+    const dy = effect.to.y - effect.from.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const bits = Math.max(2, Math.min(TRAIL_MAX_BITS, Math.floor(length / TRAIL_SPACING_TILES)));
+    // Across the line, for a little scatter either side of it.
+    const nx = -dy / length;
+    const ny = dx / length;
+    for (let i = 1; i <= bits; i++) {
+      const along = i / (bits + 1);
+      const left = effect.age - along * effect.life;
+      // In order along the line: one the head has not reached means none after it has.
+      if (left < 0) break;
+      const off = (((effect.seed * 31 + i * 17) % 13) / 13 - 0.5) * 0.12;
+      const at = this.toPixel({
+        x: effect.from.x + dx * along + nx * off,
+        y: effect.from.y + dy * along + ny * off,
+      });
+      drawTrailBit(this.graphics, kind, at.x, at.y, headRadius, left, i + effect.seed);
     }
   }
 
@@ -614,6 +675,12 @@ export class EffectsLayer extends Container {
     if (id === FORTRESS_ID) return this.fortressAt;
     const body = findBody(id, incoming) ?? (outgoing ? findBody(id, outgoing) : undefined);
     return body ? { x: body.x, y: body.y } : null;
+  }
+
+  /** Whether `id` is one of the lane's units, here now or on the tick before. */
+  private isUnit(id: number, incoming: LaneView, outgoing: LaneView | null): boolean {
+    const here = (lane: LaneView | null) => lane?.units.some((u) => u.id === id) ?? false;
+    return here(incoming) || here(outgoing);
   }
 
   private radiusOf(id: number, incoming: LaneView, outgoing: LaneView | null): number | null {

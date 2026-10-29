@@ -13,6 +13,7 @@ import { loadDataFromDisk } from '../data/loadNode.ts';
 import { DAMAGE_TYPES } from '../data/schema.ts';
 import {
   FORTRESS_ID,
+  NO_LOOKS,
   TICKS_PER_SECOND,
   buildDefIndex,
   type EntityView,
@@ -111,6 +112,7 @@ function match(
     teamId: 'lane1',
     teamName: '',
     teamLevel: 0,
+    teamLooks: NO_LOOKS,
     seed: 1,
     lateWaves: null,
     tick: 0,
@@ -127,6 +129,7 @@ function match(
         name: 'Bot 2',
         level: 0,
         recorded: false,
+        looks: NO_LOOKS,
         eliminated: false,
         placement: null,
         fortressHp: 1000,

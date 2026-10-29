@@ -1323,8 +1323,9 @@ plays (one piece or shuffle), the piece playing - or, in the pause between two,
 the one coming next - with a button to skip to it, and which effects pack is in
 use, Synth or Arcade. Then the
 game: your name, the game speed, whether status markers are drawn (below), the
-battlefield underfoot (below), the effects guide and the damage chart side by side, the Collection and
-Supporter side by side (Progression, below), leaving the match, and closing the menu. Upright it is one
+effects guide and the damage chart side by side, the Collection and Supporter
+side by side (Progression, below) - the battlefield underfoot is chosen in the
+Collection, with every other look - leaving the match, and closing the menu. Upright it is one
 column; on a short screen the two sections sit side by side, since one column
 of every row would run off the bottom.
 
@@ -1385,7 +1386,8 @@ game puts one on it, where the content runs out (below).
 | 5     | 1,800     | 6                           |
 | 10    | 6,300     | 21                          |
 | 15    | 13,300    | 44                          |
-| 24    | 32,200    | 107                         |
+| 30    | 49,300    | 164                         |
+| 32    | 55,800    | 186                         |
 
 **Keys: what levels pay, and what they unlock** (`progression/store.ts`). Every
 level climbed pays a key (`keys.perLevel`), so level L has paid L - 1, and keys
@@ -1395,14 +1397,15 @@ are the only way anything is unlocked:
   three cost 3 keys each (`keys.builder`), so all four are open by level 10 -
   about 21 normal matches, 14 with the ad's boost kept going, 10 as a
   Supporter, or 13 days of practice and solo at the daily cap.
-- **Cosmetics** that decorate - fortress skins, trails, floors, flourishes -
-  cost 1 or 2 keys each (`unlock.keys` in cosmetics.json), 14 in all today,
-  every one of them in a slot still to come.
-  Titles, and the badges that mean something, are not for keys: they come with
-  what they mean - a level, Supporter, Founder.
-- **Nothing the game does not draw yet.** A slot that is "coming soon" shows
-  what its cosmetics will cost, and cannot be unlocked until it is drawn:
-  nobody spends keys on something they cannot see.
+- **Looks** (below) cost 1 or 2 keys each (`unlock.keys` in cosmetics.json):
+  the four painted battlefields 2 each, and the fortress skins, attack trails,
+  arena floors and victory effects 14 between them - 22 keys in all. Titles,
+  and the badges that mean something, are not for keys: they come with what
+  they mean - a level, Supporter, Founder.
+- **Nothing the game does not draw yet.** A slot's `live` is its release
+  switch: set to false, the slot is "coming soon" - it shows what its looks
+  will cost, cannot be unlocked, and its keys come off the top level - so a
+  look can be finished long before it is released. Every slot is live today.
 
 What is left is what the levels have paid less what has been spent
 (`keysSpent`, with what it went on in `unlocked`), so a key is never paid twice
@@ -1414,10 +1417,11 @@ Unlock - its own tap, so nobody spends keys meaning to start a match.
 `store.ts`). Levels stop at the one that pays the last key there is anything to
 spend on: one more than what every builder but the starter costs and every
 cosmetic keys can unlock now (`keysForEverything`, `topLevel`). Today that is
-the three builders, 9 keys, so the top is level 10; the four slots still to
-come add 5, 2, 3 and 4 keys as each is drawn, which makes it 24 once all of
-them are. It is worked out from the data, so a new builder, a new cosmetic or a
-slot going live raises it with nothing else to change, and a player who has
+31 keys - 9 for the builders, 8 for the battlefields, and 5, 2, 3 and 4 for the
+fortress skins, trails, floors and victory effects - so the top is level 32; a
+slot held back takes its keys off it. It is worked out from the data, so a new
+builder, a new cosmetic or a slot going live raises it with nothing else to
+change, and a player who has
 played through everything has unlocked everything, with no pile of keys
 waiting for whatever comes next. At the top:
 
@@ -1430,8 +1434,8 @@ waiting for whatever comes next. At the top:
   already watched are kept for when the top goes up.
 - **It says so where the XP is shown.** The name card reads "Top level for
   now" over a full bar, the Collection's header says the same where it would
-  say "next at level N", a title tied to a level past the top says "(the top
-  is 10 for now)", and the Supporter page says under "+125% XP" that the XP
+  say "next at level N", a title tied to a level past the top says "Level 30 ·
+  top is 25 for now", and the Supporter page says under "+125% XP" that the XP
   counts again when new content raises it - rather than sell a boost with
   nothing to boost.
 - **Nothing past it is kept**, not even from a save made before there was a
@@ -1439,8 +1443,8 @@ waiting for whatever comes next. At the top:
   level from empty.
 
 Titles tied to a level stay within the top as it will be once everything
-listed is out - a test holds every one to it - which is why Last One Standing
-is level 24.
+listed is out - a test holds every one to it - so Last One Standing, at 30, is
+two short of today's top.
 
 **What a match earns** (`award.ts`). A normal match - online, against other
 people - pays for playing to the end of your match (50; eliminated counts,
@@ -1538,9 +1542,55 @@ holds one at a time (a title, a fortress skin) or any number (badges); switching
 one on in a one-at-a-time slot switches the others off (`cosmetics.ts`). A
 cosmetic is unlocked by any one of: being free, reaching a level, being a
 Supporter or a Founder, or keys spent on it. The switches are saved with the
-profile. Titles and badges are drawn today, with your name; fortress skins,
-attack trails, arena floors and victory effects are in the Collection marked
-"coming soon", with what they will cost.
+profile. Titles and badges are drawn with your name; the looks are drawn where
+they belong, below.
+
+**Looks: what a player is seen in** (`src/render/looks.ts`). Four slots are
+seen by everyone in a match, and one by the player alone:
+
+- **Fortress skins** - Granite Keep, Obsidian Keep, Gilded Keep - are paint
+  inside the wall's own outline: dressed blocks and speckle, black glass in
+  facets catching the light, dark bronze with gold bands and studs. The
+  outline is the body monsters hit, so it is drawn exactly as before, and a
+  skin keeps to the wall's straight run so nothing crosses its rounded ends.
+  A lane's wall wears its owner's skin, so a player watching someone else's
+  lane sees theirs.
+- **Attack trails** - Ember and Frost - are what a player's own shots leave:
+  their units' and their wall's gun's, never a monster's. A trail is bits left
+  where the head has passed - cinders that drift up and cool, glints of frost
+  that shrink where they formed - fading for a moment after the shot lands
+  (`TRAIL_LINGER_MS`). Every channel on a shot is spoken for (attackStyle.ts:
+  head shape and color are damage type, size is damage, speed is range, the
+  dots that move with the head are the shooter's armor), so a trail never
+  moves with the head, is smaller than it, and is in colors of its own.
+- **Arena floors** - Checkered Spoke and Starfield Spoke - pattern the spoke an
+  army fights from in the Final Showdown, under the seat tint that says whose
+  it is: squares a tile and a half across (never a tile, so nothing reads as a
+  grid to stand on), or night with stars no bigger than a speck.
+- **Victory effects** - Fireworks and Confetti Storm - go off over the end of a
+  match the player wins (`VictoryShow`), for about five seconds, on their own
+  screen and on the screen of anyone still watching: shells rising and
+  bursting into falling sparks, or confetti falling over everything. Paint only;
+  it takes no taps. Solo, which nobody wins, has none.
+- **Battlefields** paint the ground under the fight on the player's own screen
+  (Battlefield backgrounds, below).
+
+**Looks travel with the name.** What a player wears in the four seen slots
+(`ProgressStore.looks`) goes with the name and the level when a match is
+joined. The server cleans it as it cleans the level (`cleanLooks` in
+net/lobby.ts: a cosmetic that exists, in the slot it is claimed for, and
+nothing otherwise) - a claim like the level, since unlocking is the device's
+to say - and tells everyone at kickoff (`WireHello.teamLooks`), whence it
+reaches `Team.looks` and the views (`MatchView.teamLooks`,
+`OpponentView.looks`). A practice or solo match gives the player's lane the
+same. A saved build keeps the looks its player had when it was played, so it
+plays in other people's matches looking as they did. The simulation never
+reads any of it.
+
+**The Collection shows each look as itself** (`ui/collectionArt.ts`): a wall in
+its skin, a shot leaving its trail, a patch of its floor, a burst or a scatter
+of confetti, each drawn by the same code as the board; a battlefield by a
+swatch of its own ground, and Molten's moves.
 
 **Nothing can be bought yet.** There is no payment provider and no ad SDK, so
 the buy button says so. `?progress=test` turns the placeholders into something
@@ -1624,23 +1674,15 @@ something carries it.
 ### Battlefield backgrounds: a ground to fight on
 
 The lane and the arena can be drawn on a ground other than the flat dark one:
-Meadow, Dunes, Cobblestone or Molten (`src/render/battlefield.ts`). They are
-cosmetic and meant one day to be earned; for now every one is open,
-and `unlockedBattlefields` is the single place that rule will live.
-`battlefieldInUse` is what the renderer draws — the choice, if it is still
-unlocked, and the plain ground otherwise — so a saved choice that stops being
-available falls back rather than failing.
-
-**Chosen by sight.** The menu's Battlefield row names the ground in use and
-opens a panel of previews over the menu (`ui/battlefieldPicker.ts`); closing it,
-by Done, ✕ or Esc, goes back to the menu. Each card paints its ground the way
-the board does, with the build grid over it and two units and two monsters of
-four damage types standing on it, taken from the game's data — because the
-question is not whether it is pretty but whether the fight still reads on it.
-A tap picks it, and the card in use is framed. A ground that is not unlocked
-will show dimmed and marked, and cannot be picked. The cards are laid out in
-the fewest columns that fit (`cardGrid`): two across upright, one row on a
-phone turned sideways.
+Meadow, Dunes, Cobblestone or Molten (`src/render/battlefield.ts`). Each is a
+look in the Collection, 2 keys to unlock (cosmetics.json, the battlefield
+slot), shown by a swatch of its own ground, and switched on there like any
+other; the plain ground is everyone's and is what is painted with none
+switched on. `battlefieldOf` turns the one switched on - `battlefield_meadow` -
+into the ground to paint, and anything it does not know into the plain one.
+It is how the board looks on the player's own screen: the others' screens are
+painted with their own. (It was chosen from a panel of previews off the menu
+before the Collection had it; a choice saved there is let go.)
 
 **Seen, but never the point.** The first version of the three calm grounds was
 so quiet it could hardly be seen on a phone; they are now a good deal stronger,

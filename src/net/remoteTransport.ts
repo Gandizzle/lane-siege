@@ -48,9 +48,10 @@
 
 import { Client, type Room } from 'colyseus.js';
 import type { GameData } from '../data/schema.ts';
-import type { Command, CommandRejection, MatchView } from '../sim/index.ts';
+import { NO_LOOKS } from '../sim/index.ts';
+import type { Command, CommandRejection, Looks, MatchView } from '../sim/index.ts';
 import type { Identity } from './identity.ts';
-import { PUBLIC_CODE, type LobbyView } from './lobby.ts';
+import { PUBLIC_CODE, cleanLooks, type LobbyView } from './lobby.ts';
 import {
   ROOM_NAME,
   buildTables,
@@ -95,6 +96,8 @@ export interface RemoteOptions {
   code?: string;
   /** Their level, shown with their name to the others (src/progression). */
   level?: number;
+  /** What they are seen in by the others (src/progression, `ProgressStore.looks`). */
+  looks?: Looks;
 }
 
 export class RemoteTransport implements Transport {
@@ -212,6 +215,7 @@ export class RemoteTransport implements Transport {
       name: this.options.identity.name,
       builderId: this.options.builderId,
       level: this.options.level ?? 0,
+      looks: this.options.looks ?? NO_LOOKS,
     });
   }
 
@@ -236,8 +240,8 @@ export class RemoteTransport implements Transport {
 
     room.onMessage('hello', (hello: WireHello) => {
       this.teamId = hello.teamId;
-      // The names and levels too: constant for the match, so they come with
-      // the hello rather than in every frame (`WireHello.teamNames`).
+      // The names, levels and looks too: constant for the match, so they
+      // come with the hello rather than in every frame (`WireHello.teamNames`).
       this.tables = buildTables(
         this.data,
         hello.teamIds,
@@ -245,6 +249,7 @@ export class RemoteTransport implements Transport {
         hello.teamNames ?? [],
         hello.teamLevels ?? [],
         hello.teamRecorded ?? [],
+        (hello.teamLooks ?? []).map((looks) => cleanLooks(looks)),
       );
       this.status = 'ready';
 

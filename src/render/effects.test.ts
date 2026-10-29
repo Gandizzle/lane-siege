@@ -8,6 +8,7 @@
  * it, and that nothing accumulates.
  */
 
+import type { Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
 import { buildDefIndex, FORTRESS_ID, type LaneView } from '../sim/index.ts';
@@ -223,6 +224,79 @@ describe('effects are spawned from blows that already landed', () => {
     layer.update(50);
     layer.render();
     expect(JSON.stringify([attacker, target])).toBe(snapshot);
+  });
+});
+
+describe("a trail is what a player's own shot leaves behind it", () => {
+  function shot(
+    attacker = body(1, RANGED_UNIT, 4, 8),
+    wornBy: () => string | null = () => 'trail_ember',
+  ) {
+    const layer = layerFor();
+    layer.spawn(
+      lane({
+        units: attacker.defId === RANGED_UNIT ? [attacker] : [],
+        monsters: [body(2, 'grub', 4, 5), ...(attacker.defId === RANGED_UNIT ? [] : [attacker])],
+        attacks: [{ attackerId: attacker.id, targetId: 2 }],
+      }),
+      null,
+      'all',
+      wornBy,
+    );
+    return layer;
+  }
+
+  function drawn(layer: EffectsLayer): number {
+    layer.render();
+    return (layer.children[0] as Graphics).context.instructions.length;
+  }
+
+  it('draws bits behind the head as it flies', () => {
+    const plain = shot(undefined, () => null);
+    const ember = shot();
+    plain.update(200);
+    ember.update(200);
+    expect(drawn(ember)).toBeGreaterThan(drawn(plain));
+  });
+
+  it('stays a moment after the shot lands, fading, then goes', () => {
+    const layer = shot();
+    layer.update(500);
+    // Landed - the impact is there - and the trail is still fading.
+    expect(layer.liveKinds().sort()).toEqual(['impact', 'projectile']);
+    layer.update(500);
+    expect(layer.liveCount).toBe(0);
+  });
+
+  it("never follows a monster's shot, whatever a player wears", () => {
+    const layer = shot(body(9, 'spitter', 4, 8));
+    layer.update(500);
+    expect(layer.liveKinds()).toEqual(['impact']);
+  });
+
+  it("follows the fortress's own gun, which is its player's too", () => {
+    const fortressShot = (wornBy: () => string | null) => {
+      const layer = layerFor();
+      layer.spawn(
+        lane({
+          monsters: [body(9, 'grub', 4, 9)],
+          attacks: [{ attackerId: FORTRESS_ID, targetId: 9 }],
+        }),
+        null,
+        'all',
+        wornBy,
+      );
+      return layer;
+    };
+    const plain = fortressShot(() => null);
+    const frost = fortressShot(() => 'trail_frost');
+    // Until the plain shot is gone: the one with a trail is still fading.
+    for (let ms = 0; plain.liveKinds().includes('projectile') && ms < 2000; ms += 50) {
+      plain.update(50);
+      frost.update(50);
+    }
+    expect(plain.liveKinds()).not.toContain('projectile');
+    expect(frost.liveKinds()).toContain('projectile');
   });
 });
 

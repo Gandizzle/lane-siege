@@ -37,6 +37,9 @@
  * two-player match is still the four-lane match §17 describes.
  */
 
+import { COSMETICS, type CosmeticsConfig } from '../progression/config.ts';
+import { NO_LOOKS, type Looks } from '../sim/index.ts';
+
 /**
  * Room-code alphabet: no I, O, 0 or 1, because a code is read off one screen
  * and typed into another and those four are the pairs people get wrong.
@@ -69,6 +72,11 @@ export interface LobbySeat {
    * nothing but the right to be looked at.
    */
   level: number;
+  /**
+   * What the player is seen in (`Looks`): their fortress, their shots, their
+   * spoke and their win. Nothing for an empty seat or a scripted builder.
+   */
+  looks: Looks;
   /** The roster this player has chosen (§7.1). */
   builderId: string;
   /** Has confirmed their roster and wants to start. */
@@ -109,6 +117,7 @@ export function createSeats(teamIds: readonly string[]): LobbySeat[] {
     playerId: null,
     name: '',
     level: 0,
+    looks: { ...NO_LOOKS },
     builderId: '',
     ready: false,
     connected: false,
@@ -130,9 +139,12 @@ export function seatPlayer(
   name: string,
   builderId: string,
   level = 0,
+  looks: Looks = NO_LOOKS,
 ): LobbySeat | null {
   const existing = seats.find((s) => s.playerId === playerId);
   if (existing) {
+    // A seat taken back keeps the looks it had: once a match has begun, the
+    // others were told them at kickoff, and a change would only reach some.
     existing.connected = true;
     if (name) existing.name = name;
     if (builderId) existing.builderId = builderId;
@@ -146,6 +158,7 @@ export function seatPlayer(
   free.playerId = playerId;
   free.name = name;
   free.level = level;
+  free.looks = { ...looks };
   free.builderId = builderId;
   free.ready = false;
   free.connected = true;
@@ -158,6 +171,7 @@ export function releaseSeat(seat: LobbySeat): void {
   seat.playerId = null;
   seat.name = '';
   seat.level = 0;
+  seat.looks = { ...NO_LOOKS };
   seat.builderId = '';
   seat.ready = false;
   seat.connected = false;
@@ -173,6 +187,29 @@ export function releaseSeat(seat: LobbySeat): void {
 export function cleanLevel(claimed: unknown): number {
   if (typeof claimed !== 'number' || !Number.isFinite(claimed)) return 0;
   return Math.max(0, Math.min(1_000_000, Math.floor(claimed)));
+}
+
+/**
+ * Looks as a client claimed them, made safe to draw: each one a cosmetic that
+ * exists, in the slot it is claimed for (data/cosmetics.json), and nothing
+ * for anything else. Like the level, a claim rather than a proof - whether it
+ * was unlocked is the player's device's to say (src/progression) - and like
+ * the level, a forged one fools nobody about anything that matters.
+ */
+export function cleanLooks(claimed: unknown, cosmetics: CosmeticsConfig = COSMETICS): Looks {
+  const r =
+    typeof claimed === 'object' && claimed !== null ? (claimed as Record<string, unknown>) : {};
+  const one = (slot: keyof Looks): string | null => {
+    const id = r[slot];
+    const known = cosmetics.cosmetics.some((c) => c.id === id && c.slot === slot);
+    return typeof id === 'string' && known ? id : null;
+  };
+  return {
+    fortress: one('fortress'),
+    trail: one('trail'),
+    floor: one('floor'),
+    victory: one('victory'),
+  };
 }
 
 export function occupiedSeats(seats: readonly LobbySeat[]): LobbySeat[] {

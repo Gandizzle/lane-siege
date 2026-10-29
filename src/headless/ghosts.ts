@@ -21,7 +21,15 @@ import { ghostRoutes } from '../../server/ghostRoutes.ts';
 import { AutoBuilder } from '../bot/autoBuilder.ts';
 import { GhostRecorder, portable, type GhostAction } from '../bot/ghost.ts';
 import { ROOM_NAME, type WireHello } from '../net/protocol.ts';
-import { applyCommand, createContext, createMatch, step, type MatchState } from '../sim/index.ts';
+import {
+  NO_LOOKS,
+  applyCommand,
+  createContext,
+  createMatch,
+  step,
+  type Looks,
+  type MatchState,
+} from '../sim/index.ts';
 
 const PORT = 2599;
 const HTTP = `http://localhost:${PORT}`;
@@ -74,6 +82,12 @@ async function report(playerId: string): Promise<GhostReport> {
 async function main(): Promise<void> {
   const store = new MemoryGhostStore();
   const actions = recordedOpening();
+  // What each was seen in when they played: Hal's fortress is a trail, which
+  // no fortress can be, and must arrive as nothing.
+  const looksOf: Record<string, Looks> = {
+    'player-gil': { ...NO_LOOKS, fortress: 'fortress_granite', trail: 'trail_ember' },
+    'player-hal': { ...NO_LOOKS, fortress: 'trail_frost', victory: 'victory_confetti' },
+  };
   for (const [playerId, name, level] of [
     ['player-gil', 'Gil', 3],
     ['player-hal', 'Hal', 5],
@@ -85,6 +99,7 @@ async function main(): Promise<void> {
       playerId,
       name,
       level,
+      looks: looksOf[playerId] ?? NO_LOOKS,
       builderId: 'ironvow',
       wave: 2,
       placement: 2,
@@ -117,6 +132,7 @@ async function main(): Promise<void> {
     playerId: 'player-ann',
     name: 'Ann',
     level: 4,
+    looks: { ...NO_LOOKS, fortress: 'fortress_obsidian', floor: 'floor_starfield' },
     builderId: 'ironvow',
   });
   let hello: WireHello | null = null;
@@ -141,6 +157,21 @@ async function main(): Promise<void> {
     'marked as saved builds, her own seat not',
     JSON.stringify(seated?.teamRecorded) === JSON.stringify([false, true, true, true]),
     JSON.stringify(seated?.teamRecorded),
+  );
+  const looksAt = (who: string): Looks | undefined => seated?.teamLooks?.[names.indexOf(who)];
+  check(
+    'everyone is told what each seat is seen in: hers, and the builds’ players’',
+    looksAt('Ann')?.fortress === 'fortress_obsidian' &&
+      looksAt('Ann')?.floor === 'floor_starfield' &&
+      looksAt('Gil')?.fortress === 'fortress_granite' &&
+      looksAt('Gil')?.trail === 'trail_ember' &&
+      looksAt('Ivy')?.fortress === null,
+    JSON.stringify(seated?.teamLooks),
+  );
+  check(
+    'and a look claimed for the wrong slot arrives as nothing',
+    looksAt('Hal')?.fortress === null && looksAt('Hal')?.victory === 'victory_confetti',
+    JSON.stringify(looksAt('Hal')),
   );
 
   // --------------------------------------------------------- they play

@@ -1,20 +1,20 @@
 /**
- * Battlefield backgrounds (battlefield.ts): which there are, which may be
- * chosen, and that each one is painted - inside the area it is given, and the
- * same every time - and that Molten's plates tile the ground they cut up.
+ * Battlefield backgrounds (battlefield.ts): which there are, that each painted
+ * one is a look in the Collection, and that each one is painted - inside the
+ * area it is given, and the same every time - and that Molten's plates tile
+ * the ground they cut up.
  */
 
 import type { Graphics } from 'pixi.js';
 import { describe, expect, it } from 'vitest';
+import { COSMETICS } from '../progression/config.ts';
 import {
   BATTLEFIELD_IDS,
-  battlefieldInUse,
-  battlefieldName,
-  battlefieldNote,
+  battlefieldCosmetic,
+  battlefieldOf,
   gridAlpha,
   GroundView,
   isTextured,
-  unlockedBattlefields,
   voronoiCells,
   type BattlefieldId,
 } from './battlefield.ts';
@@ -45,19 +45,21 @@ function within(view: GroundView, area: typeof AREA, id: string): void {
 }
 
 describe('battlefields', () => {
-  it('offers the plain ground and four painted ones, every one open for now', () => {
+  it('offers the plain ground to everyone, and the four painted ones in the Collection', () => {
     expect(BATTLEFIELD_IDS[0]).toBe('plain');
     expect(BATTLEFIELD_IDS.filter(isTextured)).toHaveLength(4);
-    expect(unlockedBattlefields()).toEqual(BATTLEFIELD_IDS);
-    for (const id of BATTLEFIELD_IDS) {
-      expect(battlefieldName(id)).not.toBe('');
-      expect(battlefieldNote(id)).not.toBe('');
-    }
+    const forSale = COSMETICS.cosmetics.filter((c) => c.slot === 'battlefield');
+    expect(forSale.map((c) => c.id).sort()).toEqual(
+      BATTLEFIELD_IDS.filter(isTextured).map(battlefieldCosmetic).sort(),
+    );
+    for (const c of forSale) expect(c.unlock.keys, c.id).toBe(2);
   });
 
-  it('draws the chosen one when it is open, and the plain ground when it is not', () => {
-    for (const id of unlockedBattlefields()) expect(battlefieldInUse(id)).toBe(id);
-    expect(battlefieldInUse('nowhere' as never)).toBe('plain');
+  it('paints the one switched on, and the plain ground for none or one it does not know', () => {
+    for (const id of BATTLEFIELD_IDS) expect(battlefieldOf(battlefieldCosmetic(id))).toBe(id);
+    expect(battlefieldOf(null)).toBe('plain');
+    expect(battlefieldOf('battlefield_lava')).toBe('plain');
+    expect(battlefieldOf('fortress_granite')).toBe('plain');
   });
 
   it('paints nothing for the plain ground, and every painted one inside its area', () => {

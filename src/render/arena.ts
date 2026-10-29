@@ -30,6 +30,10 @@
  * color - two readings of the same fact, one of which survives at a glance
  * across a crowded centre. A spoke nobody fights from - the two either side
  * of a duel - is left bare.
+ *
+ * And what each player wears: a spoke's floor is patterned with its army's
+ * player's arena floor, under the seat tint, and their shots leave the trail
+ * they wear (looks.ts).
  */
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
@@ -49,6 +53,7 @@ import { EffectsLayer } from './effects.ts';
 import { arenaCamera, centredOn, type Camera, type Rect } from './layout.ts';
 import { SEAT_COLORS, UI } from './palette.ts';
 import { GroundView, isTextured, type BattlefieldId } from './battlefield.ts';
+import { drawFloor, floorOf, looksOf, type FloorKind } from './looks.ts';
 
 /** How strongly a spoke's floor carries its owner's color. A tint, not a fill. */
 const SPOKE_TINT_ALPHA = 0.1;
@@ -61,6 +66,9 @@ const HELD_TINT_ALPHA = 0.3;
 
 /** A drag shorter than this is a tap that missed, not a scroll. */
 const DRAG_SLOP = 4;
+
+/** Who fights from a spoke: `[spoke, seat, the floor its player wears]`. */
+type Occupant = [number, number, FloorKind | null];
 
 /**
  * The arena as a `LaneView`, so the body and effect layers can draw it.
@@ -201,13 +209,15 @@ export class ArenaStage extends Container {
    * outline by this.
    */
   private readonly floorMask = new Graphics();
+  /** Each army's arena floor, on its spoke (looks.ts), under the seat tints. */
+  private readonly spokeFloors = new Graphics();
   /** The seat tints, the centre and the wall line, over the floor. */
   private readonly marks = new Graphics();
   private battlefield: BattlefieldId = 'plain';
   /** What `floor` was last painted for: skin, shape and tile size. */
   private floorFor = '';
-  /** Which seat fights from which spoke, for the tints: `[spoke, seat]`. */
-  private occupants: [number, number][] = [];
+  /** Which seat fights from which spoke, for the tints and the floors. */
+  private occupants: Occupant[] = [];
   private readonly entities: EntityLayer;
   private readonly effectsLayer: EffectsLayer;
   private readonly touch = new Container();
@@ -245,6 +255,7 @@ export class ArenaStage extends Container {
       this.ground,
       this.floor,
       this.floorMask,
+      this.spokeFloors,
       this.marks,
       this.centre,
       this.entities,
@@ -285,9 +296,14 @@ export class ArenaStage extends Container {
     this.entities.captureTick(lane);
   }
 
-  spawnEffects(incoming: LaneView, outgoing: LaneView | null): void {
+  /** `wornBy` names the trail each shot's player wears, by who fired it. */
+  spawnEffects(
+    incoming: LaneView,
+    outgoing: LaneView | null,
+    wornBy: (attackerId: number) => string | null = () => null,
+  ): void {
     // Nothing leaves the arena but by dying.
-    this.effectsLayer.spawn(incoming, outgoing, 'all');
+    this.effectsLayer.spawn(incoming, outgoing, 'all', wornBy);
   }
 
   update(deltaMs: number): void {
@@ -332,13 +348,17 @@ export class ArenaStage extends Container {
     if (!showdown) return;
 
     const shape = this.shapes[showdown.layout] ?? this.shapes.cross;
-    const occupants = showdown.armies.map((army): [number, number] => [army.spoke, army.seat]);
+    const occupants = showdown.armies.map((army): Occupant => [
+      army.spoke,
+      army.seat,
+      floorOf(looksOf(view, army.teamId).floor),
+    ]);
     const same =
       shape === this.shape &&
       occupants.length === this.occupants.length &&
-      occupants.every(([spoke, seat], i) => {
-        const [was, wasSeat] = this.occupants[i]!;
-        return spoke === was && seat === wasSeat;
+      occupants.every(([spoke, seat, floor], i) => {
+        const [was, wasSeat, wasFloor] = this.occupants[i]!;
+        return spoke === was && seat === wasSeat && floor === wasFloor;
       });
     if (same) return;
 
@@ -402,6 +422,29 @@ export class ArenaStage extends Container {
     this.paintFloor();
     this.floor.position.set(gridOrigin.x, gridOrigin.y);
     this.floorMask.position.set(gridOrigin.x, gridOrigin.y);
+
+    // The floors the armies' players wear, each on its own spoke and under
+    // the tint that says whose it is.
+    const f = this.spokeFloors;
+    f.clear();
+    for (const [spoke, , floor] of this.occupants) {
+      const dir = this.shape.spokes[spoke];
+      if (!floor || !dir) continue;
+      drawFloor(
+        f,
+        floor,
+        {
+          origin: this.shape.centre,
+          dir,
+          from: this.shape.hub,
+          to: this.shape.reach,
+          half: this.shape.spokeWidth / 2,
+          unit: tileSize,
+          toPixel: (x, y) => [gridOrigin.x + x * tileSize, gridOrigin.y + y * tileSize],
+        },
+        spoke * 1000,
+      );
+    }
 
     // Whose ground is whose. The tint stops at the middle, which belongs to
     // nobody.

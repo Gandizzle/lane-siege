@@ -29,6 +29,8 @@ import { mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import type { GhostAction } from '../src/bot/ghost.ts';
 import type { GhostReport } from '../src/net/ghostApi.ts';
+import { cleanLooks } from '../src/net/lobby.ts';
+import type { Looks } from '../src/sim/index.ts';
 
 export type { GhostReport };
 
@@ -37,6 +39,8 @@ export interface GhostBuild {
   playerId: string;
   name: string;
   level: number;
+  /** What its player was seen in, so it plays in other people's matches looking as they did. */
+  looks: Looks;
   builderId: string;
   /** The wave it held to, and where it placed, the time it was played. */
   wave: number;
@@ -231,6 +235,8 @@ function readGhost(path: string): GhostBuild | null {
     playerId: r.playerId,
     name: r.name,
     level: typeof r.level === 'number' ? r.level : 0,
+    // A build kept before looks were has none.
+    looks: cleanLooks(r.looks),
     builderId: r.builderId,
     wave: typeof r.wave === 'number' ? r.wave : 0,
     placement: typeof r.placement === 'number' ? r.placement : null,

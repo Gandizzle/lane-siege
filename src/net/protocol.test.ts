@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { loadDataFromDisk } from '../data/loadNode.ts';
-import { applyCommand, createContext, createMatch, step, viewFor } from '../sim/index.ts';
+import { NO_LOOKS, applyCommand, createContext, createMatch, step, viewFor } from '../sim/index.ts';
 import type { MatchState, SimContext } from '../sim/index.ts';
 import { buildTables, decodeFrame, encodeFrame } from './protocol.ts';
 
@@ -67,6 +67,20 @@ describe('names and levels come with the hello', () => {
       ['P2', 10],
       ['P3', 15],
     ]);
+  });
+
+  it('and what everyone is seen in, yours included', () => {
+    const state = createMatch(data, {
+      seed: SEED,
+      teams: TEAMS.map((id) => ({ id, playerIds: [id] })),
+    });
+    const ctx = createContext(data);
+    const granite = { ...NO_LOOKS, fortress: 'fortress_granite' };
+    const frost = { ...NO_LOOKS, trail: 'trail_frost', victory: 'victory_confetti' };
+    const told = buildTables(data, TEAMS, SEED, [], [], [], [granite, frost]);
+    const view = decodeFrame(encodeFrame(viewFor(ctx, state, 'b'), told), told);
+    expect(view.teamLooks).toEqual(frost);
+    expect(view.opponents.map((o) => o.looks)).toEqual([granite, NO_LOOKS, NO_LOOKS]);
   });
 });
 

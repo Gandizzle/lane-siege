@@ -67,6 +67,7 @@ import {
   MAX_PLAYERS,
   PUBLIC_CODE,
   cleanLevel,
+  cleanLooks,
   createSeats,
   lobbyViewFor,
   occupiedSeats,
@@ -118,6 +119,8 @@ export interface JoinOptions {
   name?: string;
   /** The player's level, for showing with their name (lobby.ts, `cleanLevel`). */
   level?: number;
+  /** What the player is seen in (lobby.ts, `cleanLooks`). */
+  looks?: unknown;
   builderId?: string;
   code?: string;
 }
@@ -264,6 +267,7 @@ export class LaneSiegeRoom extends Room {
       acceptableName(String(options?.name ?? '')),
       options?.builderId ?? '',
       cleanLevel(options?.level),
+      cleanLooks(options?.looks),
     );
     if (!placed) {
       client.leave(4000, 'room full');
@@ -426,6 +430,7 @@ export class LaneSiegeRoom extends Room {
             playerId: seat.lobby.playerId,
             name: seat.lobby.name,
             level: seat.lobby.level,
+            looks: seat.lobby.looks,
             builderId: this.match.lanes[seat.lobby.teamId]?.builderId ?? seat.lobby.builderId,
             wave: this.match.wave,
             placement,
@@ -457,6 +462,7 @@ export class LaneSiegeRoom extends Room {
       teamNames: this.seats.map((seat) => seat.lobby.name),
       teamLevels: this.seats.map((seat) => seat.lobby.level),
       teamRecorded: this.seats.map((seat) => seat.ghost !== null),
+      teamLooks: this.seats.map((seat) => seat.lobby.looks),
     };
   }
 
@@ -478,6 +484,7 @@ export class LaneSiegeRoom extends Room {
         team.name = seat.lobby.name;
         team.level = seat.lobby.level;
         team.recorded = seat.ghost !== null;
+        team.looks = { ...seat.lobby.looks };
       }
     }
     this.tables = buildTables(
@@ -487,6 +494,7 @@ export class LaneSiegeRoom extends Room {
       this.seats.map((seat) => seat.lobby.name),
       this.seats.map((seat) => seat.lobby.level),
       this.seats.map((seat) => seat.ghost !== null),
+      this.seats.map((seat) => seat.lobby.looks),
     );
     for (const seat of this.seats) {
       if (seat.client) seat.client.send('hello', this.helloFor(seat.lobby.teamId));
@@ -556,6 +564,7 @@ export class LaneSiegeRoom extends Room {
         playerId: `ghost:${ghost.playerId}`,
         name: acceptableName(ghost.name),
         level: cleanLevel(ghost.level),
+        looks: cleanLooks(ghost.looks),
         builderId: ghost.builderId,
         ready: true,
         // Present, with no socket to lose: never shown as reconnecting.

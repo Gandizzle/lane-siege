@@ -474,6 +474,7 @@ describe('fog of war (§12)', () => {
         'fortressHp',
         'fortressMaxHp',
         'level',
+        'looks',
         'name',
         'placement',
         'recorded',

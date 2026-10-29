@@ -28,6 +28,7 @@
  */
 
 import type { KeyValueStore } from '../net/identity.ts';
+import type { Looks } from '../sim/index.ts';
 import {
   awardXp,
   boostStatus,
@@ -256,6 +257,24 @@ export class ProgressStore {
   /** What is being worn in a slot right now. */
   worn(slotId: string): Cosmetic[] {
     return wornIn(this.cosmetics, this.current.cosmetics, slotId, this.holder);
+  }
+
+  /**
+   * What the others in a match see this player in (`Looks`): what is worn in
+   * each of those slots, if the game draws the slot. Sent with the name and
+   * the level when a match is joined.
+   */
+  get looks(): Looks {
+    const one = (slotId: keyof Looks): string | null => {
+      const slot = this.cosmetics.slots.find((s) => s.id === slotId);
+      return slot?.live ? (this.worn(slotId)[0]?.id ?? null) : null;
+    };
+    return {
+      fortress: one('fortress'),
+      trail: one('trail'),
+      floor: one('floor'),
+      victory: one('victory'),
+    };
   }
 
   // ------------------------------------------------- Supporter and Founder

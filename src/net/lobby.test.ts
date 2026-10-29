@@ -12,6 +12,7 @@ import {
   CODE_ALPHABET,
   CODE_LENGTH,
   cleanLevel,
+  cleanLooks,
   createSeats,
   lobbyViewFor,
   makeCode,
@@ -23,6 +24,7 @@ import {
   shouldStart,
   type LobbyTiming,
 } from './lobby.ts';
+import { NO_LOOKS } from '../sim/index.ts';
 
 const TEAMS = ['lane1', 'lane2', 'lane3', 'lane4'];
 const TIMING: LobbyTiming = { minWaitSeconds: 10, autoStartSeconds: 60 };
@@ -197,5 +199,40 @@ describe('a level comes with the name (src/progression)', () => {
     expect(cleanLevel('9')).toBe(0);
     expect(cleanLevel(Number.NaN)).toBe(0);
     expect(cleanLevel(undefined)).toBe(0);
+  });
+
+  it('keeps the looks a seat was taken with, and lets them go with it', () => {
+    const seats = createSeats(['a', 'b']);
+    const worn = { ...NO_LOOKS, fortress: 'fortress_granite', trail: 'trail_frost' };
+    const seat = seatPlayer(seats, 'p1', 'Ann', 'ironvow', 3, worn)!;
+    expect(seat.looks).toEqual(worn);
+    // Taken back mid-match, it keeps what everyone was told at kickoff.
+    expect(seatPlayer(seats, 'p1', '', '', 0, NO_LOOKS)!.looks).toEqual(worn);
+    releaseSeat(seat);
+    expect(seat.looks).toEqual(NO_LOOKS);
+    expect(seats[1]!.looks).toEqual(NO_LOOKS);
+  });
+
+  it('cleans claimed looks to cosmetics that exist, each in its own slot', () => {
+    expect(
+      cleanLooks({
+        fortress: 'fortress_gilded',
+        trail: 'trail_ember',
+        floor: 'floor_checker',
+        victory: 'victory_fireworks',
+      }),
+    ).toEqual({
+      fortress: 'fortress_gilded',
+      trail: 'trail_ember',
+      floor: 'floor_checker',
+      victory: 'victory_fireworks',
+    });
+    // A look from another slot, one that does not exist, and junk.
+    expect(
+      cleanLooks({ fortress: 'trail_ember', trail: 'trail_lasers', floor: 7, victory: {} }),
+    ).toEqual(NO_LOOKS);
+    for (const junk of [null, undefined, 'fortress_gilded', 3, []]) {
+      expect(cleanLooks(junk)).toEqual(NO_LOOKS);
+    }
   });
 });
