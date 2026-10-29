@@ -261,15 +261,16 @@ provider and an ad network.
   credits. Its button says "Supporter" and, under it, "+125% XP · no ads": the
   name says it is support, so it is not a purchase in disguise, and the line
   says what it is worth, so it is not passed over as a donation.
-- **Founders.** At launch, the first 50 players to claim it get everything a
-  Supporter has, free and for good, with a Founder badge and title nobody else
-  can get.
+- **Founders.** The first 50 players to reach level 20 are Founders, numbered
+  #1 to #50 in the order they get there: everything a Supporter has, free and
+  for good, and a Founder star with their number in it, which nobody else can
+  get. The game server counts them; a player's device claims its number the
+  moment it reaches level 20.
 
 Not built yet: real ads and payments - AdMob through a Capacitor plugin and
-in-app purchases through RevenueCat, by the business plan - and the Founders'
-claim, which needs a server to count the first 50 and accounts to tie each
-claim to (RevenueCat can grant the entitlement once a server says yes). Until
-then the claim is only in the `?progress=test` build. The Supporter price in
+in-app purchases through RevenueCat, by the business plan - and proof of a
+Founder's level: the server counts the first 50, but the level each claims
+with is the device's until progress is kept on a server. The Supporter price in
 data/store.json is the business plan's ballpark. Audio, which shared this
 entry, is built - ARCHITECTURE.md, "Sound: cues, packs and a playlist".
 

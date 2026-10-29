@@ -92,11 +92,13 @@ import { BoostOffer } from './ui/boostOffer.ts';
 import { SupportScreen, supporterBonus } from './ui/supportScreen.ts';
 import { CollectionScreen } from './ui/collectionScreen.ts';
 import { SavedBuildNews } from './ui/savedBuildNews.ts';
+import { FounderNews } from './ui/founderNews.ts';
 import type { RewardedAds } from './ui/adPlaceholder.ts';
 import { waveCount, type XpAward, type XpMode } from '../progression/award.ts';
 import { forSale } from '../progression/cosmetics.ts';
 import type { ProgressStore } from '../progression/store.ts';
 import type { SavedBuilds } from '../net/ghostApi.ts';
+import type { Founders } from '../net/founderApi.ts';
 import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Menu, MenuButton } from './ui/menu.ts';
@@ -160,6 +162,11 @@ export interface GameServices {
    * and keeping the last one. Null with no server to keep one on.
    */
   savedBuilds: SavedBuilds | null;
+  /**
+   * The Founders on the server (net/founderApi.ts): claiming this player's
+   * number at the Founders' level, and how many are left. Null with no server.
+   */
+  founders: Founders | null;
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
@@ -258,6 +265,12 @@ export class Game extends Container {
   private savedBuildsNoted = false;
   /** What the player's saved build did while they were away (ui/savedBuildNews.ts). */
   private readonly savedBuildNews: SavedBuildNews;
+  /** "Founder #7", the moment it is won (ui/founderNews.ts). */
+  private readonly founderNews: FounderNews;
+  /** A Founder's number won and not yet shown: it waits for the home screen. */
+  private founderToShow: number | null = null;
+  /** A claim is on its way to the server: one at a time. */
+  private claimingFounder = false;
   /** What the match earned, line by line, and the climb it bought. */
   private readonly xpReport: XpReport;
   /** The winner's flourish (looks.ts), over the end of a match. Paint only. */
@@ -395,6 +408,7 @@ export class Game extends Container {
       onSupporter: () => this.openSupport(),
     });
     this.savedBuildNews = new SavedBuildNews(this.layout, () => this.savedBuildNews.close());
+    this.founderNews = new FounderNews(this.layout, () => this.founderNews.close());
     this.xpReport = new XpReport(this.layout, {
       onClose: () => this.xpReport.close(),
       onLevelUp: () => this.services.sound.play('wave.cleared'),
@@ -531,10 +545,13 @@ export class Game extends Container {
       this.boostOffer,
       // Over the home screen, the moment the game opens.
       this.savedBuildNews,
+      // Over everything, the saved build's news included: it is the bigger news.
+      this.founderNews,
     );
 
     this.showScreen('home');
     void this.checkSavedBuild();
+    void this.checkFounder();
   }
 
   /**
@@ -547,6 +564,10 @@ export class Game extends Container {
     // all; with the congratulations up, it goes on to the game they were for.
     if (this.boostOffer.isOpen) {
       if (!this.watchingAd) this.leaveOffer(!this.boostOffer.asking);
+      return;
+    }
+    if (this.founderNews.isOpen) {
+      this.founderNews.close();
       return;
     }
     if (this.savedBuildNews.isOpen) {
@@ -641,7 +662,10 @@ export class Game extends Container {
     if (screen === 'builder') this.builderSelect.refresh();
     this.showdownSetup.visible = screen === 'showdownSetup';
     this.tutorialScreen.visible = screen === 'tutorial';
-    if (screen === 'home') this.refreshHome();
+    if (screen === 'home') {
+      this.refreshHome();
+      this.showFounderNews();
+    }
     if (screen === 'tutorial') {
       this.tutorialScreen.setDone(this.services.preferences.settings.tutorialDone);
     }
@@ -652,11 +676,13 @@ export class Game extends Container {
   private homeProfile(): HomeProfile {
     const progress = this.services.progress;
     const badges = progress.worn('badge').flatMap((c) => (c.glyph ? [c.glyph] : []));
+    const title = progress.worn('title')[0];
     return {
       name: this.services.name(),
       level: progress.level,
-      title: progress.worn('title')[0]?.name ?? null,
+      title: title ? progress.nameOf(title) : null,
       badges,
+      founderNumber: progress.profile.founderNumber,
       boostWaves: progress.boost().wavesLeft,
       boostAlways: progress.boost().alwaysOn,
       supporter: progress.supporter,
@@ -1249,6 +1275,8 @@ export class Game extends Container {
       wavesPlayed: Math.max(1, view.wave),
       reachedShowdown,
     });
+    // The match may have been the one that reached the Founders' level.
+    void this.checkFounder();
     if (result.before.atTop) return;
     this.xpReport.open(
       result,
@@ -1296,10 +1324,45 @@ export class Game extends Container {
    */
   private claimFounder(): void {
     if (!this.services.progressTest) return;
-    this.services.progress.grantFounder();
-    this.toast.showText('Test claim: Founder');
-    this.services.sound.play('buy');
+    // Any number at all: the server is what counts a real one.
+    const number = 1 + Math.floor(Math.random() * this.services.progress.store.founders.count);
+    this.services.progress.grantFounder(number);
+    this.toast.showText(`Test claim: Founder #${number}`);
     this.progressChanged();
+    this.founderToShow = number;
+    this.showFounderNews(true);
+  }
+
+  /**
+   * A Founder's number, claimed by itself the moment this player's level gets
+   * to the Founders' level (store.json, founders): as the game opens, after a
+   * match, or at a test level-up. Only with a server to count it, only until
+   * the server has said every number is gone, and one claim at a time; no
+   * answer is no harm, and it is asked again next time. A number won is shown
+   * over the home screen - now, or when the player is next there.
+   */
+  private async checkFounder(): Promise<void> {
+    const founders = this.services.founders;
+    const progress = this.services.progress;
+    if (!founders || founders.gone || this.claimingFounder || !progress.founderDue) return;
+    this.claimingFounder = true;
+    const answer = await founders.claim(progress.level.level);
+    this.claimingFounder = false;
+    if (answer?.result !== 'founder' || progress.profile.founder) return;
+    progress.grantFounder(answer.number);
+    this.founderToShow = answer.number;
+    this.progressChanged();
+    this.showFounderNews();
+  }
+
+  /** The Founder's card: on the home screen, or anywhere when `now`. */
+  private showFounderNews(now = false): void {
+    const number = this.founderToShow;
+    if (number === null || (!now && this.screen !== 'home') || this.founderNews.isOpen) return;
+    this.founderToShow = null;
+    const rule = this.services.progress.store.founders;
+    this.founderNews.open(number, rule.count, rule.level, supporterBonus(this.services.progress));
+    this.services.sound.play('wave.cleared');
   }
 
   // ------------------------------------------------------------ saved builds
@@ -1364,6 +1427,8 @@ export class Game extends Container {
 
   /** Something about progress changed: every screen that shows it, redrawn. */
   private progressChanged(): void {
+    // A level-up anywhere - a test one included - may be the Founders' level.
+    void this.checkFounder();
     if (this.screen === 'home') this.refreshHome();
     if (this.screen === 'builder') this.builderSelect.refresh();
     this.supportScreen.refresh();
@@ -1374,6 +1439,10 @@ export class Game extends Container {
     this.setMenu(false);
     this.collectionScreen.close();
     this.supportScreen.open();
+    // How many Founder stars are left, when there is a server to say.
+    void this.services.founders?.status().then((status) => {
+      this.supportScreen.setFounderStatus(status);
+    });
   }
 
   private openCollection(): void {
@@ -1403,6 +1472,7 @@ export class Game extends Container {
     this.victoryShow.resize(this.layout.screen.width, this.layout.screen.height);
     this.boostOffer.setLayout(this.layout);
     this.savedBuildNews.setLayout(this.layout);
+    this.founderNews.setLayout(this.layout);
     this.supportScreen.setLayout(this.layout);
     this.collectionScreen.setLayout(this.layout);
     this.arena.setLayout(this.layout.screen, this.layout.tileSize);
@@ -1457,6 +1527,7 @@ export class Game extends Container {
     this.statusClock += (paused && !reading ? deltaMs : matchDelta) / 1000;
     this.effectsPanel.render(this.statusLog, this.statusClock, deltaMs);
     this.home.update(deltaMs);
+    this.founderNews.update(deltaMs);
     this.supportScreen.update(deltaMs);
     this.collectionScreen.update(deltaMs);
     this.xpReport.update(deltaMs);

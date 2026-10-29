@@ -53,6 +53,7 @@ import { PreferenceStore } from './preferences.ts';
 import { ProgressStore } from '../progression/store.ts';
 import { PlaceholderAds } from './ui/adPlaceholder.ts';
 import { SavedBuilds } from '../net/ghostApi.ts';
+import { Founders } from '../net/founderApi.ts';
 import { practiceMatch, sceneOf, tutorialMatch } from '../tutorial/match.ts';
 
 /** §2: four lanes. Fixed ids so a lane's name is stable across matches. */
@@ -334,6 +335,7 @@ export async function startApp(
       savedBuilds: options.server
         ? new SavedBuilds(options.server, identity.playerId, storage)
         : null,
+      founders: options.server ? new Founders(options.server, identity.playerId, storage) : null,
       async editName() {
         const typed = await textPrompt(mount, {
           title: 'Your name',

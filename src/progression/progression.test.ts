@@ -683,3 +683,51 @@ describe('cosmetics', () => {
     expect(founderOnly.map((c) => c.slot).sort()).toEqual(['badge', 'title']);
   });
 });
+
+describe('the Founders', () => {
+  const now = () => new Date(2026, 9, 16);
+
+  it('is a race the game can be won at: level twenty is under the top', () => {
+    expect(STORE.founders.level).toBeLessThanOrEqual(new ProgressStore(memory()).topLevel);
+  });
+
+  it('is due at the Founders’ level and after, and never twice', () => {
+    const store = new ProgressStore(memory(), now);
+    while (store.level.level < STORE.founders.level - 1) store.testLevelUp();
+    expect(store.founderDue).toBe(false);
+    store.testLevelUp();
+    expect(store.founderDue).toBe(true);
+    store.grantFounder(7);
+    expect(store.founderDue).toBe(false);
+    expect(store.supporter).toBe(true);
+  });
+
+  it('keeps the number across a reload, and only for a Founder', () => {
+    const storage = memory();
+    new ProgressStore(storage, now).grantFounder(7);
+    expect(new ProgressStore(storage, now).profile.founderNumber).toBe(7);
+    expect(parseProfile({ founder: false, founderNumber: 7 }).founderNumber).toBeNull();
+    expect(parseProfile({ founder: true, founderNumber: 0 }).founderNumber).toBeNull();
+    expect(parseProfile({ founder: true, founderNumber: '7' }).founderNumber).toBeNull();
+    // A Founder from before they were numbered is still one.
+    expect(parseProfile({ founder: true })).toMatchObject({ founder: true, founderNumber: null });
+  });
+
+  it('puts the number in the Founder title, and takes it back with the rest', () => {
+    const store = new ProgressStore(memory(), now);
+    const title = COSMETICS.cosmetics.find((c) => c.slot === 'title' && c.unlock.founder)!;
+    const other = COSMETICS.cosmetics.find((c) => c.slot === 'title' && c.unlock.free)!;
+    store.grantFounder(12);
+    expect(store.nameOf(title)).toBe(`${title.name} #12`);
+    expect(store.nameOf(other)).toBe(other.name);
+    store.clearPurchases();
+    expect(store.profile).toMatchObject({ founder: false, founderNumber: null });
+    expect(store.nameOf(title)).toBe(title.name);
+  });
+
+  it('says who becomes one where the badge and title are locked', () => {
+    const badge = COSMETICS.cosmetics.find((c) => c.slot === 'badge' && c.unlock.founder)!;
+    expect(howToUnlock(badge, { count: 50, level: 20 })).toBe('First 50 to level 20');
+    expect(howToUnlock(badge)).toBe('For Founders');
+  });
+});

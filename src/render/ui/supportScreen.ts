@@ -17,21 +17,25 @@
  * pitch is the developer's own words, from the data file, so it can be
  * rewritten without touching this. The heart beats.
  *
- * And the Founders: at launch the first players to claim it get all of this
- * free, with a Founder badge and title. Counting them needs a server, so for
- * now only the `?progress=test` build shows the claim, and grants it on the
- * device. Until there is a payment provider the buy button says purchases are
- * not open yet (the game's `buySupporter`), except in that build, which
- * grants it too - and offers a way to take both back.
+ * And the Founders: the first players to reach the Founders' level get all of
+ * this free, with a Founder star carrying their number. The game server counts
+ * them, and a claim is made by itself the moment a player gets there (the
+ * game's `checkFounder`); the card here says the rule, how far off the player
+ * is, how many stars are left when the server can say, and a Founder's own
+ * number. Until there is a payment provider the buy button says purchases are
+ * not open yet (the game's `buySupporter`), except in the `?progress=test`
+ * build, which grants it - and a Founder's star - on the device, and offers a
+ * way to take both back.
  */
 
 import { Graphics } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import { percent } from '../../progression/award.ts';
 import type { ProgressStore } from '../../progression/store.ts';
+import type { FounderStatus } from '../../net/founderApi.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
-import { badgeColor, drawBadgeGlyph } from './levelBadge.ts';
+import { badgeColor, drawBadgeGlyph, drawFounderStar, placeStarNumber } from './levelBadge.ts';
 import type { PanelButton } from './menu.ts';
 import { Sheet } from './sheet.ts';
 import { centreOn, label, wrapped } from './text.ts';
@@ -39,7 +43,7 @@ import { centreOn, label, wrapped } from './text.ts';
 export interface SupportHandlers {
   onClose(): void;
   onBuy(): void;
-  /** `?progress=test` only, until there is a server to count the claims. */
+  /** `?progress=test` only: become a Founder on this device, with a number. */
   onClaimFounder(): void;
   /** `?progress=test` only: undo Supporter and Founder. */
   onResetTest(): void;
@@ -65,7 +69,13 @@ export class SupportScreen extends Sheet {
   private readonly founderCard = new Graphics();
   private readonly founderTitle: Text;
   private readonly founderPitch: Text;
+  /** How far off the player is, and how many stars are left. */
+  private readonly founderStatus: Text;
+  /** A Founder's number, in the card's star. */
+  private readonly founderNumber: Text;
   private readonly claim: PanelButton;
+  /** What the server last said about the Founders; null before it has, or with none. */
+  private status: FounderStatus | null = null;
   private readonly reset: PanelButton;
   private clock = 0;
   private heartAt = { cx: 0, cy: 0 };
@@ -90,10 +100,15 @@ export class SupportScreen extends Sheet {
     this.footnote = wrapped('', 10, UI.textMuted);
     this.founderTitle = label('Founders', 15, UI.text, '700');
     this.founderPitch = wrapped(
-      store.founders.pitch.replaceAll('{count}', String(store.founders.count)),
+      store.founders.pitch
+        .replaceAll('{count}', String(store.founders.count))
+        .replaceAll('{level}', String(store.founders.level)),
       12,
       UI.textMuted,
     );
+    this.founderStatus = wrapped('', 11, UI.level);
+    this.founderStatus.style.fontWeight = '700';
+    this.founderNumber = label('', 10, UI.background, '700');
     this.claim = this.button('', () => this.handlers.onClaimFounder(), 13);
     this.reset = this.button('Reset test purchases', () => this.handlers.onResetTest(), 11);
     this.body.addChild(
@@ -110,6 +125,8 @@ export class SupportScreen extends Sheet {
       this.founderCard,
       this.founderTitle,
       this.founderPitch,
+      this.founderStatus,
+      this.founderNumber,
       this.claim,
       this.reset,
     );
@@ -117,6 +134,12 @@ export class SupportScreen extends Sheet {
 
   refresh(): void {
     if (this.visible) this.arrange();
+  }
+
+  /** What the server says about the Founders: how many stars are left. */
+  setFounderStatus(status: FounderStatus | null): void {
+    this.status = status;
+    this.refresh();
   }
 
   /** The heartbeat. */
@@ -143,8 +166,11 @@ export class SupportScreen extends Sheet {
     this.update(0);
     y += 96;
 
+    const { founderNumber } = this.progress.profile;
     this.headline.text = founder
-      ? 'You are a Founder. Thank you!'
+      ? founderNumber !== null
+        ? `You are Founder #${founderNumber}. Thank you!`
+        : 'You are a Founder. Thank you!'
       : supporter
         ? 'You are a Supporter. Thank you!'
         : 'Become a Supporter';
@@ -217,13 +243,8 @@ export class SupportScreen extends Sheet {
     centreOn(this.footnote, cx, y);
     y += this.footnote.height + 16;
 
-    // The Founders, while there are claims to make - for now, in the test
-    // build - and always for a Founder, whose page it is.
-    const founders = this.testMode || founder;
-    for (const piece of [this.founderCard, this.founderTitle, this.founderPitch, this.claim]) {
-      piece.visible = founders;
-    }
-    if (founders) y = this.layoutFounders(y, width, founder);
+    // The Founders: the race to the level, and a Founder's own star.
+    y = this.layoutFounders(y, width);
 
     this.reset.visible = this.testMode;
     if (this.testMode) {
@@ -234,26 +255,73 @@ export class SupportScreen extends Sheet {
     return y;
   }
 
-  /** A card under the rest: the star, what a Founder gets, and the claim. */
-  private layoutFounders(y: number, width: number, founder: boolean): number {
+  /**
+   * A card under the rest: the star - a Founder's own, with their number in
+   * it - what a Founder gets, and how the race stands for this player.
+   */
+  private layoutFounders(y: number, width: number): number {
+    const { founder, founderNumber } = this.progress.profile;
+    const rule = this.progress.store.founders;
+    const level = this.progress.level.level;
     const pad = 14;
-    this.founderTitle.position.set(pad + 30, y + pad);
-    this.founderPitch.style.wordWrapWidth = width - pad * 2 - 30;
-    this.founderPitch.position.set(pad + 30, y + pad + 22);
-    const buttonY = this.founderPitch.y + this.founderPitch.height + 10;
-    const h = buttonY + 32 + pad - y;
+    const textX = pad + 38;
+    const textW = width - textX - pad;
+    this.founderTitle.text =
+      founder && founderNumber !== null ? `Founder #${founderNumber}` : 'Founders';
+    this.founderTitle.position.set(textX, y + pad);
+    this.founderPitch.style.wordWrapWidth = textW;
+    this.founderPitch.position.set(textX, y + pad + 22);
+    let ty = this.founderPitch.y + this.founderPitch.height + 8;
+
+    // Where this player stands: claimed by itself the moment they get there.
+    const left = this.status?.left ?? null;
+    this.founderStatus.text = founder
+      ? ''
+      : left === 0
+        ? `All ${rule.count} stars have been won.`
+        : level >= rule.level
+          ? `You have reached level ${rule.level}: your star is claimed the next time you play online.`
+          : `You are level ${level} of ${rule.level}` +
+            (left !== null ? ` · ${left} of ${rule.count} stars still to win` : '');
+    this.founderStatus.visible = this.founderStatus.text !== '';
+    if (this.founderStatus.visible) {
+      this.founderStatus.style.wordWrapWidth = textW;
+      this.founderStatus.position.set(textX, ty);
+      ty += this.founderStatus.height + 10;
+    }
+
+    // A button for a Founder's number, and in the test build for the claim.
+    const button = founder || this.testMode;
+    this.claim.visible = button;
+    if (button) {
+      this.claim.place(textX, ty, textW, 32);
+      this.claim.set(
+        founder
+          ? founderNumber !== null
+            ? `You are Founder #${founderNumber}`
+            : 'You are a Founder'
+          : 'Test: become a Founder',
+        founder ? 'plain' : 'primary',
+        !founder,
+      );
+      ty += 32;
+    }
+    const h = ty + pad - y;
+
     this.founderCard.clear();
     this.founderCard
       .roundRect(0, y, width, h, 12)
       .fill({ color: UI.panel })
       .stroke({ width: 1.5, color: badgeColor('star') });
-    drawBadgeGlyph(this.founderCard, 'star', pad + 11, y + pad + 10, 22, badgeColor('star'));
-    this.claim.place(pad + 30, buttonY, width - pad * 2 - 30, 32);
-    this.claim.set(
-      founder ? 'You are a Founder' : 'Claim it (test)',
-      founder ? 'plain' : 'primary',
-      !founder,
-    );
+    const starX = pad + 14;
+    const starY = y + pad + 13;
+    if (founder && founderNumber !== null) {
+      drawFounderStar(this.founderCard, starX, starY, 30);
+      placeStarNumber(this.founderNumber, founderNumber, starX, starY, 30);
+    } else {
+      drawBadgeGlyph(this.founderCard, 'star', starX, starY, 24, badgeColor('star'));
+      placeStarNumber(this.founderNumber, null, starX, starY, 30);
+    }
     return y + h + 14;
   }
 }

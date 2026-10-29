@@ -333,7 +333,9 @@ export class HomeScreen extends Container {
     );
     this.extras[1]!.setNote(
       p?.founder
-        ? 'Founder · thank you!'
+        ? p.founderNumber !== null
+          ? `Founder #${p.founderNumber}`
+          : 'Founder'
         : p?.supporter
           ? 'Thank you!'
           : p

@@ -103,6 +103,50 @@ export function drawBadgeGlyph(
   g.poly(points).fill({ color });
 }
 
+/**
+ * A Founder's star (store.json, founders): the badge's star made fuller, so
+ * the number it carries fits inside it. `placeStarNumber` puts the number in.
+ */
+export function drawFounderStar(
+  g: Graphics,
+  cx: number,
+  cy: number,
+  size: number,
+  color: number = UI.level,
+): void {
+  const s = size / 2;
+  const points: number[] = [];
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 === 0 ? s : s * 0.6;
+    const a = -Math.PI / 2 + (i * Math.PI) / 5;
+    points.push(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  g.poly(points).fill({ color });
+}
+
+/**
+ * A Founder's number, in the star `drawFounderStar` drew at (`cx`, `cy`),
+ * `size` across: dark on the gold, as large as fits, one digit or two. Hidden
+ * when there is no number to show.
+ */
+export function placeStarNumber(
+  text: Text,
+  number: number | null,
+  cx: number,
+  cy: number,
+  size: number,
+): void {
+  text.visible = number !== null;
+  if (number === null) return;
+  const digits = String(number);
+  text.text = digits;
+  text.style.fill = UI.background;
+  text.style.fontWeight = '800';
+  text.style.fontSize = Math.max(6, Math.round(size * (digits.length > 1 ? 0.34 : 0.42)));
+  // A touch below the middle: the star's weight is in its lower half.
+  text.position.set(cx - text.width / 2, cy - text.height / 2 + size * 0.05);
+}
+
 /** The color each badge shape is worn in. */
 export function badgeColor(glyph: BadgeGlyph): number {
   return glyph === 'heart' ? UI.support : glyph === 'star' ? UI.level : UI.accent;

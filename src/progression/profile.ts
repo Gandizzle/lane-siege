@@ -32,11 +32,15 @@ export interface Profile {
   /** Has bought Supporter (placeholder: nothing can be bought yet). */
   supporter: boolean;
   /**
-   * One of the first players to claim it at launch (store.json, founders):
-   * everything a Supporter has, free. Placeholder until there is a server to
-   * count the claims.
+   * One of the first players to reach the Founders' level (store.json,
+   * founders): everything a Supporter has, free.
    */
   founder: boolean;
+  /**
+   * Which Founder: #1 for the first there, as the game server counted them.
+   * Null for anyone else - and for a Founder from before they were numbered.
+   */
+  founderNumber: number | null;
   /** What keys have unlocked: a cosmetic by its id, a builder as `builder:<id>`. */
   unlocked: string[];
   /** Keys spent. What is left is what the levels have paid, less these. */
@@ -51,6 +55,7 @@ export const NEW_PROFILE: Profile = {
   casual: { day: '', xp: 0 },
   supporter: false,
   founder: false,
+  founderNumber: null,
   unlocked: [],
   keysSpent: 0,
   cosmetics: [],
@@ -95,6 +100,10 @@ export function parseProfile(raw: unknown): Profile {
     casual: { day: day(casual.day), xp: count(casual.xp) },
     supporter: r.supporter === true,
     founder: r.founder === true,
+    founderNumber:
+      r.founder === true && typeof r.founderNumber === 'number' && r.founderNumber >= 1
+        ? Math.floor(r.founderNumber)
+        : null,
     // A save from when things were bought has an `owned` list instead. Only
     // the test build could fill it, and it is left behind.
     unlocked: ids(r.unlocked),

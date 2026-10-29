@@ -33,6 +33,13 @@
  * are plain HTTP on this same port (ghostRoutes.ts), since Colyseus answers its
  * own matchmaking requests here and hands every other request on.
  *
+ * FOUNDERS
+ *
+ * The first players to reach the Founders' level (data/store.json) are
+ * numbered here, in the order they get there, and kept in one file,
+ * `FOUNDERS_FILE` (default `./founders.json`): founderStore.ts and
+ * founderRoutes.ts, on this same port.
+ *
  * Note what is NOT deployed: the GitHub Pages build (§15.2) is static, so it
  * cannot run this. Multiplayer therefore means running this process somewhere
  * and pointing the client at it with `?server=`. Hosting it is the last piece
@@ -46,6 +53,9 @@ import { WebSocketTransport } from '@colyseus/ws-transport';
 import { loadDataFromDisk } from '../src/data/loadNode.ts';
 import { formatReport } from '../src/data/validate.ts';
 import { ROOM_NAME } from '../src/net/protocol.ts';
+import { STORE } from '../src/progression/config.ts';
+import { FileFounderStore } from './founderStore.ts';
+import { founderRoutes } from './founderRoutes.ts';
 import { FileGhostStore } from './ghostStore.ts';
 import { ghostRoutes } from './ghostRoutes.ts';
 import { LaneSiegeRoom, MAX_PLAYERS } from './room.ts';
@@ -59,6 +69,8 @@ const minWaitSeconds = Number(process.env.MIN_WAIT_SECONDS ?? 10);
 const reconnectSeconds = Number(process.env.RECONNECT_SECONDS ?? 90);
 /** Where saved builds are kept. */
 const ghostDir = process.env.GHOST_DIR ?? join(process.cwd(), 'ghosts');
+/** Where the Founders are kept. */
+const foundersFile = process.env.FOUNDERS_FILE ?? join(process.cwd(), 'founders.json');
 
 const { data, report } = loadDataFromDisk();
 if (report.errors.length > 0 || report.missing.length > 0) {
@@ -66,9 +78,12 @@ if (report.errors.length > 0 || report.missing.length > 0) {
 }
 
 const ghosts = new FileGhostStore(ghostDir);
+const founders = new FileFounderStore(STORE.founders, foundersFile);
 
 const server = new Server({
-  transport: new WebSocketTransport({ server: createServer(ghostRoutes(ghosts)) }),
+  transport: new WebSocketTransport({
+    server: createServer(ghostRoutes(ghosts, founderRoutes(founders))),
+  }),
 });
 
 server
@@ -92,6 +107,10 @@ server
     );
     console.log(`[lane-siege] a dropped player has ${reconnectSeconds}s to come back`);
     console.log(`[lane-siege] saved builds are kept in ${ghostDir}`);
+    const { left, count, level } = founders.status();
+    console.log(
+      `[lane-siege] Founders are kept in ${foundersFile}: ${left} of ${count} left, at level ${level}`,
+    );
     console.log(
       `[lane-siege] point a client at it: http://localhost:5173/lane-siege/?server=ws://localhost:${port}`,
     );

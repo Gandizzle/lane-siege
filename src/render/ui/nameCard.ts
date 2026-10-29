@@ -15,7 +15,14 @@ import { waveCount } from '../../progression/award.ts';
 import type { BadgeGlyph } from '../../progression/config.ts';
 import type { LevelProgress } from '../../progression/levels.ts';
 import { UI } from '../palette.ts';
-import { LevelBadge, badgeColor, drawBadgeGlyph, drawXpBar } from './levelBadge.ts';
+import {
+  LevelBadge,
+  badgeColor,
+  drawBadgeGlyph,
+  drawFounderStar,
+  drawXpBar,
+  placeStarNumber,
+} from './levelBadge.ts';
 import { fit, label } from './text.ts';
 
 /** What the card shows. */
@@ -26,6 +33,8 @@ export interface NameCardState {
   title: string | null;
   /** Badges being worn, in catalogue order. */
   badges: BadgeGlyph[];
+  /** A Founder's number, worn in their star; null for anyone else. */
+  founderNumber: number | null;
   /** Boosted waves left; 0 for none. */
   boostWaves: number;
   /** A Supporter's boost, on for good. */
@@ -40,6 +49,8 @@ export class NameCard extends Container {
   private readonly titleText: Text;
   private readonly hint: Text;
   private readonly xpText: Text;
+  /** A Founder's number, in their star. */
+  private readonly starNumber: Text;
   private readonly badge = new LevelBadge();
   private state: NameCardState | null = null;
   private box = { x: 0, y: 0, width: 0, height: 0 };
@@ -50,9 +61,11 @@ export class NameCard extends Container {
     this.titleText = label('', 11, UI.level, '600');
     this.hint = label('tap to change', 10, UI.textMuted);
     this.xpText = label('', 10, UI.textMuted, '600');
+    this.starNumber = label('', 8, UI.background, '700');
     this.addChild(
       this.bg,
       this.glyphs,
+      this.starNumber,
       this.bar,
       this.nameText,
       this.titleText,
@@ -97,16 +110,28 @@ export class NameCard extends Container {
     const badgeH = 20;
     const badgeW = this.badge.set(s.level.level, badgeH);
     this.badge.position.set(x + width - pad - badgeW, y + 10);
+    // A Founder's star is drawn larger, with their number in it.
     const glyphSize = 13;
-    const glyphRoom = s.badges.length * (glyphSize + 4);
+    const starSize = 19;
+    const sizeOf = (glyph: BadgeGlyph) =>
+      glyph === 'star' && s.founderNumber !== null ? starSize : glyphSize;
+    const glyphRoom = s.badges.reduce((room, glyph) => room + sizeOf(glyph) + 4, 0);
     const nameRoom = width - pad * 2 - badgeW - 10 - glyphRoom;
     this.nameText.text = fit(s.name, nameRoom, 15);
     this.nameText.position.set(x + pad, y + 10);
     this.glyphs.clear();
-    let gx = x + pad + this.nameText.width + 6 + glyphSize / 2;
+    this.starNumber.visible = false;
+    let gx = x + pad + this.nameText.width + 6;
     for (const glyph of s.badges) {
-      drawBadgeGlyph(this.glyphs, glyph, gx, y + 20, glyphSize, badgeColor(glyph));
-      gx += glyphSize + 4;
+      const size = sizeOf(glyph);
+      const cx = gx + size / 2;
+      if (size === starSize) {
+        drawFounderStar(this.glyphs, cx, y + 20, size);
+        placeStarNumber(this.starNumber, s.founderNumber, cx, y + 20, size);
+      } else {
+        drawBadgeGlyph(this.glyphs, glyph, cx, y + 20, size, badgeColor(glyph));
+      }
+      gx += size + 4;
     }
 
     // Line two: the title being worn, and on the right either the running

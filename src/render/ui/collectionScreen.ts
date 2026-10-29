@@ -33,6 +33,7 @@ import { battlefieldOf, GroundView } from '../battlefield.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
 import { drawCosmeticIcon, drawKey, drawPadlock, drawRoster } from './collectionArt.ts';
+import { drawFounderStar, placeStarNumber } from './levelBadge.ts';
 import { PanelButton } from './menu.ts';
 import { Sheet } from './sheet.ts';
 import { fit, label } from './text.ts';
@@ -324,6 +325,7 @@ export class CollectionScreen extends Sheet {
     const unlocked = this.progress.isUnlocked(cosmetic);
     const on = this.progress.isOn(cosmetic);
     const armed = this.armed?.id === cosmetic.id;
+    const founderNumber = this.progress.profile.founderNumber;
     this.drawRow(row, y, width, on);
 
     row.icon.clear();
@@ -344,10 +346,14 @@ export class CollectionScreen extends Sheet {
       row.icon
         .roundRect(area.x, area.y, area.width, area.height, 3)
         .stroke({ width: 1, color: UI.panelEdge });
+    } else if (cosmetic.slot === 'badge' && cosmetic.unlock.founder && founderNumber !== null) {
+      // A Founder's own star, with their number in it.
+      drawFounderStar(row.icon, iconX, y + ROW_H / 2, 28);
+      placeStarNumber(row.words, founderNumber, iconX, y + ROW_H / 2, 28);
     } else {
       drawCosmeticIcon(row.icon, cosmetic, iconX, y + ROW_H / 2, 24);
     }
-    row.title.text = fit(cosmetic.name, width - 140, 13);
+    row.title.text = fit(this.progress.nameOf(cosmetic), width - 140, 13);
     row.title.position.set(48, y + 8);
 
     // How to get it - what it costs in keys, or what it comes with, and how
@@ -378,7 +384,7 @@ export class CollectionScreen extends Sheet {
         how = `Level ${need} · top is ${top} for now`;
         if (fit(how, width - 120, 10) !== how) how = `Level ${need} · top is ${top}`;
       } else {
-        how = howToUnlock(cosmetic);
+        how = howToUnlock(cosmetic, this.progress.store.founders);
         if (need !== null) how += ` (you are level ${level})`;
       }
     }

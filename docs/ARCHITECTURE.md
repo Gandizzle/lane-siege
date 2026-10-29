@@ -1531,11 +1531,10 @@ On a narrow phone the two stand in the right column's spare room.
   file's words, and says what the page also means: none of it changes who wins,
   and everything else is earned by playing. The ad offer before a game says it
   once, in passing: Supporters have this boost always on, with no ads.
-- **Founders.** At launch, the first 50 players to claim it get everything a
-  Supporter has, free, for good, with a Founder badge and title nobody else
-  can get (`store.json`, `founders`). Counting the first 50 needs a server to
-  count on and accounts to count, so for now the claim is only in the test
-  build.
+- **Founders.** The first 50 players to reach level 20 are Founders, numbered
+  #1 to #50 in the order they got there (`store.json`, `founders`): everything
+  a Supporter has, free, for good, and the Founder star with their number in
+  it, and the Founder title, which reads "Founder #7". See Founders, below.
 
 **Cosmetics are switched, not equipped.** Each sits in a slot, and a slot
 holds one at a time (a title, a fortress skin) or any number (badges); switching
@@ -1592,12 +1591,35 @@ its skin, a shot leaving its trail, a patch of its floor, a burst or a scatter
 of confetti, each drawn by the same code as the board; a battlefield by a
 swatch of its own ground, and Molten's moves.
 
+**Founders: the first to level 20, counted by the server.** Who was first is
+something only the server can see, so it counts them
+(`server/founderStore.ts`): one small file (`FOUNDERS_FILE`, default
+`./founders.json`) of who got there, in order, read in at start-up and
+rewritten whole on each claim. The device claims the moment its level gets
+there - after the match that reached it, as the game opens, or at a test
+level-up (the game's `checkFounder`) - with `POST /founders/claim` on the
+game's own port (`founderRoutes.ts`, beside the saved builds), and is told its
+number, or that it is too soon, or that every number is gone; asking again
+gives the same number, so a lost answer costs nothing. No server, no answer:
+the claim is simply made again next time, and a device told the numbers are
+gone stops asking (`net/founderApi.ts`). The number is kept in the profile
+(`founderNumber`) and worn three ways: in the star, drawn fuller than the
+badge's so a number fits (`drawFounderStar`, `placeStarNumber`); in the title
+("Founder #7", `ProgressStore.nameOf`); and on the Supporter button. Won, it
+is announced by a card over the home screen (`ui/founderNews.ts`) - the star
+with the number in it going off in a level-up's burst, and what it brings. The
+Supporter page's Founders card says the rule, how far off the player is, and
+how many stars are left (`GET /founders/status`), and for a Founder their
+own. The level a claim is made with is the device's, as every level is here -
+until progress is kept on a server, that is as strong as the race can be. A
+test checks the Founders' level is under the top level, or nobody could win.
+
 **Nothing can be bought yet.** There is no payment provider and no ad SDK, so
 the buy button says so. `?progress=test` turns the placeholders into something
-to try: Supporter and the Founders' claim are granted on the device, with a way
-to take both back; the Collection has a button that climbs a level, keys and
-all; and practice and solo earn XP as a normal match would, so the popup and
-the level-ups can be seen without a server.
+to try: Supporter is granted on the device, and so is a Founder's star with a
+number at random, with a way to take both back; the Collection has a button
+that climbs a level, keys and all; and practice and solo earn XP as a normal
+match would, so the popup and the level-ups can be seen without a server.
 
 ### Status markers: what is happening to a body
 
@@ -3273,11 +3295,9 @@ Thornweald now wears all four armors.
   placeholders (Progression, above). Each is one implementation behind a seam
   that exists: `RewardedAds` for the ad, the game's `buySupporter` for the
   purchase.
-- **The Founders' claim** — the first 50 at launch need a server that counts
-  claims and accounts to tie them to; until then only the test build offers it.
-- **Cosmetics past titles and badges** — fortress skins, attack trails, arena
-  floors and victory effects are in the data and the Collection, priced in
-  keys, but nothing draws them yet, so nothing can unlock them yet.
+- **A Founder's level, proved** — the server counts the first 50 to level 20,
+  but the level is the device's claim until progress is kept server-side
+  (accounts, above).
 - **Client-side prediction** — deliberately absent, see the netcode section. The
   cheap version, predicting the wallet rather than the simulation, is the one to
   build if the round trip turns out to feel bad.

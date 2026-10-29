@@ -66,14 +66,22 @@ export function keyCount(n: number): string {
   return `${n} ${n === 1 ? 'key' : 'keys'}`;
 }
 
-/** How to get one, in a few words, for a locked card. */
-export function howToUnlock(cosmetic: Cosmetic): string {
+/**
+ * How to get one, in a few words, for a locked card. `founders` is who becomes
+ * one (store.json), said in place of the bare word when it is known.
+ */
+export function howToUnlock(
+  cosmetic: Cosmetic,
+  founders?: { count: number; level: number },
+): string {
   const u = cosmetic.unlock;
   const ways: string[] = [];
   if (u.free) ways.push('Everyone has this');
   if (u.level !== null) ways.push(`Reach level ${u.level}`);
   if (u.supporter) ways.push('For Supporters');
-  if (u.founder) ways.push('For Founders');
+  if (u.founder) {
+    ways.push(founders ? `First ${founders.count} to level ${founders.level}` : 'For Founders');
+  }
   if (u.keys !== null) ways.push(keyCount(u.keys));
   return ways.join(' · ');
 }

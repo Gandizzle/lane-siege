@@ -16,3 +16,5 @@ android/
 # reproducible from the seed in the report.
 reports/*.json
 /ghosts/
+# Who the Founders are, as a local server counted them (server/founderStore.ts).
+/founders.json

@@ -50,8 +50,11 @@ export interface ProgressionConfig {
 /** What money buys - Supporter, and nothing else - and the Founders' free one. */
 export interface StoreConfig {
   supporter: { price: string; pitch: string; perks: string[] };
-  /** The first `count` players to claim it at launch get a Supporter's perks free. */
-  founders: { count: number; pitch: string };
+  /**
+   * The first `count` players to reach `level` are Founders, numbered in the
+   * order they got there, with a Supporter's perks free.
+   */
+  founders: { count: number; level: number; pitch: string };
 }
 
 /** The little shapes a badge is drawn as (ui/nameCard.ts). */
@@ -196,6 +199,7 @@ export function parseStore(raw: unknown): StoreConfig {
     },
     founders: {
       count: integer(founders.count, 'store.founders.count', 1),
+      level: integer(founders.level, 'store.founders.level', 2),
       pitch: text(founders.pitch, 'store.founders.pitch'),
     },
   };

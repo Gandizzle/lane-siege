@@ -254,6 +254,13 @@ export class ProgressStore {
     });
   }
 
+  /** A cosmetic's name as this player wears it: a Founder's title carries their number. */
+  nameOf(cosmetic: Cosmetic): string {
+    const number = this.current.founderNumber;
+    const numbered = cosmetic.slot === 'title' && cosmetic.unlock.founder && number !== null;
+    return numbered ? `${cosmetic.name} #${number}` : cosmetic.name;
+  }
+
   /** What is being worn in a slot right now. */
   worn(slotId: string): Cosmetic[] {
     return wornIn(this.cosmetics, this.current.cosmetics, slotId, this.holder);
@@ -289,16 +296,22 @@ export class ProgressStore {
   }
 
   /**
-   * Record a Founder's claim. PLACEHOLDER: counting the first claims needs a
-   * server, and only the `?progress=test` build calls this.
+   * Whether this player may claim a Founder's number now: at the Founders'
+   * level or past it, and not one already (store.json, founders). Whether any
+   * numbers are left is the server's to say.
    */
-  grantFounder(): void {
-    this.save({ ...this.current, founder: true });
+  get founderDue(): boolean {
+    return !this.current.founder && this.level.level >= this.store.founders.level;
+  }
+
+  /** The server counted this player among the Founders, as number `number`. */
+  grantFounder(number: number | null = null): void {
+    this.save({ ...this.current, founder: true, founderNumber: number });
   }
 
   /** Undo Supporter and Founder (`?progress=test`). */
   clearPurchases(): void {
-    this.save({ ...this.current, supporter: false, founder: false });
+    this.save({ ...this.current, supporter: false, founder: false, founderNumber: null });
   }
 
   /** Climb straight to the next level, keys and all (`?progress=test`). Not past the top. */

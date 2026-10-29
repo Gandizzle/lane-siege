@@ -12,8 +12,9 @@
     ]
   },
   "founders": {
-    "_comment": "At launch, the first players to claim it - count of them - are Founders: everything a Supporter has, free, for good, with a Founder badge and title (cosmetics.json) nobody else can get. {count} in the pitch is filled in from count. PLACEHOLDER: counting claims needs a server to count them on and accounts to count, and neither exists yet - so for now only the ?progress=test build offers the claim, and it grants it on that device.",
+    "_comment": "The first count players to reach level are Founders, numbered #1 to #count in the order they got there: everything a Supporter has, free, for good, and the Founder star with their number in it, and the Founder title (cosmetics.json), that nobody else can get. The game server counts them (server/founderStore.ts) - it is the one place that knows who was first - and a player's device claims its number the moment its level gets there. {count} and {level} in the pitch are filled in from these. level must be one the game can reach: no higher than the top level (progression.json, keys).",
     "count": 50,
-    "pitch": "The first {count} players to claim it are Founders: everything a Supporter gets, free and for good, with a Founder badge and title nobody else will ever have."
+    "level": 20,
+    "pitch": "The first {count} players to reach level {level} become Founders: everything a Supporter gets, free and for good, and a Founder star with their number in it - #1 to #{count} - that nobody else will ever have."
   }
 }
