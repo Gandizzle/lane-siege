@@ -49,6 +49,19 @@ export interface Looks {
 export const NO_LOOKS: Looks = { fortress: null, trail: null, floor: null, victory: null };
 
 /**
+ * A badge as everybody sees it beside a player's name (cosmetics.json's badge
+ * slot): which one, and for a Founder's star the number in it. The server
+ * checks every one against what that player has earned before anyone is
+ * shown it (server/playerStore.ts), and, like the name, the simulation never
+ * reads it.
+ */
+export interface WornBadge {
+  id: string;
+  /** A Founder's number, drawn in their star. Null for every other badge. */
+  number: number | null;
+}
+
+/**
  * §2: model a lane as owned by a team of one or more players from day one, so
  * 2v2 is configuration rather than a rewrite. v1 fills these with one player.
  */
@@ -80,6 +93,8 @@ export interface Team {
   recorded: boolean;
   /** What the player behind this team is seen in (`Looks`). Never read by the simulation. */
   looks: Looks;
+  /** The badges beside their name (`WornBadge`), as the server checked them. Never read by the simulation. */
+  badges: WornBadge[];
   eliminated: boolean;
   /** Locked in at the moment of elimination (§13). */
   placement: number | null;

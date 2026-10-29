@@ -284,6 +284,14 @@ export class ProgressStore {
     };
   }
 
+  /**
+   * The badges worn, by id: what the game server is told (net/playerApi.ts,
+   * `wear`), so the others see the ones it can vouch for.
+   */
+  get badgeIds(): string[] {
+    return this.worn('badge').map((c) => c.id);
+  }
+
   // ------------------------------------------------- Supporter and Founder
 
   /**
@@ -307,6 +315,11 @@ export class ProgressStore {
   /** The server counted this player among the Founders, as number `number`. */
   grantFounder(number: number | null = null): void {
     this.save({ ...this.current, founder: true, founderNumber: number });
+  }
+
+  /** The game server, which is the one that counts Founders, says this player is not one. */
+  clearFounder(): void {
+    this.save({ ...this.current, founder: false, founderNumber: null });
   }
 
   /** Undo Supporter and Founder (`?progress=test`). */

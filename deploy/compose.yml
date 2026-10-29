@@ -1,0 +1,45 @@
+# The game server on a server of your own (docs/GO-LIVE.md §5, "Hetzner, step
+# by step"): the game server, and Caddy in front of it, which gets and renews
+# the HTTPS certificate for your address by itself and passes the websockets
+# through.
+#
+#   cp .env.example .env      # then fill in DOMAIN and ADMIN_TOKEN
+#   docker compose up -d --build
+#
+# To update after a push: git pull, then the same `docker compose up -d --build`.
+# Everything the server keeps is in the `game-data` volume; download a backup
+# from the admin page (https://<DOMAIN>/admin) every week as well.
+
+services:
+  game:
+    build: ..
+    restart: unless-stopped
+    environment:
+      DATA_DIR: /data
+      PORT: '2567'
+      # Caddy is the proxy in front: the visitor's address is the one it saw.
+      TRUST_PROXY: '1'
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN in deploy/.env}
+      REVENUECAT_SECRET_KEY: ${REVENUECAT_SECRET_KEY:-}
+    volumes:
+      - game-data:/data
+
+  caddy:
+    image: caddy:2.8
+    restart: unless-stopped
+    depends_on:
+      - game
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  game-data:
+  caddy-data:
+  caddy-config:

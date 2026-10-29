@@ -137,7 +137,7 @@ rosters then survive; Gloomtide is the most fragile, which is its identity.
 §5.5 wants a first elimination around 13–15. That is the balance pass, still
 deferred.
 
-### 10. Lobby, matchmaking, accounts; reconnection and AFK handling (§18) → **a code, a seat, and an identity that is a claim rather than a proof**
+### 10. Lobby, matchmaking, accounts; reconnection and AFK handling (§18) → **a code, a seat, and a player id that only its own key can use**
 
 Four questions §18 leaves open, answered together because each one's answer only
 makes sense given the others.
@@ -175,17 +175,22 @@ A saved build is shown as one ("saved" on its tab, a note at kickoff), and
 where it places is counted for the player who saved it, who is told how it has
 done the next time they open the game (ARCHITECTURE.md, "Saved builds").
 
-**"Accounts" means an identity, not a credential.** A player id generated once
-on the device and kept, plus a display name. That is what the game actually
-needs an account for: giving a seat back to the player who left it, and making a
-name in a lobby mean the same person twice. There is deliberately no password,
-no server-side record and no stats history — credentials need a server to hold
-them and there is nowhere to run one (§15.2), and an id that cannot be proven is
-no weaker than the seat-by-session-id it replaces. The server treats a player id
-as a claim and never grants anything on the strength of it beyond a seat, so the
-worst a forged one achieves is taking a seat in a room whose code you already
-had. Anything that must not be forgeable — a ladder, purchases — needs the real
-thing first, and is not in v1.
+**"Accounts" means an id and a key, not a sign-in.** A player id generated
+once on the device and kept, plus a display name, is what seats and
+reconnection need: giving a seat back to the player who left it, and making a
+name in a lobby mean the same person twice. At first that was all, and the
+server granted nothing on the strength of an id beyond a seat. Then the server
+began to keep things other players see - a Founder's number, the badges by a
+name, a name in the credits - and an id is public, since everyone in a room is
+sent it. So the device also makes a secret **key** once, which goes to the game
+server and nowhere else; the server keeps a hash of it, takes the first key it
+sees for an id (trust on first use), and from then on refuses that id without
+it - a seat with code 4003, a request with 403. There is still no password, no
+email and no sign-in, deliberately: an id nobody else can use is all the game
+asks of an account, and a sign-in is a screen between a new player and their
+first match. What it costs is a new phone: the key is the account, and a
+player who loses it starts again. A recovery code, or signing in with Google
+for those who want it, is the next step (ARCHITECTURE.md, "Not yet built").
 
 **Reconnection: the seat is held, the lane is not played for you.** Before
 kickoff, leaving frees the seat; there is nothing to come back to. After
@@ -208,17 +213,21 @@ really does contain a word on the list ("Dick", "VinceStone"). A refused name
 gets "That name isn't allowed. Try another." in the name box, and the server
 refuses it again and shows the default name instead.
 
-Not built yet: words in other languages (the dataset is English only;
-LDNOOBW's lists cover many, under CC BY 4.0), reserved names against
-impersonation ("Admin", "Moderator"), and reporting and muting, which need
-server-side accounts.
+What the filter misses, players report: a name three different players
+report is hidden from everyone until its player chooses another, and the
+reporter stops seeing it at once (ARCHITECTURE.md, "Name reports"). Not built
+yet: words in other languages (the dataset is English only; LDNOOBW's lists
+cover many, under CC BY 4.0), reserved names against impersonation ("Admin",
+"Moderator"), and muting.
 
 - Built: `src/net/lobby.ts` (the rules, as pure functions), `src/net/identity.ts`,
-  `src/net/nameFilter.ts`, `server/room.ts`, `src/render/ui/homeScreen.ts` and
-  `lobbyScreen.ts`.
+  `src/net/nameFilter.ts`, `server/room.ts`, `server/playerStore.ts`,
+  `server/reportStore.ts`, `src/render/ui/homeScreen.ts`, `lobbyScreen.ts` and
+  `reportCard.ts`.
 - Checked: `src/net/lobby.test.ts`, `identity.test.ts` and `nameFilter.test.ts`
   without a network; `npm run lobby` with real sockets, including a drop and a
-  reclaim, and a refused name.
+  reclaim, and a refused name; `npm run players`, with a copied id refused a
+  seat and a reported name hidden.
 
 ### 11. Monetisation, if any (§18) → **one purchase, Supporter, and an opt-in ad that boosts XP; every builder and cosmetic is earned with the keys levels pay**
 
@@ -257,20 +266,25 @@ provider and an ad network.
   Counted in waves rather than matches on purpose: a player out early keeps
   what they did not use.
 - **Supporter** is one purchase, for good: +75% XP on every match and the ad's
-  +50% boost always on with no ads, +125% in all; a badge and a name in the
-  credits. Its button says "Supporter" and, under it, "+125% XP · no ads": the
+  +50% boost always on with no ads, +125% in all; a badge other players see,
+  and a name in the credits - one the Supporter chooses, not their player name
+  or their phone's. Its button says "Supporter" and, under it, "+125% XP · no ads": the
   name says it is support, so it is not a purchase in disguise, and the line
   says what it is worth, so it is not passed over as a donation.
-- **Founders.** The first 50 players to reach level 20 are Founders, numbered
-  #1 to #50 in the order they get there: everything a Supporter has, free and
-  for good, and a Founder star with their number in it, which nobody else can
-  get. The game server counts them; a player's device claims its number the
-  moment it reaches level 20.
+- **Founders.** The first 50 players to reach level 20 who have also played 10
+  online matches are Founders, numbered #1 to #50 in the order they get there:
+  everything a Supporter has, free and for good, and a Founder star with their
+  number in it, which nobody else can get. The game server counts them from
+  its own count of each player's XP - online matches it hosted, and practice
+  and solo the device reports, under the same daily cap - so a device cannot
+  talk its way onto the list. The 10 online matches were added for the same
+  reason: they are the part a script cannot fake without playing, and
+  `onlineMatches` in data/store.json drops them if set to 0.
 
 Not built yet: real ads and payments - AdMob through a Capacitor plugin and
-in-app purchases through RevenueCat, by the business plan - and proof of a
-Founder's level: the server counts the first 50, but the level each claims
-with is the device's until progress is kept on a server. The Supporter price in
+in-app purchases through RevenueCat, by the business plan. The server's half of
+a purchase is ready: it asks RevenueCat whether a player has the Supporter
+entitlement before counting them one. The Supporter price in
 data/store.json is the business plan's ballpark. Audio, which shared this
 entry, is built - ARCHITECTURE.md, "Sound: cues, packs and a playlist".
 

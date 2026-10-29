@@ -38,7 +38,7 @@
  */
 
 import { COSMETICS, type CosmeticsConfig } from '../progression/config.ts';
-import { NO_LOOKS, type Looks } from '../sim/index.ts';
+import { NO_LOOKS, type Looks, type WornBadge } from '../sim/index.ts';
 
 /**
  * Room-code alphabet: no I, O, 0 or 1, because a code is read off one screen
@@ -77,6 +77,12 @@ export interface LobbySeat {
    * spoke and their win. Nothing for an empty seat or a scripted builder.
    */
   looks: Looks;
+  /**
+   * The badges beside their name (`WornBadge`): what they wear, as the server
+   * checked it against what they have earned. None for an empty seat, a
+   * scripted builder or a player the server cannot vouch for.
+   */
+  badges: WornBadge[];
   /** The roster this player has chosen (§7.1). */
   builderId: string;
   /** Has confirmed their roster and wants to start. */
@@ -118,6 +124,7 @@ export function createSeats(teamIds: readonly string[]): LobbySeat[] {
     name: '',
     level: 0,
     looks: { ...NO_LOOKS },
+    badges: [],
     builderId: '',
     ready: false,
     connected: false,
@@ -140,6 +147,7 @@ export function seatPlayer(
   builderId: string,
   level = 0,
   looks: Looks = NO_LOOKS,
+  badges: readonly WornBadge[] = [],
 ): LobbySeat | null {
   const existing = seats.find((s) => s.playerId === playerId);
   if (existing) {
@@ -149,6 +157,9 @@ export function seatPlayer(
     if (name) existing.name = name;
     if (builderId) existing.builderId = builderId;
     if (level > 0) existing.level = level;
+    // Badges are earned rather than chosen for show, so a seat taken back
+    // before kickoff wears what was checked this time.
+    existing.badges = badges.map((badge) => ({ ...badge }));
     return existing;
   }
 
@@ -159,6 +170,7 @@ export function seatPlayer(
   free.name = name;
   free.level = level;
   free.looks = { ...looks };
+  free.badges = badges.map((badge) => ({ ...badge }));
   free.builderId = builderId;
   free.ready = false;
   free.connected = true;
@@ -172,6 +184,7 @@ export function releaseSeat(seat: LobbySeat): void {
   seat.name = '';
   seat.level = 0;
   seat.looks = { ...NO_LOOKS };
+  seat.badges = [];
   seat.builderId = '';
   seat.ready = false;
   seat.connected = false;
@@ -210,6 +223,52 @@ export function cleanLooks(claimed: unknown, cosmetics: CosmeticsConfig = COSMET
     floor: one('floor'),
     victory: one('victory'),
   };
+}
+
+/** How many badges a player may wear at once, as far as anyone else is shown. */
+export const MAX_SHOWN_BADGES = 3;
+
+/**
+ * The badges a client says it wears, made safe to check: ids of badges that
+ * exist (cosmetics.json's badge slot), each once, at most `MAX_SHOWN_BADGES`.
+ * Whether the player has EARNED each one is the server's to check against its
+ * own record of them (server/playerStore.ts) - a badge it cannot vouch for is
+ * left off, unlike a look, because a badge is a claim about the player.
+ */
+export function cleanBadgeIds(claimed: unknown, cosmetics: CosmeticsConfig = COSMETICS): string[] {
+  if (!Array.isArray(claimed)) return [];
+  const known = new Set(cosmetics.cosmetics.filter((c) => c.slot === 'badge').map((c) => c.id));
+  const ids: string[] = [];
+  for (const id of claimed) {
+    if (typeof id === 'string' && known.has(id) && !ids.includes(id)) ids.push(id);
+    if (ids.length === MAX_SHOWN_BADGES) break;
+  }
+  return ids;
+}
+
+/**
+ * Badges as the server sent them, made safe to draw: known badge ids, a
+ * Founder's number a whole number from 1 up, at most `MAX_SHOWN_BADGES`.
+ */
+export function cleanWornBadges(
+  sent: unknown,
+  cosmetics: CosmeticsConfig = COSMETICS,
+): WornBadge[] {
+  if (!Array.isArray(sent)) return [];
+  const known = new Set(cosmetics.cosmetics.filter((c) => c.slot === 'badge').map((c) => c.id));
+  const badges: WornBadge[] = [];
+  for (const item of sent) {
+    if (typeof item !== 'object' || item === null) continue;
+    const r = item as Record<string, unknown>;
+    if (typeof r.id !== 'string' || !known.has(r.id) || badges.some((b) => b.id === r.id)) continue;
+    const number =
+      typeof r.number === 'number' && Number.isFinite(r.number) && r.number >= 1
+        ? Math.floor(r.number)
+        : null;
+    badges.push({ id: r.id, number });
+    if (badges.length === MAX_SHOWN_BADGES) break;
+  }
+  return badges;
 }
 
 export function occupiedSeats(seats: readonly LobbySeat[]): LobbySeat[] {

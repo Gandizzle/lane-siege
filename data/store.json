@@ -12,9 +12,10 @@
     ]
   },
   "founders": {
-    "_comment": "The first count players to reach level are Founders, numbered #1 to #count in the order they got there: everything a Supporter has, free, for good, and the Founder star with their number in it, and the Founder title (cosmetics.json), that nobody else can get. The game server counts them (server/founderStore.ts) - it is the one place that knows who was first - and a player's device claims its number the moment its level gets there. {count} and {level} in the pitch are filled in from these. level must be one the game can reach: no higher than the top level (progression.json, keys).",
+    "_comment": "The first count players to reach level, with at least onlineMatches online matches played, are Founders, numbered #1 to #count in the order they got there: everything a Supporter has, free, for good, and the Founder star with their number in it, and the Founder title (cosmetics.json), that nobody else can get. The game server counts them (server/founderStore.ts) from its OWN count of each player's XP (server/playerStore.ts) - online matches it hosted, and practice and solo matches up to the same daily cap - since it is the one place that knows who was first and the one place a device cannot talk into a level. onlineMatches is the part a script cannot fake without playing: set it to 0 to drop it. {count}, {level} and {online} in the pitch are filled in from these. level must be one the game can reach: no higher than the top level (progression.json, keys).",
     "count": 50,
     "level": 20,
-    "pitch": "The first {count} players to reach level {level} become Founders: everything a Supporter gets, free and for good, and a Founder star with their number in it - #1 to #{count} - that nobody else will ever have."
+    "onlineMatches": 10,
+    "pitch": "The first {count} players to reach level {level}, with {online} online matches played, become Founders: everything a Supporter gets, free and for good, and a Founder star with their number in it - #1 to #{count} - that nobody else will ever have."
   }
 }

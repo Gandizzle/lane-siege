@@ -94,11 +94,18 @@ import { CollectionScreen } from './ui/collectionScreen.ts';
 import { SavedBuildNews } from './ui/savedBuildNews.ts';
 import { FounderNews } from './ui/founderNews.ts';
 import type { RewardedAds } from './ui/adPlaceholder.ts';
-import { waveCount, type XpAward, type XpMode } from '../progression/award.ts';
+import { matchResultOf, waveCount, type XpAward, type XpMode } from '../progression/award.ts';
 import { forSale } from '../progression/cosmetics.ts';
 import type { ProgressStore } from '../progression/store.ts';
 import type { SavedBuilds } from '../net/ghostApi.ts';
-import type { Founders } from '../net/founderApi.ts';
+import type { PlayerApi, PlayerSummary } from '../net/playerApi.ts';
+import type { HiddenNames } from '../net/hiddenNames.ts';
+import type { CrashReporter } from '../net/crashReporter.ts';
+import { displayName } from '../net/identity.ts';
+import type { LobbySeat } from '../net/lobby.ts';
+import { dayKey } from '../progression/profile.ts';
+import { CREDITS, CreditsScreen } from './ui/creditsScreen.ts';
+import { ReportCard, type Reportable } from './ui/reportCard.ts';
 import { ShowdownSetup, type SeatSetup } from './ui/showdownSetup.ts';
 import { LobbyScreen } from './ui/lobbyScreen.ts';
 import { Menu, MenuButton } from './ui/menu.ts';
@@ -163,10 +170,17 @@ export interface GameServices {
    */
   savedBuilds: SavedBuilds | null;
   /**
-   * The Founders on the server (net/founderApi.ts): claiming this player's
-   * number at the Founders' level, and how many are left. Null with no server.
+   * What the game server keeps about this player (net/playerApi.ts): the XP
+   * it counts, a Founder's number, the badges the others see, the credits,
+   * name reports, and how many Founder stars are left. Null with no server.
    */
-  founders: Founders | null;
+  player: PlayerApi | null;
+  /** Names this player has reported, which this device no longer shows (net/hiddenNames.ts). */
+  hiddenNames: HiddenNames;
+  /** Ask for the name to show in the credits. Null if the player backed out. */
+  askCreditName(current: string): Promise<string | null>;
+  /** Where crash reports learn what the game was doing (net/crashReporter.ts); null where there is none. */
+  crash: CrashReporter | null;
 }
 
 /** Which screen is in front. The match is what is behind all of them. */
@@ -269,8 +283,18 @@ export class Game extends Container {
   private readonly founderNews: FounderNews;
   /** A Founder's number won and not yet shown: it waits for the home screen. */
   private founderToShow: number | null = null;
-  /** A claim is on its way to the server: one at a time. */
-  private claimingFounder = false;
+  /** The server is being asked about this player: one question at a time. */
+  private syncing = false;
+  /** What the server last said about this player (net/playerApi.ts); null before it has. */
+  private serverPlayer: PlayerSummary | null = null;
+  /** The name the "your name was hidden" notice was last given for, so it is said once. */
+  private hiddenNameNoted = '';
+  /** Badges switched on or off: told to the server shortly after, once. */
+  private wearTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Who made the game, and everyone keeping it going (ui/creditsScreen.ts). */
+  private readonly creditsScreen: CreditsScreen;
+  /** Reporting somebody's name (ui/reportCard.ts). */
+  private readonly reportCard: ReportCard;
   /** What the match earned, line by line, and the climb it bought. */
   private readonly xpReport: XpReport;
   /** The winner's flourish (looks.ts), over the end of a match. Paint only. */
@@ -426,7 +450,18 @@ export class Game extends Container {
         this.services.progress.clearPurchases();
         this.toast.showText('Test purchases taken back');
         this.progressChanged();
+        void this.services.player?.testSupporter(false).then((summary) => this.took(summary));
       },
+      onCreditName: () => void this.chooseCreditName(),
+      onCredits: () => this.openCredits(),
+    });
+    this.creditsScreen = new CreditsScreen(this.layout, CREDITS, progress.store.founders, {
+      onClose: () => this.creditsScreen.close(),
+      onChangeName: () => void this.chooseCreditName(),
+    });
+    this.reportCard = new ReportCard(this.layout, {
+      onReport: (who) => this.reportName(who),
+      onClose: () => this.reportCard.close(),
     });
     this.collectionScreen = new CollectionScreen(
       this.layout,
@@ -443,6 +478,8 @@ export class Game extends Container {
       onReady: (ready) => this.transport?.setReady(ready),
       onChangeBuilder: () => this.showScreen('builder'),
       onLeave: () => this.goHome(),
+      onSeat: (seat) => this.reportSeat(seat),
+      nameOf: (seat) => this.services.hiddenNames.shown(seat.playerId, seat.name),
     });
     this.showdownSetup = new ShowdownSetup(this.layout, data, {
       onPlay: (seats) => this.startShowdown(seats),
@@ -473,6 +510,11 @@ export class Game extends Container {
       },
       onCollection: () => this.openCollection(),
       onSupporter: () => this.openSupport(),
+      onCredits: () => this.openCredits(),
+      onReport: () => {
+        this.setMenu(false);
+        this.reportCard.openList(this.reportables());
+      },
     });
     this.tutorialScreen = new TutorialScreen(this.layout, LESSONS.map(lessonEntry), {
       onStart: (index) => this.startLesson(index),
@@ -541,6 +583,10 @@ export class Game extends Container {
       // From the home screen or the menu, so over both.
       this.collectionScreen,
       this.supportScreen,
+      // From the menu and the Supporter page, so over both.
+      this.creditsScreen,
+      // From the menu and a lobby's seat cards.
+      this.reportCard,
       // Over everything: it stands between a tap on a builder and the game.
       this.boostOffer,
       // Over the home screen, the moment the game opens.
@@ -551,7 +597,7 @@ export class Game extends Container {
 
     this.showScreen('home');
     void this.checkSavedBuild();
-    void this.checkFounder();
+    void this.syncPlayer(true);
   }
 
   /**
@@ -568,6 +614,14 @@ export class Game extends Container {
     }
     if (this.founderNews.isOpen) {
       this.founderNews.close();
+      return;
+    }
+    if (this.reportCard.isOpen) {
+      this.reportCard.close();
+      return;
+    }
+    if (this.creditsScreen.isOpen) {
+      this.creditsScreen.close();
       return;
     }
     if (this.savedBuildNews.isOpen) {
@@ -656,6 +710,7 @@ export class Game extends Container {
   /** Exactly one of the front screens is up at a time; the match is behind. */
   private showScreen(screen: Screen): void {
     this.screen = screen;
+    this.services.crash?.at(screen);
     this.home.visible = screen === 'home';
     this.builderSelect.visible = screen === 'builder';
     // The Collection may have unlocked a builder since the picker was last up.
@@ -1137,6 +1192,8 @@ export class Game extends Container {
       this.leaveOffer(true);
       return;
     }
+    // The server counts the boost too, so its XP matches the device's.
+    void this.services.player?.boost();
     this.services.sound.play('wave.cleared');
     this.progressChanged();
     const after = progress.boost();
@@ -1258,25 +1315,39 @@ export class Game extends Container {
     if (!mode) return;
     this.awarded = true;
 
-    const reachedShowdown = view.showdown?.armies.some((a) => a.teamId === view.teamId) ?? false;
-    // Waves got through: all of them for an army that reached the showdown;
-    // for a lane that fell, every wave before the one that broke it.
-    const wavesSurvived = reachedShowdown
-      ? view.wave
-      : view.eliminated
-        ? Math.max(0, view.wave - 1)
-        : view.wave;
-    const progress = this.services.progress;
-    const result = progress.award({
-      mode,
+    const end = {
+      wave: view.wave,
+      eliminated: view.eliminated,
       placement: view.placement,
-      wavesSurvived,
-      // The wave it ended in counts as played: what a running boost covers.
-      wavesPlayed: Math.max(1, view.wave),
-      reachedShowdown,
-    });
-    // The match may have been the one that reached the Founders' level.
-    void this.checkFounder();
+      reachedShowdown: view.showdown?.armies.some((a) => a.teamId === view.teamId) ?? false,
+    };
+    const progress = this.services.progress;
+    const result = progress.award(matchResultOf(mode, end));
+    this.services.crash?.note(`match over: ${this.mode.kind}, wave ${view.wave}`);
+    // The server's count too: an online match it counted as it ended; practice
+    // and solo it is told about. Either may be the one that made a Founder.
+    const player = this.services.player;
+    if (player && (this.mode.kind === 'practice' || this.mode.kind === 'solo')) {
+      const solo = this.mode.kind === 'solo';
+      const casual = matchResultOf(this.mode.kind, {
+        ...end,
+        // Solo has nobody to place against and no arena to reach.
+        placement: solo ? null : end.placement,
+        reachedShowdown: solo ? false : end.reachedShowdown,
+      });
+      void player
+        .reportCasual({
+          mode: this.mode.kind,
+          placement: casual.placement,
+          wavesSurvived: casual.wavesSurvived,
+          wavesPlayed: casual.wavesPlayed,
+          reachedShowdown: casual.reachedShowdown,
+          day: dayKey(new Date()),
+        })
+        .then((summary) => this.took(summary));
+    } else {
+      void this.syncPlayer();
+    }
     if (result.before.atTop) return;
     this.xpReport.open(
       result,
@@ -1316,11 +1387,28 @@ export class Game extends Container {
     this.toast.showText('Test purchase: Supporter');
     this.services.sound.play('buy');
     this.progressChanged();
+    void this.supporterOnServer();
   }
 
   /**
-   * Claim a Founder's place. PLACEHOLDER: counting the first claims needs a
-   * server, so only the `?progress=test` build offers it, and grants it here.
+   * A test purchase, told to the server: a test server counts it, and then
+   * asks for the name to show in the credits, as a real purchase will.
+   */
+  private async supporterOnServer(): Promise<void> {
+    const player = this.services.player;
+    if (!player) return;
+    const summary = await player.testSupporter(true);
+    this.took(summary);
+    if (!summary?.supporter) {
+      this.toast.showText('Test purchase: on this device only. This server counts real ones.');
+      return;
+    }
+    if (!summary.creditName) await this.chooseCreditName();
+  }
+
+  /**
+   * A test build's Founder star, with a number at random. Real ones are the
+   * server's to hand out (`syncPlayer`), so only `?progress=test` offers this.
    */
   private claimFounder(): void {
     if (!this.services.progressTest) return;
@@ -1334,25 +1422,194 @@ export class Game extends Container {
   }
 
   /**
-   * A Founder's number, claimed by itself the moment this player's level gets
-   * to the Founders' level (store.json, founders): as the game opens, after a
-   * match, or at a test level-up. Only with a server to count it, only until
-   * the server has said every number is gone, and one claim at a time; no
-   * answer is no harm, and it is asked again next time. A number won is shown
-   * over the home screen - now, or when the player is next there.
+   * Ask the server where this player stands (net/playerApi.ts): the XP it
+   * counts, a Founder's number - handed out by the server the moment its
+   * count gets there - their credits name, and whether their name has been
+   * hidden after reports. Asked as the game opens, after every match, and
+   * when the Supporter page opens; no answer is no harm.
    */
-  private async checkFounder(): Promise<void> {
-    const founders = this.services.founders;
+  private async syncPlayer(opening = false): Promise<void> {
+    const player = this.services.player;
+    if (!player || this.syncing) return;
+    this.syncing = true;
+    try {
+      this.took(await player.me());
+      // What is worn, as the game opens: the server shows the others the
+      // badges it can vouch for, wherever this player is seen.
+      if (opening) this.took(await player.wear(this.services.progress.badgeIds));
+    } finally {
+      this.syncing = false;
+    }
+  }
+
+  /** Badges were switched on or off: the server hears, once things settle. */
+  private wearSoon(): void {
+    const player = this.services.player;
+    if (!player) return;
+    if (this.wearTimer) clearTimeout(this.wearTimer);
+    this.wearTimer = setTimeout(() => {
+      this.wearTimer = null;
+      void player.wear(this.services.progress.badgeIds).then((summary) => this.took(summary));
+    }, 800);
+  }
+
+  /** What the server said about this player, wherever it is shown. */
+  private took(summary: PlayerSummary | null): void {
+    if (!summary) return;
+    this.serverPlayer = summary;
     const progress = this.services.progress;
-    if (!founders || founders.gone || this.claimingFounder || !progress.founderDue) return;
-    this.claimingFounder = true;
-    const answer = await founders.claim(progress.level.level);
-    this.claimingFounder = false;
-    if (answer?.result !== 'founder' || progress.profile.founder) return;
-    progress.grantFounder(answer.number);
-    this.founderToShow = answer.number;
-    this.progressChanged();
-    this.showFounderNews();
+    const { founder, founderNumber } = progress.profile;
+    const number = summary.founderNumber;
+    if (number !== null && (!founder || founderNumber !== number)) {
+      // The server counted them in: the star, and the news of it.
+      progress.grantFounder(number);
+      if (!founder) {
+        this.founderToShow = number;
+        this.showFounderNews();
+      }
+      this.refreshProgressScreens();
+    } else if (number === null && founder && !this.services.progressTest) {
+      // The server is the one that counts Founders; a test grant is the test build's.
+      progress.clearFounder();
+      this.refreshProgressScreens();
+    }
+    this.supportScreen.setPlayer(summary);
+    this.creditsScreen.setOwn(this.ownCreditLine());
+    // Told once a name, so a player whose name was hidden knows to choose another.
+    const name = this.services.name();
+    if (summary.nameHidden && this.hiddenNameNoted !== name) {
+      this.hiddenNameNoted = name;
+      this.toast.showText(
+        'Players reported your name, so others see a default one. Choose another in the menu.',
+      );
+    }
+  }
+
+  /** Every screen that shows progress, redrawn, without telling the server anything. */
+  private refreshProgressScreens(): void {
+    if (this.screen === 'home') this.refreshHome();
+    if (this.screen === 'builder') this.builderSelect.refresh();
+    this.supportScreen.refresh();
+    this.collectionScreen.refresh();
+  }
+
+  /** This player's own line in the credits: their name there, '' for none yet, null for no line. */
+  private ownCreditLine(): string | null {
+    const summary = this.serverPlayer;
+    if (!summary || summary.creditBlocked) return null;
+    const perks = summary.supporter || summary.founderNumber !== null;
+    return perks ? summary.creditName : null;
+  }
+
+  /** Choose, or change, the name shown in the credits. */
+  private async chooseCreditName(): Promise<void> {
+    const player = this.services.player;
+    if (!player) {
+      this.toast.showText('The credits are kept by the game server, and this build has none.');
+      return;
+    }
+    const current = this.serverPlayer?.creditName || this.services.name();
+    const typed = await this.services.askCreditName(current);
+    if (typed === null) return;
+    const answer = await player.setCreditName(typed);
+    if (!answer) {
+      this.toast.showText('The server could not be reached. Try again in a moment.');
+      return;
+    }
+    if (answer.result === 'ok') {
+      this.toast.showText(
+        answer.creditName ? `In the credits as "${answer.creditName}"` : 'Taken out of the credits',
+      );
+      void this.syncPlayer();
+      return;
+    }
+    this.toast.showText(
+      answer.result === 'refused'
+        ? "That name isn't allowed in the credits. Try another."
+        : answer.result === 'blocked'
+          ? 'Your name was taken out of the credits.'
+          : 'The credits are for Supporters and Founders.',
+    );
+  }
+
+  /** The credits: who made the game, and everyone keeping it going. */
+  private openCredits(): void {
+    this.setMenu(false);
+    this.supportScreen.close();
+    this.collectionScreen.close();
+    const player = this.services.player;
+    this.creditsScreen.setOwn(this.ownCreditLine());
+    this.creditsScreen.setState(player ? { kind: 'loading' } : { kind: 'none' });
+    this.creditsScreen.open();
+    if (!player) return;
+    void player.credits().then((credits) => {
+      this.creditsScreen.setState(credits ? { kind: 'ready', credits } : { kind: 'unreachable' });
+    });
+  }
+
+  // ------------------------------------------------------------ name reports
+
+  /** Somebody in this room, as the report card shows them; null for a seat with nothing to report. */
+  private reportableOf(seat: LobbySeat): Reportable | null {
+    if (!seat.playerId || seat.teamId === this.transport?.teamId) return null;
+    // A default name ("Player 4F2K") was chosen by nobody, so there is nothing to report.
+    if (!seat.name || this.services.hiddenNames.isHidden(seat.playerId, seat.name)) return null;
+    return {
+      playerId: seat.playerId,
+      name: seat.name,
+      badges: seat.badges,
+      recorded: seat.recorded,
+    };
+  }
+
+  /** Everybody else here whose name can be reported. */
+  private reportables(): Reportable[] {
+    const seats = this.transport?.seats() ?? [];
+    return seats.flatMap((seat) => {
+      const who = this.reportableOf(seat);
+      return who ? [who] : [];
+    });
+  }
+
+  /** A seat card in the lobby was tapped: report that player's name. */
+  private reportSeat(seat: LobbySeat): void {
+    const who = this.reportableOf(seat);
+    if (!who) {
+      this.toast.showText(
+        seat.name
+          ? 'You have reported that name already.'
+          : 'That is a default name: nobody chose it.',
+      );
+      return;
+    }
+    this.reportCard.openFor(who);
+  }
+
+  /** Report a name: hidden here at once, and counted by the server. */
+  private reportName(who: Reportable): void {
+    this.reportCard.close();
+    this.services.hiddenNames.hide(who.playerId, who.name);
+    this.lobbyScreen.refresh();
+    const where = this.transport?.matchStarted ? 'match' : 'lobby';
+    const player = this.services.player;
+    if (!player) {
+      this.toast.showText("Reported. You won't see that name again.");
+      return;
+    }
+    void player.report({ playerId: who.playerId, name: who.name, where }).then((sent) => {
+      this.toast.showText(
+        sent
+          ? "Reported. You won't see that name again."
+          : "You won't see that name again. The report could not reach the server.",
+      );
+    });
+  }
+
+  /** The name to show on a lane's tab: a name this player reported shows as the default. */
+  private nameForLane(teamId: string, name: string): string {
+    const seat = this.transport?.seats().find((s) => s.teamId === teamId);
+    if (!seat?.playerId || !this.services.hiddenNames.isHidden(seat.playerId, name)) return name;
+    return displayName('', seat.playerId);
   }
 
   /** The Founder's card: on the home screen, or anywhere when `now`. */
@@ -1427,22 +1684,22 @@ export class Game extends Container {
 
   /** Something about progress changed: every screen that shows it, redrawn. */
   private progressChanged(): void {
-    // A level-up anywhere - a test one included - may be the Founders' level.
-    void this.checkFounder();
-    if (this.screen === 'home') this.refreshHome();
-    if (this.screen === 'builder') this.builderSelect.refresh();
-    this.supportScreen.refresh();
-    this.collectionScreen.refresh();
+    this.refreshProgressScreens();
+    // A badge switched on or off: the others should see it.
+    this.wearSoon();
   }
 
   private openSupport(): void {
     this.setMenu(false);
     this.collectionScreen.close();
     this.supportScreen.open();
-    // How many Founder stars are left, when there is a server to say.
-    void this.services.founders?.status().then((status) => {
-      this.supportScreen.setFounderStatus(status);
-    });
+    // How many Founder stars are left, and where this player stands, when
+    // there is a server to say.
+    const player = this.services.player;
+    if (player) {
+      void player.founderStatus().then((status) => this.supportScreen.setFounderStatus(status));
+      void this.syncPlayer();
+    }
   }
 
   private openCollection(): void {
@@ -1475,6 +1732,8 @@ export class Game extends Container {
     this.founderNews.setLayout(this.layout);
     this.supportScreen.setLayout(this.layout);
     this.collectionScreen.setLayout(this.layout);
+    this.creditsScreen.setLayout(this.layout);
+    this.reportCard.setLayout(this.layout);
     this.arena.setLayout(this.layout.screen, this.layout.tileSize);
     this.countdown.setLayout(this.layout);
     this.waveCleared.setLayout(this.layout);
@@ -1512,7 +1771,12 @@ export class Game extends Container {
     this.effectsButton.visible = false;
     if (this.menu.isOpen) {
       this.menu.render(
-        { inMatch: transport !== null, paused, name: this.services.name() },
+        {
+          inMatch: transport !== null,
+          paused,
+          name: this.services.name(),
+          canReport: this.reportables().length > 0,
+        },
         deltaMs,
       );
     }
@@ -1692,7 +1956,7 @@ export class Game extends Container {
     this.upgradeBursts.observe(lane);
     this.upgradeBursts.render(deltaMs);
     this.hud.render(view, this.summary, speed);
-    this.tabs.render(view, this.watchingTeamId);
+    this.tabs.render(view, this.watchingTeamId, (teamId, name) => this.nameForLane(teamId, name));
     if (connected) this.banner.render(view, this.watchingTeamId);
     else this.banner.renderStatus(transport.status, transport.detail);
     if (view.lane) {

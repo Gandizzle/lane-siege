@@ -54,7 +54,7 @@ export interface StoreConfig {
    * The first `count` players to reach `level` are Founders, numbered in the
    * order they got there, with a Supporter's perks free.
    */
-  founders: { count: number; level: number; pitch: string };
+  founders: { count: number; level: number; onlineMatches: number; pitch: string };
 }
 
 /** The little shapes a badge is drawn as (ui/nameCard.ts). */
@@ -200,6 +200,7 @@ export function parseStore(raw: unknown): StoreConfig {
     founders: {
       count: integer(founders.count, 'store.founders.count', 1),
       level: integer(founders.level, 'store.founders.level', 2),
+      onlineMatches: integer(founders.onlineMatches, 'store.founders.onlineMatches'),
       pitch: text(founders.pitch, 'store.founders.pitch'),
     },
   };

@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "build:android": "VITE_BASE=./ npm run build && node scripts/prepare-android.mjs",
+    "build:web": "VITE_BASE=/ VITE_EDITION=web npm run build",
+    "build:android": "VITE_BASE=./ VITE_EDITION=android npm run build && node scripts/prepare-android.mjs",
     "android:open": "cap open android",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
@@ -24,6 +25,7 @@
     "netcheck": "tsx src/headless/netcheck.ts",
     "lobby": "tsx src/headless/lobby.ts",
     "ghosts": "tsx src/headless/ghosts.ts",
+    "players": "tsx src/headless/players.ts",
     "budget": "tsx src/headless/budget.ts",
     "reprice": "tsx src/headless/reprice.ts",
     "showdown": "tsx src/headless/showdown.ts",

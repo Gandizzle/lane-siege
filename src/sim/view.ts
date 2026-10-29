@@ -73,6 +73,7 @@ import type {
   UnitSpend,
   Vec2,
   WaveTally,
+  WornBadge,
 } from './types.ts';
 
 /**
@@ -302,6 +303,8 @@ export interface OpponentView {
   recorded: boolean;
   /** What they are seen in (`Team.looks`). Always public, like the name. */
   looks: Looks;
+  /** The badges beside their name (`Team.badges`). Always public, like the name. */
+  badges: WornBadge[];
   eliminated: boolean;
   /** Locked in at elimination (§13). */
   placement: number | null;
@@ -391,6 +394,8 @@ export interface MatchView {
   teamLevel: number;
   /** What you are seen in, as the match was told it (`Team.looks`). */
   teamLooks: Looks;
+  /** The badges beside your name, as the match was told them (`Team.badges`). */
+  teamBadges: WornBadge[];
   /** Public and identical for everyone: every lane faces the same wave (§9.2). */
   seed: number;
   /**
@@ -672,6 +677,7 @@ export function viewFor(
       level: team.level,
       recorded: team.recorded,
       looks: team.looks,
+      badges: team.badges,
       eliminated: team.eliminated,
       placement: team.placement,
       // §12's suggested minimum, and the whole of it.
@@ -690,6 +696,7 @@ export function viewFor(
     teamName: self?.name ?? '',
     teamLevel: self?.level ?? 0,
     teamLooks: self?.looks ?? NO_LOOKS,
+    teamBadges: self?.badges ?? [],
     seed: state.seed,
     lateWaves: state.lateWaves,
     tick: state.tick,

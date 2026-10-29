@@ -276,6 +276,11 @@ export class LocalTransport implements Transport {
   readonly hasLobby = false;
   readonly matchStarted = true;
 
+  /** Nobody to report: the other lanes are the game's own builders. */
+  seats(): readonly [] {
+    return [];
+  }
+
   lobby(): null {
     return null;
   }

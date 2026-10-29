@@ -21,7 +21,7 @@
  */
 
 import type { Command, CommandRejection, MatchView } from '../sim/index.ts';
-import type { LobbyView } from './lobby.ts';
+import type { LobbySeat, LobbyView } from './lobby.ts';
 
 export type TransportStatus = 'connecting' | 'ready' | 'closed' | 'error';
 
@@ -81,6 +81,13 @@ export interface Transport {
    * of it arrives. Only meaningful while `hasLobby` and not `matchStarted`.
    */
   lobby(): LobbyView | null;
+
+  /**
+   * Who is in the room, as it last listed its seats - kept once the match has
+   * begun, unlike `lobby()`, since a name across the top of a match can be
+   * reported too (ui/reportCard.ts). Empty where there is no room.
+   */
+  seats(): readonly LobbySeat[];
 
   /** Lobby actions. No-ops where there is no lobby. */
   setReady(ready: boolean): void;

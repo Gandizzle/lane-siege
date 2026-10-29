@@ -4,25 +4,29 @@
  * WHAT THIS IS, AND WHAT IT DELIBERATELY IS NOT
  *
  * §17 lists "accounts" under M6 and §18 leaves the account system OPEN. What
- * the game actually needs from an account today is one thing: an identity that
- * survives closing the app, so that a seat can be given back to the player who
- * left it (lobby.ts) and so that a name in a lobby means the same person each
- * time. That is this module: a player id generated once on this device and
- * kept, plus a display name.
+ * the game needs from an account is an identity that survives closing the
+ * app: so that a seat can be given back to the player who left it (lobby.ts),
+ * so that a name in a lobby means the same person each time, and so that the
+ * server can keep what a player has earned against it - their XP, a Founder's
+ * number, the badges others see (server/playerStore.ts). That is this module:
+ * a player id generated once on this device and kept, a display name, and a
+ * key.
  *
- * There is no password, no server-side record and no stats history, and that is
- * a decision rather than an omission - recorded in docs/OPEN-QUESTIONS.md.
- * Credentials would need a server to hold them, and there is nowhere to run one
- * (§15.2: the shipped build is static hosting). An identity that cannot be
- * proven is exactly as strong as this game needs while a match is four people
- * who already know each other's room code, and no weaker than the seat-by-
- * session-id it replaces. Anything that must not be forgeable - a ladder,
- * purchases - needs the real thing first, and is not in v1.
+ * THE ID IS PUBLIC, THE KEY IS NOT
  *
- * A player id is therefore a claim, not a proof. The server treats it as one:
- * it seats by id and never grants anything on the strength of it beyond the
- * seat, so the worst a forged id achieves is taking a seat in a room whose code
- * you already had.
+ * The player id is shown to everyone in a lobby, so knowing one proves
+ * nothing. The KEY is a secret made on this device from a cryptographic
+ * source and sent only to the server, with the id, whenever the id has to
+ * mean "me": joining a room, and every question about the player's own
+ * record. The server keeps a hash of the first key it sees for an id and
+ * refuses the id with any other, so nobody can take someone's seat, earn into
+ * their record or wear their Founder's star by copying an id off a lobby.
+ *
+ * There is no password and no login, and that is a decision rather than an
+ * omission - recorded in docs/OPEN-QUESTIONS.md. The key is as strong as the
+ * device that keeps it: clearing the app's storage is starting again as
+ * somebody new, and moving to a new phone needs a way to carry the key across,
+ * which does not exist yet.
  *
  * NAMES ARE CLEANED ON BOTH SIDES
  *
@@ -43,10 +47,12 @@ export interface KeyValueStore {
 }
 
 export interface Identity {
-  /** Stable across restarts. Identifies the seat to reclaim, nothing more. */
+  /** Stable across restarts, and public: every lobby shows it. */
   playerId: string;
   /** Shown to other players. */
   name: string;
+  /** The secret that proves `playerId` is this device's (`makePlayerKey`). Never shown to anyone. */
+  key: string;
 }
 
 const STORAGE_KEY = 'lane-siege.identity';
@@ -57,6 +63,36 @@ const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 /** Names are drawn in a fixed-width card, and a long one is somebody else's problem. */
 export const MAX_NAME_LENGTH = 14;
+
+/**
+ * A name in the credits can be longer: it is a line of its own, and often a
+ * real name, first and last.
+ */
+export const MAX_CREDIT_NAME_LENGTH = 24;
+
+/** A key's length in hex digits: 128 bits, more than anyone can guess. */
+const KEY_LENGTH = 32;
+
+/** `n` bytes from the platform's cryptographic source. */
+function cryptoBytes(n: number): Uint8Array {
+  const bytes = new Uint8Array(n);
+  globalThis.crypto.getRandomValues(bytes);
+  return bytes;
+}
+
+/**
+ * A new key: `KEY_LENGTH` hex digits from a cryptographic source, never from
+ * `Math.random`, whose next value can be worked out from the last few. The
+ * source is a parameter so that a test can hand it something fixed.
+ */
+export function makePlayerKey(randomBytes: (n: number) => Uint8Array = cryptoBytes): string {
+  return [...randomBytes(KEY_LENGTH / 2)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** A key as `makePlayerKey` makes one, and nothing else. */
+export function isPlayerKey(value: unknown): value is string {
+  return typeof value === 'string' && /^[0-9a-f]{32}$/.test(value);
+}
 
 export function makePlayerId(random: () => number): string {
   let id = '';
@@ -73,7 +109,7 @@ export function makePlayerId(random: () => number): string {
  * Says nothing about the words in it; that is the name filter's job
  * (`acceptableName`).
  */
-export function cleanName(typed: string): string {
+export function cleanName(typed: string, maxLength = MAX_NAME_LENGTH): string {
   let kept = '';
   for (const character of typed) {
     const code = character.codePointAt(0) ?? 0;
@@ -94,7 +130,7 @@ export function cleanName(typed: string): string {
   const collapsed = kept.replace(/\s+/g, ' ').trim();
   // Sliced by code point rather than by UTF-16 unit, so a long name is never
   // cut in half through an emoji.
-  return [...collapsed].slice(0, MAX_NAME_LENGTH).join('');
+  return [...collapsed].slice(0, maxLength).join('');
 }
 
 /**
@@ -104,6 +140,17 @@ export function cleanName(typed: string): string {
  */
 export function acceptableName(typed: string): string {
   const cleaned = cleanName(typed);
+  return cleaned && nameAllowed(cleaned) ? cleaned : '';
+}
+
+/**
+ * A name for the credits, cleaned and checked like a player name but allowed
+ * to be longer. Empty when nothing is left or the filter refuses it - which,
+ * unlike a player name, is said to the Supporter rather than defaulted, since
+ * the credits have no default to fall back on.
+ */
+export function acceptableCreditName(typed: string): string {
+  const cleaned = cleanName(typed, MAX_CREDIT_NAME_LENGTH);
   return cleaned && nameAllowed(cleaned) ? cleaned : '';
 }
 
@@ -123,11 +170,14 @@ export function defaultName(playerId: string): string {
   return 'Player';
 }
 
-/** The name to show for a seat, falling back through every empty case. */
+/**
+ * The name to show for a seat, falling back through every empty case. A saved
+ * build's seat (`ghost:<id>`, server/room.ts) defaults to its player's name.
+ */
 export function displayName(name: string, playerId: string | null): string {
   const cleaned = cleanName(name);
   if (cleaned) return cleaned;
-  return playerId ? defaultName(playerId) : 'Open';
+  return playerId ? defaultName(playerId.replace(/^ghost:/, '')) : 'Open';
 }
 
 /**
@@ -139,10 +189,14 @@ export function displayName(name: string, playerId: string | null): string {
  * forgets. A player with no storage gets a fresh identity per session and
  * everything works except reclaiming a seat after a reload.
  */
-export function loadIdentity(storage: KeyValueStore | null, random: () => number): Identity {
+export function loadIdentity(
+  storage: KeyValueStore | null,
+  random: () => number,
+  makeKey: () => string = () => makePlayerKey(),
+): Identity {
   const fresh = (): Identity => {
     const playerId = makePlayerId(random);
-    return { playerId, name: defaultName(playerId) };
+    return { playerId, name: defaultName(playerId), key: makeKey() };
   };
 
   if (!storage) return fresh();
@@ -162,13 +216,19 @@ export function loadIdentity(storage: KeyValueStore | null, random: () => number
   try {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed === 'object' && parsed !== null) {
-      const record = parsed as { playerId?: unknown; name?: unknown };
+      const record = parsed as { playerId?: unknown; name?: unknown; key?: unknown };
       const playerId = typeof record.playerId === 'string' ? record.playerId : '';
       if (playerId) {
         // Checked again on the way in: a name saved before the filter existed,
         // or edited into storage by hand, goes back to the default.
         const name = typeof record.name === 'string' ? acceptableName(record.name) : '';
-        return { playerId, name: name || defaultName(playerId) };
+        const identity = { playerId, name: name || defaultName(playerId), key: '' };
+        if (isPlayerKey(record.key)) return { ...identity, key: record.key };
+        // Saved before there were keys: the id is kept, and gets one now.
+        // The server takes the first key it sees for an id, which is this one.
+        identity.key = makeKey();
+        saveIdentity(storage, identity);
+        return identity;
       }
     }
   } catch {

@@ -458,8 +458,8 @@ A mistyped code opens an empty room of that name instead of erroring, because
 the player.
 
 There is no lobby server and no room list. Neither adds anything a four-player
-game with a shareable code needs. The one thing the server keeps between
-matches is each player's saved build (below).
+game with a shareable code needs. What the server keeps between matches is each
+player's record and their saved build (both below).
 
 **A seat belongs to a player, not to a connection.** Colyseus hands out a new
 session id every time a socket opens, so a player who drops and comes back
@@ -480,15 +480,24 @@ themselves; or after sixty seconds regardless. The last is the AFK rule, and it
 is §3.2's principle applied to the lobby: one slow player may not hold three
 others up.
 
-**Identity is a claim, not a proof.** §17 lists "accounts" and §18 leaves the
-system OPEN; what the game needs from one is an id that survives a restart and
-a name other people see. There is no password and no server-side record, because
-credentials need a server to hold them and there is nowhere to run one — and an
-unprovable id is no weaker than the session id it replaces. The server treats it
-accordingly: it seats by id and grants nothing else on the strength of it. Names
-are cleaned on both sides, the server's pass being the one that counts, because
-a name is drawn on three other people's screens and the client is not trusted
-with text any more than with rules.
+**A player id, and a key that proves it** (`src/net/identity.ts`). §17 lists
+"accounts" and §18 leaves the system OPEN; what the game needs from one is an
+id that survives a restart, a name other people see, and - now that the server
+keeps things about a player that others see (a Founder's number, badges, the
+credits) - a way to tell the id's owner from anyone who has read it off the
+wire. So the device makes two things once and keeps them: a **player id**,
+which is public, since it goes to everyone in a room, and a **key**, 32 hex
+characters from `crypto.getRandomValues`, which goes to the game server and
+nowhere else. The server keeps a hash of the key and takes the first one it
+sees for an id - trust on first use - and from then on an id comes with its key
+or gets nothing: a join is refused with code 4003, a request with 403. A save
+from before there were keys is given one as it loads. There is no password, no
+email and no sign-in, because an id nobody else can use is all that seats,
+Founders and badges need. The cost is that the key is the account: a device
+that loses it - an uninstall, cleared site data - starts again as a new player.
+Names are cleaned on both sides, the server's pass being the one that counts,
+because a name is drawn on three other people's screens and the client is not
+trusted with text any more than with rules.
 
 **Names are filtered by a library, read three ways.** Cleaning makes a name
 safe to draw (`cleanName`); the name filter decides whether its words are fit to
@@ -509,8 +518,8 @@ another." - the same words every time, since naming the word only shows how to
 dodge it. The server checks again and stores a refused name empty, which every
 screen draws as the default "Player ABCD"; a default skips any four-character
 tag that spells something, and a saved name is checked again on start. English
-only, and words only: reporting and muting are the next line, and need
-server-side accounts.
+only, and words only: what the filter misses, players report (Name reports,
+below).
 
 **Reconnection** holds a seat for ninety seconds after kickoff. While its player
 is away the lane keeps taking waves with nobody defending it, which is what §13
@@ -586,14 +595,170 @@ file (`server/ghostStore.ts`). Saved builds are read in at start-up, since a
 kickoff picks from them mid-tick; last builds are read when asked for. The two
 questions a player asks - how has it done, keep my last one - are plain HTTP on
 the game's own port (`server/ghostRoutes.ts`): Colyseus answers its own
-matchmaking requests there and hands every other request on. They are asked by
-player id, which is a claim (identity.ts), so the worst a forged one can do is
-keep somebody's last build for them. Every build in the store was played on the
+matchmaking requests there and hands every other request on. How a build has
+done is asked by player id alone, since the answer is no use to anyone else;
+keeping the last one replaces what other people's matches play, so it takes
+the player's key. Every build in the store was played on the
 server through its own simulation: nothing a client sends becomes a build.
 
 Checked by `src/bot/ghost.test.ts`, `server/ghostStore.test.ts`,
 `src/net/ghostApi.test.ts`, and `npm run ghosts`, which stands up a real server
 with saved builds in it and plays a quick match into it.
+
+### What the server keeps: a record for each player
+
+A Founder's number and the badges other players see are only worth something if
+a device cannot talk its way into them, so the server keeps its own record of
+each player and counts their XP itself (`server/playerStore.ts`,
+`server/playerRoutes.ts`): one small JSON file a player under
+`DATA_DIR/players`, named by a hash of the id, written beside its place and
+renamed in, as the saved builds are. A record holds the hash of the player's
+key, when they were first and last seen, their name, the XP the server counts,
+their online matches, what practice and solo have earned on each of the last
+few days, boosted waves, whether they are a Supporter and how the server knows,
+the badges they wear and a name for the credits.
+
+**XP is counted by the same code as on the device** (`awardXp` and
+`matchResultOf` in `src/progression/award.ts`), so the two counts agree:
+
+- **An online match is counted by the room** as each lane's match ends - out,
+  or the last one standing - for a player still connected then. Leaving early
+  earns nothing here either. This is the part no device can say for itself.
+- **Practice and solo are the device's to report** (`POST /progress/casual`),
+  since they are played on the device with nothing to watch them: what a
+  match was - waves, placement, whether the showdown was reached - and the
+  server works out the XP, under the same daily cap, kept day by day so that
+  saying "tomorrow" does not start the cap again. A report's day must be
+  within one of the server's own. A report that cannot be sent waits on the
+  device (`lane-siege.casualQueue`) and goes with the next question asked.
+- **An ad's boost** is told to the server (`POST /progress/boost`), which
+  counts it only when one is due - fewer than 25 boosted waves left - and no
+  more often than once every 15 seconds.
+- **Supporter** is a purchase the server has checked (with RevenueCat), or a
+  test purchase on a test server; a Founder has everything a Supporter has.
+
+The device keeps its own progress as before, and what it unlocks is still its
+own to say: the server's count decides only what other people see - the
+Founders, and the badges below - and the Supporter page shows it beside the
+Founders' rule, "as the server counts it". Everything is plain HTTP on the
+game's own port, and every request but the public ones carries the player's id
+and key; a wrong key is 403, a body over 2 KB is 413, and each address gets so
+many requests an hour of each kind (`server/rateLimit.ts`: new players, writes,
+reads, reports, crash reports and wrong admin tokens counted apart). Behind a
+host's proxy, `TRUST_PROXY=1` takes the address from the proxy's header.
+Checked by `server/playerStore.test.ts`, `server/routes.test.ts`,
+`src/net/playerApi.test.ts`, and `npm run players`, which plays a real match on
+a real server: a copied id refused a seat, only earned badges shown, a hidden
+name shown as the default, and an online match counted into a Founder's number.
+
+### Badges on a name: what the others see
+
+Badges are worn where other players see them - by the name in the lobby's
+seats and on the opponent tabs in a match - and so are the server's to vouch
+for. The device says which it has switched on (`ProgressStore.badgeIds`), as it
+joins a room and whenever they change (`POST /progress/wear`); the server keeps
+that and shows the ones the record bears out, three at most
+(`PlayerStore.shownBadges`):
+
+- **Supporter**, the heart: a purchase the server checked, or a Founder.
+- **Veteran**, the shield: level 10, as the server counts it.
+- **Founder**, the star with its number in it: on the Founders' list.
+
+A badge the device claims and the server cannot vouch for is simply not shown;
+the player still sees it on their own name card. The seats carry them
+(`LobbySeat.badges`), and so does the hello at kickoff (`WireHello.teamBadges`),
+whence `Team.badges` and the views (`OpponentView.badges`,
+`MatchView.teamBadges`), as the looks travel; `ui/badgeRow.ts` draws them after
+the level pill in a seat and on a tab's second line. A saved build is shown
+with its owner's badges as they are now. The simulation never reads any of it.
+
+### The credits: who made it, and who keeps it going
+
+The credits (`ui/creditsScreen.ts`, from the menu and the Supporter page) are
+who made the game, thanks, the sound and what it is built with
+(`data/credits.json`), then every Founder by number and every Supporter, in the
+order they bought it, from the server (`GET /credits`). A Supporter or a
+Founder chooses the name the credits show (`POST /credits/name`) - asked once,
+after the purchase, and changed from the credits or the Supporter page - so it
+need not be their player name or whatever their phone is called. It is cleaned
+and filtered as a player name is, up to 24 characters, and an empty one takes
+them out. From the admin page a name can be taken out for good, after which
+that player cannot set another.
+
+### Name reports
+
+The name filter catches words; players catch the rest. Tapping another
+player's seat in the lobby or their tab in a match - or Report a name in the
+menu, which lists who is in the room - opens a card asking whether to report
+that name (`ui/reportCard.ts`). Reporting does two things:
+
+- **On the reporter's own screen** the name is gone at once, drawn as the
+  default "Player ABCD" from then on (`net/hiddenNames.ts`, kept on the
+  device).
+- **On the server** the report is counted once for each player who makes it
+  (`server/reportStore.ts`). When three different players have reported the
+  same name it is hidden for everyone: the server sends the default in its
+  place wherever the player is seen (`server/moderation.ts`), and tells the
+  player, once, to choose another. A new name shows again.
+
+Reporting a saved build's name reports its player. The admin page lists every
+report, grouped by player and name, with three answers: hide the name, allow it
+(no more reports of it count), or hide every name that player chooses.
+
+### Crash reports
+
+What nothing else caught is reported to the game server
+(`net/crashReporter.ts`): an error, a promise nobody handled, and the graphics
+card taking the canvas away, which on a phone is the usual way a game goes
+black. A report says what went wrong and where, which version, build and
+edition, the screen size and browser, what the game was showing, and the last
+few things that happened before it - never a player id or a name. The same
+problem is sent once a session and ten in all, so a broken frame loop sends one
+report, not sixty a second; one that cannot be sent waits on the device for
+the next start. It is sent as plain text with `keepalive`, so a browser sends
+it to another origin without asking first, and as the page closes.
+
+The server (`server/crashStore.ts`, `crashRoutes.ts`, `POST /crashes`) trims
+each field, appends it to `crashes.jsonl` and starts a new file at 2 MB, keeping
+the one before. It writes its own uncaught errors there too, as `server`, and
+after an uncaught exception it exits, so the host starts it again clean. The
+admin page groups reports by what went wrong and where, with how many, which
+versions and editions, and the latest in full.
+
+### The admin page
+
+`/admin` on the game server (`server/adminRoutes.ts`, `adminPage.ts`): one page,
+no build step, for the person running the game. It is off until `ADMIN_TOKEN`
+is set, asks for that token once and keeps it in the browser, and sends it with
+every request; a wrong one is counted, and ten in an hour from one address are
+refused until the hour is up. Its tabs: an overview (players, seen in the last
+day, Founders so far, Supporters, names reported and hidden, crash reports in
+the last day); name reports; crash reports; the Founders; the credits; players
+
+- found by name or id, and deleted for a deletion request, which takes their
+  saved builds, reports and credits name with them, while a Founder's number
+  stays taken but no longer says whose; and a backup, everything the server
+  keeps as one JSON file.
+
+### Release builds: web, Android, and the test build
+
+Which build this is is set when it is built (`src/buildInfo.ts`):
+`npm run build:web` is the web version for its own domain, `npm run
+build:android` the app, and a plain `npm run build` the GitHub Pages test
+build. A release - web or Android - ignores everything after the `?` in its
+address, so no link can turn a player's game into the test build with free
+purchases, and connects to the server it was built for (`VITE_SERVER`). Every
+crash report says which edition it came from, with the version from
+package.json and the commit (`__APP_VERSION__`, `__APP_BUILD__`, from the
+Vite config).
+
+### Running the server somewhere
+
+The server is one Node process and one directory. The `Dockerfile` runs it as
+it runs here, with `DATA_DIR=/data` for a volume and `/health` for the host to
+ask, so any host that runs a container runs it; `deploy/` adds Caddy in front
+of it on a server of one's own, which fetches the HTTPS certificate the `wss://`
+address needs. `docs/GO-LIVE.md` §5 compares hosts and walks through two.
 
 ### The two pieces of DOM
 
@@ -1503,8 +1668,10 @@ field by field, so damage costs what is damaged rather than the game). Joining a
 sends the level with the name; the server cleans it to a whole number from 0 to
 a million (`cleanLevel` in net/lobby.ts), seats it, and sends every seat's level
 in the hello (`teamLevels`), from where it reaches `Team.level` and the view
-(`OpponentView.level`, `MatchView.teamLevel`). Like the name, it is a claim
-rather than a proof - which is why it is only ever shown.
+(`OpponentView.level`, `MatchView.teamLevel`). Like the name, it is the
+device's word rather than the server's count - which is why it is only ever
+shown. The badges beside it are the server's to vouch for (Badges on a name,
+below).
 
 **The Collection and Supporter** are sheets over the home screen
 (`ui/sheet.ts`: a scrim, a title, a body that scrolls by drag or wheel), reached
@@ -1592,32 +1759,44 @@ of confetti, each drawn by the same code as the board; a battlefield by a
 swatch of its own ground, and Molten's moves.
 
 **Founders: the first to level 20, counted by the server.** Who was first is
-something only the server can see, so it counts them
-(`server/founderStore.ts`): one small file (`FOUNDERS_FILE`, default
-`./founders.json`) of who got there, in order, read in at start-up and
-rewritten whole on each claim. The device claims the moment its level gets
-there - after the match that reached it, as the game opens, or at a test
-level-up (the game's `checkFounder`) - with `POST /founders/claim` on the
-game's own port (`founderRoutes.ts`, beside the saved builds), and is told its
-number, or that it is too soon, or that every number is gone; asking again
-gives the same number, so a lost answer costs nothing. No server, no answer:
-the claim is simply made again next time, and a device told the numbers are
-gone stops asking (`net/founderApi.ts`). The number is kept in the profile
+something only the server can see, and the level a Founder is numbered at is
+the server's own count of their XP, not the device's word for it (What the
+server keeps, below). The rule is `founders` in `store.json`: the first 50
+players the server counts at level 20 who have also played 10 online matches
+on it. The online matches are the part a script cannot fake without playing:
+a device reports its practice and solo matches, under the daily cap, but an
+online match is counted by the room as it ends. Set `onlineMatches` to 0 to
+drop that part. The list is one small file (`founders.json` under `DATA_DIR`,
+or `FOUNDERS_FILE`) of who got there, in order, read in at start-up and
+rewritten whole on each new Founder (`server/founderStore.ts`). The number is
+handed out the moment the server's count gets there - as an online match ends,
+or as a reported practice match is counted - and the device hears it the next
+time it asks where it stands (`POST /progress/me`, as the game opens, after
+every match, and on the Supporter page). No server, no answer: it asks again
+next time. A device that thinks it is a Founder and is not on the list loses
+the star when it next hears from the server (`clearFounder`); only the test
+build's star is left alone. The number is kept in the profile
 (`founderNumber`) and worn three ways: in the star, drawn fuller than the
 badge's so a number fits (`drawFounderStar`, `placeStarNumber`); in the title
 ("Founder #7", `ProgressStore.nameOf`); and on the Supporter button. Won, it
 is announced by a card over the home screen (`ui/founderNews.ts`) - the star
 with the number in it going off in a level-up's burst, and what it brings. The
-Supporter page's Founders card says the rule, how far off the player is, and
-how many stars are left (`GET /founders/status`), and for a Founder their
-own. The level a claim is made with is the device's, as every level is here -
-until progress is kept on a server, that is as strong as the race can be. A
-test checks the Founders' level is under the top level, or nobody could win.
+Supporter page's Founders card says the rule, how far off the player is as the
+server counts it ("level 2 of 20, 1 of 10 online matches"), and how many stars
+are left (`GET /founders/status`, `net/playerApi.ts`), and for a Founder their
+own. `POST /founders/claim` still answers, from the server's count, for a
+build from before. A test checks the Founders' level is under the top level, or
+nobody could win.
 
 **Nothing can be bought yet.** There is no payment provider and no ad SDK, so
-the buy button says so. `?progress=test` turns the placeholders into something
-to try: Supporter is granted on the device, and so is a Founder's star with a
-number at random, with a way to take both back; the Collection has a button
+the buy button says so. The server's half is ready for one: `POST
+/supporter/verify` asks RevenueCat whether the player has the `supporter`
+entitlement (`server/supporterCheck.ts`, with `REVENUECAT_SECRET_KEY`), and a
+refund takes it back. `?progress=test` turns the placeholders into something
+to try: Supporter is granted on the device - and on a test server
+(`ALLOW_TEST_PURCHASES=1`) on the server too, which then asks for a credits
+name as a real purchase will - and so is a Founder's star with a number at
+random, with a way to take both back; the Collection has a button
 that climbs a level, keys and all; and practice and solo earn XP as a normal
 match would, so the popup and the level-ups can be seen without a server.
 
@@ -2902,7 +3081,8 @@ Implemented and tested (388 tests):
   weapon fires with the damage, reach and rate the LADDER raised rather than
   the ones the data file starts them at; the wall heals every tick in both
   phases, never past its maximum, and never back out of its own destruction
-- Elimination and placement, including simultaneous deaths (§13)
+- Elimination and placement, including simultaneous deaths, and the last one
+  standing placed first, as the showdown's winner is (§13)
 - End-to-end determinism: same seed, same final state (§15.1)
 - Portrait layout, the tile↔screen transform, and the shape vocabulary (§4.1,
   §14.2)
@@ -3281,23 +3461,19 @@ Thornweald now wears all four armors.
   four armor types across four bosses as a stopgap; real parts need a model that
   does not exist yet.
 - **Hosting** (§15.2) — the last piece of M6, and the only one that is money
-  rather than code. A four-player match needs someone to run `npm run server`,
-  and clients reach it with `?server=`; GitHub Pages is static and cannot host a
-  room. The lobby, matchmaking and reconnection that were listed here are built.
+  rather than code. The server is ready to deploy (Running the server
+  somewhere, above); the client reaches it with `?server=` or, in a release,
+  the address it was built with. GitHub Pages is static and cannot host a room.
 - **A signed APK** — `npm run build:android` produces the native project, but
   compiling it needs the Android SDK and Google's Maven repository. Nothing is
   missing from the project; it is a machine with the SDK on it.
-- **Server-side accounts** (§18) — identity is a player id this device
-  generated, which is what seats and reconnection need and no more. A ladder or
-  anything purchasable needs a credential a server holds, and that needs the
-  server first. XP, levels and purchases are kept on the device until then.
-- **Payments and real ads** — Supporter and the XP boost's ad are
+- **Getting a player back on a new phone** (§18) — the key is the account
+  (identity, above), so a player who uninstalls starts again. A recovery code
+  to write down, or signing in with Google, would carry it across.
+- **Payments and real ads** - Supporter and the XP boost's ad are
   placeholders (Progression, above). Each is one implementation behind a seam
   that exists: `RewardedAds` for the ad, the game's `buySupporter` for the
-  purchase.
-- **A Founder's level, proved** — the server counts the first 50 to level 20,
-  but the level is the device's claim until progress is kept server-side
-  (accounts, above).
+  purchase, and the server's RevenueCat check for proving it.
 - **Client-side prediction** — deliberately absent, see the netcode section. The
   cheap version, predicting the wallet rather than the simulation, is the one to
   build if the round trip turns out to feel bad.
@@ -3314,11 +3490,14 @@ build (§17, M6).
 
 Colyseus is pinned at 0.16 on both sides, because the JavaScript client has not
 been released past 0.16 while the server is at 0.18, and a mismatched pair is
-not worth debugging. The server half also pulls in a dependency tree with
-several npm audit advisories (a `nanoid` one rated high). None of it reaches the
-shipped bundle — `npm audit --omit=dev` reports zero — but it wants addressing
-before this server is ever exposed to the internet, which is M6's problem along
-with hosting it at all.
+not worth debugging. The server half pulls in a dependency tree with npm
+audit advisories. None of it reaches the shipped bundle — `npm audit
+--omit=dev` reports zero — and of what the server runs, one is left: `nanoid` 2
+inside `@colyseus/core`, rated high, which goes wrong only when asked for an id
+of a fractional or negative length, where Colyseus always asks for nine. It goes
+with the move to 0.18. The rest - express, body-parser, qs and their kind -
+come with Colyseus's sign-in and uWebSockets packages, which this server never
+loads; `npm audit fix` has taken what it can without a major version.
 
 `vite.config.ts` sets `base` to `/lane-siege/` for GitHub Pages. Override with
 `VITE_BASE` for anywhere else; Capacitor will want `./`.

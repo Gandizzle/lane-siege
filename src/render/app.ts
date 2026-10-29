@@ -30,12 +30,15 @@ import { LocalTransport } from '../net/localTransport.ts';
 import { RemoteTransport } from '../net/remoteTransport.ts';
 import type { Transport } from '../net/transport.ts';
 import {
+  MAX_CREDIT_NAME_LENGTH,
   MAX_NAME_LENGTH,
+  acceptableCreditName,
   acceptableName,
   browserStorage,
   cleanName,
   loadIdentity,
   saveIdentity,
+  type Identity,
 } from '../net/identity.ts';
 import { CODE_LENGTH, PUBLIC_CODE, normaliseCode } from '../net/lobby.ts';
 import { Game } from './game.ts';
@@ -53,7 +56,9 @@ import { PreferenceStore } from './preferences.ts';
 import { ProgressStore } from '../progression/store.ts';
 import { PlaceholderAds } from './ui/adPlaceholder.ts';
 import { SavedBuilds } from '../net/ghostApi.ts';
-import { Founders } from '../net/founderApi.ts';
+import { PlayerApi } from '../net/playerApi.ts';
+import { HiddenNames } from '../net/hiddenNames.ts';
+import type { CrashReporter } from '../net/crashReporter.ts';
 import { practiceMatch, sceneOf, tutorialMatch } from '../tutorial/match.ts';
 
 /** §2: four lanes. Fixed ids so a lane's name is stable across matches. */
@@ -88,6 +93,8 @@ export interface AppOptions {
    * `progressTest`).
    */
   progressTest?: boolean;
+  /** Crash reports, made before the app is (main.ts): told what the game is doing. */
+  crash?: CrashReporter | null;
 }
 
 /**
@@ -102,11 +109,13 @@ function newTransport(
   options: AppOptions,
   mode: MatchMode,
   builderId: string,
-  identity: { playerId: string; name: string },
+  identity: Identity,
   /** The player's level, shown with their name (src/progression). */
   level: number,
   /** What the player is seen in (src/progression, `ProgressStore.looks`). */
   looks: Looks,
+  /** The badges they wear, by id: shown to the others as far as the server bears them out. */
+  badges: string[],
 ): Transport {
   // §3.3, solo: your lane and nobody else's. No scripted lanes - a send has
   // nowhere to go but home - and the match is local whatever the server.
@@ -131,6 +140,7 @@ function newTransport(
       code: mode.kind === 'private' ? mode.code : PUBLIC_CODE,
       level,
       looks,
+      badges,
     });
   }
 
@@ -296,6 +306,8 @@ export async function startApp(
   app.canvas.style.width = '100%';
   app.canvas.style.height = '100%';
   mount.appendChild(app.canvas);
+  // A phone taking the graphics away is the usual black screen: reported.
+  options.crash?.watchCanvas(app.canvas);
 
   // The game starts on the home screen and asks for a transport once the player
   // has chosen a mode and a roster. A local one starts a fresh simulation; a
@@ -312,6 +324,7 @@ export async function startApp(
           identity,
           progress.level.level,
           progress.looks,
+          progress.badgeIds,
         ),
       createShowdown: (seats) => newShowdown(data, options, seats, identity),
       createTutorial: (chapter) => {
@@ -332,10 +345,23 @@ export async function startApp(
       progress,
       ads: new PlaceholderAds(mount),
       progressTest: options.progressTest === true,
-      savedBuilds: options.server
-        ? new SavedBuilds(options.server, identity.playerId, storage)
-        : null,
-      founders: options.server ? new Founders(options.server, identity.playerId, storage) : null,
+      savedBuilds: options.server ? new SavedBuilds(options.server, identity, storage) : null,
+      player: options.server ? new PlayerApi(options.server, identity, storage) : null,
+      hiddenNames: new HiddenNames(storage),
+      crash: options.crash ?? null,
+      async askCreditName(current: string) {
+        const typed = await textPrompt(mount, {
+          title: 'Your name in the credits',
+          hint: 'Any name you like: it does not have to be your real one. Leave it empty to stay out.',
+          value: current,
+          maxLength: MAX_CREDIT_NAME_LENGTH,
+          confirmLabel: 'Save',
+          // The check the server makes, asked here so a refusal is fixed in the box.
+          refuse: (value) => (value.trim() && !acceptableCreditName(value) ? NAME_REFUSED : null),
+        });
+        if (typed === null) return null;
+        return typed.trim() ? acceptableCreditName(typed) : '';
+      },
       async editName() {
         const typed = await textPrompt(mount, {
           title: 'Your name',

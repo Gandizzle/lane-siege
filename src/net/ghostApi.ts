@@ -13,7 +13,7 @@
  * each, which is the right way round for news.
  */
 
-import type { KeyValueStore } from './identity.ts';
+import type { Identity, KeyValueStore } from './identity.ts';
 
 /** What the server says about a player's builds: everything but the plays themselves. */
 export interface GhostReport {
@@ -50,12 +50,16 @@ function isReport(value: unknown): value is GhostReport {
 export class SavedBuilds {
   private readonly base: string;
 
+  private readonly playerId: string;
+
   constructor(
     server: string,
-    private readonly playerId: string,
+    /** Who is asking: the id names the builds, and the key proves they are this player's. */
+    private readonly identity: Pick<Identity, 'playerId' | 'key'>,
     private readonly storage: KeyValueStore | null,
   ) {
     this.base = httpBase(server);
+    this.playerId = identity.playerId;
   }
 
   /** How the saved build has done, and whether there is a last one. Null if the server cannot say. */
@@ -77,7 +81,7 @@ export class SavedBuilds {
       const response = await fetch(`${this.base}/ghosts/keep`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playerId: this.playerId }),
+        body: JSON.stringify({ playerId: this.playerId, key: this.identity.key }),
       });
       const body: unknown = response.ok ? await response.json() : null;
       return isReport(body) ? body : null;

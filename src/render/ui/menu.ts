@@ -50,6 +50,10 @@ export interface MenuHandlers {
   /** The Collection and the Supporter page (ui/collectionScreen.ts, ui/supportScreen.ts). */
   onCollection(): void;
   onSupporter(): void;
+  /** The credits (ui/creditsScreen.ts). */
+  onCredits(): void;
+  /** Report the name of somebody else in this match or room (ui/reportCard.ts). */
+  onReport(): void;
 }
 
 /** What the menu needs to know about the game behind it, each frame it is open. */
@@ -59,6 +63,8 @@ export interface MenuState {
   /** The match behind the menu is paused: it runs in this tab. */
   paused: boolean;
   name: string;
+  /** Somebody else is here whose name could be reported. */
+  canReport: boolean;
 }
 
 /** How long "Leave match" stays armed for its second tap. */
@@ -415,13 +421,15 @@ export class Menu extends Container {
   private readonly chart: PanelButton;
   private readonly collection: PanelButton;
   private readonly supporter: PanelButton;
+  private readonly credits: PanelButton;
+  private readonly report: PanelButton;
   private readonly note: Text;
   private readonly leave: PanelButton;
   private readonly resume: PanelButton;
   private readonly keys: Text;
 
   private layout: LaneLayout;
-  private state: MenuState = { inMatch: false, paused: false, name: '' };
+  private state: MenuState = { inMatch: false, paused: false, name: '', canReport: false };
   private leaveArmedMs = 0;
 
   constructor(
@@ -459,6 +467,8 @@ export class Menu extends Container {
     this.chart = new PanelButton('Damage vs armor', () => this.handlers.onDamageChart());
     this.collection = new PanelButton('Collection', () => this.handlers.onCollection());
     this.supporter = new PanelButton('♥ Supporter', () => this.handlers.onSupporter());
+    this.credits = new PanelButton('Credits', () => this.handlers.onCredits());
+    this.report = new PanelButton('Report a name', () => this.handlers.onReport());
     this.speed = new Picker('Game speed', (by) =>
       this.preferences.configure({
         practiceSpeed: cycle(GAME_SPEEDS, this.preferences.settings.practiceSpeed, by),
@@ -496,6 +506,8 @@ export class Menu extends Container {
       this.chart,
       this.collection,
       this.supporter,
+      this.credits,
+      this.report,
       this.note,
       this.leave,
       this.resume,
@@ -547,6 +559,9 @@ export class Menu extends Container {
       speedApplies ? speedLabel(this.preferences.settings.practiceSpeed) : '1× (online)',
       speedApplies ? GAME_SPEEDS.length : 1,
     );
+
+    // Reporting needs somebody to report: a room with others in it.
+    this.report.set('Report a name', 'plain', state.canReport);
 
     this.leaveArmedMs = Math.max(0, this.leaveArmedMs - deltaMs);
     this.leave.set(this.leaveArmedMs > 0 ? 'Tap again to leave' : 'Leave match', 'danger');
@@ -614,7 +629,7 @@ export class Menu extends Container {
 
     const heading = 22;
     const soundH = heading + soundRows * rowH;
-    const gameH = heading + rowH * 3 + 40 + 40 + noteH + (inMatch ? 42 : 0) + 42 + 22;
+    const gameH = heading + rowH * 3 + 40 + 40 + 40 + noteH + (inMatch ? 42 : 0) + 42 + 22;
     const top = 50;
     const bodyH = twoColumns ? Math.max(soundH, gameH) : soundH + 12 + gameH;
     const panelH = top + bodyH + pad;
@@ -676,6 +691,10 @@ export class Menu extends Container {
     // And the two that are about the game rather than the match.
     this.collection.place(gx, y + 2, half, 32);
     this.supporter.place(gx + half + 8, y + 2, half, 32);
+    y += 40;
+    // Who made the game, and a way to report a name.
+    this.credits.place(gx, y + 2, half, 32);
+    this.report.place(gx + half + 8, y + 2, half, 32);
     y += 40;
     this.note.visible = noteText !== '';
     this.note.position.set(gx, y + 2);

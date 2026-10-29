@@ -18,10 +18,11 @@
 
 import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
-import type { MatchView, OpponentView } from '../../sim/index.ts';
+import type { MatchView, OpponentView, WornBadge } from '../../sim/index.ts';
 import { ticksToSeconds } from '../../sim/index.ts';
 import type { LaneLayout, Rect } from '../layout.ts';
 import { UI } from '../palette.ts';
+import { BadgeRow } from './badgeRow.ts';
 import { screenRect, unionOf } from './locate.ts';
 import { centreOn, fit, label } from './text.ts';
 
@@ -45,6 +46,8 @@ class OpponentTab extends Container {
   private readonly bar = new Graphics();
   private readonly caption: Text;
   private readonly detail: Text;
+  /** The badges beside the level: what the server checked they have earned (badgeRow.ts). */
+  private readonly badges = new BadgeRow();
   private w = 0;
   private h = 0;
 
@@ -54,7 +57,7 @@ class OpponentTab extends Container {
     super();
     this.caption = label('', 10, UI.text, '700');
     this.detail = label('', 9, UI.textMuted, '600');
-    this.addChild(this.bg, this.bar, this.caption, this.detail);
+    this.addChild(this.bg, this.bar, this.caption, this.detail, this.badges);
 
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -90,6 +93,9 @@ class OpponentTab extends Container {
     ownFraction: number,
     active: boolean,
     ownLevel = 0,
+    ownBadges: readonly WornBadge[] = [],
+    /** The name to show for a lane, when the game knows better (a name this player reported). */
+    nameOf?: (teamId: string, name: string) => string,
   ): void {
     const eliminated = opponent?.eliminated ?? false;
     const fraction = opponent
@@ -123,7 +129,8 @@ class OpponentTab extends Container {
     // the four tabs across the top are the only place anybody else's name
     // appears once the lobby is history. `shortName` is the fallback for a
     // seat nobody has named - a bot, or a player who never set one.
-    const name = opponent ? opponent.name || shortName(opponent.teamId) : ownName;
+    const shown = opponent ? (nameOf ? nameOf(opponent.teamId, opponent.name) : opponent.name) : '';
+    const name = opponent ? shown || shortName(opponent.teamId) : ownName;
     const fitted = fit(name, this.w - 8, this.caption.style.fontSize as number);
     if (this.caption.text !== fitted) this.caption.text = fitted;
     this.caption.style.fill = eliminated ? UI.textMuted : UI.text;
@@ -159,7 +166,23 @@ class OpponentTab extends Container {
     // and there is nothing to hide once somebody is out.
     this.alpha = eliminated ? 0.6 : 1;
     centreOn(this.caption, this.w / 2, 3);
-    centreOn(this.detail, this.w / 2, detailTop(this.caption.y, this.h));
+
+    // The badges ride on the second line, after the level, when it is the
+    // level that is there and they fit; centred with it as one.
+    const top = detailTop(this.caption.y, this.h);
+    const size = 9;
+    const showing = !eliminated && !opponent?.watching;
+    const width = this.badges.set(showing ? (opponent ? opponent.badges : ownBadges) : [], size);
+    const together = this.detail.width + (width > 0 ? 3 + width : 0);
+    const fits = width > 0 && together <= this.w - 8;
+    this.badges.visible = fits;
+    if (fits) {
+      const left = (this.w - together) / 2;
+      this.detail.position.set(left, top);
+      this.badges.position.set(left + this.detail.width + 3, top + (this.detail.height - size) / 2);
+    } else {
+      centreOn(this.detail, this.w / 2, top);
+    }
   }
 }
 
@@ -247,8 +270,16 @@ export class OpponentTabs extends Container {
     return tab ? screenRect(tab) : null;
   }
 
-  /** `watchingTeamId` is the lane currently on screen, or null for your own. */
-  render(view: MatchView, watchingTeamId: string | null): void {
+  /**
+   * `watchingTeamId` is the lane currently on screen, or null for your own.
+   * `nameOf` gives the name to show for a lane where the game knows better
+   * than the view: one this player reported shows as the default.
+   */
+  render(
+    view: MatchView,
+    watchingTeamId: string | null,
+    nameOf?: (teamId: string, name: string) => string,
+  ): void {
     const ownFraction =
       view.lane && view.lane.fortress.maxHp > 0
         ? view.lane.fortress.hp / view.lane.fortress.maxHp
@@ -267,12 +298,15 @@ export class OpponentTabs extends Container {
           ownFraction,
           watchingTeamId === null,
           view.teamLevel,
+          view.teamBadges,
         );
         return;
       }
       const opponent = ordered[i - 1];
       tab.visible = opponent !== undefined;
-      if (opponent) tab.update(opponent, '', 0, watchingTeamId === opponent.teamId);
+      if (opponent) {
+        tab.update(opponent, '', 0, watchingTeamId === opponent.teamId, 0, [], nameOf);
+      }
     });
   }
 }

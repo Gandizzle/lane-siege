@@ -25,6 +25,8 @@ export type TextPromptResult = (value: string | null) => void;
 
 export interface TextPromptOptions {
   title: string;
+  /** A line under the title, saying what the field is for. */
+  hint?: string;
   /** What is in the field when it opens. */
   value?: string;
   placeholder?: string;
@@ -96,6 +98,16 @@ export function textPrompt(mount: HTMLElement, options: TextPromptOptions): Prom
       'margin-bottom:12px',
     ].join(';');
 
+    const hint = document.createElement('div');
+    hint.textContent = options.hint ?? '';
+    hint.style.cssText = [
+      options.hint ? 'display:block' : 'display:none',
+      `color:${STYLE.muted}`,
+      'font-size:13px',
+      'line-height:1.4',
+      'margin:-6px 0 12px',
+    ].join(';');
+
     const input = document.createElement('input');
     input.type = 'text';
     input.value = options.value ?? '';
@@ -140,7 +152,7 @@ export function textPrompt(mount: HTMLElement, options: TextPromptOptions): Prom
     const confirm = button(options.confirmLabel ?? 'OK', STYLE.accent, STYLE.background);
     row.append(cancel, confirm);
 
-    panel.append(title, input, note, row);
+    panel.append(title, hint, input, note, row);
     backdrop.append(panel);
     mount.append(backdrop);
 

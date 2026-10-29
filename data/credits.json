@@ -1,0 +1,7 @@
+{
+  "_comment": "The credits page (src/render/ui/creditsScreen.ts), from the menu and the Supporter page. The Founders and the Supporters come from the game server, each under the name they chose for the credits; everything here is written by hand. madeBy is who made the game: put your own name or your studio's in place of the one here. thanks is anyone else to thank, one line each - testers, friends, whoever helped. builtWith is the open-source software the game is made with, whose licences ask for nothing more than the notice in each package, and get a thank-you anyway.",
+  "madeBy": ["Gandizzle"],
+  "thanks": [],
+  "sound": "Every sound and piece of music was made for the game, from code in its own repository.",
+  "builtWith": ["Pixi.js", "Colyseus", "Capacitor", "Vite", "TypeScript", "obscenity"]
+}

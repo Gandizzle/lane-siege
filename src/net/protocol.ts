@@ -52,6 +52,7 @@ import type {
   TeamId,
   UnitDamageView,
   UnitSpend,
+  WornBadge,
 } from '../sim/index.ts';
 
 /**
@@ -260,6 +261,8 @@ export interface WireHello {
   teamRecorded?: boolean[];
   /** What each seat is seen in (`Team.looks`), parallel to `teamIds`. Like the names. */
   teamLooks?: Looks[];
+  /** The badges beside each seat's name (`Team.badges`), parallel to `teamIds`. Like the names. */
+  teamBadges?: WornBadge[][];
 }
 
 /**
@@ -276,6 +279,8 @@ export interface WireTables {
   teamRecorded: boolean[];
   /** What each seat is seen in, parallel to `teamIds`. See `WireHello.teamLooks`. */
   teamLooks: Looks[];
+  /** The badges beside each seat's name, parallel to `teamIds`. See `WireHello.teamBadges`. */
+  teamBadges: WornBadge[][];
   /**
    * The match seed. Public and constant (§9.2), so it arrives once with the
    * hello rather than 20 times a second in every frame.
@@ -313,6 +318,7 @@ export function buildTables(
   teamLevels: readonly number[] = [],
   teamRecorded: readonly boolean[] = [],
   teamLooks: readonly Looks[] = [],
+  teamBadges: readonly (readonly WornBadge[])[] = [],
 ): WireTables {
   const unitIds = data.units.units.map((u) => u.id);
   const monsterIds = [
@@ -337,6 +343,7 @@ export function buildTables(
     teamLevels: teamIds.map((_, i) => teamLevels[i] ?? 0),
     teamRecorded: teamIds.map((_, i) => teamRecorded[i] === true),
     teamLooks: teamIds.map((_, i) => ({ ...(teamLooks[i] ?? NO_LOOKS) })),
+    teamBadges: teamIds.map((_, i) => (teamBadges[i] ?? []).map((badge) => ({ ...badge }))),
     seed,
     unitIds,
     monsterIds,
@@ -772,6 +779,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
     teamName: tables.teamNames[frame.me] ?? '',
     teamLevel: tables.teamLevels[frame.me] ?? 0,
     teamLooks: tables.teamLooks[frame.me] ?? NO_LOOKS,
+    teamBadges: tables.teamBadges[frame.me] ?? [],
     seed: tables.seed,
     lateWaves: frame.lw ?? null,
     tick: frame.tk,
@@ -791,6 +799,7 @@ export function decodeFrame(frame: WireFrame, tables: WireTables): MatchView {
         level: tables.teamLevels[teamIndex] ?? 0,
         recorded: tables.teamRecorded[teamIndex] ?? false,
         looks: tables.teamLooks[teamIndex] ?? NO_LOOKS,
+        badges: tables.teamBadges[teamIndex] ?? [],
         fortressHp: hp,
         fortressMaxHp: maxHp,
         eliminated: eliminated === 1,

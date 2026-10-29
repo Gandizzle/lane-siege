@@ -70,6 +70,41 @@ export interface MatchResult {
   reachedShowdown: boolean;
 }
 
+/** How a match stood the moment it ended for one lane: what its XP is counted from. */
+export interface MatchEnd {
+  /** The wave it ended in. */
+  wave: number;
+  /** The lane fell, rather than outlasting everyone. */
+  eliminated: boolean;
+  /** Where it finished, 1 being the winner; null if none was locked in. */
+  placement: number | null;
+  /** Its army reached the Final Showdown. */
+  reachedShowdown: boolean;
+}
+
+/**
+ * The result a match's XP is counted from, the moment it ended for a lane.
+ * One function for both counts: the device's (render/game.ts) and the
+ * server's (server/room.ts), so the two cannot come out different.
+ */
+export function matchResultOf(mode: XpMode, end: MatchEnd): MatchResult {
+  // Waves got through: all of them for an army that reached the showdown;
+  // for a lane that fell, every wave before the one that broke it.
+  const wavesSurvived = end.reachedShowdown
+    ? end.wave
+    : end.eliminated
+      ? Math.max(0, end.wave - 1)
+      : end.wave;
+  return {
+    mode,
+    placement: end.placement,
+    wavesSurvived,
+    // The wave it ended in counts as played: what a running boost covers.
+    wavesPlayed: Math.max(1, end.wave),
+    reachedShowdown: end.reachedShowdown,
+  };
+}
+
 export type XpLineId =
   'played' | 'waves' | 'placement' | 'showdown' | 'limit' | 'adBoost' | 'supporter' | 'top';
 

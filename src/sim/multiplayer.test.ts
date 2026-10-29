@@ -466,9 +466,11 @@ describe('fog of war (§12)', () => {
     // it, and the wave ending a moment later tells everyone the same thing.
     // And `level`, which goes with the name and exists to be seen; and
     // `recorded`, which says a saved build plays the seat rather than a
-    // person - who is behind a tab, again, not what they have built.
+    // person - who is behind a tab, again, not what they have built. And
+    // `badges`, which go with the name and the level, checked by the server.
     for (const opponent of view.opponents) {
       expect(Object.keys(opponent).sort()).toEqual([
+        'badges',
         'eliminated',
         'fighting',
         'fortressHp',

@@ -20,6 +20,11 @@
  * game, not left as free wins for whoever is next to them. A player deciding
  * whether to wait for a fourth needs to know that.
  *
+ * Each seat shows the badges the server checked its player has earned
+ * (badgeRow.ts), beside their level. Tapping somebody else's seat is the way
+ * to report their name (the game's `reportSeat`); a name this player has
+ * reported shows as that player's default from then on.
+ *
  * It redraws only when the lobby actually changes, which at twice a second it
  * does rarely. Redrawing every frame would also rebuild the buttons, and a
  * rebuilt interactive object never receives a tap (see the note at the top of
@@ -30,10 +35,11 @@ import { Container, Graphics, Rectangle } from 'pixi.js';
 import type { Text } from 'pixi.js';
 import type { GameData } from '../../data/schema.ts';
 import { displayName } from '../../net/identity.ts';
-import { PUBLIC_CODE, type LobbyView } from '../../net/lobby.ts';
+import { PUBLIC_CODE, type LobbySeat, type LobbyView } from '../../net/lobby.ts';
 import type { TransportStatus } from '../../net/transport.ts';
 import type { LaneLayout } from '../layout.ts';
 import { UI } from '../palette.ts';
+import { BadgeRow } from './badgeRow.ts';
 import { LevelBadge } from './levelBadge.ts';
 import { centreOn, label } from './text.ts';
 
@@ -43,6 +49,10 @@ export interface LobbyHandlers {
   onChangeBuilder(): void;
   /** Leave the room entirely. */
   onLeave(): void;
+  /** Somebody else's seat was tapped: the way to report their name. */
+  onSeat(seat: LobbySeat): void;
+  /** The name to show for a seat: theirs, or '' (their default) once this player has reported it. */
+  nameOf(seat: LobbySeat): string;
 }
 
 export class LobbyScreen extends Container {
@@ -62,6 +72,11 @@ export class LobbyScreen extends Container {
 
   setLayout(layout: LaneLayout): void {
     this.layout = layout;
+    this.signature = '';
+  }
+
+  /** Draw again on the next frame: a name was reported, say, which the lobby itself does not know. */
+  refresh(): void {
     this.signature = '';
   }
 
@@ -221,7 +236,7 @@ export class LobbyScreen extends Container {
     card.addChild(background);
 
     const empty = seat.playerId === null;
-    const name = displayName(seat.name, seat.playerId);
+    const name = displayName(yours ? seat.name : this.handlers.nameOf(seat), seat.playerId);
     const nameText = label(
       yours ? `${name} (you)` : name,
       14,
@@ -230,12 +245,31 @@ export class LobbyScreen extends Container {
     );
     nameText.position.set(x + 14, y + 9);
     card.addChild(nameText);
-    // The level beside the name: it is there to be seen (src/progression).
+    // The level beside the name, and the badges beside that: they are there
+    // to be seen (src/progression), as the server checked them.
+    let after = x + 14 + nameText.width + 8;
     if (!empty && seat.level > 0) {
       const badge = new LevelBadge();
-      badge.set(seat.level, 18);
-      badge.position.set(x + 14 + nameText.width + 8, y + 9);
+      after += badge.set(seat.level, 18) + 6;
+      badge.position.set(after - badge.width - 6, y + 9);
       card.addChild(badge);
+    }
+    if (!empty && seat.badges.length > 0) {
+      const row = new BadgeRow();
+      const rowWidth = row.set(seat.badges, 14);
+      // Only where it fits beside the name: the READY tick has the right edge.
+      if (after + rowWidth <= x + width - 70) {
+        row.position.set(after, y + 11);
+        card.addChild(row);
+      }
+    }
+
+    // Somebody else's seat is the way to report their name.
+    if (!yours && !empty) {
+      card.eventMode = 'static';
+      card.cursor = 'pointer';
+      card.hitArea = new Rectangle(x, y, width, height);
+      card.on('pointertap', () => this.handlers.onSeat(seat));
     }
 
     const builder = this.data.units.builders.find((b) => b.id === seat.builderId);

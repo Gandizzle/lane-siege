@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { SavedBuilds, httpBase, type GhostReport } from './ghostApi.ts';
 import type { KeyValueStore } from './identity.ts';
 
+const KEY = '0123456789abcdef0123456789abcdef';
+
 function memory(): KeyValueStore {
   const map = new Map<string, string>();
   return { getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, v) };
@@ -26,7 +28,7 @@ describe('saved builds, from the client', () => {
   });
 
   it('calls news only what is new since this device last showed it', () => {
-    const builds = new SavedBuilds('ws://x', 'ann', memory());
+    const builds = new SavedBuilds('ws://x', { playerId: 'ann', key: KEY }, memory());
     expect(builds.news({ saved: null, last: null })).toBeNull();
 
     const first = report('2026-10-27', [2, 1, 0, 1]);
@@ -46,7 +48,7 @@ describe('saved builds, from the client', () => {
   });
 
   it('is no news, rather than an error, when there is no server to ask', async () => {
-    const builds = new SavedBuilds('ws://127.0.0.1:9', 'ann', null);
+    const builds = new SavedBuilds('ws://127.0.0.1:9', { playerId: 'ann', key: KEY }, null);
     expect(await builds.report()).toBeNull();
     expect(await builds.keep()).toBeNull();
   });

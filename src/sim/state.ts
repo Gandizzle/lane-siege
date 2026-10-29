@@ -20,6 +20,7 @@ import type {
   Team,
   TeamId,
   WaveTally,
+  WornBadge,
 } from './types.ts';
 
 export class MissingDataError extends Error {
@@ -74,6 +75,8 @@ export interface TeamSetup {
   level?: number;
   /** What the player is seen in. Absent for a bot (`Team.looks`). */
   looks?: Looks;
+  /** The badges beside the player's name. Absent for a bot (`Team.badges`). */
+  badges?: WornBadge[];
   /**
    * Which roster this team builds from (§7.1). Defaults to the first builder in
    * `units.json` so that a caller with no opinion - a test, the headless runner
@@ -183,6 +186,7 @@ export function createMatch(data: GameData, options: MatchOptions): MatchState {
     level: setup.level ?? 0,
     recorded: false,
     looks: { ...(setup.looks ?? NO_LOOKS) },
+    badges: (setup.badges ?? []).map((badge) => ({ ...badge })),
     eliminated: false,
     placement: null,
     vision: {},

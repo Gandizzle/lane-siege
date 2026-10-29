@@ -24,12 +24,35 @@
  *                             Collection can climb a level at a tap - so
  *                             levels, keys, unlocks and boosts can all be
  *                             tried before there is a server or a way to pay.
+ *
+ * Every one of those is the test build's. A RELEASE build - the web version
+ * on its own domain, or the Android app (buildInfo.ts) - takes none of them:
+ * it connects to the server it was built for (`VITE_SERVER`) and plays the
+ * game as players get it.
+ *
+ * Crash reports start first, before anything that could fail
+ * (net/crashReporter.ts), and anything they could not send last time goes now.
  */
 
 import { loadBundledData } from './data/bundle.ts';
 import { formatReport } from './data/validate.ts';
 import { startApp } from './render/app.ts';
 import { mountSoundBoard } from './audio/soundBoard.ts';
+import { BUILD_INFO, RELEASE } from './buildInfo.ts';
+import { CrashReporter, type CrashTarget } from './net/crashReporter.ts';
+import { browserStorage } from './net/identity.ts';
+
+// A release build ignores every switch below: they are the test build's.
+const params = new URLSearchParams(RELEASE ? '' : globalThis.location.search);
+
+// `?server=ws://host:2567` joins a real match; without it this is a practice
+// match against scripted opponents, simulated in this tab (§17, M4). A
+// release build connects to the server it was built for.
+const server = params.get('server') ?? (import.meta.env.VITE_SERVER || undefined);
+
+const crash = new CrashReporter(BUILD_INFO, browserStorage(), server ?? null);
+crash.install(globalThis as unknown as CrashTarget);
+void crash.flush();
 
 const mount = document.getElementById('game');
 if (!mount) throw new Error('#game mount point is missing from index.html');
@@ -41,14 +64,8 @@ if (report.errors.length > 0 || report.missing.length > 0) {
   console.info('[lane-siege] balance data status\n%s', formatReport(report));
 }
 
-const params = new URLSearchParams(globalThis.location.search);
-
 const seedParam = Number(params.get('seed'));
 const seed = Number.isFinite(seedParam) && seedParam !== 0 ? seedParam : undefined;
-
-// `?server=ws://host:2567` joins a real match; without it this is a practice
-// match against scripted opponents, simulated in this tab (§17, M4).
-const server = params.get('server') ?? undefined;
 
 const waveParam = Number(params.get('wave'));
 const startWave = Number.isFinite(waveParam) && waveParam > 1 ? Math.floor(waveParam) : undefined;
@@ -65,6 +82,7 @@ const running = await startApp(mount, data, {
   ...(startWave !== undefined && { startWave }),
   ...(startInShowdown && { startInShowdown }),
   ...(progressTest && { progressTest }),
+  crash,
 });
 
 if (params.get('sounds') === '1') mountSoundBoard(running.sound);

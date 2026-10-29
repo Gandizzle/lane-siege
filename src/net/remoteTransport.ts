@@ -51,7 +51,13 @@ import type { GameData } from '../data/schema.ts';
 import { NO_LOOKS } from '../sim/index.ts';
 import type { Command, CommandRejection, Looks, MatchView } from '../sim/index.ts';
 import type { Identity } from './identity.ts';
-import { PUBLIC_CODE, cleanLooks, type LobbyView } from './lobby.ts';
+import {
+  PUBLIC_CODE,
+  cleanLooks,
+  cleanWornBadges,
+  type LobbySeat,
+  type LobbyView,
+} from './lobby.ts';
 import {
   ROOM_NAME,
   buildTables,
@@ -98,6 +104,11 @@ export interface RemoteOptions {
   level?: number;
   /** What they are seen in by the others (src/progression, `ProgressStore.looks`). */
   looks?: Looks;
+  /**
+   * The badges they wear, by id (src/progression, `ProgressStore.badgeIds`):
+   * the server shows the others each one it can vouch for.
+   */
+  badges?: string[];
 }
 
 export class RemoteTransport implements Transport {
@@ -147,6 +158,10 @@ export class RemoteTransport implements Transport {
   /** The last description of the lobby, or null before one has arrived. */
   lobby(): LobbyView | null {
     return this.matchStarted ? null : this.currentLobby;
+  }
+
+  seats(): readonly LobbySeat[] {
+    return this.currentLobby?.seats ?? [];
   }
 
   setReady(ready: boolean): void {
@@ -212,10 +227,13 @@ export class RemoteTransport implements Transport {
     return client.joinOrCreate(ROOM_NAME, {
       code: this.options.code ?? PUBLIC_CODE,
       playerId: this.options.identity.playerId,
+      // Proves the id is this player's (identity.ts): never shown to anyone.
+      key: this.options.identity.key,
       name: this.options.identity.name,
       builderId: this.options.builderId,
       level: this.options.level ?? 0,
       looks: this.options.looks ?? NO_LOOKS,
+      badges: this.options.badges ?? [],
     });
   }
 
@@ -250,6 +268,7 @@ export class RemoteTransport implements Transport {
         hello.teamLevels ?? [],
         hello.teamRecorded ?? [],
         (hello.teamLooks ?? []).map((looks) => cleanLooks(looks)),
+        (hello.teamBadges ?? []).map((badges) => cleanWornBadges(badges)),
       );
       this.status = 'ready';
 

@@ -75,6 +75,10 @@ export interface GhostStore {
   /** A saved build finished somebody's match in `placement`. */
   recordResult(playerId: string, savedAt: string, placement: number): void;
   report(playerId: string): GhostReport;
+  /** Every saved build: the admin page's backup. */
+  savedBuilds(): SavedGhost[];
+  /** A player asked to be forgotten: their builds go. */
+  forget(playerId: string): void;
 }
 
 /** Places a result is counted in: 1st to 4th. */
@@ -157,12 +161,23 @@ export class MemoryGhostStore implements GhostStore {
     };
   }
 
+  savedBuilds(): SavedGhost[] {
+    return [...this.saved.values()];
+  }
+
+  forget(playerId: string): void {
+    this.saved.delete(playerId);
+    this.last.delete(playerId);
+    this.removed(playerId);
+  }
+
   protected lastOf(playerId: string): GhostBuild | null {
     return this.last.get(playerId) ?? null;
   }
 
   /** Where `FileGhostStore` writes. Nothing to do in memory. */
   protected wrote(_kind: 'last' | 'saved', _playerId: string, _value: GhostBuild): void {}
+  protected removed(_playerId: string): void {}
 }
 
 /**
@@ -202,6 +217,11 @@ export class FileGhostStore extends MemoryGhostStore {
     }
     // Last builds are on disk to be read when kept; memory holds the saved.
     if (kind === 'last') this.last.delete(playerId);
+  }
+
+  protected override removed(playerId: string): void {
+    for (const kind of ['last', 'saved'] as const)
+      rmSync(this.path(kind, playerId), { force: true });
   }
 
   private path(kind: 'last' | 'saved', playerId: string): string {

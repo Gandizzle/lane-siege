@@ -45,6 +45,18 @@
  * seats go to saved builds first and to scripted builders after, so a player
  * who arrives to an empty room still plays three other people's play - and
  * where each of those builds placed is counted for the player who saved it.
+ *
+ * WHO IS IN A SEAT, AND WHAT THEY EARN (playerStore.ts)
+ *
+ * A player id is public, so a join that says one also carries the player's
+ * key (net/identity.ts); an id with a key on record is refused with any other.
+ * A player the server can vouch for this way has their match counted the
+ * moment it ends for them - out, or the last one standing - with the same
+ * rules their device counts by (progression/award.ts, `matchResultOf`), if
+ * they are still there to see it: leaving early earns nothing, as the data
+ * says. That count is what the Founders are made from. Their badges are
+ * checked against it too, and the others are only shown the ones it bears
+ * out. A name hidden after reports (moderation.ts) is shown as the default.
  */
 
 import { Room, type Client } from 'colyseus';
@@ -63,9 +75,11 @@ import {
 } from '../src/sim/index.ts';
 import { buildTables, encodeFrame, type WireHello, type WireTables } from '../src/net/protocol.ts';
 import { acceptableName } from '../src/net/identity.ts';
+import { matchResultOf } from '../src/progression/award.ts';
 import {
   MAX_PLAYERS,
   PUBLIC_CODE,
+  cleanBadgeIds,
   cleanLevel,
   cleanLooks,
   createSeats,
@@ -82,6 +96,8 @@ import { GhostPlayer, GhostRecorder, portable } from '../src/bot/ghost.ts';
 import { rollSeats } from '../src/bot/style.ts';
 import { FixedTimestep, MS_PER_TICK } from '../src/util/loop.ts';
 import type { GhostStore } from './ghostStore.ts';
+import type { Moderation } from './moderation.ts';
+import type { PlayerRecord, PlayerStore } from './playerStore.ts';
 
 export { MAX_PLAYERS };
 
@@ -111,16 +127,24 @@ export interface RoomOptions extends Partial<LobbyTiming> {
   code?: string;
   /** Where saved builds are kept. Without one, a quick match neither keeps nor uses them. */
   ghosts?: GhostStore;
+  /** What the server keeps about players. Without it, nobody's match is counted and nobody wears a badge. */
+  players?: PlayerStore;
+  /** Names hidden after reports. */
+  moderation?: Moderation;
 }
 
 /** What the join call carries: who you are and what you brought. */
 export interface JoinOptions {
   playerId?: string;
+  /** Proof the player id is this player's (net/identity.ts). */
+  key?: string;
   name?: string;
   /** The player's level, for showing with their name (lobby.ts, `cleanLevel`). */
   level?: number;
   /** What the player is seen in (lobby.ts, `cleanLooks`). */
   looks?: unknown;
+  /** The badges they wear, by id (lobby.ts, `cleanBadgeIds`): shown if their record bears them out. */
+  badges?: unknown;
   builderId?: string;
   code?: string;
 }
@@ -135,6 +159,10 @@ interface Seat {
   ghost: { player: GhostPlayer; ownerId: string; savedAt: string } | null;
   /** This lane's match is over, and what follows from that has been done. */
   ended: boolean;
+  /** The player's record, when the server can vouch for who they are (playerStore.ts). */
+  record: PlayerRecord | null;
+  /** Their match has been counted towards their XP. */
+  counted: boolean;
 }
 
 /** A command and who to tell if the simulation refuses it. */
@@ -162,12 +190,16 @@ export class LaneSiegeRoom extends Room {
   private reconnectSeconds = DEFAULT_RECONNECT_SECONDS;
   private code = PUBLIC_CODE;
   private ghosts: GhostStore | null = null;
+  private players: PlayerStore | null = null;
+  private moderation: Moderation | null = null;
   private readonly recorder = new GhostRecorder();
 
   override onCreate(options: RoomOptions): void {
     this.data = options.data;
     this.code = options.code ?? PUBLIC_CODE;
     this.ghosts = options.ghosts ?? null;
+    this.players = options.players ?? null;
+    this.moderation = options.moderation ?? null;
     this.reconnectSeconds = options.reconnectSeconds ?? DEFAULT_RECONNECT_SECONDS;
     this.timing = {
       // A room that is not full waits this long before starting, so that the
@@ -197,6 +229,8 @@ export class LaneSiegeRoom extends Room {
       bot: null,
       ghost: null,
       ended: false,
+      record: null,
+      counted: false,
     }));
 
     this.onMessage('command', (client, message: Command) => {
@@ -236,8 +270,10 @@ export class LaneSiegeRoom extends Room {
       // benefit, the server because the client is not trusted (§15.1, applied
       // to text). This string is drawn on three other people's screens, and a
       // name the filter refuses is stored empty, which every screen shows as
-      // the player's default name.
-      seat.lobby.name = acceptableName(String(name ?? ''));
+      // the player's default name - as is one hidden after reports.
+      const chosen = acceptableName(String(name ?? ''));
+      if (seat.record && chosen) this.players?.noteName(seat.record, chosen);
+      seat.lobby.name = this.shownName(seat.lobby.playerId, chosen);
       this.broadcastLobby();
     });
 
@@ -261,13 +297,31 @@ export class LaneSiegeRoom extends Room {
       return;
     }
 
+    // The id is public; the key says it is this player's. An id with a key on
+    // record is refused with any other, or none - that is a copied id.
+    let record: PlayerRecord | null = null;
+    if (this.players && options?.playerId) {
+      if (options.key !== undefined || this.players.has(playerId)) {
+        const proof = this.players.prove(playerId, options.key);
+        if (!proof.ok) {
+          client.leave(4003, 'that player id belongs to another device');
+          return;
+        }
+        record = proof.record;
+      }
+    }
+
+    const chosen = acceptableName(String(options?.name ?? ''));
+    if (record && chosen) this.players?.noteName(record, chosen);
+    if (record) this.players?.wear(record, cleanBadgeIds(options?.badges));
     const placed = seatPlayer(
       this.seats.map((s) => s.lobby),
       playerId,
-      acceptableName(String(options?.name ?? '')),
+      this.shownName(playerId, chosen),
       options?.builderId ?? '',
       cleanLevel(options?.level),
       cleanLooks(options?.looks),
+      record && this.players ? this.players.shownBadges(record) : [],
     );
     if (!placed) {
       client.leave(4000, 'room full');
@@ -276,6 +330,7 @@ export class LaneSiegeRoom extends Room {
 
     const mine = this.seats.find((s) => s.lobby === placed)!;
     mine.client = client;
+    mine.record = record;
 
     const team = this.match.teams.find((t) => t.id === placed.teamId);
     if (team && !team.playerIds.includes(playerId)) team.playerIds.push(playerId);
@@ -328,6 +383,11 @@ export class LaneSiegeRoom extends Room {
 
   private seatOf(client: Client): Seat | undefined {
     return this.seats.find((s) => s.client === client);
+  }
+
+  /** The name to show for a player: theirs, or '' (their default) once it has been hidden after reports. */
+  private shownName(playerId: string | null, name: string): string {
+    return this.moderation ? this.moderation.shownName(playerId, name) : name;
   }
 
   private lobbySeats(): LobbySeat[] {
@@ -396,6 +456,7 @@ export class LaneSiegeRoom extends Room {
 
       step(this.ctx, this.match, this.botCommands());
       this.settleEnds();
+      this.countMatches();
     });
 
     for (const seat of this.seats) this.sendFrame(seat);
@@ -446,6 +507,37 @@ export class LaneSiegeRoom extends Room {
   }
 
   /**
+   * Players whose match has just ended - out, or the match over - counted
+   * towards the XP the server keeps for them (playerStore.ts), by the rules
+   * their own device counts with, and only if they are here to see it end:
+   * leaving early earns nothing. Each once. Quick matches and private rooms
+   * alike: both are normal matches.
+   */
+  private countMatches(): void {
+    const players = this.players;
+    if (!players || !this.started) return;
+    for (const seat of this.seats) {
+      if (seat.counted || !seat.record) continue;
+      const team = this.match.teams.find((t) => t.id === seat.lobby.teamId);
+      if (!team || !(team.eliminated || this.match.finished)) continue;
+      seat.counted = true;
+      if (!seat.client) continue;
+      const result = matchResultOf('online', {
+        wave: this.match.wave,
+        eliminated: team.eliminated,
+        placement: team.placement,
+        reachedShowdown: this.match.showdown?.armies.some((a) => a.teamId === team.id) ?? false,
+      });
+      try {
+        players.recordOnline(seat.record, result);
+      } catch (error) {
+        // A record that cannot be written loses a match's XP; it never stops a match.
+        console.error('[lane-siege] could not count a match:', error);
+      }
+    }
+  }
+
+  /**
    * What a client is told once, on the way in.
    *
    * The names ride along here rather than in every frame: a name does not
@@ -463,6 +555,7 @@ export class LaneSiegeRoom extends Room {
       teamLevels: this.seats.map((seat) => seat.lobby.level),
       teamRecorded: this.seats.map((seat) => seat.ghost !== null),
       teamLooks: this.seats.map((seat) => seat.lobby.looks),
+      teamBadges: this.seats.map((seat) => seat.lobby.badges),
     };
   }
 
@@ -485,6 +578,7 @@ export class LaneSiegeRoom extends Room {
         team.level = seat.lobby.level;
         team.recorded = seat.ghost !== null;
         team.looks = { ...seat.lobby.looks };
+        team.badges = seat.lobby.badges.map((badge) => ({ ...badge }));
       }
     }
     this.tables = buildTables(
@@ -495,6 +589,7 @@ export class LaneSiegeRoom extends Room {
       this.seats.map((seat) => seat.lobby.level),
       this.seats.map((seat) => seat.ghost !== null),
       this.seats.map((seat) => seat.lobby.looks),
+      this.seats.map((seat) => seat.lobby.badges),
     );
     for (const seat of this.seats) {
       if (seat.client) seat.client.send('hello', this.helloFor(seat.lobby.teamId));
@@ -559,12 +654,15 @@ export class LaneSiegeRoom extends Room {
     picked.forEach((ghost, i) => {
       const seat = empty[i]!;
       if (!this.data.units.builders.some((b) => b.id === ghost.builderId)) return;
+      // The badges its player wears now, as far as their record bears them out.
+      const owner = this.players?.get(ghost.playerId) ?? null;
       Object.assign(seat.lobby, {
         // Never a real player's id, so nobody can reclaim it as their seat.
         playerId: `ghost:${ghost.playerId}`,
-        name: acceptableName(ghost.name),
+        name: this.shownName(ghost.playerId, acceptableName(ghost.name)),
         level: cleanLevel(ghost.level),
         looks: cleanLooks(ghost.looks),
+        badges: owner && this.players ? this.players.shownBadges(owner) : [],
         builderId: ghost.builderId,
         ready: true,
         // Present, with no socket to lose: never shown as reconnecting.

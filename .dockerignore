@@ -1,0 +1,14 @@
+# What the server's container does not need: the built game, the Android
+# project, local server data, balance reports, and git's history.
+node_modules
+dist
+dist-ssr
+android
+.git
+server-data
+ghosts
+founders.json
+reports
+coverage
+*.log
+deploy/.env

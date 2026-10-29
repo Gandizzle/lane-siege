@@ -915,11 +915,14 @@ function checkEliminations(state: MatchState): void {
     team.placement = state.teams.length - state.eliminatedCount + 1;
   }
 
-  const living = state.teams.filter((t) => !t.eliminated).length;
+  const living = state.teams.filter((t) => !t.eliminated);
   // §13: the match ends when one team remains. A solo lane - the M1 harness, or
   // a practice run - has no opponent to outlast, so it ends only when its own
   // fortress falls, not instantly.
-  state.finished = state.teams.length > 1 ? living <= 1 : living === 0;
+  state.finished = state.teams.length > 1 ? living.length <= 1 : living.length === 0;
+  // The last one standing is first, as the Final Showdown's winner is: it is
+  // what the placement XP and a saved build's results count (award.ts).
+  if (state.finished && state.teams.length > 1 && living.length === 1) living[0]!.placement = 1;
 }
 
 // ----------------------------------------------------------------------- step

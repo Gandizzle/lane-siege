@@ -1,0 +1,6 @@
+# Caddy, in front of the game server (compose.yml): HTTPS for your address,
+# fetched and renewed by itself, and every request - websockets included -
+# passed through to the game.
+{$DOMAIN} {
+	reverse_proxy game:2567
+}

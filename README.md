@@ -69,10 +69,11 @@ Two things are knowingly unfinished:
   untouched. That is the deferred half and the safe direction — monster strength
   is one knob — but it is not a game until it is turned. Every number lives in
   `data/`, so tuning is a JSON job.
-- **Nothing hosts the server.** Multiplayer works, over real sockets, between
-  real browsers — but somebody has to run `npm run server` somewhere and hand
-  out the address. That is the last item in §17's M6 and the only one that is
-  not a code problem.
+- **Nothing hosts the server yet.** Multiplayer works, over real sockets,
+  between real browsers, and the server is ready to deploy (a `Dockerfile`, and
+  `deploy/` for a server of your own) — but somebody has to run it somewhere.
+  [docs/GO-LIVE.md](docs/GO-LIVE.md) is the whole road to launch, step by step,
+  hosting included.
 
 Next: a balance pass against `npm run builders`, and a host for the server.
 
@@ -85,8 +86,9 @@ npm run sim        # headless simulation, text output only
 npm test           # vitest
 npm run typecheck  # tsc --noEmit
 npm run lint       # eslint
-npm run build      # production build into dist/
+npm run build      # production build into dist/: the GitHub Pages test build
 npm run lobby      # matchmaking, lobby and reconnection over real sockets
+npm run build:web       # the release web version (set VITE_SERVER to its game server)
 npm run build:android   # web build + the Capacitor Android project
 ```
 
@@ -103,8 +105,11 @@ The room starts once everyone in it is ready (after at least 10 seconds unless i
 is full), or after 60 seconds regardless. In a quick match, any lane nobody took
 is played by another player's saved build - the build they chose to keep from a
 quick match of their own - or by a scripted builder when there are none. Saved
-builds are kept on the server's disk under `GHOST_DIR` (default `./ghosts`);
-`npm run ghosts` checks the whole loop against a real server. Without `?server=` the
+builds are kept on the server's disk with everything else it keeps - each
+player's record, the Founders, name reports and crash reports - under
+`DATA_DIR` (default `./server-data`); `npm run ghosts` and `npm run players`
+check them against a real server. Start it with `ADMIN_TOKEN=something-long`
+and the admin page is at `http://localhost:2567/admin`. Without `?server=` the
 game is a practice match simulated in the browser — which is what the deployed
 build serves, since GitHub Pages is static and cannot host a room.
 

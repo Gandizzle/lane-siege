@@ -41,6 +41,7 @@ function opponent(teamId: string, extra: Partial<OpponentView> = {}): OpponentVi
     level: 0,
     recorded: false,
     looks: NO_LOOKS,
+    badges: [],
     eliminated: false,
     placement: null,
     fortressHp: 1,

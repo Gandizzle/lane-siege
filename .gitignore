@@ -18,3 +18,8 @@ reports/*.json
 /ghosts/
 # Who the Founders are, as a local server counted them (server/founderStore.ts).
 /founders.json
+# Everything a local game server keeps: players, Founders, saved builds,
+# reports and crash reports (server/index.ts, DATA_DIR).
+/server-data/
+# The deploy folder's settings, which hold the admin token (deploy/.env.example).
+/deploy/.env
